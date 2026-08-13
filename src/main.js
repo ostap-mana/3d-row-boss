@@ -1,8 +1,9 @@
 /**
  * ELEMENTAL SIEGE — playable ad entry point.
  *
- * Phone-first: no desktop layout, no keyboard, no audio, no network. Boots,
- * plays a 25 second scripted victory, and hands the player to the store.
+ * Phone-first: no desktop layout, no keyboard, no network, and no audio until
+ * the player touches the screen — see the audio section below. Boots, plays a
+ * 25 second fight, and hands the player to the store.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
@@ -16,9 +17,10 @@ import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
 import { loadPlaque } from "./art/plaque.js";
+import { loadCtaButton } from "./art/button.js";
 import { loadHeroAvatars } from "./art/avatars.js";
 import { loadHpBarArt } from "./art/hpbar.js";
-import { Boss } from "./art/boss.js";
+import { Boss, loadBossArt } from "./art/boss.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -28,6 +30,8 @@ import { EndCard } from "./ui/endcard.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
 import { ctaClick, signalReady } from "./net/cta.js";
+import { audioSleep, setMuted, unlockAudio } from "./audio/engine.js";
+import { bed } from "./audio/sfx.js";
 
 async function boot() {
   const app = new Application();
@@ -52,13 +56,17 @@ async function boot() {
   // Decoded before the first frame: the arena so it is never briefly a
   // gradient, the painted gems because the board bakes its textures below and
   // a late arrival would miss that, the plaque because the Board constructor
-  // reads it to lay its grid out and HeroRow hangs its row in it, and the card
-  // plates and hero busts because each HeroCard picks its own up as it is built.
+  // reads it to lay its grid out, the CTA plate because the EndCard picks it up
+  // as it is built, the golem because the Boss constructor either builds around
+  // the painting or falls back to the drawn rig, and the card plates and hero
+  // busts because each HeroCard does the same.
   // Every bitmap is inlined in this file, so these are decodes, not downloads.
   await Promise.all([
     loadArena(),
     loadGemArt(),
     loadPlaque(),
+    loadCtaButton(),
+    loadBossArt(),
     loadCardPlates(),
     loadHeroAvatars(),
     loadHpBarArt(),
@@ -159,6 +167,31 @@ async function boot() {
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", onResize);
 
+  /* -------------------------------------------------------------- audio */
+
+  /**
+   * Sound starts on the first touch and not one frame earlier.
+   *
+   * Not a policy we work around — a policy we agree with. The boss is already
+   * roaring by the time most impressions are looked at, and a creative that
+   * makes noise at somebody who has not touched it yet has earned the mute it
+   * gets. Whatever the intro plays into a suspended context is simply lost.
+   *
+   * Both events, because a webview may deliver one and not the other, and
+   * neither is `once`: unlocking is idempotent and a wrapper that swallows the
+   * first gesture must not cost the whole ad its audio.
+   */
+  const wake = () => {
+    unlockAudio();
+    bed.start();
+  };
+  window.addEventListener("pointerdown", wake);
+  window.addEventListener("touchend", wake);
+  // An ad scrolled off screen goes quiet rather than playing to an empty room.
+  document.addEventListener("visibilitychange", () =>
+    audioSleep(document.hidden),
+  );
+
   /* ------------------------------------------------------------- shake */
 
   let shakeAmount = 0;
@@ -208,7 +241,9 @@ async function boot() {
   scene.director = director;
 
   // QA handle: lets an automated pass drive real swaps and assert the combo
-  // invariants from spec §5 without shipping any logging.
+  // invariants from spec §5 without shipping any logging. `mute` is on it for
+  // the networks that ask for a kill switch they can call.
+  scene.mute = setMuted;
   window.__SIEGE__ = scene;
 
   const splash = document.getElementById("boot");

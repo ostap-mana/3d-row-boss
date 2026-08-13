@@ -10,6 +10,8 @@
  *   - every match is a volley from the whole roster, not one hero picked by
  *     whichever colour came up — see partyVolley;
  *   - the boss answers every move, and every answer hits harder than the last;
+ *   - it answers on its own track, alongside the player rather than in front of
+ *     them: no attack of its own ever takes the board out of their hands;
  *   - heroes die, and every hero lost takes a share off every match that
  *     follows, so a bad run compounds instead of flatlining;
  *   - a doom clock runs the whole fight, and when it expires the boss lands one
@@ -38,6 +40,7 @@ import {
 } from "../config.js";
 import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
+import * as sfx from "../audio/sfx.js";
 
 /**
  * How far below the best score a cell can be and still get picked.
@@ -72,6 +75,12 @@ export class Director {
     /** Which hero the pending ultimate belongs to — any of them can be spent. */
     this.ultHero = NYX;
     this.doomResolver = null;
+    /** Pulls the player's turn out of the air when the fight is already over. */
+    this.stopResolver = null;
+
+    /** Tail of the boss's track, and how many beats are on it. See queueBoss. */
+    this.bossTrack = null;
+    this.bossQueued = 0;
 
     /**
      * Set by the first touch on the board. The game will not play a move for
@@ -113,11 +122,17 @@ export class Director {
   }
 
   /**
-   * The fight loop.
+   * The fight loop — the player's half of it.
    *
    * A while loop rather than the old fixed march through MOVE_KIND: the number
    * of moves is no longer decided in advance by anybody, and neither is who
    * walks away from it.
+   *
+   * It does not wait for the boss any more. The counterattack used to be awaited
+   * right here, which meant a second and a half per move where the board was
+   * dead in the player's hands and every swipe was thrown away — the boss
+   * animating was the boss taking the turn away. It goes on its own track now
+   * (see queueBoss) and this loop goes straight back to listening.
    */
   async playFight() {
     await this.intro();
@@ -127,16 +142,16 @@ export class Director {
     while (!this.ended) {
       if (this.bossHp <= 0) return this.win();
       if (this.partyWiped()) return this.lose();
-      if (this.doomDue()) {
-        await this.castDoom();
-        continue;
-      }
+      if (this.doomDue()) this.castDoomSoon();
 
       const action = await this.playerTurn();
       if (this.ended) return;
 
+      // A boss beat ended the fight while the player was still holding their
+      // move. The checks at the top of the loop are what act on it.
+      if (action === "wiped") continue;
       if (action === "doom") {
-        await this.castDoom();
+        this.castDoomSoon();
         continue;
       }
       if (action === "ult") {
@@ -147,17 +162,62 @@ export class Director {
       await this.resolveMove();
       if (this.ended) return;
       if (this.bossHp <= 0) return this.win();
-      if (this.doomDue()) {
-        await this.castDoom();
-        continue;
-      }
 
-      await this.bossTurn();
+      this.queueBoss(() => this.bossTurn());
     }
   }
 
   partyWiped() {
     return this.s.heroRow.aliveCount() === 0;
+  }
+
+  /* ------------------------------------------------------------ boss track */
+
+  /**
+   * Put one boss beat — a counterattack, the cataclysm — on the boss's track.
+   *
+   * The track is the whole point of the split: it runs alongside the player
+   * instead of in front of them, so the board stays live for every frame of it.
+   * Beats are serialized against each other, because two attacks playing at once
+   * is not a fight, it is a mess.
+   *
+   * Never more than one waiting behind the one in flight. A player fast enough
+   * to finish two moves inside a single swing outruns the boss, and that is the
+   * right answer — a queue that grew would land turn three's lava somewhere in
+   * the middle of turn five, long after the board it was aimed at was gone.
+   *
+   * @returns {boolean} whether the beat was taken
+   */
+  queueBoss(job) {
+    if (this.bossQueued >= 2) return false;
+    this.bossQueued++;
+    this.bossTrack = (this.bossTrack || Promise.resolve())
+      .then(() => (this.ended ? undefined : job()))
+      .catch(() => {})
+      .then(() => {
+        this.bossQueued--;
+        // A swing that emptied the row has to reach the player's turn, which
+        // is otherwise parked waiting for a swipe that will never come.
+        if (this.partyWiped()) this.interrupt("wiped");
+      });
+    return true;
+  }
+
+  /**
+   * Settles once the boss's track is empty — or after `cap` seconds, whichever
+   * lands first. The finale is allowed to interrupt a swing; it is not allowed
+   * to stand around waiting for one.
+   */
+  bossSettled(cap) {
+    if (!this.bossTrack) return Promise.resolve();
+    return Promise.race([this.bossTrack, delay(cap === undefined ? 0.8 : cap)]);
+  }
+
+  /** End the player's turn from outside it. */
+  interrupt(action) {
+    const resolve = this.stopResolver;
+    this.stopResolver = null;
+    if (resolve) resolve(action);
   }
 
   /* ---------------------------------------------------------------- intro */
@@ -219,21 +279,29 @@ export class Director {
    */
   update(dt) {
     if (!this.doomArmed || this.ended || this.doomFiring) return;
-    if (this.doomLeft <= 0) return;
 
-    this.doomLeft = Math.max(0, this.doomLeft - dt);
-    this.s.hud.setDoom(this.doomLeft, this.doomTotal);
+    if (this.doomLeft > 0) {
+      this.doomLeft = Math.max(0, this.doomLeft - dt);
+      this.s.hud.setDoom(this.doomLeft, this.doomTotal);
+      // The room tightens with the clock — the one thing in the mix that says
+      // something the screen has not already said.
+      sfx.bed.setTension(1 - this.doomLeft / this.doomTotal);
 
-    for (let i = 0; i < DOOM.warnAt.length; i++) {
-      const at = DOOM.warnAt[i];
-      if (this.doomLeft > at || this.doomWarned.indexOf(at) !== -1) continue;
-      this.doomWarned.push(at);
-      this.s.hud.shout(i === 0 ? COPY.doomWarn : COPY.doomSoon, 0.5, {
-        fill: 0xff8a3d,
-        from: 1.5,
-      });
+      for (let i = 0; i < DOOM.warnAt.length; i++) {
+        const at = DOOM.warnAt[i];
+        if (this.doomLeft > at || this.doomWarned.indexOf(at) !== -1) continue;
+        this.doomWarned.push(at);
+        sfx.doomWarn(i);
+        this.s.hud.shout(i === 0 ? COPY.doomWarn : COPY.doomSoon, 0.5, {
+          fill: 0xff8a3d,
+          from: 1.5,
+        });
+      }
     }
 
+    // Keeps ringing rather than firing once: the boss's track can be full at
+    // the moment the clock runs out, and an expired clock that had already
+    // spent its one notification would leave the cataclysm owed forever.
     if (this.doomLeft <= 0 && this.doomResolver) {
       const resolve = this.doomResolver;
       this.doomResolver = null;
@@ -242,7 +310,20 @@ export class Director {
   }
 
   doomDue() {
-    return this.doomArmed && this.doomLeft <= 0;
+    return this.doomArmed && this.doomLeft <= 0 && !this.doomFiring;
+  }
+
+  /**
+   * Hand the cataclysm to the boss's track.
+   *
+   * `doomFiring` is raised here rather than inside castDoom, and only if the
+   * track took the beat: the clock stays at zero until the cataclysm has landed
+   * and rearmed it, so without the flag the loop would queue a second one on
+   * every pass through it.
+   */
+  castDoomSoon() {
+    if (this.doomFiring) return;
+    this.doomFiring = this.queueBoss(() => this.castDoom());
   }
 
   /**
@@ -251,14 +332,16 @@ export class Director {
    * One hit, the whole party, big enough that a healthy roster survives it with
    * a sliver and a chewed-up one does not. Surviving restarts a much shorter
    * clock — the boss does not get tired, and the fight has to end.
+   *
+   * It used to open by taking the board away and dropping whatever swap the
+   * player was in the middle of. It does not touch the board at all now: the
+   * cataclysm is the loudest thing in the fight and it still does not get to be
+   * the thing that stops the player playing.
    */
   async castDoom() {
-    const { board, boss, hud, vfx, shake, layout } = this.s;
-    this.doomFiring = true;
-    this.stopIdle();
-    board.lockInput();
-    board.cancelWait();
+    const { boss, hud, vfx, shake, layout } = this.s;
 
+    sfx.doomCast();
     hud.shout(COPY.doomCast, 0.6, { fill: 0xff2f1a, from: 2.8 });
     boss.enrage();
     shake(18, 0.5);
@@ -314,10 +397,11 @@ export class Director {
   /**
    * Wait for the player to do something.
    *
-   * Three ways out: they swap, they spend a charged Nyx, or the clock beats
-   * them to it. Whichever lands first, the other two stop listening.
+   * Four ways out: they swap, they spend a charged hero, the clock beats them to
+   * it, or the boss's track ends the fight under them. Whichever lands first,
+   * the rest stop listening.
    *
-   * @returns {Promise<"swap"|"ult"|"doom">}
+   * @returns {Promise<"swap"|"ult"|"doom"|"wiped">}
    */
   async playerTurn() {
     const board = this.s.board;
@@ -337,11 +421,15 @@ export class Director {
     const doom = new Promise((resolve) => {
       this.doomResolver = resolve;
     });
+    const stopped = new Promise((resolve) => {
+      this.stopResolver = resolve;
+    });
 
     this.beginIdle(hint);
-    const action = await Promise.race([swap, ult, doom]);
+    const action = await Promise.race([swap, ult, doom, stopped]);
     this.ultResolver = null;
     this.doomResolver = null;
+    this.stopResolver = null;
     this.stopIdle();
     if (action !== "swap") board.cancelWait();
     return action;
@@ -525,13 +613,17 @@ export class Director {
       // The combo number is whatever the board actually did, counting up as it
       // goes. It is no longer decided before the player touched anything.
       if (step >= 2) {
+        sfx.combo(step);
         hud.shout("COMBO x" + step, 0.5, { fill: 0xffe066, from: 1.8 });
       }
 
       hud.setHp(this.bossHp, 0.4);
     });
 
-    await hud.setHp(this.bossHp, 0.35);
+    // Not awaited: the bar settling is the last third of a second of the move,
+    // and awaiting it here held the board shut for exactly that long before the
+    // player was allowed to touch it again. The tween finishes on its own.
+    hud.setHp(this.bossHp, 0.35);
   }
 
   centroid(cells) {
@@ -703,9 +795,16 @@ export class Director {
    * lays the obsidian that shrinks the board. Playing them as two separate
    * beats cost three seconds of the player watching and doing nothing, which
    * is the most expensive thing a short creative can spend.
+   *
+   * Runs on the boss's track, so the player is very likely swapping through all
+   * of it. That is why the aim waits for the board to stand still: the cells are
+   * scored off the position the player is reading right now, not off whatever
+   * was on screen when the swing started.
    */
   async bossTurn() {
     const attack = this.currentAttack();
+    await this.s.board.whenQuiet();
+    if (this.ended) return;
     const cells = this.pickObsidian();
 
     if (attack.kind === "smash") {
@@ -806,6 +905,7 @@ export class Director {
     );
     if (this.ended) return;
     await board.lockCells(cells);
+    this.refreshHint();
   }
 
   /** Obsidian punched up through the board by the slam. */
@@ -819,6 +919,7 @@ export class Director {
       vfx.burst(board.x + p.x, board.y + p.y, OBSIDIAN.seam, 8, 1.2);
     });
     await board.lockCells(cells);
+    this.refreshHint();
   }
 
   /**
@@ -896,6 +997,19 @@ export class Director {
     return board.findBestSwap(WATER) || board.findBestSwap();
   }
 
+  /**
+   * Solve the board again for the hand.
+   *
+   * The lava lands in the middle of the player's turn now, and it lands on the
+   * cells they are most likely to be looking at — the hand would otherwise go on
+   * pointing at a swap that is under a block, or at gems the reshuffle moved.
+   */
+  refreshHint() {
+    if (this.ended || !this.idleHint) return;
+    this.idleHint = this.currentHint();
+    this.restartIdle();
+  }
+
   swapMakesMatch(a, b) {
     const { board } = this.s;
     board.swapModel(a, b);
@@ -966,6 +1080,7 @@ export class Director {
     });
     if (this.ended) return;
 
+    sfx.ultBlast(element);
     boss.hit(2);
     shake(22, 0.6);
     vfx.flash(light, 0.55, 0.55);
@@ -992,6 +1107,9 @@ export class Director {
     this.stopIdle();
     this.doomArmed = false;
     hud.hideDoom();
+    // Let the swing already in the air land: a boss breathing fire on the way
+    // down reads as a bug, and a capped wait cannot cost the ending its time.
+    await this.bossSettled();
 
     shake(26, 0.8);
     const dying = boss.die();
@@ -1000,6 +1118,7 @@ export class Director {
     await dying;
     if (this.ended) return;
 
+    sfx.victory();
     await hud.shout(COPY.victory, 0.9, { fill: 0xffe066, from: 2.4 });
     await delay(T.victoryHold - 0.9);
   }
@@ -1016,6 +1135,7 @@ export class Director {
     this.stopIdle();
     this.doomArmed = false;
     hud.hideDoom();
+    await this.bossSettled();
 
     boss.enrage();
     shake(20, 0.7);
@@ -1023,6 +1143,7 @@ export class Director {
     await boss.roar();
     if (this.ended) return;
 
+    sfx.defeat();
     await hud.shout(COPY.defeat, 0.9, { fill: 0xff5a3a, from: 2.4 });
     await delay(0.5);
   }
@@ -1147,6 +1268,9 @@ export class Director {
     if (this.ended) return;
     this.ended = true;
     this.stopIdle();
+    // The room goes out with the fight; the end card gets its own sound and
+    // nothing else. A drone under a store button is a drone nobody asked for.
+    sfx.bed.stop();
     this.doomArmed = false;
     this.s.hud.hideDoom();
     this.s.board.lockInput();

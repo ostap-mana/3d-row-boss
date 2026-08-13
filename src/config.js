@@ -300,6 +300,40 @@ export const T = {
   moveCost: 2.8,
 };
 
+/* ------------------------------------------------------------------- audio */
+
+/**
+ * Sound, all of it synthesized at runtime — see src/audio/engine.js.
+ *
+ * Nothing is ever heard before the first touch, whatever these say: the browser
+ * suspends a context that was not opened by a gesture, and the creative does not
+ * fight that. `on: false` is the switch for a placement that forbids audio
+ * outright; it costs nothing at runtime beyond a handful of early returns.
+ */
+export const AUDIO = {
+  on: true,
+  /**
+   * Master level.
+   *
+   * Deliberately shy of the ceiling. Playables are watched at whatever volume
+   * the last thing the player opened set, and a creative that arrives louder
+   * than the app it interrupted gets muted for the rest of the session.
+   */
+  master: 0.55,
+  /** The lava room tone under the fight. */
+  bed: true,
+  bedLevel: 0.035,
+  /**
+   * Voices allowed in the air at once.
+   *
+   * A five-step cascade with a six-hero volley behind it can ask for forty
+   * inside a second. Past this the extras are dropped rather than queued — a
+   * late sound is worse than a missing one, and the cheap phones this creative
+   * targets start dropping frames long before they run out of oscillators.
+   */
+  maxVoices: 18,
+};
+
 /* --------------------------------------------------------------- store URLs */
 
 export const STORE_URL = {

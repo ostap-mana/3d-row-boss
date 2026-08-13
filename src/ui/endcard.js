@@ -6,8 +6,16 @@
 import { Container, Graphics, Sprite, Text, Rectangle } from "pixi.js";
 import { COPY, FONT, GEM_COLORS, GEM_LIGHT, HEROES, NYX } from "../config.js";
 import { heroPortrait } from "../art/heroes.js";
+import {
+  BUTTON_FILL,
+  BUTTON_LABEL,
+  BUTTON_RIM,
+  ctaButtonSprite,
+  fitCtaButton,
+} from "../art/button.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import { tween, delay, Ease } from "../core/tween.js";
+import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
 
 const BACKDROP = [
@@ -15,6 +23,8 @@ const BACKDROP = [
   [0.5, "#1a0c2c"],
   [1.0, "#3a1030"],
 ];
+
+/* The CTA's colours live with its art — see art/button.js. */
 
 export class EndCard extends Container {
   constructor(onCta) {
@@ -94,15 +104,23 @@ export class EndCard extends Container {
     });
 
     this.button = new Container();
+    /**
+     * The painted gold plate — see art/button.js — over the drawn pill the card
+     * shipped with. The pill is still underneath and still drawn whenever the
+     * art fails to decode, which is the only case it is reached in.
+     */
     this.buttonBg = new Graphics();
     this.button.addChild(this.buttonBg);
+    this.buttonArt = ctaButtonSprite();
+    if (this.buttonArt) this.button.addChild(this.buttonArt);
+
     this.buttonText = new Text({
       text: COPY.cta,
       style: {
         fontFamily: FONT,
         fontSize: 26,
         fontWeight: "900",
-        fill: 0x07210c,
+        fill: BUTTON_LABEL,
         letterSpacing: 2,
       },
     });
@@ -207,20 +225,11 @@ export class EndCard extends Container {
 
     fitFont(this.buttonText, bw * 0.8, Math.max(15, bh * 0.42));
     this.buttonBg.clear();
-    this.buttonBg.roundRect(-bw / 2, -bh / 2, bw, bh, bh / 2);
-    this.buttonBg.fill({ color: 0x5ef07a });
-    // Inset so the gloss follows the pill instead of poking out of its corners.
-    const inset = bh * 0.16;
-    this.buttonBg.roundRect(
-      -bw / 2 + inset,
-      -bh / 2 + inset * 0.5,
-      bw - inset * 2,
-      bh * 0.34,
-      bh * 0.17,
-    );
-    this.buttonBg.fill({ color: 0xc4ffcf, alpha: 0.45 });
-    this.buttonBg.roundRect(-bw / 2, -bh / 2, bw, bh, bh / 2);
-    this.buttonBg.stroke({ width: Math.max(2, bh * 0.06), color: 0x0d2a14 });
+    if (this.buttonArt) {
+      fitCtaButton(this.buttonArt, bw, bh);
+    } else {
+      this.drawPill(bw, bh);
+    }
     this.button.x = w / 2;
     this.button.y = buttonY;
     this.button.hitArea = new Rectangle(-bw / 2, -bh / 2, bw, bh);
@@ -234,12 +243,40 @@ export class EndCard extends Container {
   }
 
   /**
+   * The drawn stand-in, in the plate's own gold.
+   *
+   * Only reached when the art failed to decode — a device that cannot read the
+   * button's bitmap still gets a button, and it is the one surface in the whole
+   * creative that absolutely has to be there. It follows the plate's corner
+   * rather than the pill's, so the fallback is the same shape as the real thing.
+   */
+  drawPill(bw, bh) {
+    const g = this.buttonBg;
+    const r = bh * 0.22;
+    g.roundRect(-bw / 2, -bh / 2, bw, bh, r);
+    g.fill({ color: BUTTON_FILL });
+    // Inset so the gloss follows the plate instead of poking out of its corners.
+    const inset = bh * 0.16;
+    g.roundRect(
+      -bw / 2 + inset,
+      -bh / 2 + inset * 0.5,
+      bw - inset * 2,
+      bh * 0.34,
+      r * 0.6,
+    );
+    g.fill({ color: 0xfff0b0, alpha: 0.35 });
+    g.roundRect(-bw / 2, -bh / 2, bw, bh, r);
+    g.stroke({ width: Math.max(2, bh * 0.06), color: BUTTON_RIM });
+  }
+
+  /**
    * @param {"victory"|"defeat"} outcome the fight can be lost now, and the
    *   card has to say so — a "COLLECT YOUR HEROES" screen over a party wipe
    *   reads as a bug, and a losing player is the one most worth re-pitching.
    */
   async show(outcome) {
     this.defeat = outcome === "defeat";
+    sfx.endcard(this.defeat);
     this.title.text = this.defeat ? COPY.defeatTitle : COPY.endTitle;
     this.sub.text = this.defeat ? COPY.defeatSub : COPY.endSub;
     this.sub.style.fill = this.defeat ? 0xffa892 : GEM_LIGHT[NYX];

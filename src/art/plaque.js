@@ -1,18 +1,17 @@
 /**
  * The painted plaque: a near-black panel behind a thin gold rule.
  *
- * One piece of art, two props. It is the board's frame — see art/boardframe.js,
- * which squares it up and hangs the grid in it — and the tray the hero row
- * stands in, which uses it at close to the aspect it was drawn at. Both go
- * through the same texture, so the two frames on screen are the same frame.
+ * The board's frame, and only that — see art/boardframe.js, which squares it up
+ * and hangs the grid in it. The hero row used to stand in the same panel at a
+ * near five to one aspect; it stands on the arena now.
  *
  * `src/buttons/background-dashboard.png` is a flat 692x144 panel, so the only
  * thing in it that can be got wrong is the rule: four pixels of gold around a
  * ten pixel corner, and both stop reading as a frame the moment they are
- * stretched unevenly. A board is square and the hero tray is nearly five to one,
- * which is far too wide a spread to fit one bitmap to — so it is nine-sliced
- * under a uniform scale instead. The rule keeps its weight and the corners stay
- * round at either aspect, and the flat middle takes up all of the slack.
+ * stretched unevenly. The board is square, which is nowhere near the aspect the
+ * bitmap was drawn at — so it is nine-sliced under a uniform scale instead. The
+ * rule keeps its weight and the corners stay round at any aspect, and the flat
+ * middle takes up all of the slack.
  *
  * The file carries no alpha channel — outside the rounded rule its corners are
  * painted black rather than cut out, which would square both props back off over
@@ -29,8 +28,8 @@ export const PLAQUE_ART = { w: 692, h: 144 };
 /**
  * The well inside the plaque, measured off the art in its own pixels: the gold
  * rule, plus enough black inside it that whatever is hung in the well is not
- * read as part of the rule. Both props derive their opening from this — the
- * board's grid and the hero row's card band — so neither can drift from the art.
+ * read as part of the rule. The board's opening derives from this, so the grid
+ * and the frame drawn around it can never drift apart.
  */
 export const PLAQUE_WELL = { x: 11, y: 11, w: 670, h: 122 };
 
@@ -72,9 +71,8 @@ function clipped(img) {
  * Decode the plaque before the first frame is drawn.
  *
  * Never rejects: the board falls back to the panel it drew for itself before any
- * of this art existed and the hero row sits straight on the arena, both of which
- * are plainer but are still a board and still a row. Every reference to the
- * sprite is guarded for that reason.
+ * of this art existed, which is plainer but is still a board. Every reference to
+ * the sprite is guarded for that reason.
  */
 export async function loadPlaque() {
   if (plaqueTexture) return plaqueTexture;

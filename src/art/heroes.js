@@ -24,13 +24,13 @@ import {
 } from "../config.js";
 import { drawGemShape } from "./gems.js";
 import { cardPlate } from "./plates.js";
-import { plaqueSprite, fitPlaque } from "./plaque.js";
 import { heroBust, heroRoundel } from "./avatars.js";
 import { glowTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { tween, tweenValue, delay, killTweensOf, Ease } from "../core/tween.js";
 import { lerpColor } from "../core/color.js";
 import { fitFont } from "../ui/text.js";
+import * as sfx from "../audio/sfx.js";
 
 const ART = 128;
 
@@ -403,6 +403,7 @@ export class HeroCard extends Container {
     tween(this.readyLabel, { alpha: on ? 1 : 0 }, 0.2);
     tween(this.label, { alpha: on ? 0 : 1 }, 0.2);
     if (on) {
+      sfx.charged(this.hero.element);
       this.aura.alpha = 0;
       tween(this.aura, { alpha: 0.55 }, 0.3);
       // Pop first, then hand the scale over to the idle pulse in update().
@@ -454,6 +455,7 @@ export class HeroCard extends Container {
    */
   strike(lead) {
     if (this.downed) return;
+    sfx.heroStrike(this.hero.element, lead);
 
     killTweensOf(this.pivot);
     this.pivot.set(0, lead ? 16 : 9);
@@ -524,6 +526,7 @@ export class HeroCard extends Container {
     const kick = this.index % 2 ? 1 : -1;
 
     if (wait) await delay(wait);
+    sfx.heroHurt();
 
     killTweensOf(this.pivot);
     this.pivot.set(kick * 7, -5);
@@ -561,6 +564,7 @@ export class HeroCard extends Container {
    */
   down() {
     this.downed = true;
+    sfx.heroDown();
     this.critical = false;
     this.pulsing = false;
     this.setReady(false);
@@ -602,16 +606,8 @@ export class HeroRow extends Container {
     super();
     initPortraits();
 
-    /**
-     * The tray, added first so it sits under every card: the same plaque the
-     * board is framed in — see art/plaque.js — at the aspect it was drawn at.
-     * Null when its art failed to decode, in which case the row stands straight
-     * on the arena the way it always did, which is why every reference to it is
-     * guarded.
-     */
-    this.dock = plaqueSprite();
-    if (this.dock) this.addChild(this.dock);
-
+    // No tray under the row: the cards stand straight on the arena, each one
+    // framed by its own plate.
     this.cards = HEROES.map((hero, i) => {
       const card = new HeroCard(hero, i);
       card.on("pointertap", () => onCardTap(i, card));
@@ -621,8 +617,6 @@ export class HeroRow extends Container {
   }
 
   resize(layout) {
-    if (this.dock) fitPlaque(this.dock, layout.dock);
-
     const { x, y, w, h, gap } = layout.cards;
     const cardW = (w - gap * (this.cards.length - 1)) / this.cards.length;
     this.cards.forEach((card, i) => {
@@ -713,16 +707,13 @@ export class HeroRow extends Container {
 
   /** Whole party back on its feet — the payoff of Nyx's ultimate. */
   async healAll(to) {
+    // Sung by the row, not by the cards: the tide reaches all six of them and
+    // six copies of the same chime is a chord nobody wrote.
+    sfx.heal();
     await Promise.all(this.cards.map((card, i) => card.heal(to, i * 0.06)));
   }
 
   async introIn() {
-    // The tray arrives first and on its own, so the cards drop into something
-    // rather than materialising alongside it.
-    if (this.dock) {
-      this.dock.alpha = 0;
-      tween(this.dock, { alpha: 1 }, 0.28);
-    }
     await Promise.all(
       this.cards.map((card, i) => {
         card.alpha = 0;

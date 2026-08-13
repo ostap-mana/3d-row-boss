@@ -7,7 +7,6 @@
  */
 
 import { FRAME_ART, FRAME_OPENING } from "../art/boardframe.js";
-import { PLAQUE_ART, PLAQUE_WELL } from "../art/plaque.js";
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -23,24 +22,22 @@ const GRID_RATIO =
   1 / Math.max(FRAME_ART.w / FRAME_OPENING.w, FRAME_ART.h / FRAME_OPENING.h);
 
 /**
- * The hero tray's well as fractions of its outer box — read off the art the same
- * way GRID_RATIO is, so the band the cards get and the panel drawn behind them
- * can never drift apart.
+ * Inset of the card band inside the row's box, as fractions of that box.
+ *
+ * These were the well of the painted tray the row used to stand in, read off its
+ * art. The tray is gone and the cards stand on the arena, but the inset stays:
+ * it is the margin that holds the row off the bottom of the screen, and the size
+ * every card was sized and tuned at.
  */
-const WELL = {
-  x: PLAQUE_WELL.x / PLAQUE_ART.w,
-  y: PLAQUE_WELL.y / PLAQUE_ART.h,
-  w: PLAQUE_WELL.w / PLAQUE_ART.w,
-  h: PLAQUE_WELL.h / PLAQUE_ART.h,
-};
+const BAND = { x: 0.016, y: 0.076, w: 0.968, h: 0.847 };
 
-/** The card band inside a tray box. */
-function wellInside(dock) {
+/** The card band inside a row box. */
+function bandInside(row) {
   return {
-    x: dock.x + dock.w * WELL.x,
-    y: dock.y + dock.h * WELL.y,
-    w: dock.w * WELL.w,
-    h: dock.h * WELL.h,
+    x: row.x + row.w * BAND.x,
+    y: row.y + row.h * BAND.y,
+    w: row.w * BAND.w,
+    h: row.h * BAND.h,
   };
 }
 
@@ -56,16 +53,14 @@ function portraitLayout(w, h, ui) {
 
   const hudH = clamp(h * 0.085, 48, 96);
 
-  // Outer box of the painted tray the hero row stands in, not the row itself:
-  // the well inside it is what the cards get. It runs wider and sits lower than
-  // the bare band used to — the tray's own rule is what holds the row off the
-  // screen edge now, so most of the margin outside it would be spent twice.
-  const dockH = clamp(h * 0.125, 66, 132);
-  const dock = {
+  // Outer box the hero row is allotted, not the cards themselves: the band
+  // inside it is what they get.
+  const rowH = clamp(h * 0.125, 66, 132);
+  const row = {
     x: pad * 0.5,
-    y: h - dockH - pad * 0.5,
+    y: h - rowH - pad * 0.5,
     w: w - pad,
-    h: dockH,
+    h: rowH,
   };
 
   // The board is the hero of the screen: as wide as we can afford, but never
@@ -76,7 +71,7 @@ function portraitLayout(w, h, ui) {
   // bare grid needed. The boss pays for it out of the band above.
   const size = Math.min(w - pad * 2, h * 0.5, 560);
   const cell = (size * GRID_RATIO) / 5;
-  const boardY = dock.y - pad * 0.8 - size;
+  const boardY = row.y - pad * 0.8 - size;
   const boardX = (w - size) / 2;
 
   const bossTop = hudH + pad * 0.4;
@@ -96,8 +91,7 @@ function portraitLayout(w, h, ui) {
       scale: bossScale,
       floor: bossTop + bossH,
     },
-    dock,
-    cards: { ...wellInside(dock), gap: 6 * ui },
+    cards: { ...bandInside(row), gap: 6 * ui },
     hud: {
       x: pad * 1.6,
       // Leaves room above the bar for the boss name and any notch cutout.
@@ -123,19 +117,18 @@ function landscapeLayout(w, h, ui) {
 
   const leftW = boardX - pad * 2;
 
-  // The same tray as portrait, in the column the board leaves it. It spends the
-  // margin the bare card band used to keep on either side and stops half a pad
-  // short of the frame, which is the only edge here it must not touch.
-  const dockH = clamp(h * 0.19, 54, 116);
-  const dock = {
+  // The same row as portrait, in the column the board leaves it. It stops half a
+  // pad short of the frame, which is the only edge here it must not touch.
+  const rowH = clamp(h * 0.19, 54, 116);
+  const row = {
     x: pad * 0.5,
-    y: h - dockH - pad * 0.5,
+    y: h - rowH - pad * 0.5,
     w: boardX - pad,
-    h: dockH,
+    h: rowH,
   };
 
   const bossTop = hudH;
-  const bossH = dock.y - bossTop - pad;
+  const bossH = row.y - bossTop - pad;
   const bossScale = Math.min((leftW * 0.98) / BOSS_ART.w, bossH / BOSS_ART.h);
 
   return {
@@ -150,8 +143,7 @@ function landscapeLayout(w, h, ui) {
       scale: bossScale,
       floor: bossTop + bossH,
     },
-    dock,
-    cards: { ...wellInside(dock), gap: 5 * ui },
+    cards: { ...bandInside(row), gap: 5 * ui },
     hud: {
       x: pad * 1.4,
       y: pad * 0.9 + 13 * ui,

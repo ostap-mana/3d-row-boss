@@ -13,6 +13,7 @@ import { FONT, GEM_COLORS, GEM_LIGHT, HEROES, NYX } from "../config.js";
 import { heroPortrait } from "../art/heroes.js";
 import { glowTexture } from "../art/textures.js";
 import { tween, delay, Ease } from "../core/tween.js";
+import * as sfx from "../audio/sfx.js";
 
 export class CutIn extends Container {
   constructor() {
@@ -173,6 +174,7 @@ export class CutIn extends Container {
     const { w } = this.layout;
     this.visible = true;
     this.alpha = 1;
+    sfx.ultCutin(HEROES[this.index].element);
 
     this.dim.alpha = 0;
     this.lines.alpha = 0;

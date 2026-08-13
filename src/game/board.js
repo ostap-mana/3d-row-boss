@@ -25,6 +25,7 @@ import {
 } from "../art/boardframe.js";
 import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
+import * as sfx from "../audio/sfx.js";
 
 const GEM_TYPES = GEM_COLORS.length;
 const SWIPE_RATIO = 0.34;
@@ -99,6 +100,7 @@ export class Board extends Container {
 
     this.inputEnabled = false;
     this.moveResolver = null;
+    /** Something is writing the grid: a swap, a cascade, obsidian. See claim(). */
     this.busy = false;
 
     /** Hooks the director subscribes to. */
@@ -403,6 +405,7 @@ export class Board extends Container {
 
   select(cell) {
     this.selected = cell;
+    sfx.select();
     const gem = this.grid[cell.r][cell.c];
     if (gem) tween(gem.glow, { alpha: 0.55 }, 0.12);
   }
@@ -463,6 +466,7 @@ export class Board extends Container {
 
     this.busy = true;
     this.inputEnabled = false;
+    sfx.swap();
 
     const ga = this.grid[a.r][a.c];
     const gb = this.grid[b.r][b.c];
@@ -472,6 +476,7 @@ export class Board extends Container {
     if (this.findMatches().length === 0) {
       // Soft failure: no red, no buzzer — just put it back and re-hint.
       this.swapModel(a, b);
+      sfx.reject();
       await this.animateSwap(ga, gb, 0.13);
       this.busy = false;
       this.inputEnabled = true;
@@ -489,6 +494,7 @@ export class Board extends Container {
   nudgeLock(cell) {
     const lock = this.locks[cell.r] && this.locks[cell.r][cell.c];
     if (!lock) return;
+    sfx.knock();
     killTweensOf(lock.slab);
     lock.slab.rotation = 0;
     tween(lock.slab, { rotation: 0.16 }, 0.06)
@@ -623,6 +629,40 @@ export class Board extends Container {
   /* -------------------------------------------------------------- resolving */
 
   /**
+   * Settles once nothing is writing the grid.
+   *
+   * For a reader rather than a writer: the boss scores the board before it aims
+   * its lava, and a board halfway through a cascade is holding empty cells and
+   * gems that are still falling — it would be scoring a position nobody is
+   * looking at.
+   */
+  async whenQuiet() {
+    while (this.busy) await delay(0.04);
+  }
+
+  /**
+   * Run `job` with the grid to itself, after whatever holds it now lets go.
+   *
+   * `busy` used to cover the swap animation alone, and that was enough: the
+   * player's move and the boss's answer could not overlap, because the director
+   * awaited one before it started the other. The board is live through the
+   * boss's turn now — so the cascade, the ult's wipe and the obsidian landing
+   * all pass through here and take their turn instead of writing the grid over
+   * each other.
+   *
+   * Not reentrant: nothing inside a job may claim the board again.
+   */
+  async claim(job) {
+    await this.whenQuiet();
+    this.busy = true;
+    try {
+      return await job();
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /**
    * Clear, drop, refill until the board is quiet.
    *
    * Whatever cascade falls out of this is the cascade the player earned. The
@@ -632,22 +672,27 @@ export class Board extends Container {
    * @param {(step:number, cells:Array)=>void} onStep per-cascade callback
    * @returns {Promise<number>} cascade steps actually played
    */
-  async resolve(onStep) {
-    let step = 0;
-    for (;;) {
-      const cells = this.findMatches();
-      if (cells.length === 0) break;
-      step++;
-      if (onStep) onStep(step, cells);
-      // Matches clear and neighbouring obsidian cracks in the same beat.
-      await Promise.all([this.popCells(cells), this.breakLocksNear(cells)]);
-      this.applyGravity();
-      this.refill(step);
-      await this.animateFalls();
-      await delay(0.02);
-    }
-    await this.ensurePlayable();
-    return step;
+  resolve(onStep) {
+    return this.claim(async () => {
+      let step = 0;
+      for (;;) {
+        const cells = this.findMatches();
+        if (cells.length === 0) break;
+        step++;
+        // One voice for the step, tuned to the rung of the cascade it is on —
+        // a sound per gem would be twelve of the same pop inside a second.
+        sfx.match(step, cells.length, this.typeAt(cells[0].r, cells[0].c));
+        if (onStep) onStep(step, cells);
+        // Matches clear and neighbouring obsidian cracks in the same beat.
+        await Promise.all([this.popCells(cells), this.breakLocksNear(cells)]);
+        this.applyGravity();
+        this.refill(step);
+        await this.animateFalls();
+        await delay(0.02);
+      }
+      await this.ensurePlayable();
+      return step;
+    });
   }
 
   /** Blow up a set of cells. */
@@ -822,6 +867,7 @@ export class Board extends Container {
 
   /** Drop everything that moved into place. */
   async animateFalls() {
+    sfx.drop((this.falling || []).length);
     const jobs = (this.falling || []).map((f) => {
       const p = this.cellPos(f.r, f.c);
       const dist = Math.abs(f.gem.y - p.y) / this.cell;
@@ -846,10 +892,15 @@ export class Board extends Container {
       }
     }
     if (cells.length === 0) return 0;
-    await this.popCells(cells);
-    this.applyGravity();
-    this.refill(0);
-    await this.animateFalls();
+
+    // The wipe and the cascade it sets off are claimed separately: resolve()
+    // claims for itself, and a job may not claim twice.
+    await this.claim(async () => {
+      await this.popCells(cells);
+      this.applyGravity();
+      this.refill(0);
+      await this.animateFalls();
+    });
     // Whatever the wipe leaves behind still pays out.
     await this.resolve(null);
     return cells.length;
@@ -915,6 +966,7 @@ export class Board extends Container {
     }
     if (best) deal(best);
 
+    sfx.shuffle();
     if (this.onShuffle) this.onShuffle();
     await this.slideShuffle(free);
     return true;
@@ -1038,8 +1090,26 @@ export class Board extends Container {
   /**
    * Encase a set of cells. Returns the cells that actually locked, so the
    * caller can aim the lava globs at them.
+   *
+   * Claimed, and therefore patient: the lava arrives on the boss's clock and the
+   * player is swapping on their own, so a block that turned up in the middle of
+   * a cascade would restack a board that was still falling.
+   *
+   * Two claims with an animation between them, rather than one around the whole
+   * thing. A block is in `locks` the instant it is written, so the crust
+   * hardening over it is only a picture and the player can go on swapping the
+   * rest of the board through it. The restock afterwards moves gems, and that
+   * has to have the board to itself.
    */
   async lockCells(cells) {
+    const made = await this.claim(() => this.encase(cells));
+    await Promise.all(made.map((m) => m.lock.form()));
+    await this.claim(() => this.ensurePlayable());
+    return made.map((m) => m.cell);
+  }
+
+  /** Write the blocks into the model and dim whatever they trap. */
+  encase(cells) {
     const made = [];
     cells.forEach((cell) => {
       if (!this.inBounds(cell) || this.isLocked(cell.r, cell.c)) return;
@@ -1059,10 +1129,8 @@ export class Board extends Container {
       }
       made.push({ cell, lock });
     });
-
-    await Promise.all(made.map((m) => m.lock.form()));
-    await this.ensurePlayable();
-    return made.map((m) => m.cell);
+    if (made.length) sfx.obsidianForm(made.length);
+    return made;
   }
 
   /** Every block orthogonally touching one of these cells cracks open. */
@@ -1103,6 +1171,7 @@ export class Board extends Container {
   }
 
   async releaseLocks(targets) {
+    if (targets.length) sfx.obsidianBreak(targets.length);
     const jobs = targets.map((n, i) => {
       const lock = this.locks[n.r][n.c];
       if (!lock) return Promise.resolve();

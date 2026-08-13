@@ -6,6 +6,7 @@
  */
 
 import { STORE_URL } from "../config.js";
+import * as sfx from "../audio/sfx.js";
 
 let fired = false;
 
@@ -23,6 +24,7 @@ export function ctaClick(source) {
   // Networks dislike duplicate open() calls; one per session is plenty.
   if (fired) return;
   fired = true;
+  sfx.cta();
 
   const url = storeUrl();
   const w = window;

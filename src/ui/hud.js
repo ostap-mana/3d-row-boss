@@ -9,7 +9,15 @@ import { Container, Graphics, Sprite, Text, Rectangle, Texture } from "pixi.js";
 import { BOSS_NAME, COPY, DOOM, FONT } from "../config.js";
 import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
 import { hpBarShape, hpBarPaint } from "../art/hpbar.js";
+import {
+  BUTTON_FILL,
+  BUTTON_LABEL,
+  BUTTON_RIM,
+  ctaButtonSprite,
+  fitCtaButton,
+} from "../art/button.js";
 import { fitFont } from "./text.js";
+import * as sfx from "../audio/sfx.js";
 
 /**
  * Colours of the four layers the bar is stacked out of.
@@ -121,15 +129,21 @@ export class Hud extends Container {
     this.banner = new Container();
     this.banner.alpha = 0;
     this.banner.visible = false;
+    // The same painted plate the end card's CTA wears — see art/button.js. The
+    // two install surfaces are the same button at two sizes, and the bitmap is
+    // already in the bundle for the other one, so this costs nothing.
     this.bannerBg = new Graphics();
     this.banner.addChild(this.bannerBg);
+    this.bannerArt = ctaButtonSprite();
+    if (this.bannerArt) this.banner.addChild(this.bannerArt);
+
     this.bannerText = new Text({
       text: COPY.banner,
       style: {
         fontFamily: FONT,
         fontSize: 15,
         fontWeight: "900",
-        fill: 0x10240c,
+        fill: BUTTON_LABEL,
         letterSpacing: 1.2,
       },
     });
@@ -218,9 +232,14 @@ export class Hud extends Container {
     const bh = Math.max(26, 32 * ui);
     this.bannerText.style.fontSize = Math.max(11, 14 * ui);
     this.bannerBg.clear();
-    this.bannerBg.roundRect(-bw / 2, -bh / 2, bw, bh, bh / 2);
-    this.bannerBg.fill({ color: 0x5ef07a });
-    this.bannerBg.stroke({ width: 2, color: 0x0d2410, alpha: 0.5 });
+    if (this.bannerArt) {
+      fitCtaButton(this.bannerArt, bw, bh);
+    } else {
+      // Stand-in for a bitmap that never decoded, in the plate's own colours.
+      this.bannerBg.roundRect(-bw / 2, -bh / 2, bw, bh, bh * 0.22);
+      this.bannerBg.fill({ color: BUTTON_FILL });
+      this.bannerBg.stroke({ width: 2, color: BUTTON_RIM });
+    }
     // A few pixels of slack around the pill: it is a small target that slides
     // into place, and a near miss on a CTA is a lost install.
     const slack = 7 * ui;
@@ -558,6 +577,7 @@ export class Hud extends Container {
   showBanner() {
     if (this.banner.visible) return;
     this.banner.visible = true;
+    sfx.banner();
     const home = this.banner.y;
     this.banner.y = home - 30;
     tween(this.banner, { alpha: 1 }, 0.3);
