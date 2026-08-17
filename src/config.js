@@ -338,7 +338,8 @@ export const AUDIO = {
 
 export const STORE_URL = {
   ios: "https://apps.apple.com/app/id0000000000",
-  android: "https://play.google.com/store/apps/details?id=com.studio.siege",
+  android:
+    "https://play.google.com/store/apps/details?id=hitzone.anima.spirit.guardians",
 };
 
 /* -------------------------------------------------------------------- copy */
@@ -348,7 +349,12 @@ export const COPY = {
   /** `{hero}` is filled in with whoever just charged. */
   ultReady: "TAP {hero}",
   victory: "VICTORY",
-  endTitle: "ELEMENTAL\nSIEGE",
+  /**
+   * The end card wears the painted wordmark — see art/brand.js — and this is
+   * only ever read by a device that could not decode it. It says what the
+   * wordmark says, or the fallback would be selling a different game.
+   */
+  endTitle: "INVOKERS\nTITAN LEGACY",
   endSub: "COLLECT YOUR HEROES",
   cta: "PLAY NOW",
   banner: "INSTALL",
@@ -369,7 +375,11 @@ export const COPY = {
   defeat: "PARTY WIPED",
   defeatTitle: "MAGMAROTH\nWINS",
   defeatSub: "BUILD A STRONGER SQUAD",
-  defeatCta: "TRY AGAIN",
+  /**
+   * No `defeatCta`. The CTA is a painted plate with PLAY NOW on it — a key
+   * that changed the wording would change nothing on screen, and a knob that
+   * does nothing is worse here than no knob at all.
+   */
 };
 
 /** System stack only — a web font would be bytes we cannot spare. */

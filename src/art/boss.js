@@ -1,29 +1,39 @@
 /**
  * MAGMAROTH — the one thing the player must remember from this creative.
  *
- * The golem is a painting now: `src/boss/magmaroth.png`, a 468x399 cutout with a
- * real alpha channel, in place of the obsidian rig this file used to assemble out
- * of a few dozen polygons. The drawn rig is still below and still runs the whole
- * fight, for the same reason every other painted surface here keeps its fallback
- * — but it is the understudy now, not the act.
+ * The golem is animated now: eleven frames off `src/boss/magmaroth-sheet.webp`,
+ * in place of the obsidian rig this file used to assemble out of a few dozen
+ * polygons. The drawn rig is still below and still runs the whole fight, for the
+ * same reason every other painted surface here keeps its fallback — but it is
+ * the understudy now, not the act.
  *
- * A single bitmap has no arm to swing and no jaw to drop, so the beats that used
+ * Five of those frames are the idle and play as a ping-pong: the lava crawls,
+ * the arms settle, the crown gutters. The other six are one gesture — the golem
+ * gathering fire in front of its chest — and they are driven by `charge`, a 0..1
+ * the attacks tween like any other property, so the wind-up the director already
+ * asks for is the wind-up the art shows.
+ *
+ * Frames still cannot swing an arm or drop a jaw on cue, so the beats that used
  * to be carried by parts are carried by the silhouette: the figure rears, lifts,
  * stretches and slams as one, and the light the rig used to draw — eyes, maw,
- * molten core — is three additive glows pinned to the places the painting already
+ * molten core — is three additive glows pinned to the places the sheet already
  * burns. Every public beat (rise, roar, spit, lavaBreath, smash, hit, enrage,
  * die) and every anchor the director reads (impactPoint, mouthPoint, fistPoint)
  * behaves the same from the outside, whichever art is up.
+ *
+ * The sheet itself is cut and registered by tools/pack-boss.mjs — the source art
+ * is not a grid and its figure drifts, so every number below was measured by
+ * that tool rather than picked.
  */
 
-import { Container, Graphics, Sprite } from "pixi.js";
+import { Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { tween, delay, Ease, tweenValue } from "../core/tween.js";
 import { canvasTexture, glowTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { lerpColor } from "../core/color.js";
 import { BOSS_ART } from "../core/layout.js";
 import * as sfx from "../audio/sfx.js";
-import bossUrl from "../boss/magmaroth.png";
+import sheetUrl from "../boss/magmaroth-sheet.webp";
 
 /** Colour the rig settles back to once phase 2 starts. */
 const ENRAGED_TINT = 0xffa58c;
@@ -33,67 +43,108 @@ const ROCK_EDGE = 0x4a2f3c;
 const LAVA = 0xff6a10;
 const LAVA_HOT = 0xffd35a;
 
-/** Natural size of the painting. */
-const ART = { w: 468, h: 399 };
-
 /**
- * Where the rig's origin sits inside the painting, as a fraction of its height.
+ * The packed sheet, exactly as tools/pack-boss.mjs cut it.
  *
- * Measured off the file, not picked: 0.59 is the chest gem, and anchoring there
- * puts the painted feet at +189 and the painted focal point at 0 — which is
- * where the drawn rig already kept its feet (+190) and its molten core (+6). So
- * impactPoint, fistPoint and the rise offset all still land where they did, and
- * layout.js needs no boss of its own to know about.
+ * `anchor` is the golem's stance — the middle of its feet — and every frame is
+ * packed around that one point, which is what lets a single sprite play the
+ * whole sheet by swapping its texture. `rise` is how far the figure stands above
+ * it, and is the only number the on-screen size is derived from.
  */
-const ORIGIN_Y = 0.59;
+const SHEET = {
+  cols: 4,
+  cell: { w: 254, h: 204 },
+  anchor: { x: 128, y: 200 },
+  rise: 196,
+  count: 11,
+};
+
+/** Frames 0..4 are the idle loop; 5..10 gather the fire, in that order. */
+const IDLE_LAST = 4;
+const CHARGE_FIRST = 5;
+const CHARGE_LAST = 10;
+
+/** Idle frames per second. Slow: this is lava crawling, not a run cycle. */
+const IDLE_FPS = 7;
+
+/** Rig units per sheet pixel — the golem stands the full height of its box. */
+const K = BOSS_ART.h / SHEET.rise;
 
 /**
- * The painting fitted to the layout's boss box, height first: at 460 tall the
- * figure comes out 540 wide, inside the 560 the box allows, so the fit is never
- * the width's problem on a phone held upright.
+ * Where the golem's feet land in rig space.
+ *
+ * The drawn rig's own floor, kept to the unit: impactPoint, fistPoint, the rise
+ * out of the lava and the mask that clips it there were all tuned against this
+ * number, and layout.js has no boss of its own to know about.
  */
-const FIGURE = { w: (ART.w * BOSS_ART.h) / ART.h, h: BOSS_ART.h };
+const FEET_Y = 189;
 
-/** Rig-space y of a fraction of the painting's height. */
-const artY = (f) => (f - ORIGIN_Y) * FIGURE.h;
+/** Cell-space points the three lights sit on, measured off the packed sheet. */
+const LIGHTS = {
+  crown: { x: 128, y: 62 },
+  maw: { x: 134, y: 108 },
+  core: { x: 128, y: 120 },
+};
 
-/** The two places the painting burns brightest, as fractions of its height. */
-const CROWN = 0.21;
-const MAW = 0.43;
+/** Cell space -> rig space. */
+const rigX = (cx) => (cx - SHEET.anchor.x) * K;
+const rigY = (cy) => FEET_Y - (SHEET.anchor.y - cy) * K;
 
 /**
  * Resting y of the node every head beat drives.
  *
- * The drawn rig's head sits here; the painted crown happens to sit within four
- * units of it, so both arts share one rest pose and every `HEAD_REST + n` below
- * is the same nod it always was.
+ * The drawn rig's head sits here, and the sheet's crown within forty units of
+ * it, so both arts share one rest pose and every `HEAD_REST + n` below is the
+ * same nod it always was.
  */
 const HEAD_REST = -178;
 
-let paintedTexture = null;
+/** The eleven frames, or null while the sheet has not decoded. */
+let frames = null;
 
 /**
  * Decode the golem before the first frame.
  *
  * Never rejects: a boss that failed to decode falls back to the drawn rig, the
- * same bargain plates, busts and the CTA plate strike. The bitmap is inlined in
+ * same bargain plates, busts and the CTA plate strike. The sheet is inlined in
  * the bundle, so this is a decode and not a download.
+ *
+ * Every frame is a window onto one texture rather than a texture of its own, so
+ * swapping frames costs nothing at render time — the batch never breaks.
  */
 export async function loadBossArt() {
-  if (paintedTexture) return paintedTexture;
+  if (frames) return frames;
   try {
     const img = new Image();
-    img.src = bossUrl;
+    img.src = sheetUrl;
     await img.decode();
     const c = document.createElement("canvas");
     c.width = img.width;
     c.height = img.height;
     c.getContext("2d").drawImage(img, 0, 0);
-    paintedTexture = canvasTexture(c);
+    const sheet = canvasTexture(c);
+
+    const cut = [];
+    for (let i = 0; i < SHEET.count; i++) {
+      const col = i % SHEET.cols;
+      const row = Math.floor(i / SHEET.cols);
+      cut.push(
+        new Texture({
+          source: sheet.source,
+          frame: new Rectangle(
+            col * SHEET.cell.w,
+            row * SHEET.cell.h,
+            SHEET.cell.w,
+            SHEET.cell.h,
+          ),
+        }),
+      );
+    }
+    frames = cut;
   } catch {
-    paintedTexture = null;
+    frames = null;
   }
-  return paintedTexture;
+  return frames;
 }
 
 let shardTex = null;
@@ -127,9 +178,14 @@ export class Boss extends Container {
     this.rig = new Container();
     this.addChild(this.rig);
 
-    /** Whether the painting decoded. False means the drawn rig is on stage. */
-    this.painted = !!paintedTexture;
-    if (this.painted) this.buildPainted();
+    /** Whether the sheet decoded. False means the drawn rig is on stage. */
+    this.painted = !!frames;
+    /** How far into the fire-gathering frames the golem is, 0..1. */
+    this.charge = 0;
+    /** Idle playhead, in frames. */
+    this.idleT = 0;
+    this.frame = -1;
+    if (this.painted) this.buildAnimated();
     else this.buildDrawn();
 
     this.shards = new Container();
@@ -145,44 +201,38 @@ export class Boss extends Container {
     this.alive = true;
   }
 
-  /* ---------------------------------------------------------- painted rig */
+  /* --------------------------------------------------------- animated rig */
 
-  buildPainted() {
-    // The aura is behind the figure rather than behind the origin: the painted
-    // mass sits high of the chest gem, and a glow centred on the gem would pool
-    // around its knees.
-    this.aura.y = artY(0.42);
+  buildAnimated() {
+    // The aura sits behind the figure rather than behind the origin: the mass
+    // stands well above its own feet, and a glow centred on the rig's origin
+    // would pool around its knees.
+    this.aura.y = rigY(96);
     this.aura.setSize(820, 700);
 
     /**
-     * The node every head beat moves. One bitmap has no neck, so a nod rocks the
+     * The node every head beat moves. A frame has no neck, so a nod rocks the
      * whole golem from the crown down — which is how something this heavy would
-     * move anyway. The art hangs off it at -HEAD_REST, putting the rig's origin
-     * back on the chest gem.
+     * move anyway. Everything else hangs off it, so the lights ride the rock
+     * instead of sliding around on it.
      */
     const figure = new Container();
     figure.y = HEAD_REST;
     this.rig.addChild(figure);
     this.headNode = figure;
 
-    this.art = new Sprite(paintedTexture);
-    this.art.anchor.set(0.5, ORIGIN_Y);
-    this.art.setSize(FIGURE.w, FIGURE.h);
-    this.art.y = -HEAD_REST;
+    this.art = this.frameSprite();
     figure.addChild(this.art);
 
     /**
      * Hit flash: the golem drawn over itself with the `add` blend.
      *
      * The drawn rig flashed by tint, which can only ever take a colour down —
-     * on art this dark it barely reads. Adding the painting to itself lights
-     * the lava it is already full of and leaves the rock where it is, so a hit
-     * looks like heat rather than like a lamp.
+     * on art this dark it barely reads. Adding the frame to itself lights the
+     * lava it is already full of and leaves the rock where it is, so a hit looks
+     * like heat rather than like a lamp.
      */
-    this.flash = new Sprite(paintedTexture);
-    this.flash.anchor.set(0.5, ORIGIN_Y);
-    this.flash.setSize(FIGURE.w, FIGURE.h);
-    this.flash.y = -HEAD_REST;
+    this.flash = this.frameSprite();
     this.flash.blendMode = "add";
     this.flash.alpha = 0;
     figure.addChild(this.flash);
@@ -190,39 +240,90 @@ export class Boss extends Container {
     // Crown: the fire between the horns. Stands in for the drawn eyes, and
     // flickers on the same clock.
     this.eyes = new Container();
-    this.eyes.y = artY(CROWN) - HEAD_REST;
-    const crown = new Sprite(glowTexture());
-    crown.anchor.set(0.5);
-    crown.blendMode = "add";
-    crown.tint = LAVA_HOT;
-    crown.alpha = 0.45;
-    crown.setSize(300, 220);
-    this.eyes.addChild(crown);
+    this.eyes.x = rigX(LIGHTS.crown.x);
+    this.eyes.y = rigY(LIGHTS.crown.y) - HEAD_REST;
+    this.eyes.addChild(this.light(LAVA_HOT, 260, 190, 0.3));
     figure.addChild(this.eyes);
 
-    // Maw: what the roar, the spit and the lava breath open up.
+    // Maw: what the roar, the spit and the lava breath open up. On this art it
+    // is the furnace in the chest — where the sheet's own fire gathers, and so
+    // where the lava has to leave from.
     this.mouth = new Container();
-    this.mouth.y = artY(MAW) - HEAD_REST;
-    const maw = new Sprite(glowTexture());
-    maw.anchor.set(0.5);
-    maw.blendMode = "add";
-    maw.tint = LAVA;
-    maw.alpha = 0.5;
-    maw.setSize(260, 200);
-    this.mouth.addChild(maw);
+    this.mouth.x = rigX(LIGHTS.maw.x);
+    this.mouth.y = rigY(LIGHTS.maw.y) - HEAD_REST;
+    this.mouth.addChild(this.light(LAVA, 240, 190, 0.34));
     figure.addChild(this.mouth);
 
-    // Molten core, on the chest gem: the aim point every beam is thrown at, and
-    // the one part of the figure that pulses whether or not it is attacking.
+    // Molten core: the aim point every beam is thrown at, and the one part of
+    // the figure that pulses whether or not it is attacking.
     this.core = new Container();
-    this.core.y = -HEAD_REST;
-    this.coreGlow = new Sprite(glowTexture());
-    this.coreGlow.anchor.set(0.5);
-    this.coreGlow.blendMode = "add";
-    this.coreGlow.tint = LAVA;
-    this.coreGlow.setSize(340, 300);
+    this.core.x = rigX(LIGHTS.core.x);
+    this.core.y = rigY(LIGHTS.core.y) - HEAD_REST;
+    this.coreGlow = this.light(LAVA, 320, 280, 1);
     this.core.addChild(this.coreGlow);
     figure.addChild(this.core);
+
+    /** Where impactPoint sends the beams. */
+    this.coreY = rigY(LIGHTS.core.y);
+
+    /**
+     * The frames carry their own light, so the glows are a fraction of what
+     * they were over the drawn rig. Any more and the golem turns into an orange
+     * smear the moment it charges.
+     */
+    this.glowGain = 0.5;
+  }
+
+  /** One frame of the sheet, hung on the golem's feet. */
+  frameSprite() {
+    const s = new Sprite(frames[0]);
+    s.anchor.set(SHEET.anchor.x / SHEET.cell.w, SHEET.anchor.y / SHEET.cell.h);
+    s.setSize(SHEET.cell.w * K, SHEET.cell.h * K);
+    s.y = FEET_Y - HEAD_REST;
+    return s;
+  }
+
+  /** A tinted additive glow, sized in rig units. */
+  light(tint, w, h, alpha) {
+    const g = new Sprite(glowTexture());
+    g.anchor.set(0.5);
+    g.blendMode = "add";
+    g.tint = tint;
+    g.alpha = alpha;
+    g.setSize(w, h);
+    return g;
+  }
+
+  /** Show frame `i`, unless it is already up. */
+  setFrame(i) {
+    if (i === this.frame) return;
+    this.frame = i;
+    this.art.texture = frames[i];
+    this.flash.texture = frames[i];
+  }
+
+  /**
+   * Pick the frame this instant asks for.
+   *
+   * `charge` wins whenever it is off zero: an attack's wind-up is the one thing
+   * on screen that the player has to be able to read, and an idle bobbing
+   * underneath it would only muddy the tell.
+   */
+  advance(dt) {
+    // Not `> 0`: a tween can land a hair off zero, and the idle must not be
+    // held hostage by a rounding error.
+    if (this.charge > 0.005) {
+      const span = CHARGE_LAST - CHARGE_FIRST;
+      const at = Math.round(Math.min(1, this.charge) * span);
+      this.setFrame(CHARGE_FIRST + at);
+      return;
+    }
+    this.idleT += dt * IDLE_FPS;
+    // Ping-pong: 0..4 and back down again. A hard cut from the last frame to
+    // the first would pop, and there is no cross-fade to hide it behind.
+    const loop = IDLE_LAST * 2;
+    const at = Math.floor(this.idleT) % loop;
+    this.setFrame(at <= IDLE_LAST ? at : loop - at);
   }
 
   /* ----------------------------------------------------------- drawn rig */
@@ -264,6 +365,9 @@ export class Boss extends Container {
     this.headNode = this.buildHead();
     this.headNode.y = HEAD_REST;
     this.rig.addChild(this.headNode);
+
+    this.coreY = 6;
+    this.glowGain = 1;
   }
 
   drawBody(g) {
@@ -447,9 +551,9 @@ export class Boss extends Container {
     this.riseFrom = layout.boss.floor - layout.boss.y + 320 * layout.boss.scale;
   }
 
-  /** The chest: where every hero beam is thrown. The painted gem sits on it. */
+  /** The chest: where every hero beam is thrown, and where the core burns. */
   impactPoint() {
-    return { x: this.x, y: this.y + 6 * this.scale.y };
+    return { x: this.x, y: this.y + this.coreY * this.scale.y };
   }
 
   /* ------------------------------------------------------------ animation */
@@ -466,6 +570,7 @@ export class Boss extends Container {
     this.rig.y = -s * 8 + this.lunge;
 
     if (this.painted) {
+      this.advance(dt);
       // No arms of its own to raise, so the swing beat comes out of the whole
       // silhouette: the golem rises and stretches to wind up, and rides the
       // same curve back down into the floor.
@@ -490,12 +595,14 @@ export class Boss extends Container {
     const flicker = 0.82 + Math.sin(this.t * 9.3) * 0.08;
     this.eyes.alpha = flicker;
     this.aura.alpha =
-      (this.enraged ? 0.75 : 0.45) + Math.sin(this.t * 2.2) * 0.12;
+      ((this.enraged ? 0.75 : 0.45) + Math.sin(this.t * 2.2) * 0.12) *
+      this.glowGain;
 
     const pulse = Math.sin(this.t * (this.enraged ? 7 : 3.6));
     const coreBase = this.enraged ? 1.22 : 1;
     this.core.scale.set(coreBase * (1 + pulse * 0.05));
-    this.coreGlow.alpha = (this.enraged ? 0.85 : 0.6) + pulse * 0.2;
+    this.coreGlow.alpha =
+      ((this.enraged ? 0.85 : 0.6) + pulse * 0.2) * this.glowGain;
   }
 
   async rise() {
@@ -509,13 +616,15 @@ export class Boss extends Container {
     sfx.bossRoar();
     await Promise.all([
       tween(this.mouth.scale, { y: 2.1 }, 0.16, { ease: Ease.backOut }),
-      tween(this, { breath: 1.1 }, 0.16),
+      // Only into the first of the fire frames: a roar is the furnace opening
+      // up, not the throw that comes after it.
+      tween(this, { breath: 1.1, charge: 0.3 }, 0.16),
       tween(this.headNode, { y: HEAD_REST - 18 }, 0.16),
     ]);
     await delay(0.34);
     await Promise.all([
       tween(this.mouth.scale, { y: 1 }, 0.3, { ease: Ease.quadOut }),
-      tween(this, { breath: 1 }, 0.3),
+      tween(this, { breath: 1, charge: 0 }, 0.3),
       tween(this.headNode, { y: HEAD_REST }, 0.3),
     ]);
   }
@@ -523,7 +632,7 @@ export class Boss extends Container {
   /** Where lava globs leave the boss: the mouth. */
   mouthPoint() {
     return {
-      x: this.x,
+      x: this.x + this.mouth.x * this.scale.x,
       y: this.y + (this.headNode.y + this.mouth.y) * this.scale.y,
     };
   }
@@ -532,16 +641,20 @@ export class Boss extends Container {
   async spit() {
     sfx.bossSpit();
     await Promise.all([
-      tween(this, { breath: 0.9 }, 0.18, { ease: Ease.quadOut }),
+      tween(this, { breath: 0.9, charge: 0.6 }, 0.18, { ease: Ease.quadOut }),
       tween(this.headNode, { y: HEAD_REST + 14 }, 0.18),
     ]);
+    // All the way to the last frame on the throw itself: the fire is at its
+    // biggest on the frame the glob leaves, which is the frame the board is
+    // about to be hit on.
     await Promise.all([
       tween(this.mouth.scale, { y: 2.4 }, 0.12, { ease: Ease.backOut }),
-      tween(this, { breath: 1.12 }, 0.12),
+      tween(this, { breath: 1.12, charge: 1 }, 0.12),
       tween(this.headNode, { y: HEAD_REST - 8 }, 0.12),
     ]);
     tween(this.mouth.scale, { y: 1 }, 0.34, { delay: 0.18 });
     tween(this, { breath: 1 }, 0.3, { delay: 0.18 });
+    tween(this, { charge: 0 }, 0.26, { delay: 0.2 });
     tween(this.headNode, { y: HEAD_REST }, 0.3, { delay: 0.18 });
   }
 
@@ -557,7 +670,9 @@ export class Boss extends Container {
 
     // Inhale: pull the head back, jaw shut, everything winds up.
     await Promise.all([
-      tween(this, { breath: 0.88, lunge: -10 }, 0.24, { ease: Ease.quadOut }),
+      tween(this, { breath: 0.88, lunge: -10, charge: 0.8 }, 0.24, {
+        ease: Ease.quadOut,
+      }),
       tween(this.headNode, { y: HEAD_REST - 28 }, 0.24),
       tween(this.mouth.scale, { y: 0.55 }, 0.24),
     ]);
@@ -567,15 +682,19 @@ export class Boss extends Container {
 
     // Exhale: throw the head forward and open up.
     await Promise.all([
-      tween(this, { breath: 1.14, lunge: 18 }, 0.14, { ease: Ease.backOut }),
+      tween(this, { breath: 1.14, lunge: 18, charge: 1 }, 0.14, {
+        ease: Ease.backOut,
+      }),
       tween(this.headNode, { y: HEAD_REST + 20 }, 0.14, { ease: Ease.backOut }),
       tween(this.mouth.scale, { x: 1.35, y: 3.2 }, 0.14, {
         ease: Ease.backOut,
       }),
     ]);
 
+    // The furnace stays open for as long as the flame is out, and shuts with it.
     tween(this.mouth.scale, { x: 1, y: 1 }, 0.32, { delay: h });
     tween(this, { breath: 1, lunge: 0 }, 0.36, { delay: h });
+    tween(this, { charge: 0 }, 0.3, { delay: h });
     tween(this.headNode, { y: HEAD_REST }, 0.36, { delay: h });
   }
 
@@ -591,9 +710,17 @@ export class Boss extends Container {
    */
   async smash() {
     await Promise.all([
-      tween(this, { swing: 1.05, breath: 1.08, lunge: -14 }, 0.28, {
-        ease: Ease.quadOut,
-      }),
+      // Half a charge and no further: the fire frames put a fireball in the
+      // golem's hand by the end, and this attack ends with those hands in the
+      // floor. The first few only light the fists up, which is the tell.
+      tween(
+        this,
+        { swing: 1.05, breath: 1.08, lunge: -14, charge: 0.4 },
+        0.28,
+        {
+          ease: Ease.quadOut,
+        },
+      ),
       tween(this.headNode, { y: HEAD_REST - 20 }, 0.28),
     ]);
     // A held frame at the top: the tell that tells the player it is coming.
@@ -613,6 +740,9 @@ export class Boss extends Container {
       delay: 0.14,
       ease: Ease.elasticOut,
     });
+    // Its own tween, and not an elastic one: the recovery above overshoots, and
+    // a charge that rang past zero would flip back into the fire frames.
+    tween(this, { charge: 0 }, 0.2, { ease: Ease.quadOut });
     tween(this.headNode, { y: HEAD_REST }, 0.4, { delay: 0.14 });
     tween(this.mouth.scale, { y: 1 }, 0.34, { delay: 0.14 });
   }

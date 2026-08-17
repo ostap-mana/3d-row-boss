@@ -17,7 +17,8 @@ import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
 import { loadPlaque } from "./art/plaque.js";
-import { loadCtaButton } from "./art/button.js";
+import { loadCtaBanner } from "./art/ctabanner.js";
+import { loadBrandArt } from "./art/brand.js";
 import { loadHeroAvatars } from "./art/avatars.js";
 import { loadHpBarArt } from "./art/hpbar.js";
 import { Boss, loadBossArt } from "./art/boss.js";
@@ -56,16 +57,19 @@ async function boot() {
   // Decoded before the first frame: the arena so it is never briefly a
   // gradient, the painted gems because the board bakes its textures below and
   // a late arrival would miss that, the plaque because the Board constructor
-  // reads it to lay its grid out, the CTA plate because the EndCard picks it up
-  // as it is built, the golem because the Boss constructor either builds around
-  // the painting or falls back to the drawn rig, and the card plates and hero
-  // busts because each HeroCard does the same.
+  // reads it to lay its grid out, the gem banner because the Hud picks it up as
+  // it is built, the wordmark and the PLAY NOW plate and the store badges
+  // because the EndCard does the same, the golem because the
+  // Boss constructor either builds around the painting or falls back to the
+  // drawn rig, and the card plates and hero busts because each HeroCard does
+  // the same.
   // Every bitmap is inlined in this file, so these are decodes, not downloads.
   await Promise.all([
     loadArena(),
     loadGemArt(),
     loadPlaque(),
-    loadCtaButton(),
+    loadCtaBanner(),
+    loadBrandArt(),
     loadBossArt(),
     loadCardPlates(),
     loadHeroAvatars(),

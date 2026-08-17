@@ -10,12 +10,16 @@ import { BOSS_NAME, COPY, DOOM, FONT } from "../config.js";
 import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
 import { hpBarShape, hpBarPaint } from "../art/hpbar.js";
 import {
-  BUTTON_FILL,
-  BUTTON_LABEL,
-  BUTTON_RIM,
-  ctaButtonSprite,
-  fitCtaButton,
-} from "../art/button.js";
+  BANNER_BAR_H,
+  BANNER_FILL,
+  BANNER_LABEL,
+  BANNER_LABEL_FILL,
+  BANNER_LABEL_STROKE,
+  BANNER_RIM,
+  bannerHeight,
+  ctaBannerSprite,
+  fitCtaBanner,
+} from "../art/ctabanner.js";
 import { fitFont } from "./text.js";
 import * as sfx from "../audio/sfx.js";
 
@@ -129,12 +133,13 @@ export class Hud extends Container {
     this.banner = new Container();
     this.banner.alpha = 0;
     this.banner.visible = false;
-    // The same painted plate the end card's CTA wears — see art/button.js. The
-    // two install surfaces are the same button at two sizes, and the bitmap is
-    // already in the bundle for the other one, so this costs nothing.
+    // The painted gem banner — see art/ctabanner.js. It holds one aspect, so
+    // resize() asks it for a width and lets it name its own height; the end
+    // card's CTA keeps the nine-sliced gold plate, which is the only one of the
+    // two that can survive being pulled to 9:1 on a phone held sideways.
     this.bannerBg = new Graphics();
     this.banner.addChild(this.bannerBg);
-    this.bannerArt = ctaButtonSprite();
+    this.bannerArt = ctaBannerSprite();
     if (this.bannerArt) this.banner.addChild(this.bannerArt);
 
     this.bannerText = new Text({
@@ -143,8 +148,9 @@ export class Hud extends Container {
         fontFamily: FONT,
         fontSize: 15,
         fontWeight: "900",
-        fill: BUTTON_LABEL,
+        fill: BANNER_LABEL_FILL,
         letterSpacing: 1.2,
+        stroke: { color: BANNER_LABEL_STROKE, width: 3, join: "round" },
       },
     });
     this.bannerText.anchor.set(0.5);
@@ -201,6 +207,9 @@ export class Hud extends Container {
     this.layout = layout;
     const { x, y, w, h } = layout.hud;
     const ui = layout.ui;
+    // Set up front rather than just before the bake: the banner is placed off
+    // the doom strip, and doomRect() is measured from this.
+    this.barRect = { x, y, w, h };
 
     this.name.style.fontSize = Math.max(9, 11 * ui);
     this.name.x = x;
@@ -228,19 +237,44 @@ export class Hud extends Container {
     }
     this.callout.style.fontSize = this.calloutSize;
 
-    const bw = Math.max(74, 92 * ui);
-    const bh = Math.max(26, 32 * ui);
-    this.bannerText.style.fontSize = Math.max(11, 14 * ui);
+    /**
+     * The banner is asked for a width and gives back the height that goes with
+     * it — the art holds one aspect (see art/ctabanner.js) and this is where
+     * that is honoured.
+     *
+     * 124 is not arbitrary. The label only gets the flat middle of the gem,
+     * which is 0.53 of the art's height, and this is the width at which that
+     * band comes out at the 14pt the old drawn pill set its label at. Narrower
+     * and the word shrinks with it; there is no slack to take.
+     */
+    const bw = Math.max(100, 124 * ui);
+    const bh = bannerHeight(bw);
+    const labelW = bw * BANNER_LABEL.w;
+    const labelH = bh * BANNER_LABEL.h;
+    // Set before fitting, not after: the rim is part of what the word measures.
+    this.bannerText.style.stroke = {
+      color: BANNER_LABEL_STROKE,
+      width: Math.max(2, labelH * 0.16),
+      join: "round",
+    };
+    fitFont(this.bannerText, labelW, Math.min(labelH * 0.78, 15 * ui));
+
     this.bannerBg.clear();
     if (this.bannerArt) {
-      fitCtaButton(this.bannerArt, bw, bh);
+      fitCtaBanner(this.bannerArt, bw);
     } else {
-      // Stand-in for a bitmap that never decoded, in the plate's own colours.
-      this.bannerBg.roundRect(-bw / 2, -bh / 2, bw, bh, bh * 0.22);
-      this.bannerBg.fill({ color: BUTTON_FILL });
-      this.bannerBg.stroke({ width: 2, color: BUTTON_RIM });
+      // Stand-in for a bitmap that never decoded, in the banner's own colours.
+      // It draws the bar alone — the finials and the two stars are silhouette,
+      // and a plain rectangle out to their reach is not the shape of anything.
+      const barH = bh * BANNER_BAR_H;
+      this.bannerBg.roundRect(-bw / 2, -barH / 2, bw, barH, barH * 0.26);
+      this.bannerBg.fill({ color: BANNER_FILL });
+      this.bannerBg.stroke({
+        width: Math.max(2, barH * 0.1),
+        color: BANNER_RIM,
+      });
     }
-    // A few pixels of slack around the pill: it is a small target that slides
+    // A few pixels of slack around the plate: it is a small target that slides
     // into place, and a near miss on a CTA is a lost install.
     const slack = 7 * ui;
     this.banner.hitArea = new Rectangle(
@@ -249,14 +283,18 @@ export class Hud extends Container {
       bw + slack * 2,
       bh + slack * 2,
     );
+    // Hung off the bottom of the doom strip rather than off the health bar. The
+    // strip runs the full width of the HUD, so it passes under this corner, and
+    // the banner breathes at 1.045 in update() — the star on its top edge is
+    // what would touch first, so the clearance is measured against that.
+    const doom = this.doomRect();
     this.banner.x = layout.w - bw / 2 - 12 * ui;
-    this.banner.y = y + h + bh * 0.75;
+    this.banner.y = doom.y + doom.h + 3 * ui + (bh / 2) * 1.045;
 
     this.doomLabel.style.fontSize = Math.max(9, 11 * ui);
     this.doomLabel.x = x + w;
     this.doomLabel.y = y - 3 * ui;
 
-    this.barRect = { x, y, w, h };
     this.bakeBar();
     this.drawBar();
     this.drawDoom();
@@ -358,24 +396,34 @@ export class Hud extends Container {
    * together read as one gauge with two directions — his health going down,
    * his patience running out.
    */
-  drawDoom() {
-    if (!this.barRect) return;
+  /**
+   * Where the doom strip sits, drawn or not.
+   *
+   * Two callers: the draw below, and the banner, which shares this corner of
+   * the screen and has to clear the strip whether the clock is running yet or
+   * not. One formula, so the two cannot drift apart.
+   */
+  doomRect() {
     const { x, y, w, h } = this.barRect;
     const ui = this.layout ? this.layout.ui : 1;
+    return { x, y: y + h + 3 * ui, w, h: Math.max(3, h * 0.32) };
+  }
+
+  drawDoom() {
+    if (!this.barRect) return;
     const g = this.doomBar;
-    const bh = Math.max(3, h * 0.32);
-    const by = y + h + 3 * ui;
-    const r = bh / 2;
+    const { x, y, w, h } = this.doomRect();
+    const r = h / 2;
 
     g.clear();
     if (!this.doomOn) return;
 
-    g.roundRect(x, by, w, bh, r);
+    g.roundRect(x, y, w, h, r);
     g.fill({ color: 0x1c0a12, alpha: 0.9 });
 
     const left = Math.max(0, Math.min(1, this.doomLeft / this.doomTotal));
     if (left > 0.001) {
-      g.roundRect(x, by, w * left, bh, r);
+      g.roundRect(x, y, w * left, h, r);
       g.fill({ color: this.doomPanic() ? 0xff2f1a : 0xffa030 });
     }
   }
