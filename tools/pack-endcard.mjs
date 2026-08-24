@@ -2,11 +2,12 @@
  * Pack the end card's brand art — the wordmark, the PLAY NOW plate and the
  * three store badges — into something a playable ad can actually carry.
  *
- *   node tools/pack-endcard.mjs           # -> src/letters/*.webp
+ *   node tools/pack-endcard.mjs           # -> src/assets/brand/*.webp
  *   node tools/pack-endcard.mjs --png     # keep intermediate PNGs too
  *
  * The sources are the exports out of the marketing key art, dropped into
- * src/letters as they came off the design file: names with spaces in them,
+ * src/source/endcard as they came off the design file: names with spaces in
+ * them,
  * transparent margin all round, and — in the plate's case — 170 kB of PNG for a
  * button drawn about 300 points wide. Every byte of this build is inlined as
  * base64 into one index.html, so that lands as 230 kB of text.
@@ -29,7 +30,14 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DIR = join(ROOT, "src/letters");
+/**
+ * Sources in, packed art out — two directories now, where this used to write
+ * its results back beside the exports it read. The build imports one of these
+ * and not the other, and a folder that holds both is a folder where a 12 MB
+ * design export is one careless import away from the bundle.
+ */
+const IN_DIR = join(ROOT, "src/source/endcard");
+const OUT_DIR = join(ROOT, "src/assets/brand");
 
 /** Alpha at or under this is backdrop, not art. */
 const EMPTY = 12;
@@ -278,8 +286,8 @@ let before = 0;
 let after = 0;
 
 for (const job of JOBS) {
-  const source = join(DIR, job.src);
-  const out = join(DIR, job.out);
+  const source = join(IN_DIR, job.src);
+  const out = join(OUT_DIR, job.out);
 
   const info = probe(source);
   const raw = decode(source);

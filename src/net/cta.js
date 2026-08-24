@@ -5,12 +5,29 @@
  * AppLovin/Unity/ironSource all inject it, then the vendor-specific hooks.
  */
 
-import { STORE_URL } from "../config.js";
+import { STORE_URL, BADGE_STORE } from "../config.js";
 import * as sfx from "../audio/sfx.js";
 
 let fired = false;
 
-function storeUrl() {
+/**
+ * Where this tap leads.
+ *
+ * A badge asks for its own store, and it gets it: the Apple badge is a picture of
+ * the App Store, and opening Play from it on an Android phone would make three
+ * badges into one badge drawn three ways. Everything else asks for nothing —
+ * PLAY NOW, a tap on the card — and is sent to the store the device belongs to,
+ * which is the only sensible reading of a tap that did not name a platform.
+ *
+ * Worth something only where the destination is ours to pick: standalone, and
+ * under MRAID, which takes a URL. Meta, ExitApi and the `install()` family run
+ * whatever click-through the campaign was booked with and never see this — see
+ * ctaClick, where a wrapper overriding the choice is the normal case and not a
+ * failure.
+ */
+function storeUrl(source) {
+  const named = BADGE_STORE[source];
+  if (named && STORE_URL[named]) return STORE_URL[named];
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
     ? STORE_URL.ios
     : STORE_URL.android;
@@ -18,7 +35,8 @@ function storeUrl() {
 
 /**
  * Send the player to the store.
- * @param {string} source which surface was tapped — kept for analytics parity
+ * @param {string} source which surface was tapped — the analytics label, and the
+ *   store the badges route by. See storeUrl.
  */
 export function ctaClick(source) {
   // Networks dislike duplicate open() calls; one per session is plenty.
@@ -26,7 +44,7 @@ export function ctaClick(source) {
   fired = true;
   sfx.cta();
 
-  const url = storeUrl();
+  const url = storeUrl(source);
   const w = window;
 
   try {

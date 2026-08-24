@@ -12,7 +12,7 @@
 
 import { Container, Sprite, Texture, ImageSource } from "pixi.js";
 import { glowTexture, gradientTexture } from "./textures.js";
-import arenaUrl from "../assets/arena-sky.webp";
+import arenaUrl from "../assets/arena/sky.webp";
 
 /**
  * Height fraction of the source art where the cloud shelf sits.

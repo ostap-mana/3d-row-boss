@@ -7,6 +7,7 @@
  */
 
 import { FRAME_ART, FRAME_OPENING } from "../art/boardframe.js";
+import { BANNER_ART } from "../art/ctabanner.js";
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -22,112 +23,327 @@ const GRID_RATIO =
   1 / Math.max(FRAME_ART.w / FRAME_OPENING.w, FRAME_ART.h / FRAME_OPENING.h);
 
 /**
- * Inset of the card band inside the row's box, as fractions of that box.
+ * The hero card, and the row's margins around it.
  *
- * These were the well of the painted tray the row used to stand in, read off its
- * art. The tray is gone and the cards stand on the arena, but the inset stays:
- * it is the margin that holds the row off the bottom of the screen, and the size
- * every card was sized and tuned at.
+ * The row used to be a share of the screen's height, with the cards taking
+ * whatever a fixed inset left of it. That works on a tall phone and fails on a
+ * short one, because the two sides of a card come off different axes: its width
+ * is the viewport's width divided six ways, and its height was the viewport's
+ * height times a constant. On a 390x844 phone those two numbers happen to agree
+ * and the card comes out 56 by 117 — a portrait. On a 375x667 phone the width
+ * barely moves and the height loses a quarter, and the same card comes out 54 by
+ * 92, which is not a portrait of anybody: it is a tile with a name across it.
+ *
+ * So the row is sized from the card instead. The width is what six of them and
+ * five gaps make of the viewport, the aspect decides the height, and the row's
+ * box is whatever that adds up to — the same card on every phone. What the row
+ * takes comes out of the boss's band, which is the only region on this screen
+ * with slack, and out of the board only on the screens short enough to need it.
  */
-const BAND = { x: 0.016, y: 0.076, w: 0.968, h: 0.847 };
+const CARD = {
+  /**
+   * Width over height.
+   *
+   * 0.48 is the roster art's own framing: the busts are head-and-shoulders, and
+   * a card near enough half as wide as it is tall crops them at the sides — a
+   * shoulder each way — rather than through the jaw.
+   */
+  aspect: 0.48,
+  /** Gap between two cards, as a fraction of the width the row ends up with. */
+  gap: 0.011,
+  /** Air under the row, as a fraction of a card's height. */
+  foot: 0.1,
+  /**
+   * Ceiling on a card's height, as a fraction of the viewport's height.
+   *
+   * Two numbers because the two orientations hit it for opposite reasons.
+   *
+   * Landscape reaches it because the column the row stands in is wide against
+   * how tall it is — 500 points across and 390 tall — so six cards at the aspect
+   * would ask for 160 points of a 390 point screen and take them off the boss.
+   *
+   * Portrait reaches it only on a short phone, and the reason is the boss. Six
+   * cards at the aspect want a fifth of a 640 point screen, and a 640 point
+   * screen does not have a fifth to spare once the board has taken the width it
+   * is owed: the golem came out at 0.23 scale, which is a shape rather than a
+   * monster. A sixth is the share at which he reads and the cards are still
+   * portraits — cardBand narrows the card to hold the aspect rather than
+   * squashing it, so what a short phone loses is a little row width, not the
+   * framing of anybody's face.
+   */
+  tall: { portrait: 0.165, landscape: 0.34 },
+};
 
-/** The card band inside a row box. */
-function bandInside(row) {
-  return {
-    x: row.x + row.w * BAND.x,
-    y: row.y + row.h * BAND.y,
-    w: row.w * BAND.w,
-    h: row.h * BAND.h,
-  };
+/**
+ * The band of `count` cards that fits `avail` wide and `maxH` tall, centred in
+ * the width it was offered.
+ *
+ * Width first: the aspect turns it into a height, and if that height is more
+ * than there is, the height becomes the given and the aspect turns it back into
+ * a narrower card. Either way the band is exactly the cards and the gaps
+ * between them, so nothing downstream has to know which of the two ran.
+ *
+ * `avail` is the width the row actually gets. The margin that used to be taken
+ * off in here is the caller's now — there is one gutter on this screen and the
+ * row is not the only thing keeping to it, so it is measured in one place. See
+ * gutter().
+ */
+function cardBand(x, avail, count, maxH) {
+  const inner = avail;
+  const gap = inner * CARD.gap;
+  let cardW = (inner - gap * (count - 1)) / count;
+  let cardH = cardW / CARD.aspect;
+
+  if (cardH > maxH) {
+    cardH = maxH;
+    cardW = cardH * CARD.aspect;
+  }
+
+  const w = cardW * count + gap * (count - 1);
+  return { x: x + (avail - w) / 2, w, h: cardH, gap };
 }
 
-export function computeLayout(w, h) {
+/**
+ * The one margin every piece of chrome keeps off the edge of the screen.
+ *
+ * There used to be three. The health bar sat at `pad * 1.6`, the hero row at
+ * 2.1% of the width, and the board went edge to edge — so on a 390 point screen
+ * the bar was inset 16 points, the cards 8, and the board 0. Three gutters is
+ * three left edges, and nothing on the screen lined up with anything else.
+ *
+ * Now there is this, and the board. The board is deliberately not in it: a
+ * full-bleed play field under inset chrome is a decision, and it only reads as
+ * one while the chrome agrees with itself about where the edge is.
+ */
+function gutter(w) {
+  return clamp(w * 0.042, 12, 28);
+}
+
+/**
+ * The persistent CTA plate, sized and placed here rather than hung off a corner
+ * by whoever draws it.
+ *
+ * It was the HUD's own business and it had no business being: a banner that
+ * decides for itself which corner it likes is a banner that lands on whatever
+ * is already there, and in landscape what is already there is the board. The
+ * layout is the one thing on this screen that knows where everything else is,
+ * so it hands the HUD a box and the HUD fills it. See ui/hud.js.
+ *
+ * 124 is not arbitrary — it is the width at which the flat middle of the gem
+ * plate carries its label at the 14 points the old drawn pill set it at, and
+ * narrower means a smaller word with no slack to take. The height comes off the
+ * art's own aspect, and the 1.045 is the breath the HUD gives it in update():
+ * the star on its top edge is what touches first, so the box has to be measured
+ * against the plate at its largest, not at rest.
+ */
+const BANNER_W = 124;
+const BANNER_BREATH = 1.045;
+
+function bannerBox(ui) {
+  const w = Math.max(100, BANNER_W * ui);
+  return { w, h: ((w * BANNER_ART.h) / BANNER_ART.w) * BANNER_BREATH };
+}
+
+/**
+ * @param {{top:number,right:number,bottom:number,left:number}} [safe] device
+ *   insets — the notch, the home indicator. Measured in main.js; zero is a
+ *   perfectly good answer and every browser without cutouts gives it.
+ */
+export function computeLayout(w, h, safe) {
+  const inset = safe || { top: 0, right: 0, bottom: 0, left: 0 };
   const portrait = h >= w;
   const ui = clamp(Math.min(w, h) / 375, 0.72, 2.0);
 
-  return portrait ? portraitLayout(w, h, ui) : landscapeLayout(w, h, ui);
+  return portrait
+    ? portraitLayout(w, h, ui, inset)
+    : landscapeLayout(w, h, ui, inset);
 }
 
-function portraitLayout(w, h, ui) {
+/**
+ * How far the boss's floor is allowed past the top edge of the board, as a
+ * fraction of the board's height.
+ *
+ * He used to stop dead above it, which on a short phone meant the two of them
+ * were competing for the same points and he lost. But there is no edge there to
+ * stop at any more: the field under the gems feathers out over its top tenth —
+ * see art/boardframe.js — so a golem standing a little into it has his ankles
+ * behind a fade rather than cut off by a border. Seven percent buys most of the
+ * height a short phone was short of, and reads as depth rather than as overlap.
+ */
+const BOSS_OVERLAP = 0.07;
+
+/**
+ * Floor under the boss's band, as a fraction of the viewport's height.
+ *
+ * Under about a fifth he stops being a monster and becomes a smudge over the
+ * board. This is the term the board now yields to, rather than the other way
+ * round — with the overlap above and an honestly measured top chrome, both of
+ * them can be had at once on every phone in the matrix.
+ */
+const BOSS_MIN = 0.215;
+
+function portraitLayout(w, h, ui, safe) {
   const pad = 10 * ui;
+  const gut = gutter(w);
 
-  const hudH = clamp(h * 0.085, 48, 96);
+  /* ------------------------------------------------------------ top chrome */
 
-  // Outer box the hero row is allotted, not the cards themselves: the band
-  // inside it is what they get.
-  const rowH = clamp(h * 0.125, 66, 132);
-  const row = {
-    x: pad * 0.5,
-    y: h - rowH - pad * 0.5,
-    w: w - pad,
-    h: rowH,
-  };
+  // Measured rather than budgeted. This was `clamp(h * 0.085, 48, 96)`, a guess
+  // at how much room the boss name, the health bar and the doom strip need — and
+  // a guess that ran 12 points long on a 640 point screen, which is 12 points
+  // the golem could have had. The block is the name, the bar, and the strip
+  // under it at the offsets ui/hud.js actually draws them at.
+  const barH = clamp(h * 0.018, 12, 26);
+  // The name is set at 11 * ui and drawn with an ascender, so it measures about
+  // 15 — and this is that plus the air a top edge wants when there is no cutout
+  // to stand off from. At 13 it came out with five points over it on a phone
+  // with no notch, which is a title touching the bezel.
+  const nameH = 16 * ui;
+  const hudY = safe.top + pad * 0.9 + nameH;
+  const doomH = Math.max(3, barH * 0.32);
+  const chromeBottom = hudY + barH + 3 * ui + doomH;
 
-  // The board is the hero of the screen: as wide as we can afford, but never
-  // so tall that the boss gets squeezed out of frame.
+  /* --------------------------------------------------------------- the row */
+
+  // Full width bar the gutter, and it stands on the bottom edge with a tenth of
+  // a card under it — plus whatever the device keeps for its home indicator,
+  // which is where the row's own health bars were sitting.
+  const chromeW = w - safe.left - safe.right - gut * 2;
+  const band = cardBand(safe.left + gut, chromeW, 6, h * CARD.tall.portrait);
+  const row = { y: h - safe.bottom - band.h * (1 + CARD.foot) };
+
+  /* ------------------------------------------------------- board and boss */
+
+  // The board is the hero of the screen and it is the whole width of it. `size`
+  // is the grid itself: with the frame gone the box and the play field are the
+  // same square, so every point of the width is gem.
   //
-  // `size` is the painted frame's outer box, not the grid — the jewelled
-  // border takes about 16% of it, so this budget is that much larger than the
-  // bare grid needed. The boss pays for it out of the band above.
-  const size = Math.min(w - pad * 2, h * 0.5, 560);
+  // What is left between the top chrome and the row, the board and the boss
+  // share — and the share is solved rather than split. The boss is owed BOSS_MIN
+  // and his floor may sit BOSS_OVERLAP of the board's height inside it, so
+  //
+  //   bossTop + h * BOSS_MIN  =  boardY + size * BOSS_OVERLAP
+  //   boardY                  =  row.y - pad * 0.8 - size
+  //
+  // and the size that satisfies both is the one below. The board takes the whole
+  // width on every phone from a 360 up; on the shortest of them it lands a point
+  // or two short, which the field's own bleed covers.
+  const bossTop = chromeBottom + pad * 0.6;
+  const room =
+    (row.y - pad * 0.8 - bossTop - h * BOSS_MIN) / (1 - BOSS_OVERLAP);
+  // The width or the share, whichever runs out first — and nothing else. There
+  // was a third term, a flat 560, and it is the kind of number that is invisible
+  // on the device it was written for and wrong on every other one: past a 560
+  // point screen the board stopped growing while the row, the boss and the type
+  // all kept going, so the biggest thing on the screen became a hero card and
+  // the play field sat in the middle of a margin. Every term here is now a
+  // measurement of this screen.
+  const size = Math.min(w, room);
   const cell = (size * GRID_RATIO) / 5;
   const boardY = row.y - pad * 0.8 - size;
   const boardX = (w - size) / 2;
 
-  const bossTop = hudH + pad * 0.4;
-  const bossH = boardY - bossTop - pad * 0.5;
-  const bossW = w * 0.92;
-  const bossScale = Math.min(bossW / BOSS_ART.w, bossH / BOSS_ART.h);
+  const bossFloor = boardY + size * BOSS_OVERLAP;
+  const bossH = bossFloor - bossTop;
+  const bossScale = Math.min((w * 0.92) / BOSS_ART.w, bossH / BOSS_ART.h);
+
+  // Under the doom strip at the chrome's right edge, which in portrait is the
+  // screen's right edge less the gutter. Nothing is reserved for it: the board
+  // in portrait starts a long way below the chrome — it is the boss's band that
+  // is up here — and the plate has never had to be fitted in against anything.
+  const plate = bannerBox(ui);
 
   return {
     w,
     h,
     ui,
     portrait: true,
+    safe,
     board: { x: boardX, y: boardY, size, cell },
+    banner: {
+      x: safe.left + gut + chromeW - plate.w / 2,
+      y: chromeBottom + 3 * ui + plate.h / 2,
+      w: plate.w,
+      h: plate.h,
+    },
     boss: {
       x: w / 2,
       y: bossTop + bossH * 0.52,
       scale: bossScale,
-      floor: bossTop + bossH,
+      floor: bossFloor,
     },
-    cards: { ...bandInside(row), gap: 6 * ui },
+    cards: { ...band, y: row.y },
     hud: {
-      x: pad * 1.6,
-      // Leaves room above the bar for the boss name and any notch cutout.
-      y: pad * 1.1 + 14 * ui,
-      w: w - pad * 3.2,
-      h: clamp(h * 0.018, 12, 26),
+      x: safe.left + gut,
+      y: hudY,
+      w: chromeW,
+      h: barH,
     },
   };
 }
 
-function landscapeLayout(w, h, ui) {
+function landscapeLayout(w, h, ui, safe) {
   const pad = 9 * ui;
+  const gut = gutter(h);
 
-  const hudH = clamp(h * 0.13, 40, 84);
+  const barH = clamp(h * 0.032, 10, 22);
+  const nameH = 15 * ui;
+  const hudY = safe.top + pad * 0.8 + nameH;
+  const chromeBottom = hudY + barH + 3 * ui + Math.max(3, barH * 0.32);
 
-  // Board hugs the right edge — thumb reach on a held-sideways phone.
-  // Same as portrait: this is the frame's outer box, so the grid inside it is
-  // roughly 84% of the number.
-  const size = Math.min(h - hudH - pad * 2.4, w * 0.5, 520);
+  // Board hugs the right edge — thumb reach on a held-sideways phone. Sideways
+  // is also where the cutout is: it lands on one of the short edges, so the
+  // inset that matters here is the horizontal one and the board is what would
+  // have run under it.
+  const rightEdge = w - safe.right - pad * 1.4;
+
+  /**
+   * The CTA gets a band of its own across the top, and the board starts under
+   * it. This is the one region on the screen that is bought rather than found.
+   *
+   * Sideways there is nothing to find. The boss stands in his column from the
+   * chrome down to the hero row and the board fills the rest of the screen, so
+   * every corner a banner might hang itself in belongs to something: hung on the
+   * screen's right it landed on the top right of the grid, and moved to the
+   * column's right it came to rest eighteen points off the board's own edge,
+   * pressed into the seam between a bright arena and a near-black field.
+   *
+   * So it is given a band instead, and the board yields the height for it. What
+   * that costs is only ever paid where the height was what bound the board: a
+   * board held by `w * 0.5` has slack above it already and comes out the same
+   * size it was, which is every landscape wider than about 2:1. On a 16:9 screen
+   * it is a little over a tenth of the board — a cell of 145 points against 126,
+   * both of them still well past the flat 520 this used to be capped at.
+   */
+  const plate = bannerBox(ui);
+  const bannerY = chromeBottom + 3 * ui + plate.h / 2;
+  const bandBottom = bannerY + plate.h / 2 + pad * 0.6;
+
+  // What the height leaves under the CTA band, or half the width — the half
+  // being what keeps a column for the boss and the row to stand in. A flat 520
+  // used to sit alongside them and it is gone for the reason the portrait cap
+  // is: on anything roomier than a phone it was the term that won, and it won by
+  // leaving the bottom quarter of the screen empty under a board that had
+  // stopped growing.
+  const size = Math.min(
+    h - safe.top - safe.bottom - bandBottom - pad * 1.4,
+    w * 0.5,
+  );
   const cell = (size * GRID_RATIO) / 5;
-  const boardX = w - size - pad * 1.4;
-  const boardY = hudH + (h - hudH - size) / 2;
+  const boardX = rightEdge - size;
+  const boardY = bandBottom + (h - safe.bottom - bandBottom - size) / 2;
 
-  const leftW = boardX - pad * 2;
+  const leftEdge = safe.left + gut;
+  const leftW = boardX - pad - leftEdge;
 
-  // The same row as portrait, in the column the board leaves it. It stops half a
-  // pad short of the frame, which is the only edge here it must not touch.
-  const rowH = clamp(h * 0.19, 54, 116);
-  const row = {
-    x: pad * 0.5,
-    y: h - rowH - pad * 0.5,
-    w: boardX - pad,
-    h: rowH,
-  };
+  // The same card as portrait, in the column the board leaves it. The column is
+  // wide against how tall it is, so here the aspect asks for more height than
+  // there is and CARD.tall.landscape is what actually sets the card — see
+  // cardBand, which narrows it to hold the framing.
+  const band = cardBand(leftEdge, leftW, 6, h * CARD.tall.landscape);
+  const row = { y: h - safe.bottom - band.h * (1 + CARD.foot) };
 
-  const bossTop = hudH;
+  const bossTop = chromeBottom;
   const bossH = row.y - bossTop - pad;
   const bossScale = Math.min((leftW * 0.98) / BOSS_ART.w, bossH / BOSS_ART.h);
 
@@ -136,19 +352,36 @@ function landscapeLayout(w, h, ui) {
     h,
     ui,
     portrait: false,
+    safe,
     board: { x: boardX, y: boardY, size, cell },
     boss: {
-      x: pad + leftW / 2,
+      x: leftEdge + leftW / 2,
       y: bossTop + bossH * 0.5,
       scale: bossScale,
       floor: bossTop + bossH,
     },
-    cards: { ...bandInside(row), gap: 5 * ui },
+    cards: { ...band, y: row.y },
+    // Right-aligned on the board's own right edge, which is the screen's. The
+    // plate and the grid under it share an edge, so the two read as one column
+    // of chrome rather than as a badge that happened to land there.
+    banner: {
+      x: rightEdge - plate.w / 2,
+      y: bannerY,
+      w: plate.w,
+      h: plate.h,
+    },
+    // The bar gets the boss's column and not a point more. It used to be
+    // `max(w * 0.4, column)`, a floor under how short the health bar is allowed
+    // to get — and a floor that, the moment it was the one that won, ran the bar
+    // and the doom clock in under the board. A column narrow enough to trip it
+    // is a column with a narrow health bar in it; that is the honest answer, and
+    // it is the one thing on this screen that cannot be allowed to overlap the
+    // grid, because the banner hangs off its right edge. See ui/hud.js.
     hud: {
-      x: pad * 1.4,
-      y: pad * 0.9 + 13 * ui,
-      w: w * 0.52,
-      h: clamp(h * 0.032, 10, 22),
+      x: leftEdge,
+      y: hudY,
+      w: leftW,
+      h: barH,
     },
   };
 }

@@ -49,7 +49,7 @@ const MIN_SWAPS = 2;
  *
  * Light, where every version of this before it was dark. The basalt field was
  * bright where it cracked and the jewelled field was navy, so both could be
- * divided into cells by shading them — but the plaque's field is very nearly
+ * divided into cells by shading them — but the plate's field is very nearly
  * black, and there is nothing left under it to take away. So the checker is put
  * in rather than taken out, in the rule's own gold so that the board reads as one
  * prop, and at an alpha that divides the cells without lighting them.
@@ -107,6 +107,14 @@ export class Board extends Container {
     this.onPop = null;
     this.onInvalid = null;
     this.onInteract = null;
+    /**
+     * The player's own touch, in board-local pixels, so the tutorial hand can
+     * ride it — down, moved, and let go. Separate from `onInteract`, which fires
+     * once to say somebody is playing and carries nothing about where.
+     */
+    this.onTouchStart = null;
+    this.onTouchMove = null;
+    this.onTouchEnd = null;
     this.onShatter = null;
     this.onShuffle = null;
 
@@ -246,10 +254,11 @@ export class Board extends Container {
    * Sit the frame in the square the layout allots, then hand the grid whatever
    * the opening leaves.
    *
-   * The frame is square and so is its opening, so it fills the box exactly and
-   * the grid is simply what the rule leaves inside it. The scaling this used to
-   * do unevenly, to square up a painted opening that was not, went with the
-   * painting — see art/boardframe.js.
+   * The frame is not quite square and neither is its opening — it is a painted
+   * prop, not a shape — so each axis is scaled by what its own side of the
+   * opening asks for, and the larger of the two decides how big a square grid
+   * fits. The difference between the axes is a fraction of a percent, which is
+   * invisible in the ornament and would be a visible misalignment in the grid.
    */
   fitFrame() {
     if (!this.plate) {
@@ -268,7 +277,13 @@ export class Board extends Container {
     const fw = FRAME_ART.w * sx;
     const fh = FRAME_ART.h * sy;
 
-    fitBoardFrame(this.plate, (this.size - fw) / 2, (this.size - fh) / 2, fw);
+    fitBoardFrame(
+      this.plate,
+      (this.size - fw) / 2,
+      (this.size - fh) / 2,
+      fw,
+      fh,
+    );
 
     this.originX = this.plate.x + FRAME_OPENING.x * sx;
     this.originY = this.plate.y + FRAME_OPENING.y * sy;
@@ -350,11 +365,13 @@ export class Board extends Container {
     const cell = this.cellAt(p.x, p.y);
     if (!cell) return;
     this.drag = { start: cell, x: p.x, y: p.y, fired: false };
+    if (this.onTouchStart) this.onTouchStart(p.x, p.y);
   }
 
   handleMove(e) {
     if (!this.drag || this.drag.fired || !this.inputEnabled) return;
     const p = e.getLocalPosition(this);
+    if (this.onTouchMove) this.onTouchMove(p.x, p.y);
     const dx = p.x - this.drag.x;
     const dy = p.y - this.drag.y;
     const threshold = this.cell * SWIPE_RATIO;
@@ -371,6 +388,9 @@ export class Board extends Container {
     this.drag.fired = true;
     const from = this.drag.start;
     this.drag = null;
+    // The swipe is spent the moment it fires, so the hand comes off here rather
+    // than at pointerup — which on a flick arrives long after the gems moved.
+    if (this.onTouchEnd) this.onTouchEnd();
     this.clearSelection();
     if (this.inBounds(target)) this.attemptSwap(from, target);
   }
@@ -378,6 +398,7 @@ export class Board extends Container {
   handleUp(e) {
     const drag = this.drag;
     this.drag = null;
+    if (drag && !drag.fired && this.onTouchEnd) this.onTouchEnd();
     if (!drag || drag.fired || !this.inputEnabled) return;
 
     // No swipe: fall back to tap-tap selection, which some players prefer.
@@ -444,7 +465,7 @@ export class Board extends Container {
   /**
    * Drop the pending waitForMove without resolving it.
    *
-   * The player can now spend Nyx instead of swapping, so the turn is a race
+   * The player can now spend Arissa instead of swapping, so the turn is a race
    * between two inputs. Whichever loses has to stop listening, or the next
    * swap would resolve a turn that was already spent.
    */
@@ -883,7 +904,7 @@ export class Board extends Container {
     await Promise.all(jobs);
   }
 
-  /** Wipe every gem of one element — the Nyx ultimate. */
+  /** Wipe every gem of one element — the healer's ultimate. */
   async clearElement(type) {
     const cells = [];
     for (let r = 0; r < ROWS; r++) {
@@ -1157,7 +1178,7 @@ export class Board extends Container {
     return targets.length;
   }
 
-  /** The Nyx ultimate wipes the board clean of obsidian. */
+  /** The healer's ultimate wipes the board clean of obsidian. */
   async clearAllObsidian() {
     const targets = [];
     for (let r = 0; r < ROWS; r++) {

@@ -21,11 +21,20 @@ import {
   HEROES,
   HERO_CRITICAL,
   HERO_HP_FLOOR,
+  HERO_MAX_HP,
+  HERO_MAX_CHARGE,
 } from "../config.js";
-import { drawGemShape } from "./gems.js";
+import { drawGemShape, gemTexture } from "./gems.js";
 import { cardPlate } from "./plates.js";
+import { cardFrameSprite, cardFrameRadius, fitCardFrame } from "./cardframe.js";
+import {
+  barTroughTexture,
+  manaPaintTexture,
+  hpPaintTexture,
+  BAR_INSET,
+} from "./cardbars.js";
 import { heroBust, heroRoundel } from "./avatars.js";
-import { glowTexture } from "./textures.js";
+import { glowTexture, gradientTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { tween, tweenValue, delay, killTweensOf, Ease } from "../core/tween.js";
 import { lerpColor } from "../core/color.js";
@@ -40,6 +49,100 @@ const HP_LOW = 0xff3b2f;
 const HURT_FLASH = 0xff4a3a;
 /** Rest tint of a hero who has been knocked out. */
 const DOWN_TINT = 0x6a6270;
+
+/**
+ * How much of a cover fit's vertical overflow is taken off the bottom rather
+ * than shared with the top. 0 centres the bust the way a cover fit does by
+ * default; 0.5 puts the top of the art flush with the top of the card.
+ *
+ * 0.34 keeps a little air over the head — a crown clipped by a millimetre reads
+ * worse than one with room, and these six are the roster this creative is
+ * selling.
+ */
+const HEAD_BIAS = 0.34;
+
+/**
+ * How lit the painted frame is at rest, against fully lit when the hero is
+ * charged. The card already grows, glows and changes its caption when an
+ * ultimate is ready; this is the edge joining in rather than announcing it.
+ */
+const FRAME_REST = 0.82;
+
+/**
+ * The wash the card's readouts sit on, and how far up the card it runs.
+ *
+ * Drawn by the card rather than baked into the bust — see avatars.js, which
+ * still lays the hero's own element colour over the bottom of the art. The
+ * difference matters: the bust is square and the card is not, so the card
+ * cover-fits it and crops whatever runs past the short side. A scrim painted
+ * into the art therefore lands wherever the crop leaves it, and on a card wider
+ * than it is tall the dark end of it falls off the bottom edge entirely — which
+ * is exactly where the name is, and why the name was reading over a chin.
+ *
+ * There is only one of these now. The card used to carry a second wash across
+ * the top to hold a health bar up there, and between the two of them the
+ * portrait was fenced in at both ends. Everything the card has to say is said
+ * along one edge instead — see `readouts` — so the top of the tile is the hero
+ * and nothing else.
+ */
+const FOOT_SCRIM = [
+  [0, "rgba(9,5,16,0)"],
+  [0.45, "rgba(9,5,16,0.46)"],
+  [1, "rgba(9,5,16,0.93)"],
+];
+const FOOT_BAND = 0.46;
+
+/**
+ * The element sigil every card wears in its top left corner.
+ *
+ * The card says its element three other ways — the frame's hue, the plate under
+ * the art, the wash along the bottom — and all three are colour. Colour alone is
+ * a poor thing to hang the one mechanic the row runs on: which gem charges which
+ * hero. At card size, in a row of six, the orange one and the gold one are the
+ * same card, and a player who cannot tell them apart cannot tell why their match
+ * lit the hero it did. The sigil is that reading in a shape.
+ *
+ * It is the board's own gem and nothing else — see gemTexture. No disc behind
+ * it, no ring around it: the gems are opaque roundels that carry their own edge,
+ * and at pip size a backing plate and a rim read as two more circles drawn round
+ * a circle. What the player is being pointed at is the thing they are matching,
+ * so the card shows them exactly that and no ornament of its own.
+ */
+const SIGIL = { k: 0.32, min: 13, max: 30, gap: 0.05 };
+
+/** element -> drawn-shape fallback, baked at most once each */
+const sigils = {};
+
+/**
+ * The gem for one element, at pip size.
+ *
+ * Almost always the board's own texture, handed straight over. The bake below is
+ * only reached before initGemTextures has run, which the scene's build order
+ * rules out — see main.js — and is kept because a texture this file cannot
+ * produce is not a reason for a card to be built without its element on it.
+ */
+function elementSigil(element) {
+  const board = gemTexture(element);
+  if (board) return board;
+  if (sigils[element]) return sigils[element];
+
+  // The same padded box the board's bakes use, so both kinds size alike.
+  const ART = 100;
+  const PAD = 8;
+  const holder = new Graphics();
+  holder.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
+  holder.fill({ color: 0xffffff, alpha: 0 });
+  drawGemShape(holder, element);
+
+  const tex = getRenderer().generateTexture({
+    target: holder,
+    resolution: 2,
+    antialias: true,
+  });
+  holder.destroy();
+  sigils[element] = tex;
+  return tex;
+}
 
 let portraitTextures = null;
 let cardArtTextures = null;
@@ -179,6 +282,477 @@ function heroCardArt(index) {
   return cardArtTextures[index];
 }
 
+/**
+ * The rim the trough art used to carry, as a fraction of the bar's depth, and
+ * the seed for every proportion in the readout stack: the type's air, the space
+ * between the two bars, and the weight of the outline on the numbers.
+ *
+ * The same number as BAR_INSET, which is where it is measured — this is a second
+ * name for it rather than a second value, because everything below reads it as a
+ * rim rather than as an inset and the arithmetic is unreadable otherwise.
+ *
+ * Used to, because the gauge is unframed now and the packer drops that rim
+ * before it ships the track — see cardbars.js. It stays as the measure the stack
+ * is spaced by: it is a proportion off the art either way, and a layout keeps
+ * its rhythm whether or not the edge it was taken from is still being drawn.
+ */
+const BAR_RIM = BAR_INSET;
+
+/**
+ * Where the card's readouts sit, measured up from its bottom edge.
+ *
+ * One stack, not three placements. The name used to sit in the middle of the
+ * art, the health bar rode the top edge and the charge bar the bottom, so a tile
+ * the size of a thumbnail was fenced at both ends and captioned across the
+ * middle. Read up from the bottom they are a caption and two gauges, and the
+ * whole top half of the card is the hero.
+ *
+ * The two gauges are the same width and the same height as each other, and both
+ * are wide enough to carry their own numbers. The charge used to be a hairline
+ * along the bottom edge at two thirds the health bar's height and a different
+ * width again — trim rather than a gauge — on the reasoning that a second,
+ * slower number deserved less. It is a gauge: a party screen shows health over
+ * charge as a matched pair, and the moment either one has to say `8000 / 8000`
+ * the argument for a hairline is over.
+ *
+ * The foot is what keeps the lower gauge clear of the painted frame rather than
+ * merely inside the card. The border is the hero's own colour and so is the
+ * charge; with the two touching they read as one thick edge with a bright patch
+ * on it.
+ *
+ * One width for all three. The name used to be fitted to 0.92 of the card while
+ * the bars kept to 0.86, which is a difference small enough to look like a
+ * mistake rather than a decision: every name longer than ARISSA overhung the
+ * gauges under it by a couple of points at each end, and three stacked things at
+ * two different widths never settle. `barW` is the measure now, and the name and
+ * the READY that replaces it are fitted to it.
+ *
+ * The gap is two rims deep — see BAR_RIM. At one rim the two bars very nearly
+ * touched and read as a single double-height widget with a scratch across the
+ * middle of it; at two they are two gauges. Spacing a stack by the weight of the
+ * border inside it is the cheapest kind of rhythm there is: nothing in the layout
+ * needs a number of its own, and if the trough art is ever redrawn with a deeper
+ * rim the whole stack loosens with it.
+ *
+ * A bar's depth is BAR_SHARE of the card, and a bar with a reading in it is
+ * also never shallower than the depth that reading needs — see READOUT_MIN, and
+ * readoutDepth, which is the fit below solved for the depth. On anything roomier
+ * than a phone the share is the deeper of the two and the stack is proportional
+ * to the card it stands on. On a phone the floor is, and that is the whole of
+ * this card's difficulty: six cards across a 390 point screen is 56 points each,
+ * 8.8% of which is a gauge whose digits stand six points tall.
+ *
+ * So the floor is paid once rather than twice. The health bar takes it, because
+ * health is the number the fight is actually spending. The charge bar keeps its
+ * share and says what it has to say without printing anything — it is a bar
+ * filling up, the sigil in the card's corner already says whose colour fills it,
+ * and the card lights its whole frame and prints READY the moment it is full.
+ * A number on it was the third reading on a 56 point card and the one nobody
+ * needed.
+ *
+ * That is nine points of bust on a phone, and it is the difference between a
+ * portrait cropped under the eyes and one with a chin in it. Both bars print
+ * again the moment the card is deep enough that the share carries them on its
+ * own — about 150 points, which is a landscape card or a tablet.
+ */
+function readouts(w, h) {
+  const floor = readoutDepth(READOUT_MIN);
+  const share = h * BAR_SHARE;
+  const manaReads = share >= floor;
+  const hpH = Math.max(floor, share);
+  const manaH = manaReads ? hpH : Math.max(2, share);
+  const gap = Math.max(1, hpH * BAR_RIM * 2);
+  const manaY = h / 2 - Math.max(3, h * 0.07) - manaH;
+  return {
+    hpH,
+    manaH,
+    manaReads,
+    gap,
+    manaY,
+    hpY: manaY - gap - hpH,
+    barW: w * 0.86,
+  };
+}
+
+/**
+ * A gauge's depth as a share of the card it is on.
+ *
+ * The proportion the stack is drawn at wherever the card is big enough to have
+ * the choice, and the number READOUT_MIN is measured against to find out whether
+ * it is.
+ */
+const BAR_SHARE = 0.088;
+
+/**
+ * Oswald's own metrics at weight 700, measured off a canvas rather than assumed.
+ *
+ *   cap      how far a digit reaches above the baseline, as a fraction of the
+ *            type size. 0.825 — high, because this is a condensed display face,
+ *            and it is why the numbers fill a bar that looks too shallow for
+ *            them.
+ *   descend  how far one reaches below it. 0.015, which is a hair of overshoot
+ *            on the round digits and nothing else: the ink of a line of numerals
+ *            is its cap height and no more.
+ *   advance  the width of one digit. Tabular — every digit is the same 0.55 — so
+ *            a reading that ticks from 999 to 1000 grows by exactly one digit and
+ *            never reflows by a fraction of one.
+ *
+ * Re-measure if the face or the weight changes; the type sizing below is derived
+ * from these and nothing else.
+ */
+const OSWALD = { cap: 0.825, descend: 0.015, advance: 0.55 };
+
+/**
+ * How the numbers are fitted to the bar they sit in.
+ *
+ * The bar hands the type its size rather than the other way round, and it hands
+ * it over through the rim its art was drawn with. Writing that rim as `r` and
+ * the bar's depth as `u`: `r = u * BAR_INSET` ran along the top and the bottom,
+ * so the bore between them was `u - 2r`. Take half a rim off each side of that
+ * bore and what is left is the cap height:
+ *
+ *     cap = u - 3r
+ *
+ * which is 0.64 of the bar. The rim is no longer drawn — see BAR_RIM — and the
+ * measure it left behind is still the right one: it is the air this type wants
+ * over a bar of this depth, and it was never arrived at by tuning. The air over the
+ * digits is half the weight of the border above them, and so is the air under —
+ * the type's margin is measured off the same file as the edge it stands off, and
+ * that is the whole rule. There is no tuned number in it: the type size falls out
+ * as `cap / OSWALD.cap`, which is 0.776 of the bar's depth.
+ *
+ * It was a whole rim each side — `cap = u - 4r`, digits with as much air over
+ * them as the border holding them — and on a screen where the numbers are
+ * legible at all that is the better setting of the two. On a phone they were not
+ * legible at all: the same rule on a 56 point card gives six points of cap, and
+ * the half rim it hands back is a fifth of the height of every digit on the row.
+ * What is left is still air — a quarter of a rim, once the outline has taken its
+ * half — and the outline is doing the job the rest of it was doing, which is
+ * holding the ink off the border.
+ *
+ *   width  of the bar, before fitFont starts shrinking. The reading is the hero's
+ *          own number and nothing else — see drawHpBar — so the longest it ever
+ *          runs is `8000` at 2.2 em, which lands at two thirds of the bar: it is
+ *          never actually shrunk at the sizes the row is drawn at, and it keeps
+ *          better than a digit's width of air at each end. This is the guard for
+ *          a longer reading, not the thing that sets the type.
+ *   track  of the em. Small positive tracking, because tabular figures set solid
+ *          at six points close up, and the counters in 8 and 0 are the first
+ *          thing to go.
+ *
+ * There is no vertical correction here, and there were two before. Numerals have
+ * no descender — see OSWALD.descend — so a line of them is centred on a box with
+ * empty space along one edge, and both earlier attempts were constants tuned to
+ * put the ink back on the bar's centre line. Both drifted the moment anything
+ * else moved, because what was actually throwing the ink off was the outline: at
+ * a fifth of the em it was heavy enough that the padding Pixi reserves for it
+ * shifted the box out from under the digits. At half a rim it does not, and the
+ * type centres on its own box to the pixel — measured at 0 offset with equal air
+ * above and below on both bars. The fix for a fudge factor was to find the thing
+ * it was compensating for.
+ */
+const READOUT_TYPE = { width: 0.82, track: 0.02 };
+
+/**
+ * The smallest a gauge's numbers are allowed to be, in points on the glass —
+ * which is what every size in this file is, the app running at autoDensity.
+ *
+ * The one number in the readout stack that is not a proportion, and it is not one
+ * on purpose. Everything else here is a share of the card, and a share is exactly
+ * the wrong thing for type to be when the card is 56 points wide: six points of
+ * cap is sharp on a retina screen and unreadable at arm's length, which is the
+ * only distance this thing is ever seen from. So the bar is at least deep enough
+ * to carry this size, and the numbers are legible before the layout is tidy.
+ *
+ * 10.5 sits under the rest of the chrome — the boss's name and the doom strip
+ * are set at 11 to 15 points on the same screen — and it is meant to: those are
+ * read across a whole screen and this is read inside a bar 48 points wide, on a
+ * card the player is looking straight at because they are about to tap it.
+ *
+ * It was 13, which is a size the chrome elsewhere would be pleased with and this
+ * card cannot afford. Every point of type here is a point and a quarter of bar
+ * depth, that depth was being paid twice — see readouts, which now pays it once
+ * — and the two of them together were spending 42% of a phone card on two bars.
+ * The portrait behind them was cropped under the eyes: six heroes, six foreheads.
+ * At 10.5 with the charge bar on its own share the bars are 20%, and there is a
+ * chin in every card.
+ */
+const READOUT_MIN = 10.5;
+
+/**
+ * The smallest a gauge is allowed to set `3587 / 3587` at before it gives the
+ * maximum up and prints the current value on its own.
+ *
+ * The pair is the reading a party screen wants and the one the mockup asks for:
+ * a bar says how much is left, and only the pair says how much that is out of.
+ * It costs width — eight digits, a slash and two spaces is about 5.5 em of
+ * tabular figures against a little over two for `3587` — and that width is
+ * exactly what a phone has not got. Six cards across a 390 point screen leaves a
+ * bar 48 points wide, which sets the pair at seven points: not a maximum, a
+ * smudge where a maximum used to be. That arithmetic is why the reading was the
+ * current value alone everywhere, and it only ever ruled against the pair on a
+ * phone — a card 100 points wide carries it at the full size with air to spare.
+ *
+ * So the pair is asked for first and dropped when it cannot be read. 11 points
+ * is the bottom of the chrome elsewhere on the screen — the boss's name and the
+ * doom strip run 11 to 15 — and two under READOUT_MIN, because a maximum is the
+ * quieter half of a reading and may sit a shade smaller than the number that
+ * actually moves. Below it the card keeps the number that changes and lets the
+ * paint say the rest: the bar stops where the reading stops, which is the
+ * maximum drawn rather than printed.
+ */
+const READOUT_PAIR_MIN = 11;
+
+/**
+ * The fit above, solved each way round: the size a bar of depth `u` carries, and
+ * the depth a size of type asks for.
+ *
+ * Two functions rather than one constant because the two ends of the stack need
+ * opposite directions of the same rule. A gauge that has been placed asks what
+ * size its numbers come out at; the layout, which has a floor under those numbers
+ * and no type to measure, asks how deep a bar has to be to carry them. Written
+ * once, so a redrawn trough with a different rim moves both.
+ */
+function readoutSize(u) {
+  return (u * (1 - BAR_RIM * 3)) / OSWALD.cap;
+}
+
+function readoutDepth(size) {
+  return (size * OSWALD.cap) / (1 - BAR_RIM * 3);
+}
+
+/**
+ * One gauge on a hero card: a trough, the paint lying in it, and the numbers
+ * over the top.
+ *
+ * Both of a card's gauges are one of these. They were two separate piles of
+ * sprites and Graphics calls that did nearly the same thing in nearly the same
+ * way — the health bar drew its own trough and filled it with a flat colour, the
+ * charge wore the packed trough and a gradient — and the moment the mockup asked
+ * for two identical bars, keeping them apart bought nothing but two places to
+ * fix every bug.
+ *
+ * Everything is a sprite except the fallbacks. A trough is a lit rim the card
+ * cannot draw and a paint is a bevel, and a Graphics fill takes a colour, not a
+ * ramp. Both are anchored top left so a reading grows out of the trough's own
+ * left end.
+ *
+ * Either piece of art can be missing — see cardbars.js, where nothing ever
+ * rejects — and then the Graphics underneath draws what the card drew before any
+ * of this was art: a dark track, a flat fill, a white gloss band over its top
+ * half, and a pale rim around the lot. A plainer gauge, not a missing one. The
+ * numbers do not depend on any of it and are always there.
+ *
+ * Every corner in here is square, drawn and packed alike. The gauge wore a
+ * stadium — the trough's bore, the paint lying in it, and the rim over the top
+ * all rounded to half the bar's depth — and at the four-odd points a bar is
+ * drawn at on a phone, half its depth of radius at each end is most of the bar:
+ * a pill with a reading in it rather than a gauge. Squared, the two of them read
+ * as the boxes the name plate and the frame around them already are.
+ */
+class Gauge extends Container {
+  constructor(paint) {
+    super();
+
+    /** Trough fallback, fill fallback, and the rim — drawn, in that order. */
+    this.g = new Graphics();
+    this.addChild(this.g);
+
+    const trough = barTroughTexture();
+    this.trough = null;
+    if (trough) {
+      this.trough = new Sprite(trough);
+      this.trough.anchor.set(0, 0);
+      this.addChild(this.trough);
+    }
+
+    this.paint = null;
+    if (paint) {
+      this.paint = new Sprite(paint);
+      this.paint.anchor.set(0, 0);
+      this.addChild(this.paint);
+    }
+
+    // Over the paint, and white with a dark edge on it, because it has to be
+    // read against both: the lit half of the bar and the near-black bore past
+    // where the reading stops.
+    this.label = new Text({
+      text: "",
+      style: {
+        fontFamily: FONT,
+        fontSize: 12,
+        fontWeight: "700",
+        fill: 0xffffff,
+      },
+    });
+    this.label.anchor.set(0.5);
+    this.addChild(this.label);
+
+    /** Geometry from `place`, reading from `read`; `draw` needs both. */
+    this.top = 0;
+    this.barW = 0;
+    this.barH = 0;
+    this.v = 1;
+    this.value = "";
+    this.max = "";
+    this.fallback = 0xffffff;
+
+    /**
+     * Whether the reading carries its maximum. Owned by the card rather than
+     * settled here, so a card's two gauges never disagree — see `pairFits` and
+     * READOUT_PAIR_MIN. True until told otherwise: a gauge nobody asked is a
+     * gauge on a screen roomy enough that nobody had to.
+     */
+    this.pair = true;
+
+    /**
+     * Whether this gauge prints anything at all.
+     *
+     * Also the card's to decide, and for the same kind of reason: a phone card
+     * has the depth for one legible reading and two bars — see readouts, where
+     * the charge gives its digits up so the health can keep them. A gauge that
+     * is not reading is still a gauge; it fills, it is bevelled, and it is the
+     * one the player watches to know when the hero fires.
+     */
+    this.reads = true;
+  }
+
+  /** Where the gauge is and how big, in the card's own coordinates. */
+  place(top, barW, barH) {
+    this.top = top;
+    this.barW = barW;
+    this.barH = barH;
+    this.draw();
+  }
+
+  /**
+   * What the gauge reads: a fraction, the paint for that state, the two numbers
+   * to print, and the colour to fall back to if there is no paint.
+   *
+   * Both numbers rather than the finished string, because whether the maximum is
+   * printed at all is a question about how wide this bar is and how big its type
+   * comes out — see `pairFits`, which answers it, and `draw`, which sets
+   * whichever reading the answer allows.
+   */
+  read(v, paint, value, max, fallback) {
+    this.v = Math.max(0, Math.min(1, v));
+    if (paint && this.paint) this.paint.texture = paint;
+    this.value = String(value);
+    this.max = String(max);
+    this.fallback = fallback;
+    this.draw();
+  }
+
+  /**
+   * Whether a bar `w` by `h` can set this gauge's longest reading — `max` over
+   * `max`, which with tabular figures is as wide as the pair ever gets — at a
+   * size a player can read.
+   *
+   * Measured rather than predicted, and measured on the label itself: the answer
+   * comes out of the same face, weight and tracking the reading will be set in,
+   * which a width computed off OSWALD.advance cannot promise for the slash and
+   * the two spaces around it. The floor goes to fitFont as 1 so what comes back
+   * is the size the pair actually wants rather than the size it was allowed, and
+   * that is the number READOUT_PAIR_MIN judges.
+   *
+   * Off the constant maximum rather than the reading in hand, so the answer holds
+   * still for the whole fight. Measured off `950 / 8000` the pair fits on a bar
+   * that cannot carry `5320 / 8000`, and the gauge would have to change its mind
+   * about what it prints in the middle of a drain — which is worse than either
+   * reading.
+   *
+   * It leaves the label where it found it in the only sense that matters: `draw`
+   * sets the text and the size on every pass, and one always follows.
+   */
+  pairFits(w, h, max) {
+    const size = readoutSize(h);
+    this.label.style.letterSpacing = size * READOUT_TYPE.track;
+    this.label.text = `${max} / ${max}`;
+    return (
+      fitFont(this.label, w * READOUT_TYPE.width, size, 1) >= READOUT_PAIR_MIN
+    );
+  }
+
+  draw() {
+    const w = this.barW;
+    const h = this.barH;
+    if (!w || !h) return;
+
+    const g = this.g;
+    g.clear();
+
+    // Edge to edge, where there is a trough. The paint used to be inset by the
+    // trough's own rim so it landed inside the border rather than over it, and
+    // there is no border: the trough is a bare track now — see pack-bars.mjs,
+    // which drops the rim it was cut for. An inset with nothing to clear is just
+    // a dark line drawn round a full bar.
+    //
+    // The drawn fallback keeps its own inset, because a Graphics track has no
+    // shading to tell it from the paint and the only thing separating the two is
+    // that gap.
+    const rim = h * BAR_RIM;
+    const pad = this.trough ? 0 : Math.max(0.6, h * 0.2);
+    const bore = h - pad * 2;
+    // A hairline at the least, so a hero on their last point of health is still
+    // showing something. Never mind the shape of it: with the ends square a
+    // sliver reads as a sliver at any width, where the stadium this bar used to
+    // wear collapsed into a dot.
+    const lit = Math.max((w - pad * 2) * this.v, Math.max(1, rim));
+
+    if (this.trough) {
+      this.trough.x = -w / 2;
+      this.trough.y = this.top;
+      this.trough.setSize(w, h);
+    } else {
+      g.rect(-w / 2, this.top, w, h);
+      g.fill({ color: 0x0b0716, alpha: 0.78 });
+    }
+
+    if (this.paint) {
+      this.paint.visible = this.v > 0.001;
+      this.paint.x = -w / 2 + pad;
+      this.paint.y = this.top + pad;
+      this.paint.setSize(lit, bore);
+    } else if (this.v > 0.001) {
+      g.rect(-w / 2 + pad, this.top + pad, lit, bore);
+      g.fill({ color: this.fallback });
+      g.rect(-w / 2 + pad, this.top + pad, lit, bore * 0.5);
+      g.fill({ color: 0xffffff, alpha: 0.26 });
+    }
+
+    // No outline over the top. There was a pale one, on the reasoning that the
+    // gauge has to be found against two very different backs — a lit face above
+    // it and the name's near-black band beside it — and that is what the paint
+    // itself is for: a bar of flat green on a card of painted bust is not a
+    // thing anyone loses. Against the dark track, the empty half needs no help
+    // either. Two borders were being drawn round a shape that reads on its own.
+
+    // A silent gauge stops here, with its trough and its paint drawn and no
+    // digits over them — see `reads`, and readouts, which is where a card
+    // decides that this one is a bar and not a reading.
+    this.label.visible = this.reads;
+    if (!this.reads) return;
+
+    // Cap height is the bore less half a rim at each side, and the type size is
+    // whatever puts this face's cap there — see READOUT_TYPE for the whole of
+    // the reasoning, and readoutSize, which is that rule and nothing else. The
+    // outline is half a rim: it exists to hold the digits against both the lit
+    // paint and the near-black bore past where the reading stops, and at a full
+    // rim it was as heavy as the bar's own border and closed the counters in the
+    // 8s.
+    const size = readoutSize(h);
+    this.label.style.letterSpacing = size * READOUT_TYPE.track;
+    this.label.style.stroke = {
+      color: 0x0a0714,
+      width: Math.max(0.5, rim * 0.5),
+      join: "round",
+    };
+    this.label.text = this.pair ? `${this.value} / ${this.max}` : this.value;
+    fitFont(this.label, w * READOUT_TYPE.width, size, 4);
+    this.label.y = this.top + h / 2;
+  }
+}
+
 export class HeroCard extends Container {
   constructor(hero, index) {
     super();
@@ -191,6 +765,18 @@ export class HeroCard extends Container {
     this.charge = hero.heal
       ? DIFFICULTY.chargeStart
       : DIFFICULTY.partyChargeStart;
+
+    /**
+     * What the charge rule is showing, and the object that walks it there.
+     *
+     * The rule used to be drawn straight off `charge`, and `charge` is fed a
+     * gem at a time by the director — so a cascade that landed four gems of a
+     * colour stepped its owner's rule four times in four frames. The number was
+     * right and the movement was a stutter. Health has been driven this way
+     * since it was simulated; this is the same treatment for the other gauge.
+     */
+    this.chargeShown = this.charge;
+    this.chargeDriver = { v: this.charge };
 
     /** Health, 0..1. Authored by the director, never simulated. */
     this.hp = 1;
@@ -224,11 +810,23 @@ export class HeroCard extends Container {
      * the art fills the tile rather than sitting in it: a portrait a third of
      * the card wide read as a placeholder next to the painted plate.
      */
+    this.art = new Container();
+    this.addChild(this.art);
+
     this.portrait = new Sprite(heroCardArt(index));
     this.portrait.anchor.set(0.5);
+    this.art.addChild(this.portrait);
+
+    // Anchored on the edges they hug, so resize only has to say how deep they
+    // run. Both are clipped with the bust: a square-cornered wash over a rounded
+    // tile shows as two dark nubs at the corners the frame is meant to round.
+    this.footScrim = new Sprite(gradientTexture("cardFoot", FOOT_SCRIM));
+    this.footScrim.anchor.set(0.5, 1);
+    this.art.addChild(this.footScrim);
+
     this.artMask = new Graphics();
-    this.portrait.mask = this.artMask;
-    this.addChild(this.portrait, this.artMask);
+    this.addChild(this.artMask);
+    this.art.mask = this.artMask;
 
     // Over the art, not under it: both are additive and have to wash across the
     // whole card, and the art now covers every pixel the plate used to.
@@ -240,7 +838,7 @@ export class HeroCard extends Container {
     this.addChild(this.aura);
 
     // Separate from `aura` on purpose: the ready pulse and the hurt flash can
-    // overlap on Nyx, and one sprite driven by two owners flickers.
+    // overlap on Arissa, and one sprite driven by two owners flickers.
     this.burn = new Sprite(glowTexture());
     this.burn.anchor.set(0.5);
     this.burn.blendMode = "add";
@@ -248,11 +846,46 @@ export class HeroCard extends Container {
     this.burn.alpha = 0;
     this.addChild(this.burn);
 
+    /**
+     * The painted frame in the hero's own colour — see art/cardframe.js. Above
+     * the art and the ready glow, because it is the card's edge: the aura washes
+     * over the portrait, not over the border that holds it.
+     */
+    this.frameArt = cardFrameSprite(hero.element);
+    if (this.frameArt) {
+      this.frameArt.alpha = FRAME_REST;
+      this.addChild(this.frameArt);
+    }
+
+    // Still here with the art in place: it draws the charge rule, and the
+    // rounded stroke it used to draw for the whole card is the fallback for a
+    // device that could not decode the frame.
     this.frame = new Graphics();
     this.addChild(this.frame);
 
-    this.hpBar = new Graphics();
-    this.addChild(this.hpBar);
+    /**
+     * The two gauges, health over charge — see the Gauge above, which is the
+     * whole of what either one is.
+     *
+     * Over `frame` rather than inside it: they carry sprites and type, and a
+     * Graphics object holds neither. Separate objects rather than one pair,
+     * because the health gauge blinks on its own — see `update` — and the charge
+     * has no business dimming with it.
+     */
+    this.hpGauge = new Gauge(hpPaintTexture(false));
+    this.addChild(this.hpGauge);
+
+    this.manaGauge = new Gauge(manaPaintTexture());
+    this.addChild(this.manaGauge);
+
+    /**
+     * The element sigil, over the frame rather than under it: it sits in the
+     * corner of the card, and tucked beneath the art it would be a gem half
+     * eaten by a neon edge.
+     */
+    this.sigil = new Sprite(elementSigil(hero.element));
+    this.sigil.anchor.set(0.5);
+    this.addChild(this.sigil);
 
     this.label = new Text({
       text: hero.name,
@@ -296,7 +929,11 @@ export class HeroCard extends Container {
     this.hitArea = new Rectangle(-w / 2, -h / 2, w, h);
 
     const el = this.hero.element;
-    const r = Math.min(w, h) * 0.18;
+    // The card's corner is the frame's corner: the portrait, the plate and the
+    // border all have to be the same rounded rectangle or the corners show it.
+    const r = this.frameArt ? cardFrameRadius(h) : Math.min(w, h) * 0.18;
+
+    if (this.frameArt) fitCardFrame(this.frameArt, w, h);
 
     this.bg.clear();
     this.bg.roundRect(-w / 2, -h / 2, w, h, r);
@@ -308,11 +945,39 @@ export class HeroCard extends Container {
     // stretch — landscape cards run a few percent wider and wear it.
     if (this.plate) this.plate.setSize(w, h);
 
-    // Cover, not fit: the bust is square and the card is not, so the long side
-    // wins and the mask takes whatever runs past the short one.
-    const cover = Math.max(w, h);
-    this.portrait.setSize(cover, cover);
-    this.portrait.y = 0;
+    // Cover, not fit, and off the art's own aspect rather than off an assumption
+    // that it is square. The portraits are 160x328 — near enough the card's own
+    // proportion that this fit is close to one to one — but the drawn stand-in a
+    // hero falls back to is square, and a fit hard-coded for either one crops or
+    // stretches the other.
+    //
+    // What runs past the tile is not split evenly. Centring takes the same amount
+    // off the top and the bottom — off the top being the crown of a helmet, the
+    // top of a hairline, the point of an ear, which is the half of a portrait
+    // that says who it is. The bottom is a collarbone. So the overflow is pushed
+    // down: most of the crop comes off the chest and the head stays in the card.
+    const art = this.portrait.texture;
+    const cover = Math.max(w / art.width, h / art.height);
+    const aw = art.width * cover;
+    const ah = art.height * cover;
+    this.portrait.setSize(aw, ah);
+    this.portrait.y = (ah - h) * HEAD_BIAS;
+
+    // The wash the readouts are read against, measured off them rather than
+    // authored: deep enough to clear the top of the name, or FOOT_BAND of the
+    // card, whichever is more. The constant on its own was exactly enough for the
+    // shallower stack this card used to carry, and the moment the bars got deep
+    // enough to read — see READOUT_MIN — it left the name standing on a
+    // collarbone. The gradient stretches, so a deeper band is a longer fade
+    // rather than a darker one.
+    const stack = readouts(w, h);
+    const nameSize = Math.max(7, Math.min(h * 0.145, w * 0.2));
+    const nameY = stack.hpY - stack.gap - nameSize * 0.5;
+    this.footScrim.setSize(
+      w,
+      Math.max(h * FOOT_BAND, h / 2 - nameY + nameSize * 0.8),
+    );
+    this.footScrim.y = h / 2;
 
     this.artMask.clear();
     this.artMask.roundRect(-w / 2, -h / 2, w, h, r);
@@ -321,8 +986,29 @@ export class HeroCard extends Container {
     this.aura.setSize(w * 1.9, h * 1.9);
     this.burn.setSize(w * 2.1, h * 2.1);
 
-    fitFont(this.label, w * 0.92, Math.max(7, Math.min(h * 0.15, w * 0.2)));
-    this.label.y = h * 0.34;
+    // Off the short side, so the pip is the same size on a card held either way,
+    // and inset far enough to clear the frame's border rather than straddle it.
+    // The gem carries the board's own padding inside its texture, so the circle
+    // that lands on the card is a little smaller than the box asked for here.
+    const sig = Math.max(
+      SIGIL.min,
+      Math.min(Math.min(w, h) * SIGIL.k, SIGIL.max),
+    );
+    this.sigil.setSize(sig, sig);
+    const inset = sig / 2 + Math.max(1.5, Math.min(w, h) * SIGIL.gap);
+    this.sigil.x = -w / 2 + inset;
+    this.sigil.y = -h / 2 + inset;
+
+    // Sat on the stack rather than placed at a fraction of the card: the name
+    // is the top of the block, so it moves with whatever is under it. Solved up
+    // with the foot scrim, which is cut to reach past it.
+    this.label.style.stroke = {
+      color: 0x07040e,
+      width: Math.max(1.2, nameSize * 0.16),
+      join: "round",
+    };
+    fitFont(this.label, stack.barW, nameSize);
+    this.label.y = nameY;
 
     const readySize = Math.max(7, Math.min(h * 0.16, w * 0.21));
     this.readyLabel.style.stroke = {
@@ -330,76 +1016,129 @@ export class HeroCard extends Container {
       width: Math.max(2, readySize * 0.22),
       join: "round",
     };
-    fitFont(this.readyLabel, w * 0.92, readySize);
-    this.readyLabel.y = h * 0.34;
+    fitFont(this.readyLabel, stack.barW, readySize);
+    this.readyLabel.y = nameY;
+
+    const { barW, hpH, manaH, manaReads, hpY, manaY } = stack;
+    // Both gauges print their maximums or neither does, and the health bar is the
+    // one that decides: `8000 / 8000` is the longer of the two readings, so any
+    // bar that carries it carries `120 / 120` as well. Two gauges the same size
+    // settling it apart would put a narrow card in the one state that reads worse
+    // than either — a matched pair with one half saying what it is out of and the
+    // other half not.
+    //
+    // Still measured on the health bar, and on a phone that is the only bar it
+    // is deciding for: the charge is silent there and has no maximum to keep or
+    // drop. Handed to it anyway rather than guarded, because the card that goes
+    // back to printing both — see readouts — is the card where the two have to
+    // agree again, and one assignment is cheaper than one condition.
+    const pair = this.hpGauge.pairFits(barW, hpH, HERO_MAX_HP);
+    this.hpGauge.pair = pair;
+    this.manaGauge.pair = pair;
+    this.manaGauge.reads = manaReads;
+
+    this.hpGauge.place(hpY, barW, hpH);
+    this.manaGauge.place(manaY, barW, manaH);
 
     this.drawFrame();
     this.drawHpBar();
+    this.drawCharge();
   }
 
   /**
-   * Health strip along the top edge of the card.
+   * Health, directly under the name: the gauge's reading and its numbers.
    *
-   * Above the portrait rather than below it: the charge bar already owns the
-   * bottom, and two bars stacked on the same edge read as one broken widget.
+   * It used to ride the top edge, which put a lit green bar across every hero's
+   * brow. It is the card's one real gauge, so it belongs with the other thing
+   * the card says in words — see `readouts`.
+   *
+   * Green while the hero is fine, red once they are not, and two textures rather
+   * than one under a tint for the reason cardbars.js gives. The numbers are the
+   * simulated health rounded to whole points, which is what the fight is
+   * actually spending — see HERO_MAX_HP.
+   *
+   * The reading is `5320 / 8000` wherever the pair can be read, and the current
+   * value alone where it cannot. Both numbers go over rather than a string: the
+   * gauge measures its own bar and picks — see READOUT_PAIR_MIN for which way and
+   * why, and `resize`, where the pick is made once for this bar and the charge's
+   * together. Where the pair is dropped, what the maximum was there to say the
+   * bar still says: the paint stops where the reading stops.
    */
   drawHpBar() {
-    const w = this.cardW;
-    const h = this.cardH;
-    if (!w) return;
-
-    const g = this.hpBar;
-    const barH = Math.max(3, h * 0.07);
-    const barW = w * 0.8;
-    const y = -h / 2 + barH * 0.9;
+    if (!this.cardW) return;
     const v = this.hpShown;
+    const low = v <= HERO_CRITICAL;
+    this.hpGauge.read(
+      v,
+      hpPaintTexture(low),
+      Math.round(v * HERO_MAX_HP),
+      HERO_MAX_HP,
+      low ? HP_LOW : HP_GOOD,
+    );
+  }
 
-    g.clear();
-    g.roundRect(-barW / 2, y, barW, barH, barH / 2);
-    g.fill({ color: 0x08040e, alpha: 0.9 });
-
-    if (v > 0.001) {
-      g.roundRect(-barW / 2, y, barW * v, barH, barH / 2);
-      g.fill({ color: v <= HERO_CRITICAL ? HP_LOW : HP_GOOD });
-      g.roundRect(-barW / 2, y, barW * v, barH * 0.45, barH / 2);
-      g.fill({ color: 0xffffff, alpha: 0.35 });
-    }
-
-    g.roundRect(-barW / 2, y, barW, barH, barH / 2);
-    g.stroke({ width: Math.max(1, barH * 0.24), color: 0x0d0812, alpha: 0.85 });
+  /**
+   * Charge, under the health: the same gauge, the same numbers treatment.
+   *
+   * The lit part is mana blue on every card rather than the hero's own colour.
+   * Which gem charges which hero is the sigil's job, and a second reading of the
+   * same fact in the same hue only made the bar look like more frame. The
+   * fallback colour is still the element's, because with no paint to lay in it
+   * the bar has nothing else to say whose it is.
+   *
+   * The number is the fraction shown at the scale the card counts in — see
+   * HERO_MAX_CHARGE, which nothing in the simulation reads — over that scale,
+   * `77 / 120`. It is the shorter pair of the two and would fit on cards where
+   * the health's does not, and it is deliberately not allowed to: the gauges are
+   * a matched pair, and they keep or drop the maximum together on the health
+   * bar's measurement. See `resize`.
+   */
+  drawCharge() {
+    if (!this.cardW) return;
+    const v = this.chargeShown;
+    this.manaGauge.read(
+      v,
+      manaPaintTexture(),
+      Math.round(v * HERO_MAX_CHARGE),
+      HERO_MAX_CHARGE,
+      this.ready ? GEM_LIGHT[this.hero.element] : GEM_COLORS[this.hero.element],
+    );
   }
 
   drawFrame() {
     const w = this.cardW;
     const h = this.cardH;
     const el = this.hero.element;
-    const r = Math.min(w, h) * 0.18;
     const g = this.frame;
 
     g.clear();
-    g.roundRect(-w / 2, -h / 2, w, h, r);
-    g.stroke({
-      width: this.ready ? Math.max(2.5, w * 0.055) : Math.max(1.5, w * 0.028),
-      color: this.ready ? GEM_LIGHT[el] : 0x3a2a52,
-      alpha: this.ready ? 1 : 0.9,
-    });
-
-    // Charge bar hugging the bottom edge
-    const barH = Math.max(3, h * 0.06);
-    const barW = w * 0.76;
-    const barY = h / 2 - barH * 1.8;
-    g.roundRect(-barW / 2, barY, barW, barH, barH / 2);
-    g.fill({ color: 0x000000, alpha: 0.55 });
-    const fill = this.ready ? 1 : this.charge;
-    if (fill > 0) {
-      g.roundRect(-barW / 2, barY, barW * fill, barH, barH / 2);
-      g.fill({ color: this.ready ? GEM_LIGHT[el] : GEM_COLORS[el] });
+    if (!this.frameArt) {
+      // No art: the drawn edge the card shipped with, which says the same thing
+      // in one stroke — thicker and in the element's colour once charged.
+      const r = Math.min(w, h) * 0.18;
+      g.roundRect(-w / 2, -h / 2, w, h, r);
+      g.stroke({
+        width: this.ready ? Math.max(2.5, w * 0.055) : Math.max(1.5, w * 0.028),
+        color: this.ready ? GEM_LIGHT[el] : 0x3a2a52,
+        alpha: this.ready ? 1 : 0.9,
+      });
     }
+
+    // The charge is the other gauge's business now — see drawCharge. It lived
+    // here while it was a rule drawn along the frame's own edge, and a bar with
+    // numbers in it is not trim on a border.
   }
 
   setReady(on) {
     this.ready = on;
     this.drawFrame();
+    // The charge's fallback colour brightens with `ready`, so it is redrawn from
+    // here as well as from its own tween.
+    this.drawCharge();
+    if (this.frameArt) {
+      killTweensOf(this.frameArt);
+      tween(this.frameArt, { alpha: on ? 1 : FRAME_REST }, on ? 0.22 : 0.3);
+    }
     tween(this.readyLabel, { alpha: on ? 1 : 0 }, 0.2);
     tween(this.label, { alpha: on ? 0 : 1 }, 0.2);
     if (on) {
@@ -430,10 +1169,36 @@ export class HeroCard extends Container {
   addCharge(amount) {
     if (this.ready || this.downed) return false;
     this.charge = Math.min(1, this.charge + amount);
-    this.drawFrame();
+    this.driveCharge(this.charge);
     if (this.charge < 1) return false;
     this.setReady(true);
     return true;
+  }
+
+  /**
+   * Walk the rule to a value instead of cutting to it.
+   *
+   * Faster filling than draining on purpose. Filling is feedback — it answers a
+   * match the player just made, and an answer three tenths of a second late is
+   * not an answer. Draining is the card standing down after an ultimate, which
+   * has the cut-in and the whole party's volley over it and can afford to take
+   * its time.
+   */
+  driveCharge(value, dur) {
+    killTweensOf(this.chargeDriver);
+    this.chargeDriver.v = this.chargeShown;
+    return tween(
+      this.chargeDriver,
+      { v: value },
+      dur === undefined ? 0.3 : dur,
+      {
+        ease: Ease.quadOut,
+        onUpdate: () => {
+          this.chargeShown = this.chargeDriver.v;
+          this.drawCharge();
+        },
+      },
+    );
   }
 
   /** Charge this card earns per gem of its own colour. */
@@ -474,6 +1239,7 @@ export class HeroCard extends Container {
   /** Spent: drain the bar and drop back to a normal card. */
   async spend() {
     this.charge = 0;
+    this.driveCharge(0, 0.5);
     this.setReady(false);
     await tween(this.scale, { x: 0.88, y: 0.88 }, 0.1);
     await tween(this.scale, { x: 1, y: 1 }, 0.22, { ease: Ease.backOut });
@@ -542,7 +1308,7 @@ export class HeroCard extends Container {
     await this.setHp(to, 0.42);
   }
 
-  /** Nyx's tide, or any other pick-me-up: refill and shake off the burns. */
+  /** Arissa's tide, or any other pick-me-up: refill and shake off the burns. */
   async heal(to, wait) {
     const target = Math.min(1, Math.max(this.hp, to));
     if (this.downed) this.revive();
@@ -568,7 +1334,7 @@ export class HeroCard extends Container {
     this.critical = false;
     this.pulsing = false;
     this.setReady(false);
-    this.hpBar.alpha = 1;
+    this.hpGauge.alpha = 1;
     tween(this, { alpha: 0.55, rotation: 0.14 }, 0.3);
     tweenValue(0, 1, 0.3, (v) => {
       if (this.destroyed) return;
@@ -588,16 +1354,19 @@ export class HeroCard extends Container {
     // Blink the strip once a hero is in real trouble — on a card this small
     // the colour change alone is not enough to catch a thumb-height glance.
     if (this.critical) {
-      this.hpBar.alpha = 0.55 + Math.abs(Math.sin(this.t * 5.5)) * 0.45;
-    } else if (this.hpBar.alpha !== 1) {
-      this.hpBar.alpha = 1;
+      this.hpGauge.alpha = 0.55 + Math.abs(Math.sin(this.t * 5.5)) * 0.45;
+    } else if (this.hpGauge.alpha !== 1) {
+      this.hpGauge.alpha = 1;
     }
 
     if (!this.pulsing) return;
     this.pulseT += dt;
-    const p = 1 + Math.sin(this.pulseT * 6.5) * 0.045;
-    this.scale.set(1.14 * p);
-    this.aura.alpha = 0.42 + Math.sin(this.pulseT * 6.5) * 0.18;
+    const beat = Math.sin(this.pulseT * 6.5);
+    this.scale.set(1.14 * (1 + beat * 0.045));
+    this.aura.alpha = 0.42 + beat * 0.18;
+    // On the same beat as the aura, and shallower: the border is the card's
+    // edge, and an edge that swings as hard as the glow reads as flicker.
+    if (this.frameArt) this.frameArt.alpha = 0.92 + beat * 0.08;
   }
 }
 
@@ -616,13 +1385,36 @@ export class HeroRow extends Container {
     });
   }
 
+  /**
+   * Lay the row out on whole device pixels.
+   *
+   * The band the layout hands over is honest arithmetic on a viewport — six cards
+   * and five gaps out of whatever is left after the gutters — and it lands
+   * wherever it lands: 56.33 wide, 117.42 tall, starting at x 8.5. Nothing about
+   * a portrait minds that. The frame around it does. Its line is three source
+   * pixels asked for at about a pixel and a half, so an edge half a pixel off the
+   * grid is drawn across two rows at half strength each, and a card whose top
+   * edge rounds one way while its bottom rounds the other wears a frame that is
+   * visibly heavier along the bottom.
+   *
+   * So the card is snapped here rather than corrected there. Sizes go to an even
+   * number of device pixels, because the card is drawn from its own centre and
+   * half of an odd number is not a pixel; positions go to the nearest pixel. The
+   * gaps absorb what the rounding takes, which is under a pixel per card and
+   * nothing anybody can see — unlike the frame, which is the thing this is for.
+   */
   resize(layout) {
     const { x, y, w, h, gap } = layout.cards;
-    const cardW = (w - gap * (this.cards.length - 1)) / this.cards.length;
+    const q = 1 / getRenderer().resolution;
+    const snap = (v) => Math.round(v / q) * q;
+    const even = (v) => Math.max(q * 2, Math.floor(v / (q * 2)) * q * 2);
+
+    const cardW = even((w - gap * (this.cards.length - 1)) / this.cards.length);
+    const cardH = even(h);
     this.cards.forEach((card, i) => {
-      card.resize(cardW, h);
-      card.x = x + cardW / 2 + i * (cardW + gap);
-      card.y = y + h / 2;
+      card.resize(cardW, cardH);
+      card.x = snap(x + cardW / 2 + i * (cardW + gap));
+      card.y = snap(y + cardH / 2);
     });
   }
 
@@ -705,7 +1497,7 @@ export class HeroRow extends Container {
     return { x: card.x, y: card.y - (card.cardH || 0) * 0.5 };
   }
 
-  /** Whole party back on its feet — the payoff of Nyx's ultimate. */
+  /** Whole party back on its feet — the payoff of Arissa's ultimate. */
   async healAll(to) {
     // Sung by the row, not by the cards: the tide reaches all six of them and
     // six copies of the same chime is a chord nobody wrote.

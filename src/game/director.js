@@ -15,9 +15,14 @@
  *   - heroes die, and every hero lost takes a share off every match that
  *     follows, so a bad run compounds instead of flatlining;
  *   - a doom clock runs the whole fight, and when it expires the boss lands one
- *     cataclysm on the entire party.
+ *     cataclysm on the entire party — and every one after it arrives sooner and
+ *     hits harder than the one before;
+ *   - the boss armours up as its health falls, so the last third of the bar is
+ *     the expensive third and the fight ends on its hardest beat instead of its
+ *     easiest.
  *
- * The creative can now be lost. That is the point of it.
+ * The creative can now be lost, and losing is the default outcome for anybody
+ * clearing whichever match happens to be nearest. That is the point of it.
  */
 
 import {
@@ -30,11 +35,12 @@ import {
   GEM_COLORS,
   GEM_LIGHT,
   HERO_MAX_HP,
-  NYX,
+  HEALER,
   OBSIDIAN,
   ROWS,
   SCRIPTED_HINT,
   T,
+  ULT_HEAL_FLOOR,
   ULT_HEAL_TO,
   WATER,
 } from "../config.js";
@@ -65,15 +71,38 @@ export class Director {
 
     /** Real boss health, 1..0. Nothing authors this any more. */
     this.bossHp = 1;
+    /**
+     * What this fight has actually been paying per move, for the autoplay pace
+     * guard to plan against — see autoDelay.
+     *
+     * Measured rather than assumed. Damage comes out of combo depth, run size,
+     * how much of the party is still standing and how much armour is up, so what
+     * a move is worth is a property of the fight in progress and not something
+     * that can be read off DIFFICULTY.
+     */
+    this.movesPlayed = 0;
+    this.damageDealt = 0;
     /** Boss turns taken — drives both the attack rotation and its ramp. */
     this.turn = 0;
+    /**
+     * Armour layers the boss has already put up — see DIFFICULTY.armor.
+     *
+     * Only ever climbs. Nothing in this fight heals the boss, so a bar knocked
+     * past a threshold has passed it for good, and the counter exists purely so
+     * the callout fires once per layer rather than once per cascade step.
+     */
+    this.phase = 0;
+    /** Cataclysms already landed. Each one is worse, and closer, than the last. */
+    this.doomCount = 0;
+    /** Tides already spent — each refills the party less. DIFFICULTY.healDecay. */
+    this.healsUsed = 0;
 
     this.idleToken = 0;
     this.moveToken = 0;
     this.ultResolver = null;
     this.ultQueued = false;
     /** Which hero the pending ultimate belongs to — any of them can be spent. */
-    this.ultHero = NYX;
+    this.ultHero = HEALER;
     this.doomResolver = null;
     /** Pulls the player's turn out of the air when the fight is already over. */
     this.stopResolver = null;
@@ -96,7 +125,7 @@ export class Director {
 
     scene.debug = this;
 
-    const { board, vfx, hud } = scene;
+    const { board, vfx, hud, hand } = scene;
     board.onPop = (x, y, type) => vfx.burst(x, y, GEM_COLORS[type], 5, 0.9);
     board.onShatter = (x, y) => {
       vfx.burst(x, y, OBSIDIAN.seam, 10, 1.4);
@@ -110,6 +139,32 @@ export class Director {
     board.onInvalid = () => this.restartIdle(true);
     board.onInteract = () => {
       this.playerActed = true;
+      this.restartIdle();
+    };
+
+    /**
+     * The player's own swipe wears the hand — when the prop is wired up at all.
+     *
+     * The board reports the touch in its own pixels and the hand lives beside it
+     * in the world, so every point is offset by where the board is sitting —
+     * the same conversion pointHand does for the demo.
+     *
+     * Letting go re-arms the idle rather than leaving the hand off: the timer
+     * that would have brought it back was restarted by `onInteract` at the top
+     * of the touch, and on a press that turns out to be a tap on nothing, that
+     * is the only thing that ever asks for it again.
+     *
+     * With T.touchHand off the prop is not wired up at all. Gating it here
+     * rather than inside Hand keeps the two jobs on separate switches: T.hints
+     * decides whether anything ever points at a move, this decides whether the
+     * hand rides a swipe the player is already making.
+     */
+    if (T.touchHand) {
+      board.onTouchStart = (x, y) => hand.grab(board.x + x, board.y + y);
+      board.onTouchMove = (x, y) => hand.dragTo(board.x + x, board.y + y);
+    }
+    board.onTouchEnd = () => {
+      hand.letGo();
       this.restartIdle();
     };
   }
@@ -169,6 +224,92 @@ export class Director {
 
   partyWiped() {
     return this.s.heroRow.aliveCount() === 0;
+  }
+
+  /* ------------------------------------------------------------ escalation */
+
+  /**
+   * How many of DIFFICULTY.armor's layers the boss is currently wearing.
+   *
+   * The table is ordered deepest first, so this is just how many thresholds the
+   * health bar has fallen under: 0 while the boss is above the shallowest one,
+   * DIFFICULTY.armor.length once it is inside the last.
+   */
+  armorDepth() {
+    const layers = DIFFICULTY.armor || [];
+    let depth = 0;
+    layers.forEach((layer) => {
+      if (this.bossHp <= layer.below) depth++;
+    });
+    return depth;
+  }
+
+  /**
+   * The fraction of any damage aimed at the boss that actually lands.
+   *
+   * This is the fight's progression curve, and it runs the opposite way to the
+   * player's: the party gets weaker as heroes fall (HeroRow.partyPower) while
+   * the boss gets tougher as its bar empties. The last stretch of health is the
+   * expensive stretch — which is the one thing the old constant-rate bar could
+   * never say, and the reason a match that felt decisive on move one is only a
+   * chip on move seven.
+   */
+  armor() {
+    const layers = DIFFICULTY.armor || [];
+    const depth = this.armorDepth();
+    return depth === 0 ? 1 : layers[layers.length - depth].mult;
+  }
+
+  /**
+   * Announce a layer the boss just put up — once, on the hit that broke it.
+   *
+   * Armour the player cannot see is indistinguishable from a bug. A bar that
+   * quietly starts falling slower reads as the game cheating unless something
+   * on screen says otherwise, so the golem visibly enrages and the layer shouts
+   * its own name at the moment it comes up.
+   */
+  checkPhase() {
+    const depth = this.armorDepth();
+    if (this.ended || depth <= this.phase) return;
+    this.phase = depth;
+
+    const layers = DIFFICULTY.armor;
+    const layer = layers[layers.length - depth];
+    sfx.bossEnrage();
+    this.s.boss.enrage();
+    this.s.shake(16, 0.45);
+    this.s.vfx.flash(0xff2a06, 0.3, 0.4);
+    this.s.hud.shout(layer.name, 0.55, { fill: 0xff8a3d, from: 2 });
+  }
+
+  /**
+   * Everything the boss throws, multiplied by how long it has been throwing it.
+   *
+   * Wall clock rather than turns, because DIFFICULTY.bossRamp already charges
+   * for taking many moves and this is the other half of the bill: a player who
+   * spends eight seconds hunting the perfect swap pays for the eight seconds.
+   * Capped by rageMax so a fight that somehow reaches the hard cap ends in a
+   * wipe rather than in an arithmetic accident.
+   */
+  rage() {
+    const per = DIFFICULTY.ragePerSecond || 0;
+    const cap =
+      DIFFICULTY.rageMax === undefined ? Infinity : DIFFICULTY.rageMax;
+    return Math.min(cap, 1 + now() * per);
+  }
+
+  /**
+   * How far the tide refills the party this time.
+   *
+   * Weaker with every cast, floored by ULT_HEAL_FLOOR. A heal as good on its
+   * third use as its first is an unlimited supply of second chances, and a
+   * fight with unlimited second chances has no ending worth watching.
+   */
+  healTo() {
+    return Math.max(
+      ULT_HEAL_FLOOR,
+      ULT_HEAL_TO - this.healsUsed * (DIFFICULTY.healDecay || 0),
+    );
   }
 
   /* ------------------------------------------------------------ boss track */
@@ -372,9 +513,11 @@ export class Director {
 
     const falling = this.strikeHeroes({
       targets: "all",
-      damage: DOOM.damage,
+      // Every cataclysm after the first lands harder than the one before it.
+      damage: DOOM.damage * Math.pow(DOOM.damageRamp || 1, this.doomCount),
     });
     await Promise.all([rolling, falling]);
+    this.doomCount++;
     if (this.ended) return;
 
     if (this.partyWiped()) {
@@ -382,10 +525,17 @@ export class Director {
       return;
     }
 
-    // Held the line. Shorter fuse, and the warnings rearm with it.
+    // Held the line — and the reprieve is shorter every time, so surviving one
+    // cataclysm buys strictly less than surviving the last one did. This is the
+    // squeeze the whole mode ends on: eventually the fuse is shorter than the
+    // time it takes to arm the tide, and the only way out is a dead boss.
     hud.shout(COPY.doomSurvived, 0.55, { fill: 0x9fffc4, from: 1.5 });
-    this.doomLeft = DOOM.repeat;
-    this.doomTotal = DOOM.repeat;
+    const fuse = Math.max(
+      DOOM.repeatFloor || 0,
+      DOOM.repeat * Math.pow(DOOM.repeatDecay || 1, this.doomCount - 1),
+    );
+    this.doomLeft = fuse;
+    this.doomTotal = fuse;
     this.doomWarned = [];
     this.s.hud.setDoom(this.doomLeft, this.doomTotal);
     this.doomFiring = false;
@@ -435,7 +585,7 @@ export class Director {
     return action;
   }
 
-  /** Any charged hero who is still standing can be spent, not just Nyx. */
+  /** Any charged hero who is still standing can be spent, not just Arissa. */
   canUlt(index) {
     const card = this.s.heroRow.cards[index];
     return !!card && card.ready && !card.downed;
@@ -465,7 +615,10 @@ export class Director {
    * Per gem, so a four-in-a-row genuinely beats a three; times the cascade
    * multiplier, so setting up a chain is the difference between chipping the
    * boss and actually killing it; times how much of the party is still on its
-   * feet, so the roster on screen is load-bearing rather than decorative.
+   * feet, so the roster on screen is load-bearing rather than decorative; and
+   * finally through the boss's hide, which thickens as its bar empties, so the
+   * same match is worth measurably less at the end of the fight than it was at
+   * the start of it.
    */
   damageFor(step, cells) {
     const { heroRow } = this.s;
@@ -477,7 +630,14 @@ export class Director {
     // The whole row swings at every match, so the backing is the party's, not
     // the matched colour's owner alone. See HeroRow.partyPower.
     const party = heroRow.partyPower();
-    return cells.length * DIFFICULTY.damagePerGem * combo * size * party;
+    return (
+      cells.length *
+      DIFFICULTY.damagePerGem *
+      combo *
+      size *
+      party *
+      this.armor()
+    );
   }
 
   /**
@@ -577,6 +737,7 @@ export class Director {
   /** Clear, cascade, and take off exactly what the player earned. */
   async resolveMove() {
     const { board, boss, hud, vfx, shake } = this.s;
+    const before = this.bossHp;
 
     await board.resolve((step, cells) => {
       const share = this.damageFor(step, cells);
@@ -618,12 +779,37 @@ export class Director {
       }
 
       hud.setHp(this.bossHp, 0.4);
+      // Last thing in the step, so a layer breaking is the shout left standing
+      // rather than one the combo counter steps on half a frame later.
+      this.checkPhase();
     });
 
     // Not awaited: the bar settling is the last third of a second of the move,
     // and awaiting it here held the board shut for exactly that long before the
     // player was allowed to touch it again. The tween finishes on its own.
     hud.setHp(this.bossHp, 0.35);
+
+    // Booked after the fact, and only for a move that actually paid: a swap
+    // resolving into nothing would drag the running average towards zero and
+    // convince the pace guard the boss needs a thousand more moves.
+    const paid = before - this.bossHp;
+    if (paid > 0.0001) {
+      this.movesPlayed++;
+      this.damageDealt += paid;
+    }
+  }
+
+  /**
+   * Boss health one move takes off, as this fight has been going.
+   *
+   * The opening guess is a plain triple at full strength — three gems at
+   * DIFFICULTY.damagePerGem with no combo, no size bonus, a whole party and no
+   * armour — because that is the cheapest move the board can pay out, and a
+   * guard that opens optimistic would set the pace too slow to recover from.
+   */
+  paidPerMove() {
+    if (!this.movesPlayed) return 3 * DIFFICULTY.damagePerGem;
+    return this.damageDealt / this.movesPlayed;
   }
 
   centroid(cells) {
@@ -643,16 +829,32 @@ export class Director {
 
   /* ------------------------------------------------------- the boss turn */
 
-  /** This turn's attack, ramped by how long the fight has already run. */
+  /**
+   * This turn's attack, ramped by how long the fight has already run.
+   *
+   * The rotation is not fixed. An attack carrying `from` does not exist
+   * until that turn index, and on the turn it unlocks it jumps straight to the
+   * front of the queue — a two-beat rotation is learned in a single pass and
+   * after that it is weather, so the unlock is what stops the boss becoming
+   * predictable at exactly the point it is meant to be at its worst.
+   *
+   * Ramped twice over: DIFFICULTY.bossRamp to the power of the turn charges for
+   * the number of moves taken, rage() for the seconds spent taking them.
+   */
   currentAttack() {
-    const base = BOSS_ATTACKS[this.turn % BOSS_ATTACKS.length];
-    const ramp = Math.pow(DIFFICULTY.bossRamp, this.turn);
+    const pool = BOSS_ATTACKS.filter((a) => (a.from || 0) <= this.turn);
+    const fresh = pool.filter((a) => a.from === this.turn);
+    const base = fresh.length
+      ? fresh[0]
+      : pool[this.turn % pool.length] || BOSS_ATTACKS[0];
+    const ramp = Math.pow(DIFFICULTY.bossRamp, this.turn) * this.rage();
     return {
       kind: base.kind,
       targets: base.targets,
       shout: base.shout,
       damage: base.damage * ramp,
       splash: (base.splash || 0) * ramp,
+      obsidianBonus: base.obsidianBonus || 0,
     };
   }
 
@@ -662,25 +864,37 @@ export class Director {
    * One candidate per column: the lowest free cell in it. That keeps the
    * "everything below a block is also blocked" invariant true by construction
    * rather than by an author remembering it, and it caps any column at three
-   * blocks. Rows 0 and 1 are off limits and the board never holds more than
-   * DIFFICULTY.obsidianMax at once, so the pressure rises without the board
-   * ever becoming a wall.
+   * blocks. The board never holds more than this turn's ceiling at once — and
+   * that ceiling climbs with the turn, so the pressure does not merely stay on,
+   * it tightens, without the board ever quite becoming a wall.
    *
    * Within those rules the boss plays to hurt. Each candidate is scored by
    * what sealing it actually costs the player, and the blocks are placed one
    * at a time so every pick sees the damage the previous one did.
    */
-  pickObsidian() {
+  pickObsidian(attack) {
     const board = this.s.board;
     let held = 0;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) if (board.isLocked(r, c)) held++;
     }
 
-    const want = Math.round(
-      DIFFICULTY.obsidianBase + this.turn * DIFFICULTY.obsidianGrowth,
+    // The wave this turn, plus whatever the attack itself brings with it: the
+    // late unlock in BOSS_ATTACKS pays in board as well as in health.
+    const want =
+      Math.round(
+        DIFFICULTY.obsidianBase + this.turn * DIFFICULTY.obsidianGrowth,
+      ) + ((attack && attack.obsidianBonus) || 0);
+    // The ceiling climbs with the fight too, so the endgame is played on a
+    // genuinely smaller board rather than on the same one under pressure.
+    const ceiling = Math.floor(
+      Math.min(
+        DIFFICULTY.obsidianMaxCap,
+        DIFFICULTY.obsidianMax +
+          this.turn * (DIFFICULTY.obsidianMaxGrowth || 0),
+      ),
     );
-    const budget = Math.min(want, DIFFICULTY.obsidianMax - held);
+    const budget = Math.min(want, ceiling - held);
     if (budget <= 0) return [];
 
     const taken = [];
@@ -805,7 +1019,7 @@ export class Director {
     const attack = this.currentAttack();
     await this.s.board.whenQuiet();
     if (this.ended) return;
-    const cells = this.pickObsidian();
+    const cells = this.pickObsidian(attack);
 
     if (attack.kind === "smash") {
       await this.bossSmash(attack, cells);
@@ -992,7 +1206,7 @@ export class Director {
         return { a, b };
       }
     }
-    // Prefer Nyx's element: charging her is the whole strategy of the mode,
+    // Prefer Arissa's element: charging her is the whole strategy of the mode,
     // so the one piece of help the game still gives should teach that.
     return board.findBestSwap(WATER) || board.findBestSwap();
   }
@@ -1024,7 +1238,7 @@ export class Director {
    * An ultimate — any of the five, earned, not scheduled.
    *
    * Each hero wipes their own colour off the board and bills the boss for every
-   * gem of it, on top of a flat chunk. Nyx is still the one who matters most:
+   * gem of it, on top of a flat chunk. Arissa is still the one who matters most:
    * hers is the only heal in the fight and the only thing that clears obsidian,
    * which is what makes hunting water instead of whatever match is nearest the
    * actual skill here. The other four trade that for a straight burn.
@@ -1062,9 +1276,13 @@ export class Director {
     }
 
     const cleared = await board.clearElement(element);
+    // Through the hide like everything else. The ultimate is the biggest number
+    // in the fight, and a big number that ignored the armour would be the one
+    // move that made the entire progression irrelevant.
     const total =
-      DIFFICULTY.ultDamage +
-      cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier;
+      (DIFFICULTY.ultDamage +
+        cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
+      this.armor();
     this.bossHp = Math.max(0, this.bossHp - total);
 
     const target = boss.impactPoint();
@@ -1086,11 +1304,13 @@ export class Director {
     vfx.flash(light, 0.55, 0.55);
     hud.damage(total * BOSS_MAX_HP, target.x, target.y - 24, 2);
     hud.setHp(this.bossHp, 0.6);
+    this.checkPhase();
 
     // The same tide that shatters the obsidian washes the burns off the party,
     // and picks up anyone who has already gone down.
     const hurt = heroRow.cards.some((c) => c.hp < 1 || c.downed);
-    const healing = healer ? heroRow.healAll(ULT_HEAL_TO) : Promise.resolve();
+    const healing = healer ? heroRow.healAll(this.healTo()) : Promise.resolve();
+    if (healer) this.healsUsed++;
     if (healer && hurt && !hadObsidian) {
       hud.shout(COPY.ultHeal, 0.5, { fill: 0x9fffc4, from: 1.4 });
     }
@@ -1177,10 +1397,17 @@ export class Director {
   /**
    * Restart the hand nagging. Unlike the deadline above, this one *should*
    * reset on every touch — nobody wants a hand animating under their thumb.
+   *
+   * The single gate for the whole prop: every path that could put a hand or a
+   * highlight on screen — the idle timer, a rejected swap, a boss beat landing
+   * mid-turn — comes through here, so T.hints off here is T.hints off
+   * everywhere. `idleHint` is still solved and still kept, because autoPlay
+   * falls back to it for a viewer who never touches the screen.
+   *
    * @param {boolean} immediate skip the initial silence (used after a bad swap)
    */
   restartIdle(immediate) {
-    if (this.ended) return;
+    if (this.ended || !T.hints) return;
     if (!this.idleHint) return;
     const token = ++this.idleToken;
     this.s.hand.stop();
@@ -1199,7 +1426,10 @@ export class Director {
     hand.setUrgency(1);
     this.pointHand();
 
-    await delay(T.pulse - T.hint);
+    // Clamped: the two delays are independent knobs and nothing stops a
+    // retune putting `pulse` under `hint`, which would otherwise light the
+    // gems up in the same frame as the hand and skip the escalation entirely.
+    await delay(Math.max(0, T.pulse - T.hint));
     if (token !== this.idleToken || this.ended) return;
     hand.setUrgency(1.3);
     if (this.idleHint) {
@@ -1210,13 +1440,32 @@ export class Director {
 
   /**
    * How long to wait before playing the move ourselves — passive viewers only.
-   * Shrinks as the doom clock runs down so a hands-off impression still gets a
-   * whole fight rather than a countdown and an end card.
+   * Shrinks as the clock runs down so a hands-off impression still gets a whole
+   * fight rather than a countdown and an end card.
+   *
+   * The divisor used to be the literal 4: spread what is left of the run over
+   * four more moves. Four is not the number. At DIFFICULTY.damagePerGem a plain
+   * triple takes 8.4% off the boss, so the boss is twelve moves deep and change
+   * — and a guard planning four of them paced the demo to a move every seven
+   * seconds, which is the ceiling T.auto, which is what it would have done with
+   * no guard at all.
+   *
+   * Measured, that is a health bar which moves twice in a twenty second creative
+   * and stands perfectly still for the nine seconds in between. The bar was not
+   * broken and neither was the drain; there was simply almost nothing happening
+   * to it. A boss fight whose boss visibly loses no health is not selling a boss
+   * fight.
+   *
+   * So the divisor is the number of moves the boss actually still needs, at what
+   * this fight has been paying for one — see paidPerMove. It costs the passive
+   * viewer nothing except the pauses, and it never fires for anybody who has
+   * touched the screen, so nothing here can take a turn off a real player.
    */
   autoDelay() {
     const left = T.hardCap - T.finaleReserve - now();
-    const budget = left / 4 - T.moveCost;
-    return Math.max(1.6, Math.min(T.auto, budget));
+    const moves = Math.max(1, Math.ceil(this.bossHp / this.paidPerMove()));
+    const budget = left / moves - T.moveCost;
+    return Math.max(T.autoFloor, Math.min(T.auto, budget));
   }
 
   pointHand() {

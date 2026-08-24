@@ -41,8 +41,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 const SHEETS = {
   "asset-pack": {
-    file: "src/assets/first-asset=pack/image.png",
-    out: "src/assets/first-asset=pack/sliced",
+    file: "src/source/unused/first-asset=pack/image.png",
+    out: "src/source/unused/first-asset=pack/sliced",
     measured: [1024, 205],
     rects: {
       // The sheet's own header, sitting on the rock backdrop rather than on
@@ -95,8 +95,8 @@ const SHEETS = {
   },
 
   "socket-tile": {
-    file: "src/assets/image.png",
-    out: "src/assets/image-sliced",
+    file: "src/source/unused/image.png",
+    out: "src/source/unused/image-sliced",
     measured: [1024, 799],
     rects: {
       // One asset, cropped wide enough to keep the soft halo the artist baked
@@ -106,8 +106,8 @@ const SHEETS = {
   },
 
   magic: {
-    file: "src/assets/MAGIC/magic2.png",
-    out: "src/assets/MAGIC/sliced",
+    file: "src/source/unused/MAGIC/magic2.png",
+    out: "src/source/unused/MAGIC/sliced",
     measured: [1024, 712],
     // Nine icons on a flat white page. Boxes are each icon's own content
     // bounds plus 3px, so nothing is packed with a slab of dead white.
@@ -128,8 +128,8 @@ const SHEETS = {
   },
 
   "progress-bar": {
-    file: "src/assets/progress-bar.png",
-    out: "src/assets/progress-bar-sliced",
+    file: "src/source/unused/progress-bar.png",
+    out: "src/source/unused/progress-bar-sliced",
     measured: [295, 197],
     rects: {
       // Five identical tracks on a flat black backdrop, pitch 39.

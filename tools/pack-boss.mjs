@@ -1,8 +1,8 @@
 /**
- * Cut the boss animation out of `src/boss/animation.png` and pack it into a
+ * Cut the boss animation out of `src/source/boss/animation.png` and pack it into a
  * sheet the game can actually play.
  *
- *   node tools/pack-boss.mjs                     # -> src/boss/magmaroth-sheet.webp
+ *   node tools/pack-boss.mjs                     # -> src/assets/boss/magmaroth-sheet.webp
  *   node tools/pack-boss.mjs --png               # keep the intermediate PNG too
  *   node tools/pack-boss.mjs --contact           # also write a flicker test
  *
@@ -40,8 +40,8 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/boss/animation.png");
-const OUT = join(ROOT, "src/boss/magmaroth-sheet");
+const SOURCE = join(ROOT, "src/source/boss/animation.png");
+const OUT = join(ROOT, "src/assets/boss/magmaroth-sheet");
 
 /** Alpha at or under this is backdrop, not art. */
 const EMPTY = 40;
@@ -256,7 +256,7 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SOURCE);
 const px = decode(SOURCE);
-console.log(`in   src/boss/animation.png  ${info.w}x${info.h}`);
+console.log(`in   src/source/boss/animation.png  ${info.w}x${info.h}`);
 
 const bands = split(px, info.w, info.h);
 bands.forEach((b, i) =>

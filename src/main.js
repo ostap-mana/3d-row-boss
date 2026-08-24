@@ -16,11 +16,14 @@ import { reseed } from "./core/rng.js";
 import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
-import { loadPlaque } from "./art/plaque.js";
+import { loadCardFrames } from "./art/cardframe.js";
+import { loadBoardFrame } from "./art/boardframe.js";
 import { loadCtaBanner } from "./art/ctabanner.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadHeroAvatars } from "./art/avatars.js";
+import { loadHintHand } from "./art/hinthand.js";
 import { loadHpBarArt } from "./art/hpbar.js";
+import { loadCardBars } from "./art/cardbars.js";
 import { Boss, loadBossArt } from "./art/boss.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
@@ -30,6 +33,7 @@ import { Hand } from "./ui/hand.js";
 import { EndCard } from "./ui/endcard.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
+import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
 import { audioSleep, setMuted, unlockAudio } from "./audio/engine.js";
 import { bed } from "./audio/sfx.js";
@@ -54,26 +58,34 @@ async function boot() {
   // refills, same lava. Drop the argument to give every impression its own.
   reseed(RUN_SEED);
 
-  // Decoded before the first frame: the arena so it is never briefly a
+  // Decoded before the first frame: the two web fonts because every Text in
+  // the game is built below and a Pixi text texture bakes whatever face was
+  // available when it was made, the arena so it is never briefly a
   // gradient, the painted gems because the board bakes its textures below and
-  // a late arrival would miss that, the plaque because the Board constructor
+  // a late arrival would miss that, the board frame because the Board constructor
   // reads it to lay its grid out, the gem banner because the Hud picks it up as
   // it is built, the wordmark and the PLAY NOW plate and the store badges
   // because the EndCard does the same, the golem because the
   // Boss constructor either builds around the painting or falls back to the
-  // drawn rig, and the card plates and hero busts because each HeroCard does
-  // the same.
+  // drawn rig, the card plates and hero busts because each HeroCard does the
+  // same, the card frames because each card picks one by element as it is
+  // built, and the hint hand because the Hand is built with the scene and reads
+  // it to know which of the two hands it is showing.
   // Every bitmap is inlined in this file, so these are decodes, not downloads.
   await Promise.all([
+    loadFonts(),
     loadArena(),
     loadGemArt(),
-    loadPlaque(),
+    loadBoardFrame(),
     loadCtaBanner(),
     loadBrandArt(),
     loadBossArt(),
     loadCardPlates(),
+    loadCardFrames(),
     loadHeroAvatars(),
+    loadHintHand(),
     loadHpBarArt(),
+    loadCardBars(),
   ]);
   initGemTextures(app.renderer);
 
@@ -113,7 +125,28 @@ async function boot() {
 
   /* ------------------------------------------------------------ layout */
 
-  let layout = computeLayout(app.screen.width, app.screen.height);
+  /**
+   * The notch, the home indicator, and whatever else the device keeps for
+   * itself, in CSS pixels.
+   *
+   * Measured off the probe in index.html rather than guessed, and re-measured on
+   * every relayout: the insets are not constant, they swap axes on rotation and
+   * a webview can report zero until it has settled.
+   */
+  function safeInsets() {
+    const probe = document.getElementById("safe-probe");
+    if (!probe) return { top: 0, right: 0, bottom: 0, left: 0 };
+    const cs = getComputedStyle(probe);
+    const px = (v) => Math.max(0, parseFloat(v) || 0);
+    return {
+      top: px(cs.paddingTop),
+      right: px(cs.paddingRight),
+      bottom: px(cs.paddingBottom),
+      left: px(cs.paddingLeft),
+    };
+  }
+
+  let layout = computeLayout(app.screen.width, app.screen.height, safeInsets());
 
   const scene = {
     app,
@@ -132,7 +165,7 @@ async function boot() {
 
   function relayout() {
     app.resize();
-    layout = computeLayout(app.screen.width, app.screen.height);
+    layout = computeLayout(app.screen.width, app.screen.height, safeInsets());
     scene.layout = layout;
 
     bg.resize(layout);

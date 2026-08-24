@@ -26,7 +26,14 @@
  */
 
 import { Container, Graphics, Sprite, Text, Rectangle } from "pixi.js";
-import { COPY, FONT, GEM_COLORS, GEM_LIGHT, NYX } from "../config.js";
+import {
+  COPY,
+  FONT,
+  FONT_TITLE,
+  GEM_COLORS,
+  GEM_LIGHT,
+  HEALER,
+} from "../config.js";
 import {
   PLAY_FILL,
   PLAY_LABEL,
@@ -111,7 +118,7 @@ export class EndCard extends Container {
     this.glow = new Sprite(glowTexture());
     this.glow.anchor.set(0.5);
     this.glow.blendMode = "add";
-    this.glow.tint = GEM_COLORS[NYX];
+    this.glow.tint = GEM_COLORS[HEALER];
     this.glow.alpha = 0.45;
     this.addChild(this.glow);
     this.rays.visible = !this.art;
@@ -164,7 +171,7 @@ export class EndCard extends Container {
     this.title = new Text({
       text: COPY.endTitle,
       style: {
-        fontFamily: FONT,
+        fontFamily: FONT_TITLE,
         fontSize: 40,
         fontWeight: "900",
         fill: 0xffffff,
@@ -183,7 +190,7 @@ export class EndCard extends Container {
         fontFamily: FONT,
         fontSize: 18,
         fontWeight: "800",
-        fill: GEM_LIGHT[NYX],
+        fill: GEM_LIGHT[HEALER],
         letterSpacing: 2.4,
         align: "center",
         stroke: { color: 0x140720, width: 3, join: "round" },
@@ -394,6 +401,19 @@ export class EndCard extends Container {
    * first and the headline against the top, because those are the two things
    * that must not move. Everything between them is the picture's.
    */
+  /**
+   * Fit a line of the stack, or take it out of the stack entirely.
+   *
+   * Returns the height the stack should budget for it: the fitted font size when
+   * the line is there, and nothing when it is not. `fitFont` on a hidden Text
+   * would hand back a real size for text nobody can see, and every rung below it
+   * would be placed around the hole — which is how the defeat card came out with
+   * a wordmark floating a headline's worth of air below the top of the screen.
+   */
+  fitLine(text, avail, size) {
+    return text.visible ? fitFont(text, avail, size) : 0;
+  }
+
   stackPortrait(layout) {
     const { w, h, ui } = layout;
     const pad = h * 0.045;
@@ -407,23 +427,36 @@ export class EndCard extends Container {
     const buttonY = badgeY - badge.h / 2 - Math.max(10, h * 0.024) - bh / 2;
     this.placeButton(w / 2, buttonY, bw, bh);
 
-    const outSize = fitFont(
+    const outSize = this.fitLine(
       this.outcome,
       w * 0.86,
       clamp(w * 0.045, 11, 22 * ui),
     );
-    this.outcome.position.set(w / 2, h * 0.05 + outSize * 0.7);
+    if (outSize) this.outcome.position.set(w / 2, h * 0.05 + outSize * 0.7);
 
     const logoH = this.fitBrand(
       Math.min(w * 0.86, 460 * ui),
       clamp(w * 0.1, 22, 56 * ui),
     );
-    this.brand.position.set(w / 2, this.outcome.y + outSize * 0.8 + logoH / 2);
+    // Off the outcome line when there is one, off the top of the screen when
+    // there is not — a shade lower than the headline used to start, so the
+    // wordmark reads as the top of the card rather than as something that has
+    // slid up into the space above it.
+    const brandTop = outSize ? this.outcome.y + outSize * 0.8 : h * 0.07;
+    this.brand.position.set(w / 2, brandTop + logoH / 2);
 
-    const subSize = fitFont(this.sub, w * 0.86, clamp(w * 0.042, 10, 20 * ui));
-    this.sub.position.set(w / 2, this.brand.y + logoH / 2 + subSize * 1.2);
+    const subSize = this.fitLine(
+      this.sub,
+      w * 0.86,
+      clamp(w * 0.042, 10, 20 * ui),
+    );
+    if (subSize) {
+      this.sub.position.set(w / 2, this.brand.y + logoH / 2 + subSize * 1.2);
+    }
 
-    const top = this.sub.y + subSize * 0.8;
+    // Where the painting is allowed to start: under whichever of the two is
+    // actually the bottom of the type.
+    const top = subSize ? this.sub.y + subSize * 0.8 : this.brand.y + logoH / 2;
     const bottom = buttonY - bh / 2 - h * 0.02;
     const clear = {
       x: w / 2,
@@ -453,7 +486,7 @@ export class EndCard extends Container {
     const badge = this.layoutBadges(Math.min(colW * 0.94, 460 * ui), 30 * ui);
     const bw = Math.min(colW * 0.86, 380 * ui);
     const bh = this.fitPlay(bw);
-    const outSize = fitFont(
+    const outSize = this.fitLine(
       this.outcome,
       colW * 0.9,
       clamp(h * 0.055, 10, 20 * ui),
@@ -462,20 +495,64 @@ export class EndCard extends Container {
       Math.min(colW * 0.9, 420 * ui),
       clamp(h * 0.11, 20, 48 * ui),
     );
-    const subSize = fitFont(this.sub, colW * 0.9, clamp(h * 0.05, 9, 18 * ui));
+    const subSize = this.fitLine(
+      this.sub,
+      colW * 0.9,
+      clamp(h * 0.05, 9, 18 * ui),
+    );
 
-    const total = outSize + logoH + subSize + bh + badge.h + gap * 2.8;
+    /**
+     * The rungs that are actually on the card, in order, each with the gap it
+     * wants under it.
+     *
+     * Built as a list rather than placed one after another in a straight line of
+     * statements, because two of the five are optional now and the height of the
+     * block has to be known before any of it is placed — the column is centred
+     * on the screen as one thing. The gap total was the literal 2.8, which is
+     * the four transitions between five rungs; with a rung missing that was a
+     * gap the column reserved and never used.
+     */
+    const rungs = [];
+    if (outSize) {
+      rungs.push({
+        h: outSize,
+        gap: 0.5,
+        place: (y) => this.outcome.position.set(cx, y + outSize / 2),
+      });
+    }
+    rungs.push({
+      h: logoH,
+      gap: 0.4,
+      place: (y) => this.brand.position.set(cx, y + logoH / 2),
+    });
+    if (subSize) {
+      rungs.push({
+        h: subSize,
+        gap: 1,
+        place: (y) => this.sub.position.set(cx, y + subSize / 2),
+      });
+    }
+    rungs.push({
+      h: bh,
+      gap: 0.9,
+      place: (y) => this.placeButton(cx, y + bh / 2, bw, bh),
+    });
+    rungs.push({
+      h: badge.h,
+      gap: 0,
+      place: (y) => this.badges.position.set(cx, y + badge.h / 2),
+    });
+
+    // Every rung's height, plus every gap except the one under the last.
+    const total = rungs.reduce(
+      (sum, r, i) => sum + r.h + (i < rungs.length - 1 ? r.gap * gap : 0),
+      0,
+    );
     let y = (h - total) / 2;
-
-    this.outcome.position.set(cx, y + outSize / 2);
-    y += outSize + gap * 0.5;
-    this.brand.position.set(cx, y + logoH / 2);
-    y += logoH + gap * 0.4;
-    this.sub.position.set(cx, y + subSize / 2);
-    y += subSize + gap;
-    this.placeButton(cx, y + bh / 2, bw, bh);
-    y += bh + gap * 0.9;
-    this.badges.position.set(cx, y + badge.h / 2);
+    rungs.forEach((r, i) => {
+      r.place(y);
+      y += r.h + (i < rungs.length - 1 ? r.gap * gap : 0);
+    });
 
     // The picture is aimed into the right-hand half and the left is washed down
     // under the column. The top and bottom washes stay on, softened: they are
@@ -589,13 +666,28 @@ export class EndCard extends Container {
   async show(outcome) {
     this.defeat = outcome === "defeat";
     sfx.endcard(this.defeat);
-    this.outcome.text = this.defeat
-      ? COPY.defeatTitle.replace("\n", " ")
-      : COPY.victory;
-    this.outcome.style.fill = this.defeat ? 0xff8a72 : 0xffe6a8;
-    this.sub.text = this.defeat ? COPY.defeatSub : COPY.endSub;
-    this.sub.style.fill = this.defeat ? 0xffa892 : GEM_LIGHT[NYX];
-    this.glow.tint = this.defeat ? 0xff4a2a : GEM_COLORS[NYX];
+
+    /**
+     * The outcome line and the promise under the wordmark are a win's, and only
+     * a win's. On a loss they are not rewritten, they are absent: see COPY,
+     * where the two keys that used to carry them have gone.
+     *
+     * `visible` rather than an empty string, because the stack has to close up
+     * behind them. A Text with no text still measures its own font, so every
+     * rung under it would be spaced around a gap with nothing in it. See
+     * fitLine.
+     */
+    this.outcome.visible = !this.defeat;
+    this.sub.visible = !this.defeat;
+    if (!this.defeat) {
+      this.outcome.text = COPY.victory;
+      this.outcome.style.fill = 0xffe6a8;
+      this.sub.text = COPY.endSub;
+      this.sub.style.fill = GEM_LIGHT[HEALER];
+    }
+    // The one thing the card still colours off the result, and it is a wash
+    // behind the painting rather than a sentence about it.
+    this.glow.tint = this.defeat ? 0xff4a2a : GEM_COLORS[HEALER];
     // Re-solve the stack: every line here is fitted to the screen width, and
     // the defeat copy is a different length from the victory copy.
     if (this.layout) this.resize(this.layout);
@@ -627,10 +719,12 @@ export class EndCard extends Container {
     await tween(this, { alpha: 1 }, 0.3);
     if (!this.introducing) return;
 
-    const oy = this.outcome.y;
-    this.outcome.y = oy - 18;
-    tween(this.outcome, { alpha: 1 }, 0.24);
-    tween(this.outcome, { y: oy }, 0.36, { ease: Ease.backOut });
+    if (this.outcome.visible) {
+      const oy = this.outcome.y;
+      this.outcome.y = oy - 18;
+      tween(this.outcome, { alpha: 1 }, 0.24);
+      tween(this.outcome, { y: oy }, 0.36, { ease: Ease.backOut });
+    }
 
     await delay(0.1);
     if (!this.introducing) return;
@@ -641,7 +735,7 @@ export class EndCard extends Container {
 
     await delay(0.12);
     if (!this.introducing) return;
-    tween(this.sub, { alpha: 1 }, 0.28);
+    if (this.sub.visible) tween(this.sub, { alpha: 1 }, 0.28);
 
     await delay(0.35);
     if (!this.introducing) return;

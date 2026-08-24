@@ -1,40 +1,70 @@
 /**
  * The boss health bar's shape.
  *
- * `src/buttons/progress.png` is a 926x48 silhouette — a long bar with mitred
- * chevron caps — painted flat black at 60% alpha. Nothing in it is coloured, so
- * nothing in it can be tinted: black multiplied by any tint is still black. It
- * is normalised to an opaque white stamp at load, and every layer of the bar is
- * then that one stamp under a different tint.
+ * Four files in `src/assets/hp/`, and between them they are the whole bar:
  *
- * Three-sliced at the bar's own pixel size rather than stretched to it, because
- * the caps are the whole point of the shape: squashing 926x48 into 477x14 would
- * flatten the mitre into a long shallow spike. The caps are drawn at their own
+ *   black-bar.png  972x48  the frame. Flat black at 40% alpha, and the only one
+ *                          of the four that is a silhouette rather than a
+ *                          colour: nothing in it is coloured, so nothing in it
+ *                          can be tinted — black multiplied by any tint is
+ *                          still black. It is normalised to an opaque white
+ *                          stamp at load, and every layer of the bar is then
+ *                          that one stamp, either under a tint or poured full
+ *                          of one of the paints below.
+ *   dark-red.png   965x40  the empty gauge, a deep #6a1d1d bevelled dark along
+ *                          its long edges. The track used to be a flat tint of
+ *                          the stamp; this is the colour the art was drawn in.
+ *   red-bar.png    812x40  the health still standing, #ca3333, bevelled the
+ *                          same way.
+ *   white-bar.png   12x40  the health just lost, a swatch of warm white. Twelve
+ *                          pixels wide because there is nothing along its
+ *                          length to resolve; it is a colour, and it stretches.
+ *
+ * The frame is eight pixels taller than the track and seven wider — it is drawn
+ * behind the bar and stands proud of it on every side, which is where HP_FRAME
+ * comes from.
+ *
+ * Sliced at the bar's own pixel size rather than stretched to it, because the
+ * cap is the whole point of the shape: squashing 972x48 into 477x14 would
+ * flatten the mitre into a long shallow spike. The cap is drawn at its own
  * aspect and only the flat middle is stretched, so the chevron reads the same on
  * a phone as it does in the file.
+ *
+ * Each end is measured separately rather than assumed to match the other. This
+ * silhouette is square at the left and pointed at the right, which a slicer that
+ * takes one cap width for both ends cannot cut: it would either saw the point
+ * off the right or invent one at the left.
  */
 
 import { getRenderer } from "../core/context.js";
 import { canvasTexture } from "./textures.js";
-import barUrl from "../buttons/progress.png";
-import fillUrl from "../buttons/red-line.png";
-import chipUrl from "../buttons/white-hp.png";
+import barUrl from "../assets/hp/black-bar.png";
+import trackUrl from "../assets/hp/dark-red.png";
+import fillUrl from "../assets/hp/red-bar.png";
+import chipUrl from "../assets/hp/white-bar.png";
 
-/** The normalised stamp: white, opaque, plus where its mitre ends. */
+/**
+ * How far the frame stands proud of the bar, as a fraction of the bar's height.
+ *
+ * (48 - 40) / 2 / 40. Read off the two files rather than picked, so the outline
+ * around the gauge is as thick as the one the art was drawn with — the HUD grows
+ * the silhouette by this much on every side and tints it near-black.
+ */
+export const HP_FRAME = 0.1;
+
+/** The normalised stamp: white, opaque, plus where each of its mitres ends. */
 let stamp = null;
 
 /**
  * The paints, poured into the stamp's silhouette rather than drawn on their own,
  * so each one carries its own colour and still ends in the same mitre as the
- * track it sits in.
- *
- *   fill  `red-line.png` — an 812x40 red bar, bevelled dark on all four edges.
- *   chip  `white-hp.png` — a 12x40 swatch of flat warm white, the health just
- *         lost. Twelve pixels wide because there is nothing along its length to
- *         resolve; it is a colour, and it stretches.
+ * frame it sits in.
  */
-const PAINT_URL = { fill: fillUrl, chip: chipUrl };
+const PAINT_URL = { track: trackUrl, fill: fillUrl, chip: chipUrl };
 const paints = {};
+
+/** Alpha at or above which a pixel of the normalised stamp is inside the shape. */
+const SOLID = 128;
 
 function makeCanvas(w, h) {
   const c = document.createElement("canvas");
@@ -46,8 +76,9 @@ function makeCanvas(w, h) {
 /**
  * White out the art and push its alpha back up to opaque.
  *
- * The divisor is read from the middle of the file rather than hardcoded, so
- * dropping in a darker or lighter silhouette still lands on a clean stamp.
+ * The divisor is read from the middle of the file rather than hardcoded — this
+ * silhouette is painted at 40% and the one before it at 66%, and neither number
+ * is a decision this module should be carrying.
  */
 function normalise(img) {
   const w = img.width;
@@ -67,17 +98,39 @@ function normalise(img) {
   }
   ctx.putImageData(data, 0, 0);
 
-  // Where the mitre meets the full-height body: the first pixel of the top row
-  // the shape actually covers.
-  let cap = 0;
-  for (let x = 0; x < w; x++) {
-    if (px[(w + x) * 4 + 3] > 128) {
-      cap = x;
-      break;
-    }
-  }
+  return { canvas: c, w, h, ...caps(px, w, h) };
+}
 
-  return { canvas: c, cap: cap || Math.round(h / 2), w, h };
+/**
+ * How long the mitre at each end is, in source pixels.
+ *
+ * The shape is at its widest across the middle and at its narrowest along the
+ * top, so the horizontal distance between where the two rows start is the run of
+ * the mitre on the left, and the distance between where they end is the run on
+ * the right. A square end puts both at the same column and measures as nothing,
+ * which is exactly what a square end wants: no slice.
+ *
+ * Row 1 rather than row 0 because the top row of a soft-edged export is a ramp
+ * and can miss the threshold along its whole length.
+ */
+function caps(px, w, h) {
+  const edge = (y, from, step) => {
+    for (let x = from; x >= 0 && x < w; x += step) {
+      if (px[(y * w + x) * 4 + 3] >= SOLID) return x;
+    }
+    return -1;
+  };
+
+  const row = Math.min(1, h - 1);
+  const mid = h >> 1;
+  const shoulder = { l: edge(row, 0, 1), r: edge(row, w - 1, -1) };
+  const tip = { l: edge(mid, 0, 1), r: edge(mid, w - 1, -1) };
+  if (shoulder.l < 0 || tip.l < 0) return { left: 0, right: 0 };
+
+  return {
+    left: Math.max(0, shoulder.l - tip.l),
+    right: Math.max(0, tip.r - shoulder.r),
+  };
 }
 
 /**
@@ -134,7 +187,7 @@ export function hpBarShape(w, h) {
  * gets a tintable layer either way and only has to know whether it got the paint
  * — `painted` — to pick the tint that suits.
  *
- * @param {"fill"|"chip"} kind
+ * @param {"track"|"fill"|"chip"} kind
  */
 export function hpBarPaint(w, h, kind) {
   const baked = bake(w, h);
@@ -156,45 +209,57 @@ export function hpBarPaint(w, h, kind) {
   };
 }
 
-/** Three-slice the stamp onto a fresh canvas of `w` x `h` CSS pixels. */
+/** Slice the stamp onto a fresh canvas of `w` x `h` CSS pixels. */
 function bake(w, h) {
   if (!stamp || w <= 1 || h <= 1) return null;
 
   const res = Math.min(getRenderer().resolution || 1, 2);
   const pw = Math.max(2, Math.round(w * res));
   const ph = Math.max(2, Math.round(h * res));
-  // Uniform: the mitre is only 45 degrees for as long as both axes agree.
-  const cap = Math.min(
-    Math.round(stamp.cap * (ph / stamp.h)),
-    Math.floor(pw / 2),
-  );
+
+  // Uniform: a mitre only holds its angle for as long as both axes agree.
+  const k = ph / stamp.h;
+  let left = Math.round(stamp.left * k);
+  let right = Math.round(stamp.right * k);
+  // The flat middle has to survive, however short the bar is asked to be, or the
+  // two caps meet and overdraw each other.
+  if (left + right > pw - 2) {
+    const squeeze = (pw - 2) / (left + right);
+    left = Math.floor(left * squeeze);
+    right = Math.floor(right * squeeze);
+  }
 
   const canvas = makeCanvas(pw, ph);
   const ctx = canvas.getContext("2d");
-  const mid = stamp.w - stamp.cap * 2;
-  ctx.drawImage(stamp.canvas, 0, 0, stamp.cap, stamp.h, 0, 0, cap, ph);
+  const mid = stamp.w - stamp.left - stamp.right;
+
+  if (left > 0) {
+    ctx.drawImage(stamp.canvas, 0, 0, stamp.left, stamp.h, 0, 0, left, ph);
+  }
   ctx.drawImage(
     stamp.canvas,
-    stamp.cap,
+    stamp.left,
     0,
     mid,
     stamp.h,
-    cap,
+    left,
     0,
-    pw - cap * 2,
+    pw - left - right,
     ph,
   );
-  ctx.drawImage(
-    stamp.canvas,
-    stamp.w - stamp.cap,
-    0,
-    stamp.cap,
-    stamp.h,
-    pw - cap,
-    0,
-    cap,
-    ph,
-  );
+  if (right > 0) {
+    ctx.drawImage(
+      stamp.canvas,
+      stamp.w - stamp.right,
+      0,
+      stamp.right,
+      stamp.h,
+      pw - right,
+      0,
+      right,
+      ph,
+    );
+  }
 
   return { canvas, pw, ph };
 }

@@ -1,7 +1,7 @@
 /**
  * Pack the arena backdrop — the painting the whole match is played over.
  *
- *   node tools/pack-arena.mjs             # -> src/assets/arena-sky.webp
+ *   node tools/pack-arena.mjs             # -> src/assets/arena/sky.webp
  *   node tools/pack-arena.mjs --png       # keep the intermediate PNG too
  *
  * The source is a 4096x2048 export at 12 MB. Every byte of this build is
@@ -31,8 +31,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const JOBS = [
   {
-    src: "src/letters/5f903a7d5beb76f25b85b3c2c7675f796526e7b9 (1).png",
-    out: "src/assets/arena-sky.webp",
+    src: "src/source/arena/sky-4k.png",
+    out: "src/assets/arena/sky.webp",
     /**
      * Drop the top quarter — the empty blue above the cloud swirl.
      *
@@ -50,10 +50,22 @@ const JOBS = [
     /**
      * Height, not width — height is the dimension a 9:16 screen makes this
      * picture cover, and the wide crop means the sides are thrown away on a
-     * phone regardless. 1300 leaves the cloud line about as sharp as the lava
-     * arena's shore was, after the larger overscan this reframe needs.
+     * phone regardless.
+     *
+     * 1559 is the crop's own height: no downscale at all, which is as sharp as
+     * this source can ever be. It is not a taste call either. The layout covers
+     * the screen and then multiplies by OVERSCAN 1.45, so the picture is always
+     * magnified on a phone — at the 1300 this shipped at, a 390x844 screen at
+     * 2x drew the texture 2448 device pixels tall, a 1.88x blow-up, and a Pixel
+     * 7 managed 2.04x. Every cloud edge in the painting was being invented by
+     * the GPU's bilinear filter.
+     *
+     * At 1559 the same screen lands at 1.57x, and the iPhone SE class at 1.24x.
+     * Still magnified — the delivered export is only 2048 tall before the crop,
+     * so there is no setting here that reaches 1:1 — but it is the whole of
+     * what the source has, and it costs about 50 kB.
      */
-    height: 1300,
+    height: 1559,
     /**
      * Higher than the end card's key art runs at. Smooth sky is exactly where
      * WebP's chroma handling shows its seams — a cloud bank is one long gentle

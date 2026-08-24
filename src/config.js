@@ -12,7 +12,7 @@ export const LIGHTNING = 3;
 export const ARCANE = 4;
 /**
  * Appended, never inserted: every element is an index into the colour tables
- * below, START_BOARD and the gem art, and NYX is a hard-coded index into
+ * below, START_BOARD and the gem art, and HEALER is a hard-coded index into
  * HEROES. A sixth element is safe at the end; a sixth element in the middle
  * would silently repaint the whole roster.
  */
@@ -97,14 +97,19 @@ export const DIFFICULTY = {
   /**
    * Boss health taken by one gem cleared in the first step of a match.
    *
-   * At 0.05 a plain triple took 15% and the bar barely moved to the eye: a
-   * fifteen-hundredth of the arena's width per gem, under a chevron whose empty
-   * channel was almost invisible. 0.075 puts a triple at 22% and a four-run at
-   * 44%, so every match visibly bites — and the fight is over in five or six
-   * matches instead of seven, which is the trade. Drop it back to stretch the
-   * creative out again.
+   * 0.028 is less than half the 0.075 this shipped at, and it is the single
+   * number that turns a demo into a gauntlet. A plain triple takes 8% off a
+   * boss that also armours up as it falls (see `armor`), so twelve of
+   * them is a dead boss and nobody gets twelve moves — grinding triples runs
+   * out of clock long before it runs out of boss. A four-run takes 17% and a
+   * four-run leading a cascade takes 31%, which is the whole game: the fight is
+   * winnable, but only by somebody reading the board rather than clearing it.
+   *
+   * A modelled fight puts a strong player around 45% wins, an average one near
+   * 12% and a distracted one under 3%. Raise it back towards 0.075 to walk the
+   * whole mode back to merciful.
    */
-  damagePerGem: 0.075,
+  damagePerGem: 0.028,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -120,16 +125,26 @@ export const DIFFICULTY = {
    * beats a triple by a third and nothing else, cascades are too rare to carry
    * the difference, and playing well stops being worth the seconds it costs —
    * which showed up as a flat win rate across every skill level.
+   *
+   * Pushed up again as the damage floor went down. When a triple no longer
+   * threatens the boss on its own, the payout for finding the bigger shape is
+   * the only lever a good player has left, and it has to be worth the seconds
+   * that hunting for it costs them on the doom clock.
    */
-  sizeBonus: { 4: 1.45, 5: 2.0 },
+  sizeBonus: { 4: 1.5, 5: 2.3 },
   /**
    * What a hero still contributes once they are down.
    *
    * Every match is a volley from the whole roster now, so this is no longer a
    * penalty on one colour — it is the share of the party's damage that dies
    * with each hero. See HeroRow.partyPower.
+   *
+   * At 0.28 a single loss takes 12% off every match that follows and two losses
+   * take a quarter, which is enough that a party down two is not coming back.
+   * That is the intent: a fight you can lose slowly is not a hard fight, it is
+   * a long one, and this creative does not have the runtime to be long.
    */
-  downedPenalty: 0.45,
+  downedPenalty: 0.28,
 
   /**
    * The volley.
@@ -145,46 +160,122 @@ export const DIFFICULTY = {
   assistImpact: 0.42,
 
   /**
-   * Nyx charge earned per water gem cleared, and where she starts.
+   * Arissa's charge earned per water gem cleared, and where she starts.
    *
-   * Tuned so a single water match arms her, because with a twelve second doom
-   * clock the player only gets about three moves before the first cataclysm and
-   * her heal is the only way to live through one. At two thirds of this rate
-   * the simulated ultimate fired in one fight out of ten and the fight was
-   * unwinnable: 14% of runs survived, against 50-64% now.
+   * She no longer arrives half charged with a free heal already waiting. From
+   * 0.2, one water triple leaves her at 0.86 and the second arms her — so the
+   * tide costs two moves spent on the one colour the boss is actively burying
+   * (see Director.worstCell, which scores water cells up), and the player has
+   * to start paying for it before the first warning rather than after it.
+   *
+   * This is the most dangerous knob in the mode to touch downwards. Below this
+   * the first cataclysm lands on a party that never had a way to be ready for
+   * it, and that is not difficulty, it is a coin flip.
    */
-  chargePerGem: 0.3,
-  chargeStart: 0.5,
+  chargePerGem: 0.22,
+  chargeStart: 0.2,
 
   /**
    * The same, for the four heroes who are not the healer.
    *
-   * Deliberately slower than Nyx's: their ultimates are pure damage, they are
-   * not racing the doom clock, and at Nyx's rate every single match armed
+   * Deliberately slower than Arissa's: their ultimates are pure damage, they are
+   * not racing the doom clock, and at her rate every single match armed
    * somebody and the fight turned into a queue of cut-ins. At this rate one
    * colour has to be worked twice before its hero is spendable, so choosing
    * which one to feed is an actual decision.
    */
-  partyChargePerGem: 0.22,
+  partyChargePerGem: 0.18,
   partyChargeStart: 0.1,
   /** Flat chunk the ultimate hits for, on top of per-gem for the water it eats. */
-  ultDamage: 0.2,
-  ultGemMultiplier: 1.4,
+  ultDamage: 0.13,
+  ultGemMultiplier: 1.25,
 
   /** Blocks laid per boss turn: base, plus this much more each turn. */
-  obsidianBase: 2,
-  obsidianGrowth: 0.5,
-  /** Never hold more than this many cells at once, out of 25. */
-  obsidianMax: 10,
+  obsidianBase: 3,
+  obsidianGrowth: 1,
+  /**
+   * Never hold more than this many cells at once, out of 25 — except that the
+   * ceiling itself climbs, by obsidianMaxGrowth per boss turn, up to
+   * obsidianMaxCap.
+   *
+   * A fixed ceiling is a promise that the board stops shrinking, and the whole
+   * point of this pass is that it never does. Opening lower than the old flat
+   * ten and ending higher means the first two turns still breathe while the
+   * endgame is played on a third of a board, which is where the fight is meant
+   * to be decided.
+   *
+   * 12 is the hard stop rather than 25: past that ensurePlayable() spends most
+   * turns reshuffling a dozen gems in a corner, and a board that reshuffles
+   * every move is random, not hard.
+   */
+  obsidianMax: 8,
+  obsidianMaxGrowth: 0.9,
+  obsidianMaxCap: 12,
 
   /**
    * Boss attack damage, multiplied by this to the power of the turn index.
    *
-   * Gentle, because the doom clock now supplies the urgency. At 1.2 the ramp
-   * and the cataclysm were two clocks racing each other and the fight was over
-   * before either had a story to tell.
+   * Not gentle any more. At 1.13 the golem's fifth swing lands nearly twice as
+   * hard as its first and its eighth two and a half times, so a fight that runs
+   * long does not merely stay dangerous — it accelerates away from the player.
+   * The ramp and the doom clock are two clocks racing each other now, and that
+   * is the design rather than an accident of tuning.
+   *
+   * It compounds with rage() below, which is why it is not steeper: at 1.24 the
+   * two together took the sixth swing past a full hero bar and the fight ended
+   * in a single unanswerable turn instead of an escalation anybody could read.
    */
-  bossRamp: 1.1,
+  bossRamp: 1.13,
+
+  /**
+   * Rage: everything the boss throws, multiplied by this much per second of
+   * wall clock, capped at rageMax.
+   *
+   * bossRamp punishes taking many turns. This punishes taking a long time over
+   * them, which is the thing a turn counter cannot see. Hunting the board for a
+   * five-run is a real strategy and it stays one — but twenty seconds in the
+   * multiplier is already 1.24, and by the hard cap it is pinned at the ceiling
+   * with the golem hitting for half again what it opened with. Thinking stops
+   * being free.
+   */
+  ragePerSecond: 0.012,
+  rageMax: 1.45,
+
+  /**
+   * The boss's hide, thickening as its health drops.
+   *
+   * Ordered deepest first: the first entry whose `below` the boss has
+   * fallen under wins, and every point of damage from then on is multiplied by
+   * `mult`. This is the progression the mode was missing. The bar does
+   * not fall at a constant rate; it fights back harder the closer it gets to
+   * empty, and the last fifteen percent costs two thirds again what the first
+   * fifteen did.
+   *
+   * `name` is shouted the moment a layer breaks, because armour the
+   * player cannot see is not difficulty, it is a bug report — see
+   * Director.checkPhase.
+   *
+   * Together these ask for about 23% more total damage than a bare boss.
+   * Deliberately survivable: the wall at the end has to be a climax, not a
+   * brick. Anything under ~0.5 on the last layer and a player who earned the
+   * kill watches their damage stop mattering, which reads as cheating.
+   */
+  armor: [
+    { below: 0.15, mult: 0.6, name: "MOLTEN CORE" },
+    { below: 0.35, mult: 0.72, name: "OBSIDIAN HIDE" },
+    { below: 0.65, mult: 0.85, name: "HARDENED" },
+  ],
+
+  /**
+   * How much weaker Arissa's tide gets every time it is spent.
+   *
+   * The heal is the one thing in the fight that undoes damage already taken,
+   * and a heal as good on its third cast as on its first is an unlimited supply
+   * of second chances. Each cast tops the party up ten points lower than the
+   * last — 60%, then 50%, then 40% — floored by ULT_HEAL_FLOOR: the tide buys
+   * the run twice, and after that it is only buying a turn.
+   */
+  healDecay: 0.1,
 
   /**
    * Off: the board no longer rewrites refilled gems into the cascade the script
@@ -227,27 +318,61 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Twenty is five or six moves — enough that killing the boss before the clock
-   * lands is genuinely on the table, not just surviving it. The fight still
-   * wants Nyx held back for the timer, but she is no longer the only way out.
+   * Fourteen is four or five moves. Killing the boss before the first one lands
+   * is off the table — nobody takes a full armoured health bar in five swaps —
+   * so the opening is no longer a question of how fast the player can attack.
+   * It is whether they have Arissa armed by second fourteen while the boss is
+   * busy burying the water they were saving for her.
+   *
+   * It is set exactly one move wide of the two water matches her charge costs.
+   * A player who goes looking for water from the first swap makes it; a player
+   * who takes whatever match is nearest does not, and eats the cataclysm at
+   * full price.
    *
    * This is the number that decides the whole mode's difficulty. It is also the
    * one bounded by T.hardCap: the cataclysm and the card after it need room
    * inside the creative's runtime, which is why the cap moved with it.
    */
-  seconds: 20,
-  /** Every cataclysm after the first. The boss does not get tired. */
-  repeat: 8,
+  seconds: 14,
+  /**
+   * Every cataclysm after the first — and each one arrives sooner than the one
+   * before it, shortened by repeatDecay and floored at repeatFloor.
+   *
+   * A fixed repeat is a metronome, and a metronome is something a player
+   * settles into. Seven, then 5.5, then 4.3, then a flat 4: by the third the
+   * party is being asked to live through a hit that is also growing (see
+   * damageRamp) roughly every move and a half, and the only answer left is to
+   * have already killed the boss.
+   */
+  repeat: 7,
+  repeatDecay: 0.78,
+  repeatFloor: 4,
   /**
    * Fraction of HERO_MAX_HP the cataclysm takes off every hero. Set against
    * ULT_HEAL_TO: a freshly healed party lives on a sliver, a chewed-up one
    * does not live at all.
    */
-  damage: 0.85,
+  damage: 0.4,
+  /**
+   * And every cataclysm after the first is multiplied by this again.
+   *
+   * 40%, then 48%, then 58%, then 69%. The first is survivable by a party that
+   * has not been chewed on; the third is survivable only by one that was healed
+   * in between, and the fourth is not survivable at all. That escalating
+   * deadline is the spine of the whole mode — it is what stops a careful player
+   * simply outlasting the fight, and it is why the tide's decay matters.
+   *
+   * Kept well under a full bar on purpose. At 0.9 the cataclysm did not kill
+   * heroes, it killed the party, all six at once and always on the same beat:
+   * the fight had one failure mode and no attrition at all. Heroes should fall
+   * one at a time, to the slam that singles out the weakest, and the cataclysm
+   * should be the thing that makes them weak.
+   */
+  damageRamp: 1.2,
   /** Seconds remaining at which the boss shouts a warning. */
-  warnAt: [7, 3],
+  warnAt: [5, 2],
   /** Below this the clock turns red and pulses. */
-  panicAt: 5,
+  panicAt: 4.5,
 };
 
 export const BOSS_MAX_HP = 10000000;
@@ -257,20 +382,60 @@ export const BOSS_NAME = "MAGMAROTH";
 
 export const T = {
   /**
-   * Idle before the hint hand appears.
+   * The idle hint — the hand demonstrating a swap on its own, and the gem
+   * highlight that escalates out of it — off.
    *
-   * Four times longer than the old value on purpose: a hand that arrives after
-   * eight tenths of a second is not a hint, it is the game solving the board in
-   * front of someone who was still reading it.
+   * It shipped at half a second of silence, which meant it came back after
+   * every single settled cascade. On a board this small that is not a guide, it
+   * is a gauntlet permanently in the way of the thing it is pointing at.
+   *
+   * Off is the demo only: nothing points at a cell of its own accord, no gems
+   * light up at `pulse`. The hand still rides the player's own swipe — that is
+   * `touchHand` below, on its own switch, because a hand that follows a finger
+   * already on the glass suggests nothing to anybody. Also untouched is the
+   * autoplay demo — a viewer who never puts a finger on the screen still gets
+   * the fight played for them, because that path solves the board for itself
+   * (see Director.autoPlay) rather than reading the hand.
+   *
+   * Flip it back to true and the two delays below decide the pacing again.
    */
-  hint: 3.0,
+  hints: false,
+  /**
+   * The hand under the player's own thumb — on.
+   *
+   * The same prop driven from the other end: it turns up where the finger lands
+   * and rides the swipe out with it, so the gesture on screen is the gesture
+   * being made. It never proposes a move, which is why it outlives `hints`
+   * being off. See Hand.grab and the wiring in Director's constructor.
+   */
+  touchHand: true,
+  /**
+   * Idle before the hint hand appears, when `hints` is on.
+   *
+   * Four seconds rather than the half second it shipped at. Every touch
+   * restarts this timer and so does every boss beat — see Director.restartIdle
+   * and refreshHint — so at half a second the hand was effectively always on
+   * screen. At four it is what it says it is: something that turns up for a
+   * player who has actually stalled.
+   */
+  hint: 4.0,
   /** idle before the hand pulses harder and gems highlight */
-  pulse: 7.0,
+  pulse: 8.0,
   /**
    * Idle before the game plays the move itself — and it only ever does that
    * for a viewer who has not touched the screen once. See Director.armAutoPlay.
    */
-  auto: 10.0,
+  auto: 7.0,
+  /**
+   * Floor under the autoplay delay, once the pace guard has worked out how many
+   * moves the boss still owes — see Director.autoDelay.
+   *
+   * A whole second of nothing on top of T.moveCost, which is the move playing
+   * itself out. So the fastest the demo ever goes is a move every 3.8 seconds,
+   * and it only reaches that when the boss is deep enough that the run cannot
+   * afford anything slower. It is a pace, not a stampede.
+   */
+  autoFloor: 1.0,
   /** persistent INSTALL banner drops in at this point on the clock */
   banner: 12.0,
   /**
@@ -336,10 +501,49 @@ export const AUDIO = {
 
 /* --------------------------------------------------------------- store URLs */
 
+/**
+ * Where a tap goes.
+ *
+ * Three destinations rather than two, because the end card wears three badges
+ * and each one is a promise about where it leads — see BADGE_STORE below, and
+ * net/cta.js, which does the routing.
+ *
+ * Locale-free on purpose. `apps.apple.com/app/id…` and the bare Play `details`
+ * URL both redirect into the storefront the device is already signed in to; a
+ * `/us/` or an `&hl=en` in here sends a player in Warsaw to a listing they
+ * cannot install from.
+ *
+ *   ios      Invokers: Titan Legacy, HitZone Inc. Matched to the Android build by
+ *            bundle id rather than by title — both stores carry it as
+ *            `hitzone.anima.spirit.guardians` — because the game has been renamed
+ *            once already and the name is the one field that does not hold still.
+ *   android  the same build on Play. The package still says what the game shipped
+ *            under; the listing is live under the new name.
+ *   pc       the game's own site, which is where the PC and Mac launcher is handed
+ *            out. Deliberately not the installer: that download is a signed CDN
+ *            URL with an expiry stamped into it, and a creative that runs for a
+ *            quarter would start handing out a dead link partway through.
+ */
 export const STORE_URL = {
-  ios: "https://apps.apple.com/app/id0000000000",
+  ios: "https://apps.apple.com/app/id6755186220",
   android:
     "https://play.google.com/store/apps/details?id=hitzone.anima.spirit.guardians",
+  pc: "https://invokers.com/",
+};
+
+/**
+ * Which of the three each badge on the end card asks for, keyed by the badge ids
+ * in art/brand.js.
+ *
+ * Anything not in here — the PLAY NOW plate, a tap on the card itself — has no
+ * store of its own to ask for and gets the one the device belongs to. That is
+ * the whole difference between the plate and the badges: the plate says play,
+ * and the badges each say where.
+ */
+export const BADGE_STORE = {
+  appstore: "ios",
+  googleplay: "android",
+  pcmac: "pc",
 };
 
 /* -------------------------------------------------------------------- copy */
@@ -363,6 +567,8 @@ export const COPY = {
   ultClear: "BOARD CLEARED!",
   breath: "LAVA BREATH!",
   smash: "MAGMA SLAM!",
+  /** The third swing — it does not exist until the boss has earned it. */
+  eruption: "ERUPTION!",
   ultHeal: "TEAM HEALED!",
   /* the fight can now be lost, and it says so out loud */
   doomLabel: "CATACLYSM",
@@ -373,18 +579,42 @@ export const COPY = {
   down: "HERO DOWN!",
   shuffle: "NO MOVES — RESHUFFLE",
   defeat: "PARTY WIPED",
-  defeatTitle: "MAGMAROTH\nWINS",
-  defeatSub: "BUILD A STRONGER SQUAD",
   /**
-   * No `defeatCta`. The CTA is a painted plate with PLAY NOW on it — a key
-   * that changed the wording would change nothing on screen, and a knob that
-   * does nothing is worse here than no knob at all.
+   * No `defeatTitle`, no `defeatSub`, and no `defeatCta`.
+   *
+   * The end card used to carry two lines about having lost — "MAGMAROTH WINS"
+   * over the wordmark and "BUILD A STRONGER SQUAD" under it. They are gone, and
+   * with them the last difference between the two cards: whatever happened in
+   * the fight, the card is the wordmark, the painting, the plate and the badges,
+   * and nothing on it discusses the result.
+   *
+   * The fight still says it out loud while it is happening — `defeat` above is
+   * shouted over the wipe. What the pitch does not do any more is open by
+   * telling somebody they lost.
+   *
+   * The CTA never had a key either: it is a painted plate with PLAY NOW on it, so
+   * a key that changed the wording would change nothing on screen, and a knob
+   * that does nothing is worse here than no knob at all.
    */
 };
 
-/** System stack only — a web font would be bytes we cannot spare. */
+/**
+ * The UI face: everything the game labels rather than announces.
+ *
+ * Oswald, condensed, and the system stack behind it for a device that cannot
+ * decode the file — see ui/fonts.js, which is where the bytes are and why they
+ * were worth spending after a build that ran on the system stack alone.
+ */
 export const FONT =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  '"Oswald", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+/**
+ * The display face: the boss's name, the hero's name on an ultimate, and the
+ * end card's headline. Three places, all of them large, all of them a name
+ * being announced — which is the whole argument for a second font. Anything
+ * that is read rather than heard stays on FONT.
+ */
+export const FONT_TITLE = '"Cinzel", Georgia, "Times New Roman", serif';
 
 /* ------------------------------------------------------------------ heroes */
 
@@ -397,22 +627,39 @@ export const FONT =
  * up; `skill` is the name the cut-in shouts.
  */
 export const HEROES = [
-  { name: "EMBRA", element: FIRE, skill: "MAGMA LANCE" },
-  { name: "NYX", element: WATER, heal: true, skill: "ABYSSAL TIDE" },
-  { name: "THORNE", element: NATURE, skill: "VERDANT WRATH" },
-  { name: "VOLT", element: LIGHTNING, skill: "STORM VERDICT" },
-  { name: "MYST", element: ARCANE, skill: "VOID ECLIPSE" },
-  // Sixth card, and last on purpose: NYX is an index into this array.
-  { name: "SYLPH", element: WIND, skill: "CYCLONE EDGE" },
+  { name: "RICKLOW", element: FIRE, skill: "MAGMA LANCE" },
+  { name: "ARISSA", element: WATER, heal: true, skill: "ABYSSAL TIDE" },
+  { name: "QUINNTO", element: NATURE, skill: "VERDANT WRATH" },
+  { name: "SELISA", element: LIGHTNING, skill: "STORM VERDICT" },
+  { name: "SILANTH", element: ARCANE, skill: "VOID ECLIPSE" },
+  // Sixth card, and last on purpose: HEALER is an index into this array.
+  { name: "TARANIS", element: WIND, skill: "CYCLONE EDGE" },
 ];
 
-/** Index into HEROES of the healer — the only ultimate that is not just damage. */
-export const NYX = 1;
+/**
+ * Index into HEROES of the healer — the only ultimate that is not just damage.
+ *
+ * Named for the job rather than for whoever is doing it. It was `NYX`, which
+ * meant every rename of the roster was also a rename across four files, and a
+ * constant that lies about which card it points at is worse than a dull one.
+ */
+export const HEALER = 1;
 
 /* ------------------------------------------------ the boss hits back */
 
 /** Hero health. Simulated now, not authored: these numbers decide the fight. */
 export const HERO_MAX_HP = 8000;
+
+/**
+ * What a full charge is called on the card.
+ *
+ * Presentation and nothing else. The charge itself is a fraction from 0 to 1 —
+ * every rule in DIFFICULTY is written in those terms and none of them read this
+ * — but a gauge with numbers on it has to say a number, and "0.44" is not what a
+ * party-management screen says. 120 is the figure the mockup was drawn with, and
+ * at DIFFICULTY.chargePerGem it makes a matched gem worth a round 26.
+ */
+export const HERO_MAX_CHARGE = 120;
 
 /**
  * Floor under every hit. At 0 heroes really fall and the party can be wiped,
@@ -422,7 +669,7 @@ export const HERO_MAX_HP = 8000;
 export const HERO_HP_FLOOR = 0;
 
 /** Below this fraction the card blinks red. */
-export const HERO_CRITICAL = 0.35;
+export const HERO_CRITICAL = 0.42;
 
 /**
  * The counterattack rotation. The boss cycles it, and every pass hits harder
@@ -439,19 +686,48 @@ export const HERO_CRITICAL = 0.35;
  * it is what makes a single bad move actually cost a hero.
  */
 export const BOSS_ATTACKS = [
-  { kind: "breath", targets: "all", damage: 0.15, shout: COPY.breath },
+  { kind: "breath", targets: "all", damage: 0.085, shout: COPY.breath },
   {
     kind: "smash",
     targets: "lowest",
-    damage: 0.38,
-    splash: 0.1,
+    damage: 0.26,
+    splash: 0.05,
     shout: COPY.smash,
+  },
+  /**
+   * The third swing — and it does not exist until the boss's third turn.
+   *
+   * A two-beat rotation is learned in one pass and after that it is weather.
+   * This one arrives exactly when the player believes they have the pattern:
+   * everybody takes real damage, and `obsidianBonus` puts two extra
+   * blocks on the board on top of the turn's usual wave, so the turn that hurts
+   * most is also the turn that costs the most room to answer it.
+   *
+   * `from` is the turn index it unlocks on, and a swing that has just
+   * come off cooldown jumps the queue — see Director.currentAttack.
+   */
+  {
+    kind: "smash",
+    targets: "all",
+    damage: 0.11,
+    obsidianBonus: 2,
+    shout: COPY.eruption,
+    from: 3,
   },
 ];
 
 /**
- * How far Nyx's tide refills the party. Deliberately not a full heal any more:
+ * How far Arissa's tide refills the party. Deliberately not a full heal any more:
  * the ultimate has to be worth building towards without erasing every mistake
  * that came before it.
  */
-export const ULT_HEAL_TO = 0.65;
+export const ULT_HEAL_TO = 0.6;
+
+/**
+ * How far DIFFICULTY.healDecay is allowed to grind that down across a fight.
+ *
+ * A third of a health bar is still worth casting for — it is one more boss
+ * swing lived through — and it is not worth building a whole run around.
+ * Drawing that line is the entire job of the floor.
+ */
+export const ULT_HEAL_FLOOR = 0.32;

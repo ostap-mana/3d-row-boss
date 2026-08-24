@@ -6,9 +6,11 @@
  */
 
 import { Container, Graphics, Sprite, Text, Rectangle, Texture } from "pixi.js";
-import { BOSS_NAME, COPY, DOOM, FONT } from "../config.js";
+import { BOSS_NAME, COPY, DOOM, FONT, FONT_TITLE } from "../config.js";
 import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
-import { hpBarShape, hpBarPaint } from "../art/hpbar.js";
+import { lerpColor } from "../core/color.js";
+import { hpBarShape, hpBarPaint, HP_FRAME } from "../art/hpbar.js";
+import { glowTexture, sheenTexture } from "../art/textures.js";
 import {
   BANNER_BAR_H,
   BANNER_FILL,
@@ -24,12 +26,22 @@ import { fitFont } from "./text.js";
 import * as sfx from "../audio/sfx.js";
 
 /**
- * Colours of the four layers the bar is stacked out of.
+ * Colours of the layers the bar is stacked out of.
+ *
+ * BAR_EDGE is the frame, and it is the one of these that is still doing its
+ * original job: the silhouette behind the bar is painted flat black, so the
+ * colour of the outline is this and not the art's.
+ *
+ * The other four are stand-ins now — art/hpbar.js hands the track, the fill and
+ * the chip their own paint, and each of these is only what that layer wears if
+ * its file failed to decode. They are kept because the fallback is the whole
+ * reason the bar cannot fail to draw.
  *
  * The track used to be 0x2a1020, which over a lava arena at dusk was the arena:
  * the empty half of the gauge did not read at all, so a hit that took a fifth of
  * the boss looked like it took nothing. It has to be dark enough to read as
- * empty and light enough to read as bar.
+ * empty and light enough to read as bar — which is what the painted #6a1d1d
+ * track does now, and this is that reasoning in a flat colour.
  */
 const BAR_EDGE = 0x0a0510;
 const BAR_TRACK = 0x5c3346;
@@ -48,15 +60,84 @@ const PAINT_LOW = 0xff8a72;
 /**
  * How the white behind the red is timed, as fractions of the hit's own duration.
  *
- * The point of that strip of white is to say how much the hit was worth, and it
- * can only say it while it is open. The red lands at 0.55 of the hit, so the
- * white waits past that before it starts to move at all, and then takes its
- * time. Both are relative to `dur` rather than absolute, which keeps the total
- * where it was — the director awaits setHp, and a slower drain here would push
- * every beat of the storyboard back.
+ * The white is the health just lost, and the reasoning used to be that it can
+ * only say so while it is open — so it held past the red landing (0.75 of the
+ * hit) and then took its time (0.7). Measured, that is 0.30s of a 0.4s hit in
+ * which the bar does not get shorter. The red is draining underneath the whole
+ * time and none of it can be seen, because the white above it is still standing
+ * at the old length and the white is what the eye reads as the end of the bar.
+ *
+ * The result was a bar that took a hit, sat still through it, and then slid left
+ * once the hit was over — two movements where the fight had one event, and the
+ * second one arriving late enough to look like a bug rather than a flourish.
+ *
+ * So the white now leaves almost at once (0.10) and travels slower than the red
+ * (0.85 against the red's 0.55). Same two layers, same reading — the white is
+ * still a strip trailing the red, and how much was lost is still how long that
+ * strip is — but the bar starts getting shorter on the frame it is hit.
+ *
+ * Both are relative to `dur` rather than absolute, which keeps the total where
+ * it was: the director awaits setHp, and a slower drain here would push every
+ * beat of the storyboard back.
  */
-const CHIP_HOLD = 0.75;
-const CHIP_DRAIN = 0.7;
+const CHIP_HOLD = 0.1;
+const CHIP_DRAIN = 0.85;
+
+/**
+ * The highlight that travels along the bar, and how often.
+ *
+ * The bar had no life of its own. Everything it did, it did because it had just
+ * been hit: it drained, the white behind it drained after it, and between hits
+ * it was a red rectangle. Which is most of a twenty second creative — the boss
+ * is hit perhaps six times, and the rest of the time the one piece of chrome
+ * saying "this is a fight in progress" was holding perfectly still.
+ *
+ * So it sweeps. `sweep` is how long the highlight takes to cross, `period` how
+ * long until the next one, and the gap between them is deliberately most of the
+ * cycle: a gauge with a shine running back and forth without pause is a loading
+ * spinner, and this is meant to read as a surface catching the light.
+ *
+ * `band` is the highlight's width against the bar's height. It is kept inside
+ * the fill rather than masked to it — it starts at the left edge and stops a
+ * band short of the leading one, and `sin(p*pi)` has it at nothing at both ends
+ * anyway, so it never has to be clipped and the HUD stays free of a mask.
+ */
+const SHEEN = { sweep: 0.85, period: 3.1, band: 3.2, peak: 0.62, phase: 0 };
+
+/** The same, for the doom strip: slower, dimmer, and out of step with above. */
+const DOOM_SHEEN = {
+  sweep: 1.15,
+  period: 3.1,
+  band: 5,
+  peak: 0.42,
+  phase: 1.5,
+};
+
+/**
+ * How hard the bar throbs once the boss is nearly down, and how fast.
+ *
+ * The colour already deepens under 30% — see PAINT_LOW — but a colour is a state
+ * and this is meant to be a countdown. The throb rides on top of it, between the
+ * deepened red and the full one, so the bar is visibly ticking over rather than
+ * simply darker than it was.
+ */
+const LOW_AT = 0.3;
+const THROB = { rate: 7.4, depth: 0.55 };
+
+/**
+ * The white flash over the bar when a hit lands: how bright, and how briefly.
+ *
+ * 0.42 over 0.13s. It was 0.34 over `max(0.2, dur * 0.6)`, which on a 0.4s hit
+ * is 0.24s — longer than the red takes to drain (0.22s). So the flash covered
+ * the drain end to end: the one part of this the player was meant to watch
+ * happened underneath a white rectangle, and the bar appeared to jump to its new
+ * length the moment the flash cleared.
+ *
+ * A flash is an impact, not a state. Fixed rather than scaled off `dur` for the
+ * same reason — the impact is instant whatever the drain is worth — and brighter
+ * to make up for being a third as long.
+ */
+const HIT_FLASH = { alpha: 0.42, dur: 0.13 };
 
 /** 2150000 -> "2,150,000" without leaning on locale support. */
 export function comma(n) {
@@ -75,9 +156,12 @@ export class Hud extends Container {
     this.onInstall = onInstall;
 
     /**
-     * The bar, in layers, all four of them the same chevron stamp under a
-     * different tint — see art/hpbar.js. `bar` is the fallback underneath:
-     * without the art it draws the rounded bar the HUD always drew.
+     * The bar, in layers: the frame, the empty track, the health just lost, the
+     * health still standing, and the flash over the lot of them. Every one of
+     * them is the same chevron stamp — the frame and the flash under a tint, the
+     * other three poured full of their own paint. See art/hpbar.js. `bar` is the
+     * fallback underneath: without the art it draws the rounded bar the HUD
+     * always drew.
      *
      * The two draining layers are cropped by texture frame rather than scaled,
      * so the mitre on the left cap holds its angle while the leading edge stays
@@ -90,12 +174,39 @@ export class Hud extends Container {
     this.barTrack = this.addBarLayer(BAR_TRACK, 1);
     this.barChip = this.addBarLayer(BAR_CHIP, 0.55);
     this.barFill = this.addBarLayer(BAR_HOT, 1);
+    /**
+     * White over the whole silhouette, added rather than drawn, spiked to
+     * HIT_FLASH the moment health drops and faded from there. Cropped to the
+     * chip's level, not the fill's, so the flash covers the health that was
+     * there when the hit landed instead of only what survived it.
+     */
+    this.barFlash = this.addBarLayer(PAINT_FULL, 0);
+    this.barFlash.blendMode = "add";
     this.barShape = null;
+
+    /**
+     * The travelling highlight, and the bloom at the fill's leading edge.
+     *
+     * Both added rather than blended, and neither masked: the sheen is held
+     * inside the fill by SHEEN — see animateBar — and the bloom is a round glow
+     * sitting on the cut, which is meant to spill past the bar. They are added
+     * after the bar's own layers so they land on top of all four.
+     */
+    this.barSheen = new Sprite(sheenTexture());
+    this.barSheen.blendMode = "add";
+    this.barSheen.visible = false;
+    this.addChild(this.barSheen);
+
+    this.barTip = new Sprite(glowTexture());
+    this.barTip.anchor.set(0.5);
+    this.barTip.blendMode = "add";
+    this.barTip.visible = false;
+    this.addChild(this.barTip);
 
     this.name = new Text({
       text: BOSS_NAME,
       style: {
-        fontFamily: FONT,
+        fontFamily: FONT_TITLE,
         fontSize: 16,
         fontWeight: "800",
         fill: 0xffd9a8,
@@ -108,6 +219,12 @@ export class Hud extends Container {
     /* The doom clock: how long the party has before the cataclysm lands. */
     this.doomBar = new Graphics();
     this.addChild(this.doomBar);
+
+    /** The strip's own highlight, on the same terms as the bar's. */
+    this.doomSheen = new Sprite(sheenTexture());
+    this.doomSheen.blendMode = "add";
+    this.doomSheen.visible = false;
+    this.addChild(this.doomSheen);
 
     this.doomLabel = new Text({
       text: COPY.doomLabel + " --",
@@ -222,11 +339,24 @@ export class Hud extends Container {
     };
 
     if (layout.portrait) {
-      // Sits in the gap between the boss and the board.
-      this.calloutWidth = layout.w * 0.94;
-      this.calloutSize = Math.max(18, Math.min(layout.w * 0.085, 40 * ui));
+      /**
+       * On the seam where the boss's feet meet the top of the play field.
+       *
+       * It used to sit a cell and a bit above the board, on the reasoning that
+       * there is a gap up there to put it in. On a tall phone there is. On a 640
+       * point one there is not, and "LAVA BREATH!" landed across the golem's
+       * face — the one thing on the screen the shout is about.
+       *
+       * The seam is the safe line at every height, because it is the only line
+       * on this screen that is dark at both ends: the field is a near-black scrim
+       * below it and the scrim's own feather is fading out above it. So the words
+       * read whatever the arena is doing behind them, and they are never on top
+       * of anybody's face.
+       */
+      this.calloutWidth = layout.w - layout.safe.left - layout.safe.right - 24;
+      this.calloutSize = Math.max(17, Math.min(layout.w * 0.078, 38 * ui));
       this.callout.x = layout.w / 2;
-      this.callout.y = layout.board.y - layout.board.cell * 0.55;
+      this.callout.y = layout.board.y;
     } else {
       // Landscape has no gap, so the callout lives over the boss column —
       // centring it on screen would put it straight through the health bar.
@@ -238,16 +368,18 @@ export class Hud extends Container {
     this.callout.style.fontSize = this.calloutSize;
 
     /**
-     * The banner is asked for a width and gives back the height that goes with
-     * it — the art holds one aspect (see art/ctabanner.js) and this is where
-     * that is honoured.
+     * The plate is handed a box by the layout and fills it — see `banner` in
+     * core/layout.js, which is where the width and the corner are decided now
+     * and why. This used to size itself and then hang itself off whichever
+     * corner looked free from in here, which is how a gold plate came to be
+     * drawn over the top right of the board: from inside the HUD the screen's
+     * right edge looks like empty chrome, and sideways it is the play field.
      *
-     * 124 is not arbitrary. The label only gets the flat middle of the gem,
-     * which is 0.53 of the art's height, and this is the width at which that
-     * band comes out at the 14pt the old drawn pill set its label at. Narrower
-     * and the word shrinks with it; there is no slack to take.
+     * The height in the box carries the breath `update` gives the plate. The
+     * art itself is fitted at its own resting aspect, so `bh` is asked for
+     * again here rather than read off the box.
      */
-    const bw = Math.max(100, 124 * ui);
+    const bw = layout.banner.w;
     const bh = bannerHeight(bw);
     const labelW = bw * BANNER_LABEL.w;
     const labelH = bh * BANNER_LABEL.h;
@@ -283,13 +415,8 @@ export class Hud extends Container {
       bw + slack * 2,
       bh + slack * 2,
     );
-    // Hung off the bottom of the doom strip rather than off the health bar. The
-    // strip runs the full width of the HUD, so it passes under this corner, and
-    // the banner breathes at 1.045 in update() — the star on its top edge is
-    // what would touch first, so the clearance is measured against that.
-    const doom = this.doomRect();
-    this.banner.x = layout.w - bw / 2 - 12 * ui;
-    this.banner.y = doom.y + doom.h + 3 * ui + (bh / 2) * 1.045;
+    this.banner.x = layout.banner.x;
+    this.banner.y = layout.banner.y;
 
     this.doomLabel.style.fontSize = Math.max(9, 11 * ui);
     this.doomLabel.x = x + w;
@@ -311,26 +438,44 @@ export class Hud extends Container {
     const { x, y, w, h } = this.barRect;
     this.disposeBar();
 
-    // The edge is the same silhouette a couple of pixels proud of the bar on
-    // every side, which is how the shape gets an outline that follows its mitre.
-    const grow = Math.max(2, h * 0.16);
+    // The edge is the same silhouette proud of the bar on every side, which is
+    // how the shape gets an outline that follows its mitre. HP_FRAME rather than
+    // a number picked here: the art ships a frame and a track, and how far one
+    // stands outside the other is the art's decision, not the HUD's.
+    const grow = Math.max(2, h * HP_FRAME);
     const edge = hpBarShape(w + grow * 2, h + grow * 2);
     const shape = hpBarShape(w, h);
+    const track = hpBarPaint(w, h, "track");
     const fill = hpBarPaint(w, h, "fill");
     const chip = hpBarPaint(w, h, "chip");
-    this.barShape = shape && edge && fill && chip ? shape : null;
+    this.barShape = shape && edge && track && fill && chip ? shape : null;
 
-    const layers = [this.barEdge, this.barTrack, this.barChip, this.barFill];
+    const layers = [
+      this.barEdge,
+      this.barTrack,
+      this.barChip,
+      this.barFill,
+      this.barFlash,
+    ];
     if (!this.barShape) {
       layers.forEach((s) => {
         s.visible = false;
       });
+      this.barSheen.visible = false;
+      this.barTip.visible = false;
       return;
     }
-    this.barBakes = [edge.texture, shape.texture, fill.texture, chip.texture];
+    this.barBakes = [
+      edge.texture,
+      shape.texture,
+      track.texture,
+      fill.texture,
+      chip.texture,
+    ];
     this.barPainted = fill.painted;
-    // The painted chip brings its own warm white, so it needs neither the tint
+    // The painted layers bring their own colour, so each needs neither the tint
     // that stood in for it nor the alpha that kept that tint from shouting.
+    this.barTrack.tint = track.painted ? PAINT_FULL : BAR_TRACK;
     this.barChip.tint = chip.painted ? PAINT_FULL : BAR_CHIP;
     this.barChip.alpha = chip.painted ? 1 : 0.55;
     layers.forEach((s) => {
@@ -342,20 +487,32 @@ export class Hud extends Container {
     this.barEdge.x = x - grow;
     this.barEdge.y = y - grow;
 
-    this.barTrack.texture = shape.texture;
+    // The track is the only layer that never crops: the empty gauge is the whole
+    // shape whatever the health is, and the fill is what shortens over it.
+    this.barTrack.texture = track.texture;
     this.barTrack.setSize(w, h);
     this.barTrack.x = x;
     this.barTrack.y = y;
 
-    // Both draining layers crop themselves, so each needs a Texture of its own
-    // over its own bake.
+    // Every layer that crops itself needs a Texture of its own over its own
+    // bake: a frame belongs to a Texture, not to the source behind it. The flash
+    // crops too, and takes the plain white stamp — it is a flash, not a paint.
+    //
+    // `dynamic` is what makes a crop show up on screen at all. A Sprite only
+    // subscribes to its texture's "update" when the texture declares itself
+    // dynamic, and without that subscription the quad it batched the moment the
+    // texture was assigned is the quad it goes on drawing for the rest of the
+    // fight — full width, full uvs, however far `cropBar` cuts the frame back.
+    // That is exactly what the boss bar did: it sat at full health all game.
     [
       [this.barChip, chip],
       [this.barFill, fill],
+      [this.barFlash, shape],
     ].forEach(([s, art]) => {
       s.texture = new Texture({
         source: art.texture.source,
         frame: new Rectangle(0, 0, art.pw, art.ph),
+        dynamic: true,
       });
       s.x = x;
       s.y = y;
@@ -365,7 +522,7 @@ export class Hud extends Container {
   /** Drop the previous bake. Rotation can call bakeBar() any number of times. */
   disposeBar() {
     // The cropping textures first: they read a source the bakes own.
-    [this.barChip, this.barFill].forEach((s) => {
+    [this.barChip, this.barFill, this.barFlash].forEach((s) => {
       if (s.texture && s.texture !== Texture.EMPTY) s.texture.destroy(false);
       s.texture = Texture.EMPTY;
     });
@@ -375,7 +532,20 @@ export class Hud extends Container {
     this.barBakes = [];
   }
 
-  /** Show `frac` of a draining layer: crop the frame, then match the size. */
+  /**
+   * Show `frac` of a draining layer: crop the frame, then match the size.
+   *
+   * `update()` rather than `updateUvs()`. Both recompute the uvs; only one emits
+   * the event the sprite is listening for, and the uvs on their own were a
+   * number nothing ever read back — see `bakeBar`, where the layer is made
+   * dynamic so there is a listener to emit to.
+   *
+   * The size goes last, and has to. `setSize` divides by `texture.orig.width`,
+   * and a Texture built without an `orig` of its own aliases the very frame that
+   * was just cut — so the scale comes out as w/pw at every fraction and the crop
+   * is carried by the quad alone, which is what it should be. Sizing first would
+   * divide by the *previous* frame and leave the bar reading a fraction behind.
+   */
   cropBar(sprite, frac) {
     const { w, h } = this.barRect;
     const f = Math.max(0, Math.min(1, frac));
@@ -385,7 +555,7 @@ export class Hud extends Container {
     const tex = sprite.texture;
     tex.frame.width = Math.max(1, Math.round(this.barShape.pw * f));
     tex.frame.height = this.barShape.ph;
-    tex.updateUvs();
+    tex.update();
     sprite.setSize(w * f, h);
   }
 
@@ -477,6 +647,9 @@ export class Hud extends Container {
       g.clear();
       this.cropBar(this.barChip, this.hpChip);
       this.cropBar(this.barFill, this.hpShown);
+      // The flash covers what was there when the hit landed, which the chip is
+      // still holding. Its alpha is a tween's business, not this function's.
+      this.cropBar(this.barFlash, Math.max(this.hpChip, this.hpShown));
       const low = this.hpShown < 0.3;
       this.barFill.tint = this.barPainted
         ? low
@@ -515,7 +688,17 @@ export class Hud extends Container {
   /** Drive the bar to a scripted health value. */
   async setHp(value, dur) {
     const d = dur === undefined ? 0.45 : dur;
+    const hit = value < this.hpShown - 0.001;
     this.hp = value;
+
+    // A hit reads on the bar itself, not only in how far it drains. Guarded on
+    // the direction: the healer's ultimate drives this upwards, and a white
+    // flash over a bar going the other way says the boss just took a hit.
+    if (hit && this.barShape) {
+      killTweensOf(this.barFlash);
+      this.barFlash.alpha = HIT_FLASH.alpha;
+      tween(this.barFlash, { alpha: 0 }, HIT_FLASH.dur, { ease: Ease.quadOut });
+    }
 
     killTweensOf(this.barDriver);
     killTweensOf(this.chipDriver);
@@ -632,18 +815,127 @@ export class Hud extends Container {
     tween(this.banner, { y: home }, 0.45, { ease: Ease.backOut });
   }
 
+  /**
+   * Where a sweeping highlight is, given how long the cycle has been running.
+   *
+   * Returns null while the cycle is in its gap, and otherwise the left edge and
+   * the alpha for a band of `band` points crossing `span` points of bar. The
+   * band is held wholly inside the span — from the left edge to a band short of
+   * the leading one — so nothing has to clip it, and `sin(p*pi)` puts it at zero
+   * alpha at both ends, which is what keeps it off the mitre on the left cap and
+   * off the cut on the right.
+   *
+   * Null too when the span is barely wider than the band: a highlight with
+   * nowhere to travel is a flashing rectangle.
+   */
+  sweep(cfg, span, band) {
+    if (span < band * 1.5) return null;
+    const p = ((this.t + cfg.phase) % cfg.period) / cfg.sweep;
+    if (p > 1) return null;
+    return {
+      x: p * (span - band),
+      alpha: Math.pow(Math.sin(p * Math.PI), 0.7) * cfg.peak,
+    };
+  }
+
+  /**
+   * The bar's own life, every frame: the highlight, the bloom on the leading
+   * edge, and the throb once the boss is nearly down.
+   *
+   * Positions and alphas only — no Graphics is redrawn here and no texture is
+   * rebaked. That is the whole reason this can run at 60fps on the phones this
+   * creative targets, and it is why the sheen is a sprite being moved rather
+   * than a gradient being painted into the bar.
+   */
+  animateBar() {
+    if (!this.barRect || !this.barShape) return;
+    const { x, y, w, h } = this.barRect;
+    const span = w * this.hpShown;
+    const low = this.hpShown < LOW_AT;
+
+    if (span <= h * 0.5) {
+      this.barSheen.visible = false;
+      this.barTip.visible = false;
+      return;
+    }
+
+    const band = h * SHEEN.band;
+    const s = this.sweep(SHEEN, span, band);
+    this.barSheen.visible = !!s;
+    if (s) {
+      this.barSheen.setSize(band, h);
+      this.barSheen.x = x + s.x;
+      this.barSheen.y = y;
+      this.barSheen.alpha = s.alpha;
+    }
+
+    // The bloom sits on the cut at the end of the fill, half on the bar and half
+    // off it, in the fill's own colour. It is the one part of the bar that says
+    // where the damage stops without the player having to compare two lengths.
+    const bloom = h * 3.2;
+    this.barTip.visible = true;
+    this.barTip.setSize(bloom, bloom);
+    this.barTip.x = x + span;
+    this.barTip.y = y + h / 2;
+    this.barTip.tint = low ? BAR_LOW : BAR_HOT;
+    this.barTip.alpha = 0.3 + Math.sin(this.t * 5.2) * 0.09;
+
+    // Under 30% the fill throbs between its deepened red and the full one. Set
+    // here rather than in drawBar because this runs after the tweens do, so the
+    // frame this writes is the frame that gets presented.
+    if (low) {
+      const beat = (1 + Math.sin(this.t * THROB.rate)) * 0.5 * THROB.depth;
+      this.barFill.tint = this.barPainted
+        ? lerpColor(PAINT_LOW, PAINT_FULL, beat)
+        : lerpColor(BAR_LOW, BAR_HOT, beat);
+    }
+  }
+
+  /**
+   * The doom strip's highlight.
+   *
+   * Its own sweep, out of phase with the bar's by DOOM_SHEEN.phase, because two
+   * gauges glinting in unison read as one animation on a two-line widget rather
+   * than as two gauges.
+   */
+  animateDoom() {
+    if (!this.doomOn || !this.barRect) {
+      this.doomSheen.visible = false;
+      return;
+    }
+    const { x, y, w, h } = this.doomRect();
+    const left = Math.max(0, Math.min(1, this.doomLeft / this.doomTotal));
+    const band = h * DOOM_SHEEN.band;
+    const s = this.sweep(DOOM_SHEEN, w * left, band);
+
+    this.doomSheen.visible = !!s;
+    if (!s) return;
+    this.doomSheen.setSize(band, h);
+    this.doomSheen.x = x + s.x;
+    this.doomSheen.y = y;
+    this.doomSheen.alpha = s.alpha;
+  }
+
   update(dt) {
     this.t += dt;
     if (this.banner.visible) {
       const p = 1 + Math.sin(this.t * 4.2) * 0.045;
       this.banner.scale.set(p);
     }
+
+    this.animateBar();
+    this.animateDoom();
+
     // The clock only twitches inside the panic window. A permanently pulsing
     // number up in the chrome is noise the player learns to stop seeing.
     if (this.doomPanic()) {
       this.doomLabel.scale.set(1 + Math.abs(Math.sin(this.t * 6.5)) * 0.12);
-    } else if (this.doomLabel.scale.x !== 1) {
-      this.doomLabel.scale.set(1);
+      // The strip goes with it. Alpha on the whole Graphics rather than a redraw
+      // of it — see setDoom, which will not rebuild this thing per frame.
+      this.doomBar.alpha = 0.74 + Math.abs(Math.sin(this.t * 6.5)) * 0.26;
+    } else {
+      if (this.doomLabel.scale.x !== 1) this.doomLabel.scale.set(1);
+      if (this.doomBar.alpha !== 1) this.doomBar.alpha = 1;
     }
   }
 }

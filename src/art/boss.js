@@ -1,7 +1,7 @@
 /**
  * MAGMAROTH — the one thing the player must remember from this creative.
  *
- * The golem is animated now: eleven frames off `src/boss/magmaroth-sheet.webp`,
+ * The golem is animated now: eleven frames off `src/assets/boss/magmaroth-sheet.webp`,
  * in place of the obsidian rig this file used to assemble out of a few dozen
  * polygons. The drawn rig is still below and still runs the whole fight, for the
  * same reason every other painted surface here keeps its fallback — but it is
@@ -33,7 +33,7 @@ import { getRenderer } from "../core/context.js";
 import { lerpColor } from "../core/color.js";
 import { BOSS_ART } from "../core/layout.js";
 import * as sfx from "../audio/sfx.js";
-import sheetUrl from "../boss/magmaroth-sheet.webp";
+import sheetUrl from "../assets/boss/magmaroth-sheet.webp";
 
 /** Colour the rig settles back to once phase 2 starts. */
 const ENRAGED_TINT = 0xffa58c;

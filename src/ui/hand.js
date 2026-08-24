@@ -1,17 +1,56 @@
 /**
  * Tutorial hand.
  *
- * Anti-stall device first, tutorial second: it appears after 0.8s of silence,
- * grows insistent at 2.5s, and the director plays the move itself at 6s.
+ * Anti-stall device first, tutorial second: it appears after half a second of
+ * silence, grows insistent at 5s, and the director plays the move itself at 7s.
+ *
+ * It has a second job now. When the player makes a move of their own the hand
+ * does not simply get out of the way — it goes to their finger and rides the
+ * swipe with it, so the gesture on screen is the same gesture whoever is
+ * driving. See grab/dragTo/letGo, which the board's pointer handlers feed
+ * through the director.
+ *
+ * The hand it shows is the painted gauntlet — see art/hinthand.js, which also
+ * holds the fingertip the sprite is anchored on. The white hand this file used
+ * to draw for itself is still here, one function down, as the fallback for a
+ * device that cannot decode the bitmap: plainer, but it points at the same cell.
  */
 
 import { Container, Graphics, Sprite } from "pixi.js";
-import { tween, delay, Ease } from "../core/tween.js";
+import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
 import { getRenderer } from "../core/context.js";
+import { HAND_ASPECT, HAND_TIP, hintHandTexture } from "../art/hinthand.js";
 
-let handTex = null;
-function handTexture() {
-  if (handTex) return handTex;
+/**
+ * The two hands, each with the three numbers the prop is driven by: how tall it
+ * stands to its width, where its fingertip is, and how wide it is asked to be
+ * against the board's cell.
+ *
+ * The painted hand is asked for wider than the drawn one, and that is not a
+ * taste call. The drawn hand is a silhouette of a pointing finger and almost
+ * nothing else, so its whole width is the gesture. The painting is a gauntlet:
+ * the finger is about a quarter of the width and under half the height, and the
+ * rest is glove, plate and cuff. Sized to the same box the *pointing* — the one
+ * thing the prop is for — would come out two thirds the size it used to be.
+ */
+const DRAWN = {
+  aspect: 1.55,
+  tip: { x: 0.42, y: 0.06 },
+  size: { k: 1.15, min: 46, max: 110 },
+};
+
+const PAINTED = {
+  aspect: HAND_ASPECT,
+  tip: HAND_TIP,
+  size: { k: 1.45, min: 58, max: 140 },
+};
+
+/** Hand width the ripple was drawn at, so it scales with the prop. */
+const RIPPLE_AT = 74;
+
+let drawnTex = null;
+function drawnTexture() {
+  if (drawnTex) return drawnTex;
   const g = new Graphics();
 
   // Palm
@@ -32,13 +71,13 @@ function handTexture() {
   g.circle(3, -44, 7);
   g.fill({ color: 0xffffff, alpha: 0.75 });
 
-  handTex = getRenderer().generateTexture({
+  drawnTex = getRenderer().generateTexture({
     target: g,
     resolution: 2,
     antialias: true,
   });
   g.destroy();
-  return handTex;
+  return drawnTex;
 }
 
 export class Hand extends Container {
@@ -51,27 +90,37 @@ export class Hand extends Container {
     this.ripple.alpha = 0;
     this.addChild(this.ripple);
 
-    this.sprite = new Sprite(handTexture());
+    // The painting when it decoded, the drawn hand when it did not. The drawn
+    // one is only built in that case: it costs a render texture to bake.
+    const painted = hintHandTexture();
+    const art = painted ? PAINTED : DRAWN;
+    this.aspect = art.aspect;
+    this.size = art.size;
+
+    this.sprite = new Sprite(painted || drawnTexture());
     // Anchor on the fingertip so the hand points at the exact cell.
-    this.sprite.anchor.set(0.42, 0.06);
+    this.sprite.anchor.set(art.tip.x, art.tip.y);
     this.addChild(this.sprite);
 
     this.alpha = 0;
     this.visible = false;
     this.token = 0;
+    /** Token of the touch the hand is riding, or 0 when it is on its own. */
+    this.held = 0;
     this.urgency = 1;
-    this.baseSize = 74;
+    this.baseSize = art.size.min;
   }
 
   resize(layout) {
-    this.baseSize = Math.max(46, Math.min(layout.board.cell * 1.15, 110));
+    const { k, min, max } = this.size;
+    this.baseSize = Math.max(min, Math.min(layout.board.cell * k, max));
     this.applySize();
   }
 
   applySize() {
     const s = this.baseSize * this.urgency;
-    this.sprite.setSize(s, s * 1.55);
-    this.ripple.scale.set((s / 74) * this.urgency);
+    this.sprite.setSize(s, s * this.aspect);
+    this.ripple.scale.set((s / RIPPLE_AT) * this.urgency);
   }
 
   setUrgency(level) {
@@ -81,13 +130,67 @@ export class Hand extends Container {
 
   stop() {
     this.token++;
+    this.held = 0;
     tween(this, { alpha: 0 }, 0.18).then(() => {
       if (this.alpha === 0) this.visible = false;
     });
   }
 
+  /* ------------------------------------------------------- the player's own */
+
+  /**
+   * Put the hand on the player's own finger and leave it there.
+   *
+   * The same prop, driven from the other end: instead of demonstrating a swap it
+   * rides the one being made. It arrives at full alpha with no fade — a fade-in
+   * is how a suggestion introduces itself, and there is nothing to introduce
+   * when the finger is already on the glass.
+   *
+   * Any demo running is cancelled outright, tweens and all. `stop()` alone would
+   * not do: it only ends the loop, and the eased slide it was in the middle of
+   * would go on dragging the hand towards a cell the player is not touching.
+   */
+  grab(x, y) {
+    const id = ++this.token;
+    killTweensOf(this);
+    killTweensOf(this.sprite);
+    killTweensOf(this.sprite.scale);
+    killTweensOf(this.ripple);
+    killTweensOf(this.ripple.scale);
+
+    this.held = id;
+    this.visible = true;
+    this.alpha = 1;
+    this.x = x;
+    this.y = y;
+    this.applySize();
+    this.press();
+  }
+
+  /** Follow the finger. Straight assignment: a tween here would lag the touch. */
+  dragTo(x, y) {
+    if (!this.held) return;
+    this.x = x;
+    this.y = y;
+  }
+
+  /** The finger came off: pop back to size and fade out. */
+  async letGo() {
+    const id = this.held;
+    if (!id) return;
+    this.held = 0;
+    await this.release();
+    // A new touch, or the hint taking the hand back, happened while that ran.
+    if (id !== this.token) return;
+    this.stop();
+  }
+
+  /* ----------------------------------------------------------- the demo loop */
+
   /** Loop a swipe demo between two points until stopped. */
   swipeLoop(from, to) {
+    // Never over the player's own hand: the hint is what they are already doing.
+    if (this.held) return;
     const id = ++this.token;
     this.visible = true;
     this.run(id, async () => {
@@ -107,6 +210,7 @@ export class Hand extends Container {
 
   /** Loop a tap demo on one point until stopped. */
   tapLoop(at) {
+    if (this.held) return;
     const id = ++this.token;
     this.visible = true;
     this.run(id, async () => {
@@ -153,7 +257,7 @@ export class Hand extends Container {
 
   async release() {
     const s = this.baseSize * this.urgency;
-    await tween(this.sprite, { width: s, height: s * 1.55 }, 0.14, {
+    await tween(this.sprite, { width: s, height: s * this.aspect }, 0.14, {
       ease: Ease.backOut,
     });
   }

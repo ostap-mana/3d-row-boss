@@ -47,6 +47,28 @@
         height: 100% !important;
       }
 
+      /*
+       * Safe-area probe.
+       *
+       * `viewport-fit=cover` has been set since the first build, which is what
+       * lets the canvas run under a notch — and nothing ever read the insets
+       * back, so the boss name and the doom clock were laid out under the
+       * cutout and the hero row's health bars under the home indicator.
+       *
+       * Read as real padding on a hidden element rather than as a custom
+       * property. `--x: env(safe-area-inset-top)` looks tidier, but
+       * getPropertyValue hands back the unresolved `env(...)` token on some
+       * webviews; a computed padding is a used value everywhere.
+       */
+      #safe-probe {
+        position: fixed;
+        inset: 0;
+        visibility: hidden;
+        pointer-events: none;
+        padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+          env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+      }
+
       /* Shown until the first frame renders — the ad slot must never flash white. */
       #boot {
         position: absolute;
@@ -80,6 +102,7 @@
   </head>
 
   <body>
+    <div id="safe-probe"></div>
     <div id="pixi-container"></div>
     <div id="boot"><span>ELEMENTAL SIEGE</span></div>
     <script type="module" src="/src/main.js"></script>

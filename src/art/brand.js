@@ -21,12 +21,12 @@
 
 import { Sprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
-import keyArtUrl from "../letters/key-art.webp";
-import logoUrl from "../letters/logo-invokers.webp";
-import playUrl from "../letters/play-now.webp";
-import appStoreUrl from "../letters/badge-app-store.webp";
-import googlePlayUrl from "../letters/badge-google-play.webp";
-import pcMacUrl from "../letters/badge-pc-mac.webp";
+import keyArtUrl from "../assets/brand/key-art.webp";
+import logoUrl from "../assets/brand/logo-invokers.webp";
+import playUrl from "../assets/brand/play-now.webp";
+import appStoreUrl from "../assets/brand/badge-app-store.webp";
+import googlePlayUrl from "../assets/brand/badge-google-play.webp";
+import pcMacUrl from "../assets/brand/badge-pc-mac.webp";
 
 /** Natural size of the packed art, and so the only aspect each may be drawn at. */
 export const LOGO_ART = { w: 558, h: 131 };
@@ -50,9 +50,14 @@ export const KEY_ART_FOCUS = { x: 0.6, y: 0.49 };
  * The store row, in the order the key art has it.
  *
  * `id` is what gets handed to ctaClick, so a network's report can tell an
- * install that came off the Google badge from one that came off the plate. All
- * three open the same URL — see net/cta.js, which picks the store off the user
- * agent — the badge is a label, not a router.
+ * install that came off the Google badge from one that came off the plate — and
+ * so the badge opens the store it is a picture of, which it looks up by that same
+ * id. See BADGE_STORE in config.js.
+ *
+ * A badge is a promise about where it leads and it keeps it wherever the
+ * destination is ours to pick — standalone, and under MRAID. A network wrapper
+ * that runs its own booked click-through overrides all three, and nothing here
+ * can or should change that.
  */
 const BADGES = [
   { id: "appstore", url: appStoreUrl },

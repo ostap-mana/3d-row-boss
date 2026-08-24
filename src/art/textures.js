@@ -86,6 +86,90 @@ export function beamTexture() {
   return beamTex;
 }
 
+let sheenTex = null;
+/**
+ * Horizontal specular band: nothing, a bright core, nothing.
+ *
+ * What travels along the boss's health bar and the doom strip under it — see
+ * ui/hud.js. Drawn on its side, unlike beamTexture, because a gauge is swept
+ * along its length and the ramp has to run the same way.
+ *
+ * Two shoulders rather than one ramp each side. A single linear falloff reads as
+ * a wide grey smear at the alpha a highlight can afford; the shoulders keep the
+ * core tight and let the tails go almost to nothing, which is what makes it look
+ * like light on a surface instead of a pale rectangle sliding about.
+ */
+export function sheenTexture() {
+  if (sheenTex) return sheenTex;
+  const w = 128;
+  const h = 8;
+  const c = makeCanvas(w, h);
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, "rgba(255,255,255,0)");
+  g.addColorStop(0.4, "rgba(255,255,255,0.22)");
+  g.addColorStop(0.5, "rgba(255,255,255,0.9)");
+  g.addColorStop(0.6, "rgba(255,255,255,0.22)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  sheenTex = canvasTexture(c);
+  return sheenTex;
+}
+
+const fieldCache = {};
+/**
+ * A rectangle of one colour whose every edge feathers out to nothing.
+ *
+ * What the board stands on now that it has no frame — see art/boardframe.js. The
+ * gems need something dark behind them, because half the arena is a bright sky
+ * and a pale wind gem on it is a pale gem on a pale cloud. What they must not
+ * have is an edge, because an edge is a frame, and the frame is what was taken
+ * away.
+ *
+ * So the field is drawn with no edge at all: opaque through the middle, and out
+ * of the last `edge` of each side it falls to zero. Stretched behind the grid
+ * with the feather hanging past it, the darkness under the gems is flat and the
+ * boundary is nowhere — the arena simply gets deeper where the board is.
+ *
+ * Built by multiplying two feathers rather than drawing a shape. `destination-in`
+ * keeps what is already on the canvas in proportion to the alpha of what is
+ * painted over it, so a horizontal ramp and then a vertical one leave every
+ * pixel holding the product of the two — which is the corner falloff for free,
+ * and no per-pixel loop to write.
+ *
+ * @param {string} key cache key
+ * @param {string} color css colour, alpha included
+ * @param {number} edge feathered fraction of each side, 0..0.5
+ */
+export function softFieldTexture(key, color, edge) {
+  if (fieldCache[key]) return fieldCache[key];
+  const size = 256;
+  const c = makeCanvas(size, size);
+  const ctx = c.getContext("2d");
+
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, size, size);
+
+  const feather = (x1, y1) => {
+    const g = ctx.createLinearGradient(0, 0, x1, y1);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(edge, "rgba(0,0,0,1)");
+    g.addColorStop(1 - edge, "rgba(0,0,0,1)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    return g;
+  };
+
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.fillStyle = feather(size, 0);
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = feather(0, size);
+  ctx.fillRect(0, 0, size, size);
+
+  fieldCache[key] = canvasTexture(c);
+  return fieldCache[key];
+}
+
 const gradientCache = {};
 /**
  * Vertical multi-stop gradient, stretched to fill whatever it is put behind.

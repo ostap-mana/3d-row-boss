@@ -1,8 +1,8 @@
 /**
- * Cut the CTA banner out of `src/buttons/regenerated.png` and pack it into
+ * Cut the CTA banner out of `src/source/ui/cta-banner.png` and pack it into
  * something a playable ad can actually carry.
  *
- *   node tools/pack-cta-banner.mjs            # -> src/buttons/cta-banner.webp
+ *   node tools/pack-cta-banner.mjs            # -> src/assets/ui/cta-banner.webp
  *   node tools/pack-cta-banner.mjs --png      # keep an intermediate PNG too
  *   node tools/pack-cta-banner.mjs --guides   # write a proof of the safe box
  *
@@ -31,8 +31,8 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/buttons/regenerated.png");
-const OUT = join(ROOT, "src/buttons/cta-banner");
+const SOURCE = join(ROOT, "src/source/ui/cta-banner.png");
+const OUT = join(ROOT, "src/assets/ui/cta-banner");
 
 /** Alpha at or under this is backdrop, not art. */
 const EMPTY = 12;
@@ -287,7 +287,7 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SOURCE);
 const raw = decode(SOURCE);
-console.log(`in   src/buttons/regenerated.png  ${info.w}x${info.h}`);
+console.log(`in   src/source/ui/cta-banner.png  ${info.w}x${info.h}`);
 
 const box = inkBox(raw, info.w, info.h);
 console.log(

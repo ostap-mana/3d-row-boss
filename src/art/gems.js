@@ -11,12 +11,12 @@ import {
   WIND,
 } from "../config.js";
 import { glowTexture, canvasTexture } from "./textures.js";
-import fireUrl from "../elements/fire.png";
-import waterUrl from "../elements/water.png";
-import earthUrl from "../elements/earth.png";
-import sunUrl from "../elements/sun.png";
-import moonUrl from "../elements/image.png";
-import windUrl from "../elements/wind.png";
+import fireUrl from "../assets/gems/fire.png";
+import waterUrl from "../assets/gems/water.png";
+import earthUrl from "../assets/gems/nature.png";
+import sunUrl from "../assets/gems/lightning.png";
+import moonUrl from "../assets/gems/arcane.png";
+import windUrl from "../assets/gems/wind.png";
 
 /** All shapes are authored in a 100x100 box centred on the origin. */
 const ART = 100;
@@ -25,22 +25,23 @@ const PAD = 8;
 const TEX_SPAN = (ART + PAD * 2) / ART;
 
 /**
- * Painted gems, by element — the flat element roundels from src/elements.
+ * Painted gems, by element — the flat roundels in src/assets/gems.
  *
- * Assigned by colour as much as by name: the element colours drive the beams,
- * the pop sparks, the hint glow and the hero cards, so a gem whose art
- * disagrees with its colour makes the whole board fire the wrong hue. That is
- * why the sun disc is LIGHTNING (gold) and the leaf is NATURE (green) even
- * though the file is called earth — the slot each one lands in is the one whose
- * GEM_COLORS entry it already matches.
+ * They were assigned by colour as much as by name, and the files are now named
+ * for the slot each one won rather than for what it depicts: the element colours
+ * drive the beams, the pop sparks, the hint glow and the hero cards, so a gem
+ * whose art disagrees with its colour makes the whole board fire the wrong hue.
+ * That is why the sun disc answers to `lightning.png` (gold) and the leaf to
+ * `nature.png` (green) — the slot each one lands in is the one whose GEM_COLORS
+ * entry it already matches, and the filename says so now instead of describing
+ * the drawing and leaving the reader to work it out.
  *
- * `image.png` is the purple moon-and-star; it carries ARCANE, which is also the
- * element MYST casts VOID ECLIPSE with. It keeps its unhelpful filename because
- * the folder is authored elsewhere — the alias above is where it gets a name.
+ * `arcane.png` is the purple moon-and-star; it carries the element SILANTH casts
+ * VOID ECLIPSE with. It arrived as `image.png` off the roundel sheet.
  *
- * wind.png is the one that brought a sixth element onto the board with it. Its
- * pale aqua is the only colour on the roundel sheet the five slots had no home
- * for, so WIND, SYLPH and a re-authored opening board exist because of it.
+ * `wind.png` is the one that brought a sixth element onto the board with it. Its
+ * pale aqua is the only colour on that sheet the five slots had no home for, so
+ * WIND, TARANIS and a re-authored opening board exist because of it.
  */
 const GEM_ART = {
   [FIRE]: fireUrl,
@@ -231,6 +232,22 @@ export function initGemTextures(renderer) {
     return tex;
   });
   return gemTextures;
+}
+
+/**
+ * The baked gem for one element, for anything outside the board that has to
+ * name an element — the sigil on a hero card, so far.
+ *
+ * Handed out rather than re-drawn on purpose: the card is telling the player
+ * which colour charges that hero, and the only art that answers that honestly
+ * is the art they are matching. A second drawing of the same element is a
+ * second thing to keep in step, and the one time it drifts is the one time the
+ * card is lying.
+ *
+ * Null until initGemTextures has run, so every caller guards it.
+ */
+export function gemTexture(type) {
+  return (gemTextures && gemTextures[type]) || null;
 }
 
 /**

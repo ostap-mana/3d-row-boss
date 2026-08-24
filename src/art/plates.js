@@ -1,23 +1,22 @@
 /**
  * Painted plates behind the hero cards.
  *
- * Three roundels' worth of art from src/buttons — a dark rim, a shaft of light
+ * Three roundels' worth of art in src/assets/cards — a dark rim, a shaft of light
  * up the middle, and a 128x171 frame that happens to be the exact aspect of a
  * hero card. They replace the flat rounded rectangle each card used to draw for
  * itself; the portrait, the frame, the bars and the ready glow all still sit on
  * top and are untouched.
  *
- * `buttons/image.png` is not imported: it is the same 926x48 progress silhouette
- * as progress.png, which art/hpbar.js already inlines for the boss health bar.
- * Importing it here would cost the bundle a second copy of a file this module
- * has no use for.
+ * The three files are named for the colour they are painted, not the element
+ * they end up on — `plate-blue.png` carries WATER and NATURE both, and the tint
+ * below is what tells them apart.
  */
 
 import { FIRE, WATER, NATURE, LIGHTNING, ARCANE, WIND } from "../config.js";
 import { canvasTexture } from "./textures.js";
-import blueUrl from "../buttons/green.png";
-import goldUrl from "../buttons/orange-button.png";
-import violetUrl from "../buttons/red-button.png";
+import blueUrl from "../assets/cards/plate-blue.png";
+import goldUrl from "../assets/cards/plate-gold.png";
+import violetUrl from "../assets/cards/plate-violet.png";
 
 /**
  * Which plate each hero stands on, and the tint that lands it on its element.

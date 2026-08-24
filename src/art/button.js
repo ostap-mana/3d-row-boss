@@ -5,22 +5,21 @@
  * wears the gem banner instead — see art/ctabanner.js, which also says why that
  * art cannot do this job.
  *
- * `src/buttons/golden-button.png` is a 698x172 panel: a flat gold field, a four
+ * `src/assets/ui/golden-button.png` is a 698x172 panel: a flat gold field, a four
  * pixel darker rim around it, and a nine pixel corner. Measured off the file
  * rather than guessed, because both of those are the whole look of the thing and
  * both stop reading the moment they are stretched unevenly — the button is asked
  * for at nearly 4:1 on a phone held upright and past 9:1 on one held sideways,
  * which is far too wide a spread to fit one bitmap to.
  *
- * So it is nine-sliced under a uniform scale, the same way the plaque is — see
- * art/plaque.js. The rim keeps its weight, the corners stay round at any aspect,
- * and the flat middle takes up all of the slack. Unlike the plaque this file
- * carries a real alpha channel, so nothing has to be clipped out of its corners.
+ * So it is nine-sliced under a uniform scale, the same way the board's frame is
+ * — see art/boardframe.js. The rim keeps its weight, the corners stay round at
+ * any aspect, and the flat middle takes up all of the slack.
  */
 
 import { NineSliceSprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
-import buttonUrl from "../buttons/golden-button.png";
+import buttonUrl from "../assets/ui/golden-button.png";
 
 /** Natural size of the source art. */
 export const BUTTON_ART = { w: 698, h: 172 };

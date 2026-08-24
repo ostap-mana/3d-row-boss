@@ -1,7 +1,7 @@
 /**
  * The gem banner — the painted plate under INSTALL in the HUD corner.
  *
- * `src/buttons/cta-banner.webp` is a 512x141 cutout packed out of a 2172x724
+ * `src/assets/ui/cta-banner.webp` is a 512x141 cutout packed out of a 2172x724
  * render by tools/pack-cta-banner.mjs: a gem bar in a gold frame, a diamond
  * finial off each end, and a star centred above and below.
  *
@@ -21,7 +21,7 @@
 
 import { Sprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
-import bannerUrl from "../buttons/cta-banner.webp";
+import bannerUrl from "../assets/ui/cta-banner.webp";
 
 /** Natural size of the packed art. */
 export const BANNER_ART = { w: 512, h: 141 };

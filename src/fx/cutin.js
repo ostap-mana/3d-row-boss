@@ -3,13 +3,20 @@
  *
  * The single most important beat in the creative: this is where the player is
  * told "the heroes are the power", so it gets the full anime treatment. It used
- * to be Nyx's alone, baked into the constructor; now every card can be tapped,
+ * to be Arissa's alone, baked into the constructor; now every card can be tapped,
  * so the portrait, the name, the skill and every colour on screen are swapped
  * by setHero() before the slam.
  */
 
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import { FONT, GEM_COLORS, GEM_LIGHT, HEROES, NYX } from "../config.js";
+import {
+  FONT,
+  FONT_TITLE,
+  GEM_COLORS,
+  GEM_LIGHT,
+  HEROES,
+  HEALER,
+} from "../config.js";
 import { heroPortrait } from "../art/heroes.js";
 import { glowTexture } from "../art/textures.js";
 import { tween, delay, Ease } from "../core/tween.js";
@@ -20,8 +27,8 @@ export class CutIn extends Container {
     super();
     this.visible = false;
 
-    /** Whose cut-in this currently is. Nyx until somebody taps another card. */
-    this.index = NYX;
+    /** Whose cut-in this currently is. the healer until somebody taps another card. */
+    this.index = HEALER;
 
     this.dim = new Graphics();
     this.addChild(this.dim);
@@ -32,10 +39,10 @@ export class CutIn extends Container {
     this.glow = new Sprite(glowTexture());
     this.glow.anchor.set(0.5);
     this.glow.blendMode = "add";
-    this.glow.tint = GEM_COLORS[HEROES[NYX].element];
+    this.glow.tint = GEM_COLORS[HEROES[HEALER].element];
     this.addChild(this.glow);
 
-    this.portrait = new Sprite(heroPortrait(NYX));
+    this.portrait = new Sprite(heroPortrait(HEALER));
     this.portrait.anchor.set(0.5);
     this.addChild(this.portrait);
 
@@ -43,9 +50,9 @@ export class CutIn extends Container {
     this.addChild(this.plate);
 
     this.name = new Text({
-      text: HEROES[NYX].name,
+      text: HEROES[HEALER].name,
       style: {
-        fontFamily: FONT,
+        fontFamily: FONT_TITLE,
         fontSize: 44,
         fontWeight: "900",
         fill: 0xffffff,
@@ -56,12 +63,12 @@ export class CutIn extends Container {
     this.addChild(this.name);
 
     this.skill = new Text({
-      text: HEROES[NYX].skill,
+      text: HEROES[HEALER].skill,
       style: {
         fontFamily: FONT,
         fontSize: 20,
         fontWeight: "800",
-        fill: GEM_LIGHT[HEROES[NYX].element],
+        fill: GEM_LIGHT[HEROES[HEALER].element],
         letterSpacing: 2.4,
       },
     });
