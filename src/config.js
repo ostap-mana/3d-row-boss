@@ -399,17 +399,33 @@ export const T = {
    * every single settled cascade. On a board this small that is not a guide, it
    * is a gauntlet permanently in the way of the thing it is pointing at.
    *
-   * Off is the demo only: nothing points at a cell of its own accord, no gems
-   * light up at `pulse`. The hand still rides the player's own swipe — that is
+   * Off means nothing points at a cell of its own accord and no gems light up
+   * at `pulse`. The hand still rides the player's own swipe — that is
    * `touchHand` below, on its own switch, because a hand that follows a finger
-   * already on the glass suggests nothing to anybody. Also untouched is the
-   * autoplay demo — a viewer who never puts a finger on the screen still gets
-   * the fight played for them, because that path solves the board for itself
-   * (see Director.autoPlay) rather than reading the hand.
+   * already on the glass suggests nothing to anybody.
    *
    * Flip it back to true and the two delays below decide the pacing again.
    */
   hints: false,
+  /**
+   * The game playing itself — off.
+   *
+   * It played the best swap on the board for a viewer who had never touched the
+   * screen, and stopped for good the moment one did: see Director.armAutoPlay,
+   * which is the only path in and is gated here now.
+   *
+   * Off has a consequence worth being clear about, because it is the whole
+   * behaviour of a passive impression. Nobody moves the board, so the fight
+   * never gets past its first turn; `T.hardCap` runs out at twenty seconds with
+   * the boss still standing, and Director.finish calls that what it is — a loss
+   * — and shows the end card. A viewer who never touches the screen now watches
+   * a still board for twenty seconds. That is the ask; it is not a bug.
+   *
+   * Everything the demo needed is still here and still correct: `auto`,
+   * `autoFloor`, `moveCost` and Director.autoDelay are the pace guard it ran
+   * on. One flag back to true and it runs again.
+   */
+  autoPlay: false,
   /**
    * The hand under the player's own thumb — on.
    *
@@ -432,8 +448,10 @@ export const T = {
   /** idle before the hand pulses harder and gems highlight */
   pulse: 4.5,
   /**
-   * Idle before the game plays the move itself — and it only ever does that
-   * for a viewer who has not touched the screen once. See Director.armAutoPlay.
+   * Idle before the game plays the move itself — and it only ever did that for a
+   * viewer who had not touched the screen once. See Director.armAutoPlay.
+   *
+   * Unreachable while `autoPlay` above is false, and kept for when it is not.
    */
   auto: 2.4,
   /**

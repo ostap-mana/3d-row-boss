@@ -1391,15 +1391,18 @@ export class Director {
 
   /**
    * Play the move ourselves — but only for a viewer who has never touched the
-   * screen.
+   * screen, and only while T.autoPlay says so.
    *
-   * This is the whole difference between a creative that demos itself to a
-   * passive impression and one that takes the board away from someone who is
-   * playing it. The moment `playerActed` is set, nothing here ever fires again
-   * and a stalled player simply runs out of clock like anybody else.
+   * `playerActed` is the whole difference between a creative that demos itself
+   * to a passive impression and one that takes the board away from someone who
+   * is playing it: the moment it is set, nothing here ever fires again and a
+   * stalled player simply runs out of clock like anybody else.
+   *
+   * T.autoPlay is off, so nothing here fires for anybody. See the flag for what
+   * a passive impression looks like as a result.
    */
   armAutoPlay() {
-    if (this.playerActed) return;
+    if (!T.autoPlay || this.playerActed) return;
     const token = ++this.moveToken;
     delay(this.autoDelay()).then(() => {
       if (token !== this.moveToken || this.ended || this.playerActed) return;
