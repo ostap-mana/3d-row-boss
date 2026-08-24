@@ -411,24 +411,42 @@ export const T = {
    */
   hints: false,
   /**
-   * The game playing itself — off.
+   * The game swapping gems for the player — off.
    *
-   * It played the best swap on the board for a viewer who had never touched the
-   * screen, and stopped for good the moment one did: see Director.armAutoPlay,
-   * which is the only path in and is gated here now.
+   * This is the one that made three-in-a-rows on its own: it solved the board
+   * and played the best swap for a viewer who had never touched the screen. See
+   * Director.armAutoPlay, which is the only path in and is gated here.
    *
-   * Off has a consequence worth being clear about, because it is the whole
-   * behaviour of a passive impression. Nobody moves the board, so the fight
-   * never gets past its first turn; `T.hardCap` runs out at twenty seconds with
-   * the boss still standing, and Director.finish calls that what it is — a loss
-   * — and shows the end card. A viewer who never touches the screen now watches
-   * a still board for twenty seconds. That is the ask; it is not a bug.
-   *
-   * Everything the demo needed is still here and still correct: `auto`,
-   * `autoFloor`, `moveCost` and Director.autoDelay are the pace guard it ran
-   * on. One flag back to true and it runs again.
+   * Off, and `bossPress` below is why it can be. The two used to be the same
+   * decision because the boss only ever swung after a player turn, so switching
+   * the demo off took the beams, the damage numbers and every boss beat with it
+   * and left a board sitting still until T.hardCap collected. The boss has his
+   * own clock now. Nobody touches the board unless a person does; the fight is
+   * still a fight to watch.
    */
   autoPlay: false,
+  /**
+   * Seconds of nobody touching the board before the boss takes a turn anyway,
+   * and again every this many after that. See Director.armBossPress.
+   *
+   * The boss's turn was hung off the player's: swipe, resolve, boss swings. That
+   * is right for somebody playing and wrong for somebody watching, because it
+   * makes the whole monster a function of the board. He has a rotation of his
+   * own — BOSS_ATTACKS, and `turn` walks it whoever moved last — so all this
+   * does is let it advance on time instead of on permission.
+   *
+   * 3.2 against moveCost's 2.8: a shade longer than a move takes to play out,
+   * so a player mid-cascade is not interrupted by a swing they did not earn,
+   * and short enough that the nine and a half playable seconds of a fifteen
+   * second run hold three of them. Three beats does not wipe the party at
+   * BOSS_ATTACKS damage — the cataclysm at the end does that, see
+   * Director.timeUp — which is the shape wanted: the party is worn down for the
+   * whole run and dropped at the end of it.
+   *
+   * The clock restarts on every player turn, so a swipe is always answered by
+   * the swing it earned rather than by two of them at once.
+   */
+  bossPress: 3.2,
   /**
    * The hand under the player's own thumb — on.
    *

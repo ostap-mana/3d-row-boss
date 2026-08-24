@@ -356,7 +356,14 @@ function landscapeLayout(w, h, ui, safe) {
     board: { x: boardX, y: boardY, size, cell },
     boss: {
       x: leftEdge + leftW / 2,
-      y: bossTop + bossH * 0.5,
+      // A twentieth of the band below centre. Centred, the figure sat with its
+      // feet a good forty points clear of its own floor — the fit comes off the
+      // rig's box and the painted beast does not fill the bottom of it — so the
+      // column read as a boss hung in the sky over a gap. Down here his feet are
+      // near enough the floor the layout drew for him, and the hero row is drawn
+      // after the boss anyway: a slam that carries the feet into the top of a
+      // card reads as the row standing in front of him, which is where it is.
+      y: bossTop + bossH * 0.55,
       scale: bossScale,
       floor: bossTop + bossH,
     },

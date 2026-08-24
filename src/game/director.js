@@ -117,6 +117,9 @@ export class Director {
      */
     this.playerActed = false;
 
+    /** Token for the boss's own clock — see armBossPress. */
+    this.pressToken = 0;
+
     this.doomArmed = false;
     this.doomFiring = false;
     this.doomLeft = DOOM.seconds;
@@ -172,8 +175,56 @@ export class Director {
   /* ------------------------------------------------------------------ run */
 
   async run() {
-    await Promise.race([this.playFight(), delay(T.hardCap)]);
+    // Which of the two won matters now. The fight resolving is a fight that
+    // reached its own ending; the clock resolving is a fight that did not, and
+    // that one has an ending of its own to play — see `timeUp`.
+    const capped = await Promise.race([
+      this.playFight().then(() => false),
+      delay(T.hardCap).then(() => true),
+    ]);
+    if (capped) await this.timeUp();
     await this.finish();
+  }
+
+  /**
+   * The clock ran out with the boss still standing.
+   *
+   * This used to be nothing at all: the race resolved, `finish` set the end
+   * card, and a creative that had spent fifteen seconds telling the player a
+   * cataclysm was coming simply stopped one frame later. The one mechanic the
+   * whole mode is built on had never fired, because with DOOM.seconds equal to
+   * the runtime the clock can never reach zero inside it, and the ending was a
+   * cut rather than an ending.
+   *
+   * So the deadline collects. The boss casts, the party goes down to a man, and
+   * the card that follows says what happened. It is the same castDoom every
+   * turn of the fight could have met — same shout, same roar, same rolling wave
+   * down the row — with the damage taken off the ramp and set to lethal: this
+   * one is not a beat the party can be healed through, it is the thing the timer
+   * was counting to.
+   *
+   * The clock is driven to zero before the cast rather than left where the cap
+   * caught it, because a strip reading five seconds under a cataclysm landing is
+   * the creative disagreeing with itself in the last two seconds anybody watches.
+   *
+   * Runs after T.hardCap rather than inside it, so the deliverable is fifteen
+   * seconds of fight and then this. Everything in it is already bounded — see
+   * bossSettled, which will wait 0.8s for an in-flight swing and no longer.
+   */
+  async timeUp() {
+    if (this.ended || this.outcome) return;
+    const { board, hud } = this.s;
+    board.lockInput();
+    this.stopIdle();
+    this.doomArmed = false;
+    this.doomLeft = 0;
+    hud.setDoom(0, this.doomTotal);
+    await this.bossSettled();
+    if (this.ended) return;
+    this.doomFiring = false;
+    await this.castDoom(true);
+    if (this.ended) return;
+    await this.lose();
   }
 
   /**
@@ -480,7 +531,7 @@ export class Director {
    * cataclysm is the loudest thing in the fight and it still does not get to be
    * the thing that stops the player playing.
    */
-  async castDoom() {
+  async castDoom(lethal) {
     const { boss, hud, vfx, shake, layout } = this.s;
 
     sfx.doomCast();
@@ -515,8 +566,13 @@ export class Director {
 
     const falling = this.strikeHeroes({
       targets: "all",
-      // Every cataclysm after the first lands harder than the one before it.
-      damage: DOOM.damage * Math.pow(DOOM.damageRamp || 1, this.doomCount),
+      // Every cataclysm after the first lands harder than the one before it —
+      // except the one the clock itself casts, which is not a beat to be
+      // survived. Past a full bar rather than exactly one, so a hero the tide
+      // topped up on the way in goes down with everybody else. See timeUp.
+      damage: lethal
+        ? 1.2
+        : DOOM.damage * Math.pow(DOOM.damageRamp || 1, this.doomCount),
     });
     await Promise.all([rolling, falling]);
     this.doomCount++;
@@ -1386,7 +1442,32 @@ export class Director {
   beginIdle(hint) {
     this.idleHint = hint;
     this.armAutoPlay();
+    this.armBossPress();
     this.restartIdle();
+  }
+
+  /**
+   * The boss swings on his own clock, whether or not anybody has moved.
+   *
+   * Re-arms itself rather than firing once, because the case it exists for is
+   * the one where nothing else will ever wake it: a viewer who never touches the
+   * board leaves `playerTurn` parked on a swipe that is not coming, and one
+   * beat of boss and then silence is barely better than silence. Every player
+   * turn calls in here again and the token retires the previous chain, so the
+   * clock is always measured from the last thing that actually happened.
+   *
+   * `queueBoss` is the only way on to the boss's track and it refuses at two
+   * deep, so a slow swing cannot stack a queue of them behind it — the tick that
+   * gets turned away simply loses that beat and the next one tries again.
+   */
+  armBossPress() {
+    if (!T.bossPress) return;
+    const token = ++this.pressToken;
+    delay(T.bossPress).then(() => {
+      if (token !== this.pressToken || this.ended || this.outcome) return;
+      this.queueBoss(() => this.bossTurn());
+      this.armBossPress();
+    });
   }
 
   /**
@@ -1519,6 +1600,7 @@ export class Director {
   stopIdle() {
     this.idleToken++;
     this.moveToken++;
+    this.pressToken++;
     this.idleHint = null;
     this.s.hand.stop();
     if (this.highlighted) {
