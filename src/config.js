@@ -323,11 +323,14 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Twenty, which is the length of the whole creative — so read what this now
-   * is rather than what it says: the clock is a twenty second countdown that
-   * never reaches zero. T.hardCap is 20, the intro spends about two of them and
-   * T.finaleReserve holds back 3.5, so there are about 14.5 playable seconds and
-   * the label runs 20 down to 6 or so before the end card takes the screen.
+   * Fifteen, which is the length of the whole creative — so read what this now
+   * is rather than what it says: the clock is a fifteen second countdown that
+   * never reaches zero. T.hardCap is 15, the intro spends about two of them and
+   * T.finaleReserve holds back 3.5, so there are about 9.5 playable seconds and
+   * the label runs 15 down to 5 or so before the end card takes the screen.
+   *
+   * Kept equal to the run on purpose: the clock on screen was asked for as the
+   * length of the creative, so when the creative moved the clock moved with it.
    *
    * Which means the cataclysm does not fire, and neither does anything hung off
    * it: no KOLTMOS IS CHARGING at warnAt[0], no BRACE at warnAt[1], no red
@@ -342,7 +345,7 @@ export const DOOM = {
    * it, so the deadline arrived once as a threat and once as proof it was not a
    * bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 20,
+  seconds: 15,
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
@@ -472,23 +475,34 @@ export const T = {
    * A third of the way in: late enough that the opening is the fight and not a
    * store button, early enough that it is on screen for the two thirds of the
    * creative anybody is still watching.
+   *
+   * A third of fifteen rather than of twenty — this is a share of the run, and
+   * it moved when the run did.
    */
-  banner: 7.0,
+  banner: 5.0,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Twenty seconds, because that is the creative. Everything else in this file
-   * is fitted to it rather than the other way round: DOOM.seconds so the
-   * cataclysm lands inside it, DIFFICULTY.damagePerGem so the boss can be dead
-   * before it, finaleReserve so the death still gets played.
+   * Fifteen seconds, because that is the creative. Everything else in this file
+   * is fitted to it rather than the other way round: DOOM.seconds so the clock
+   * on screen is the length of the thing it is counting, finaleReserve so the
+   * death still gets played, DIFFICULTY.damagePerGem so the boss can be dead
+   * before it.
    *
-   * Measured hands-off, a passive viewer sees the boss fall around fifteen
-   * seconds and the end card at about twenty. This number is what that run is
-   * racing — see Director.run, where it is literally the other half of a
-   * Promise.race — and it is also the fight difficulty, because it is the one
-   * opponent that never misses.
+   * That last one no longer holds and is the thing to know about this number.
+   * It was twenty, and the damage curve was cut to it: at damagePerGem 0.075 a
+   * dead boss is four or five moves, and moveCost puts a move at 2.8 seconds.
+   * Fifteen, less about two for the intro and the 3.5 of finaleReserve, leaves
+   * nine and a half playable seconds — three moves and a bit. So the fight as
+   * balanced does not fit in the run any more, and a viewer playing it well can
+   * still be cut off with the boss standing. Raising damagePerGem is what closes
+   * that, and it is a balance decision rather than a timing one.
+   *
+   * This number is what the run is racing — see Director.run, where it is
+   * literally the other half of a Promise.race — and it is also the fight
+   * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 20.0,
+  hardCap: 15.0,
   /** beat after the boss dies before the end card */
   victoryHold: 1.4,
   /**

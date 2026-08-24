@@ -3,7 +3,7 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * twenty second fight — T.hardCap, and every other number in config.js is
+ * fifteen second fight — T.hardCap, and every other number in config.js is
  * fitted to it — and hands the player to the store.
  */
 
