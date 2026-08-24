@@ -8,6 +8,12 @@ import { Container, Graphics, Sprite } from "pixi.js";
 import { beamTexture, glowTexture, sparkTexture } from "../art/textures.js";
 import { tween, tweenValue, delay, Ease } from "../core/tween.js";
 import { rndRange } from "../core/rng.js";
+import {
+  FIRE_ASPECT,
+  FIRE_LEAD,
+  FIRE_TRAVEL_LAST,
+  fireFrames,
+} from "../art/fire.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -148,6 +154,89 @@ export class Vfx extends Container {
     );
     tween(core, { alpha: 0 }, 0.18, { delay: 0.05 }).then(() => core.destroy());
     muzzle.destroy();
+  }
+
+  /**
+   * The painted fireball: Ricklow's ultimate, and the only one in the fight
+   * that is a drawing rather than a stack of tinted glows.
+   *
+   * Ten frames off art/fire.js — five of the comet coming in, five of it
+   * landing — and they are played on one sprite rather than assembled out of
+   * cones and rings the way every other effect in this file is, because they
+   * were painted as one gesture and cutting them apart would only be a way of
+   * throwing the drawing away.
+   *
+   * Resolves the instant it lands, not when it burns out. The director bills
+   * the boss, shakes the screen and prints the damage on that frame, and the
+   * blast is left running behind all of it — which is why the last five frames
+   * are fired and forgotten below rather than awaited.
+   *
+   * Falls back to `beam` if the sheet never decoded, and keeps the same shape
+   * of promise either way so the caller cannot tell the difference.
+   */
+  async fireball(from, to, color, opts) {
+    const frames = fireFrames();
+    const o = opts || {};
+    if (!frames) return this.beam(from, to, color, o);
+
+    const size = o.size || 420;
+    const travel = o.travel || 0.26;
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.x = from.x;
+    s.y = from.y;
+    // Turned so the painted comet's own heading becomes the one it is flying.
+    s.rotation = angle - FIRE_LEAD;
+    this.field.addChild(s);
+
+    // The head of the comet leads its own light, so the glow is not a halo on
+    // the sprite: it is the thing the arena is lit by while the ball crosses it.
+    const lead = new Sprite(glowTexture());
+    lead.anchor.set(0.5);
+    lead.blendMode = "add";
+    lead.tint = color;
+    lead.alpha = 0.5;
+    lead.setSize(size * 0.7, size * 0.7);
+    this.field.addChild(lead);
+
+    const show = (i, w) => {
+      s.texture = frames[i];
+      s.setSize(w, w / FIRE_ASPECT);
+    };
+
+    // Frames rather than a tween on scale: the swell is painted into the sheet,
+    // and `tweenValue` is only the clock that walks it.
+    await tweenValue(0, 1, travel, (p) => {
+      s.x = from.x + (to.x - from.x) * p;
+      s.y = from.y + (to.y - from.y) * p;
+      lead.x = s.x;
+      lead.y = s.y;
+      show(
+        Math.min(FIRE_TRAVEL_LAST, Math.floor(p * (FIRE_TRAVEL_LAST + 1))),
+        size * (0.42 + p * 0.28),
+      );
+    });
+
+    tween(lead, { alpha: 0 }, 0.22).then(() => lead.destroy());
+
+    // The blast stands upright and stays where it landed: the last five frames
+    // are drawn as fire going up off a floor, and carrying the comet's rotation
+    // into them would tip that floor on its side.
+    s.rotation = 0;
+    s.x = to.x;
+    s.y = to.y;
+    const blast = o.blast || 0.52;
+    tweenValue(0, 1, blast, (p) => {
+      const i = FIRE_TRAVEL_LAST + 1;
+      const n = frames.length - i;
+      show(i + Math.min(n - 1, Math.floor(p * n)), size * (1 + p * 0.35));
+      // Only the tail fades: an explosion that starts dying on the frame it
+      // arrives never reads as having arrived at all.
+      s.alpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
+    }).then(() => s.destroy());
   }
 
   /** Flash + ring + sparks where a beam lands. */

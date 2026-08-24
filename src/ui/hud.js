@@ -11,6 +11,7 @@ import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
 import { lerpColor } from "../core/color.js";
 import { hpBarShape, hpBarPaint, HP_FRAME } from "../art/hpbar.js";
 import { glowTexture, sheenTexture } from "../art/textures.js";
+import { BossCrest, haveBossCrest } from "../art/crest.js";
 import {
   BANNER_BAR_H,
   BANNER_FILL,
@@ -103,6 +104,16 @@ const CHIP_DRAIN = 0.85;
  * anyway, so it never has to be clipped and the HUD stays free of a mask.
  */
 const SHEEN = { sweep: 0.85, period: 3.1, band: 3.2, peak: 0.62, phase: 0 };
+
+/**
+ * How far the crest stands past the chrome it is pinned to.
+ *
+ * A badge flush with the block would read as another bar layer. Half again is
+ * enough for it to read as a crest hung over the arena. What it is half again
+ * *of* is the chrome block; where it hangs from is the top edge — see `resize`,
+ * which is where those two came apart and why.
+ */
+const CREST_RISE = 1.65;
 
 /** The same, for the doom strip: slower, dimmer, and out of step with above. */
 const DOOM_SHEEN = {
@@ -203,6 +214,40 @@ export class Hud extends Container {
     this.barTip.visible = false;
     this.addChild(this.barTip);
 
+    /**
+     * What is left of the boss, printed across the middle of his own bar.
+     *
+     * The bar has always said this and only ever in one way: a length, read
+     * against a length the player has to remember. That is enough to feel the
+     * fight going well and not enough to know it — a bar that has crept from a
+     * fifth to a sixth over four matches looks like a bar that has not moved.
+     * The number moves every hit.
+     *
+     * Centred on the bar rather than set at one end, and that is the whole point
+     * of the placement: the fill's leading edge is the one thing on this strip
+     * that travels, and a reading parked at either end is either always on the
+     * red or always on the black. In the middle it is passed by the edge exactly
+     * once a fight, and it is drawn to be read against both — see the stroke in
+     * `resize`, which is the same trick the hero gauges use.
+     *
+     * Added here, after the four bar layers and after the sheen and the tip
+     * bloom, so nothing the bar does at run time is drawn over it.
+     */
+    this.hpLabel = new Text({
+      text: "100%",
+      style: {
+        fontFamily: FONT,
+        fontWeight: "900",
+        fontSize: 14,
+        fill: 0xffffff,
+      },
+    });
+    this.hpLabel.anchor.set(0.5);
+    this.addChild(this.hpLabel);
+
+    /** Last whole percent printed, so the texture is rebaked only when it moves. */
+    this.hpPrinted = -1;
+
     this.name = new Text({
       text: BOSS_NAME,
       style: {
@@ -245,6 +290,20 @@ export class Hud extends Container {
     this.doomLeft = 0;
     this.doomTotal = DOOM.seconds;
     this.doomOn = false;
+
+    /**
+     * The boss's own face, at the head of his bar.
+     *
+     * Null when the art did not decode, and every use of it below is guarded on
+     * that — a crest that failed to arrive gives its width back to the bar and
+     * the chrome is what it was before there was one.
+     *
+     * Added after the bar and the doom strip so it closes over both: the badge
+     * is taller than the block it stands at the head of, on purpose, and the
+     * strip runs under its lower corner rather than beside it.
+     */
+    this.crest = haveBossCrest() ? new BossCrest() : null;
+    if (this.crest) this.addChild(this.crest);
 
     /* Persistent CTA — the second of the three install surfaces. */
     this.banner = new Container();
@@ -309,6 +368,18 @@ export class Hud extends Container {
     this.layout = null;
   }
 
+  /**
+   * The boss turned over. Hand it to the crest, which is the only piece of
+   * chrome up here carrying his face and so the only one that can show it.
+   *
+   * Called beside every `boss.enrage()` rather than off a health threshold: the
+   * boss enrages when an armour layer breaks and when the doom lands, neither of
+   * which is a number this bar knows.
+   */
+  enrage() {
+    if (this.crest) this.crest.enrage();
+  }
+
   /** One tinted layer of the bar, top-left anchored so a crop grows rightwards. */
   addBarLayer(tint, alpha) {
     const s = new Sprite(Texture.EMPTY);
@@ -324,13 +395,77 @@ export class Hud extends Container {
     this.layout = layout;
     const { x, y, w, h } = layout.hud;
     const ui = layout.ui;
+
+    /**
+     * The crest, and what it costs the bar.
+     *
+     * Its height is the whole top chrome — the name's cap to the foot of the
+     * doom strip — times CREST_RISE, and the overhang is deliberately not split
+     * evenly: a badge hangs, so all of the extra goes below, into the empty sky
+     * over the golem, where there is nothing to collide with.
+     *
+     * Measured off the chrome, placed off the top edge, and those used to be the
+     * same line. Pinned at the name's cap, the badge left a strip of empty sky
+     * above itself — the cap line sits a name's ascender below the top of the
+     * screen — and spent all sixty-five percent of CREST_RISE below the doom
+     * strip: forty points of badge hanging under a sixty point block. Hung off
+     * the edge instead, the same badge sits twelve points higher and hangs
+     * twelve fewer, which is the whole of the difference. It is still not
+     * centred on the chrome, because a badge centred on it would run under the
+     * safe-area inset on a phone.
+     *
+     * The gap to the bar is two ui rather than five for the same reason: at five
+     * the badge read as a separate thing that happened to be up there, and the
+     * point of it is that it is the boss's face on the boss's bar.
+     *
+     * The name and the bar both start after it. Everything downstream of this
+     * — the sheen, the tip, the percent, the doom strip, the banner — is placed
+     * off `barRect`, so insetting it here is the only place the badge is paid
+     * for.
+     */
+    let inset = 0;
+    if (this.crest) {
+      const top = y - 3 * ui - 11 * ui;
+      const foot = y + h + 3 * ui + Math.max(3, h * 0.32);
+      const crestH = (foot - top) * CREST_RISE;
+      const crestW = this.crest.resize(crestH);
+      this.crest.x = x + crestW / 2;
+      this.crest.y = layout.safe.top + 2 * ui + crestH / 2;
+      inset = crestW + 2 * ui;
+    }
+
     // Set up front rather than just before the bake: the banner is placed off
     // the doom strip, and doomRect() is measured from this.
-    this.barRect = { x, y, w, h };
+    this.barRect = { x: x + inset, y, w: w - inset, h };
 
     this.name.style.fontSize = Math.max(9, 11 * ui);
-    this.name.x = x;
+    this.name.x = x + inset;
     this.name.y = y - 3 * ui;
+
+    // The bar hands the type its size, the way a hero card's gauge does — see
+    // READOUT_TYPE in art/heroes.js, where the rule is written out. 0.72 rather
+    // than that card's 0.776 because this strip carries a mitre at each end and
+    // a lit rim along both long edges, so there is less flat bore in it than
+    // its depth suggests.
+    //
+    // The outline is what lets one reading sit on two grounds. It is over the
+    // red where the boss still has health and over the near-black track where
+    // he does not, and the fill's edge crosses under it during the fight: white
+    // alone vanishes into the flash, and any dark fill vanishes into the track.
+    const hpSize = Math.max(9, h * 0.72);
+    this.hpLabel.style.fontSize = hpSize;
+    this.hpLabel.style.letterSpacing = hpSize * 0.02;
+    this.hpLabel.style.stroke = {
+      color: 0x2a0a08,
+      width: Math.max(1.6, hpSize * 0.19),
+      join: "round",
+    };
+    this.hpLabel.x = this.barRect.x + this.barRect.w / 2;
+    this.hpLabel.y = y + h / 2;
+    // Forced: the size just changed, and `printHp` is a no-op while the percent
+    // has not.
+    this.hpPrinted = -1;
+    this.printHp();
 
     this.callout.style.stroke = {
       color: 0x180a1e,
@@ -699,6 +834,10 @@ export class Hud extends Container {
       this.barFlash.alpha = HIT_FLASH.alpha;
       tween(this.barFlash, { alpha: 0 }, HIT_FLASH.dur, { ease: Ease.quadOut });
     }
+    // The crest takes it too, scaled by how big a bite this was: the bar says
+    // how much is left and the badge says that something just landed, which is
+    // the half of a hit a draining rectangle is worst at.
+    if (hit && this.crest) this.crest.hit(0.6 + (this.hpShown - value) * 4);
 
     killTweensOf(this.barDriver);
     killTweensOf(this.chipDriver);
@@ -847,6 +986,33 @@ export class Hud extends Container {
    * creative targets, and it is why the sheen is a sprite being moved rather
    * than a gradient being painted into the bar.
    */
+  /**
+   * Put the health the bar is currently showing on the bar, as a whole percent.
+   *
+   * Off `hpShown` rather than `hp`, so the number drains with the fill instead
+   * of snapping to the new total the frame the hit lands. They are the same
+   * value a third of a second later; for that third of a second the bar and its
+   * reading have to agree, or the number is announcing damage the bar has not
+   * shown yet.
+   *
+   * Rounded down, and never to zero while anything is left. A boss on 0.4% is a
+   * boss who is still standing, and a bar that reads 0% with paint still in it
+   * is the reading the player will call a bug — the one time this number is
+   * being watched closely is the last three seconds of the fight. 0 is reserved
+   * for a boss with nothing left, which is the only state that earns it.
+   *
+   * Guarded on the printed value, because setting `text` rebakes the texture
+   * and this runs every frame: a percent changes about a hundred times a fight,
+   * not sixty times a second.
+   */
+  printHp() {
+    const v = this.hpShown;
+    const pct = v <= 0 ? 0 : Math.max(1, Math.floor(v * 100));
+    if (pct === this.hpPrinted) return;
+    this.hpPrinted = pct;
+    this.hpLabel.text = `${pct}%`;
+  }
+
   animateBar() {
     if (!this.barRect || !this.barShape) return;
     const { x, y, w, h } = this.barRect;
@@ -923,6 +1089,8 @@ export class Hud extends Container {
       this.banner.scale.set(p);
     }
 
+    this.printHp();
+    if (this.crest) this.crest.update(dt);
     this.animateBar();
     this.animateDoom();
 

@@ -97,19 +97,24 @@ export const DIFFICULTY = {
   /**
    * Boss health taken by one gem cleared in the first step of a match.
    *
-   * 0.028 is less than half the 0.075 this shipped at, and it is the single
-   * number that turns a demo into a gauntlet. A plain triple takes 8% off a
-   * boss that also armours up as it falls (see `armor`), so twelve of
-   * them is a dead boss and nobody gets twelve moves — grinding triples runs
-   * out of clock long before it runs out of boss. A four-run takes 17% and a
-   * four-run leading a cascade takes 31%, which is the whole game: the fight is
-   * winnable, but only by somebody reading the board rather than clearing it.
+   * Back to 0.075, from the 0.028 the gauntlet tuning took it down to, and the
+   * reason is the clock rather than a change of heart about difficulty.
    *
-   * A modelled fight puts a strong player around 45% wins, an average one near
-   * 12% and a distracted one under 3%. Raise it back towards 0.075 to walk the
-   * whole mode back to merciful.
+   * At 0.028 a plain triple takes 8% off a boss that also armours up as it
+   * falls (see `armor`), so a fight is twelve moves deep. A move costs about
+   * three seconds to play out — the swap, the cascade, the volley, the boss
+   * answering — and twelve of those is thirty-six seconds. The creative is
+   * twenty. So the gauntlet was never a hard fight inside this runtime; it was
+   * a fight that could not be finished inside it, and what a viewer actually
+   * saw was a health bar that ended the ad two thirds full.
+   *
+   * At 0.075 a triple takes 22% through the armour and a four-run leading a
+   * cascade ends it outright. Four or five moves is a dead boss, four or five
+   * moves is what twenty seconds holds, and the bar is visibly moving in every
+   * one of them. Difficulty in a creative this short is not how many moves it
+   * takes; it is T.hardCap, which is the only opponent that never misses.
    */
-  damagePerGem: 0.028,
+  damagePerGem: 0.075,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -187,7 +192,7 @@ export const DIFFICULTY = {
   partyChargePerGem: 0.18,
   partyChargeStart: 0.1,
   /** Flat chunk the ultimate hits for, on top of per-gem for the water it eats. */
-  ultDamage: 0.13,
+  ultDamage: 0.3,
   ultGemMultiplier: 1.25,
 
   /** Blocks laid per boss turn: base, plus this much more each turn. */
@@ -318,35 +323,40 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Fourteen is four or five moves. Killing the boss before the first one lands
-   * is off the table — nobody takes a full armoured health bar in five swaps —
-   * so the opening is no longer a question of how fast the player can attack.
-   * It is whether they have Arissa armed by second fourteen while the boss is
-   * busy burying the water they were saving for her.
+   * Twenty, which is the length of the whole creative — so read what this now
+   * is rather than what it says: the clock is a twenty second countdown that
+   * never reaches zero. T.hardCap is 20, the intro spends about two of them and
+   * T.finaleReserve holds back 3.5, so there are about 14.5 playable seconds and
+   * the label runs 20 down to 6 or so before the end card takes the screen.
    *
-   * It is set exactly one move wide of the two water matches her charge costs.
-   * A player who goes looking for water from the first swap makes it; a player
-   * who takes whatever match is nearest does not, and eats the cataclysm at
-   * full price.
+   * Which means the cataclysm does not fire, and neither does anything hung off
+   * it: no KOLTMOS IS CHARGING at warnAt[0], no BRACE at warnAt[1], no red
+   * pulse under panicAt, no wipe, no WE HELD. The doom strip drains about three
+   * quarters of its length and the run ends. Everything from `repeat` down is
+   * still correct and still unreachable.
    *
-   * This is the number that decides the whole mode's difficulty. It is also the
-   * one bounded by T.hardCap: the cataclysm and the card after it need room
-   * inside the creative's runtime, which is why the cap moved with it.
+   * That is a deliberate choice and not a regression — asked for as a twenty
+   * second timer on screen, with the run left at twenty. It was 9, which is
+   * three moves: it landed in the middle of the fight, after the player had felt
+   * the bar move and before the kill, with room for exactly one repeat behind
+   * it, so the deadline arrived once as a threat and once as proof it was not a
+   * bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 14,
+  seconds: 20,
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
    *
    * A fixed repeat is a metronome, and a metronome is something a player
-   * settles into. Seven, then 5.5, then 4.3, then a flat 4: by the third the
-   * party is being asked to live through a hit that is also growing (see
-   * damageRamp) roughly every move and a half, and the only answer left is to
-   * have already killed the boss.
+   * settles into. Five, then 3.9, then a flat 3 — and inside twenty seconds the
+   * second is usually the last one the fight lives to see. The decay is kept
+   * anyway: it is what makes the first repeat feel like the deadline closing
+   * rather than the same beat again, and a player who stalls does meet the
+   * third.
    */
-  repeat: 7,
+  repeat: 5,
   repeatDecay: 0.78,
-  repeatFloor: 4,
+  repeatFloor: 3,
   /**
    * Fraction of HERO_MAX_HP the cataclysm takes off every hero. Set against
    * ULT_HEAL_TO: a freshly healed party lives on a sliver, a chewed-up one
@@ -370,13 +380,13 @@ export const DOOM = {
    */
   damageRamp: 1.2,
   /** Seconds remaining at which the boss shouts a warning. */
-  warnAt: [5, 2],
+  warnAt: [4, 2],
   /** Below this the clock turns red and pulses. */
-  panicAt: 4.5,
+  panicAt: 3.5,
 };
 
 export const BOSS_MAX_HP = 10000000;
-export const BOSS_NAME = "MAGMAROTH";
+export const BOSS_NAME = "KOLTMOS";
 
 /* ------------------------------------------------------------------- timing */
 
@@ -412,50 +422,67 @@ export const T = {
   /**
    * Idle before the hint hand appears, when `hints` is on.
    *
-   * Four seconds rather than the half second it shipped at. Every touch
-   * restarts this timer and so does every boss beat — see Director.restartIdle
-   * and refreshHint — so at half a second the hand was effectively always on
-   * screen. At four it is what it says it is: something that turns up for a
-   * player who has actually stalled.
+   * Every touch restarts this timer and so does every boss beat — see
+   * Director.restartIdle and refreshHint — so at the half second it shipped at
+   * the hand was effectively always on screen. Two and a bit is what it says it
+   * is: something that turns up for a player who has actually stalled, on a
+   * clock where stalling for four would be a fifth of the whole creative.
    */
-  hint: 4.0,
+  hint: 2.2,
   /** idle before the hand pulses harder and gems highlight */
-  pulse: 8.0,
+  pulse: 4.5,
   /**
    * Idle before the game plays the move itself — and it only ever does that
    * for a viewer who has not touched the screen once. See Director.armAutoPlay.
    */
-  auto: 7.0,
+  auto: 2.4,
   /**
    * Floor under the autoplay delay, once the pace guard has worked out how many
    * moves the boss still owes — see Director.autoDelay.
    *
-   * A whole second of nothing on top of T.moveCost, which is the move playing
-   * itself out. So the fastest the demo ever goes is a move every 3.8 seconds,
-   * and it only reaches that when the boss is deep enough that the run cannot
-   * afford anything slower. It is a pace, not a stampede.
+   * A third of a second of nothing on top of T.moveCost, which is the move
+   * playing itself out, so the fastest the demo ever goes is a move every three
+   * and a bit seconds. It only reaches that when the boss is deep enough that
+   * the run cannot afford anything slower. It is a pace, not a stampede — but
+   * the whole run is twenty seconds, and a second of dead air is a twentieth of
+   * the ad spent watching nothing.
    */
-  autoFloor: 1.0,
-  /** persistent INSTALL banner drops in at this point on the clock */
-  banner: 12.0,
+  autoFloor: 0.35,
+  /**
+   * Persistent INSTALL banner drops in at this point on the clock.
+   *
+   * A third of the way in: late enough that the opening is the fight and not a
+   * store button, early enough that it is on screen for the two thirds of the
+   * creative anybody is still watching.
+   */
+  banner: 7.0,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Has to outlast the intro plus the doom clock plus the cataclysm, or the
-   * fight gets guillotined before its own climax. With DOOM.seconds at 20 the
-   * first cataclysm lands around the 25 second mark, and a party that survives
-   * it earns a second one eight seconds later — this leaves room for that one
-   * to resolve into a card instead of being cut off mid-animation.
+   * Twenty seconds, because that is the creative. Everything else in this file
+   * is fitted to it rather than the other way round: DOOM.seconds so the
+   * cataclysm lands inside it, DIFFICULTY.damagePerGem so the boss can be dead
+   * before it, finaleReserve so the death still gets played.
+   *
+   * Measured hands-off, a passive viewer sees the boss fall around fifteen
+   * seconds and the end card at about twenty. This number is what that run is
+   * racing — see Director.run, where it is literally the other half of a
+   * Promise.race — and it is also the fight difficulty, because it is the one
+   * opponent that never misses.
    */
-  hardCap: 38.0,
+  hardCap: 20.0,
   /** beat after the boss dies before the end card */
-  victoryHold: 2.2,
+  victoryHold: 1.4,
   /**
    * Time held back for the death animation and victory shout. The autoplay
    * pace guard treats this as untouchable so a hands-off viewer still sees the
    * boss explode instead of being cut off by the hard cap.
+   *
+   * Three and a half of the twenty, which is most of what the collapse and the
+   * shout actually take. Trimming it further buys one more move and spends the
+   * only moment in the creative that is pure payoff to get it.
    */
-  finaleReserve: 5.0,
+  finaleReserve: 3.5,
   /**
    * Rough cost of playing out one move, used by the same pace guard.
    * Covers the cascade and the boss turn that follows the swap — the boss
@@ -572,7 +599,7 @@ export const COPY = {
   ultHeal: "TEAM HEALED!",
   /* the fight can now be lost, and it says so out loud */
   doomLabel: "CATACLYSM",
-  doomWarn: "MAGMAROTH IS CHARGING!",
+  doomWarn: `${BOSS_NAME} IS CHARGING!`,
   doomSoon: "BRACE!",
   doomCast: "CATACLYSM!",
   doomSurvived: "WE HELD!",

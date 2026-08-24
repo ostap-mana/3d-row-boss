@@ -277,6 +277,7 @@ export class Director {
     const layer = layers[layers.length - depth];
     sfx.bossEnrage();
     this.s.boss.enrage();
+    this.s.hud.enrage();
     this.s.shake(16, 0.45);
     this.s.vfx.flash(0xff2a06, 0.3, 0.4);
     this.s.hud.shout(layer.name, 0.55, { fill: 0xff8a3d, from: 2 });
@@ -485,6 +486,7 @@ export class Director {
     sfx.doomCast();
     hud.shout(COPY.doomCast, 0.6, { fill: 0xff2f1a, from: 2.8 });
     boss.enrage();
+    hud.enrage();
     shake(18, 0.5);
     await boss.roar();
     if (this.ended) return;
@@ -1291,11 +1293,21 @@ export class Director {
       y: layout.board.y + layout.board.size * 0.2,
     };
 
-    await vfx.beam(origin, target, color, {
-      thickness: 64,
-      impact: 2.6,
-      travel: 0.2,
-    });
+    // Ricklow throws the painted one. Everybody else gets the beam — see
+    // fx/vfx.js, where the fireball falls back to exactly that call if the
+    // sheet never decoded, so this branch cannot strand him without an ult.
+    if (element === "fire") {
+      await vfx.fireball(origin, target, color, {
+        size: layout.board.size * 1.25,
+        travel: 0.22,
+      });
+    } else {
+      await vfx.beam(origin, target, color, {
+        thickness: 64,
+        impact: 2.6,
+        travel: 0.2,
+      });
+    }
     if (this.ended) return;
 
     sfx.ultBlast(element);
@@ -1358,6 +1370,7 @@ export class Director {
     await this.bossSettled();
 
     boss.enrage();
+    hud.enrage();
     shake(20, 0.7);
     vfx.flash(0x3a0606, 0.7, 0.8);
     await boss.roar();

@@ -156,6 +156,11 @@ export class EndCard extends Container {
       },
     });
     this.outcome.anchor.set(0.5);
+    // Off, and never turned on — see `show`. The Text stays because the stack
+    // solver counts it; `fitLine` reads `visible` and gives back nothing for a
+    // line that is not there, so the rungs under it close up rather than being
+    // spaced around a hole.
+    this.outcome.visible = false;
     this.addChild(this.outcome);
 
     /**
@@ -197,6 +202,8 @@ export class EndCard extends Container {
       },
     });
     this.sub.anchor.set(0.5);
+    // Off with the outcome line above it, and for the same reason.
+    this.sub.visible = false;
     this.addChild(this.sub);
 
     /* ----------------------------------------------------------------- cta */
@@ -668,23 +675,22 @@ export class EndCard extends Container {
     sfx.endcard(this.defeat);
 
     /**
-     * The outcome line and the promise under the wordmark are a win's, and only
-     * a win's. On a loss they are not rewritten, they are absent: see COPY,
-     * where the two keys that used to carry them have gone.
+     * Neither the outcome line nor the promise under the wordmark is set here
+     * any more, because neither is on the card: VICTORY over the wordmark and
+     * COLLECT YOUR HEROES under it are both gone, on a win as well as on a loss.
      *
-     * `visible` rather than an empty string, because the stack has to close up
-     * behind them. A Text with no text still measures its own font, so every
-     * rung under it would be spaced around a gap with nothing in it. See
-     * fitLine.
+     * They were a win's and only a win's — the defeat card already dropped them
+     * — and dropping them from both is the end of the same argument the defeat
+     * card settled: the card is the wordmark, the painting, the plate and the
+     * badges, and nothing on it discusses the result. The fight has already said
+     * it out loud by the time the card is up. See `defeat` in COPY, and the
+     * director, which still shouts COPY.victory over the arena.
+     *
+     * `visible` rather than empty strings — set false where the two are built —
+     * because the stack has to close up behind them. A Text with no text still
+     * measures its own font, so every rung under it would be spaced around a gap
+     * with nothing in it. See fitLine.
      */
-    this.outcome.visible = !this.defeat;
-    this.sub.visible = !this.defeat;
-    if (!this.defeat) {
-      this.outcome.text = COPY.victory;
-      this.outcome.style.fill = 0xffe6a8;
-      this.sub.text = COPY.endSub;
-      this.sub.style.fill = GEM_LIGHT[HEALER];
-    }
     // The one thing the card still colours off the result, and it is a wash
     // behind the painting rather than a sentence about it.
     this.glow.tint = this.defeat ? 0xff4a2a : GEM_COLORS[HEALER];

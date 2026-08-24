@@ -3,7 +3,8 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * 25 second fight, and hands the player to the store.
+ * twenty second fight — T.hardCap, and every other number in config.js is
+ * fitted to it — and hands the player to the store.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
@@ -25,6 +26,8 @@ import { loadHintHand } from "./art/hinthand.js";
 import { loadHpBarArt } from "./art/hpbar.js";
 import { loadCardBars } from "./art/cardbars.js";
 import { Boss, loadBossArt } from "./art/boss.js";
+import { loadBossCrest } from "./art/crest.js";
+import { loadFireArt } from "./art/fire.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -67,7 +70,8 @@ async function boot() {
   // it is built, the wordmark and the PLAY NOW plate and the store badges
   // because the EndCard does the same, the golem because the
   // Boss constructor either builds around the painting or falls back to the
-  // drawn rig, the card plates and hero busts because each HeroCard does the
+  // drawn rig, the crest because the Hud only puts a badge on the bar if the
+  // art for one arrived, the card plates and hero busts because each HeroCard does the
   // same, the card frames because each card picks one by element as it is
   // built, and the hint hand because the Hand is built with the scene and reads
   // it to know which of the two hands it is showing.
@@ -80,6 +84,8 @@ async function boot() {
     loadCtaBanner(),
     loadBrandArt(),
     loadBossArt(),
+    loadBossCrest(),
+    loadFireArt(),
     loadCardPlates(),
     loadCardFrames(),
     loadHeroAvatars(),
@@ -282,9 +288,6 @@ async function boot() {
   // the networks that ask for a kill switch they can call.
   scene.mute = setMuted;
   window.__SIEGE__ = scene;
-
-  const splash = document.getElementById("boot");
-  if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
 
   signalReady();
   startWhenVisible(() => director.run());
