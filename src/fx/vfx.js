@@ -14,6 +14,14 @@ import {
   FIRE_TRAVEL_LAST,
   fireFrames,
 } from "../art/fire.js";
+import {
+  BOSS_SPELLS,
+  SPELL_ASPECT,
+  SPELL_BY_ELEMENT,
+  SPELL_TRAVEL_LAST,
+  spellFrames,
+} from "../art/spells.js";
+import { FIRE } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -177,8 +185,114 @@ export class Vfx extends Container {
   async fireball(from, to, color, opts) {
     const frames = fireFrames();
     const o = opts || {};
-    if (!frames) return this.beam(from, to, color, o);
+    if (!frames) return this.beam(from, to, color, { ...o, ...(o.beam || {}) });
 
+    return this.paintedBolt(
+      {
+        frames,
+        aspect: FIRE_ASPECT,
+        lead: FIRE_LEAD,
+        travelLast: FIRE_TRAVEL_LAST,
+      },
+      from,
+      to,
+      color,
+      o,
+    );
+  }
+
+  /**
+   * Any mage's ultimate, painted, with one call for all six.
+   *
+   * Ricklow goes to `fireball` — his is the sheet that was cut off a still, on
+   * its own grid, and it stays on its own path. The other five are looked up in
+   * `art/spells.js` by element, and an element whose sheet has not been packed
+   * yet falls back to `beam`, which is the one every one of them threw before
+   * any of this existed.
+   *
+   * `opts.beam` is what that fallback is given, so the caller can keep the beam
+   * tuned the way it always was without knowing whether art exists today.
+   */
+  async spell(element, from, to, color, opts) {
+    const o = opts || {};
+    if (element === FIRE) return this.fireball(from, to, color, o);
+
+    const frames = spellFrames(SPELL_BY_ELEMENT[element]);
+    if (!frames) return this.beam(from, to, color, { ...o, ...(o.beam || {}) });
+
+    return this.paintedBolt(
+      {
+        frames,
+        aspect: SPELL_ASPECT,
+        // No painted heading to correct for: these are cut off clips of an
+        // effect gathering in the middle of frame, not of a comet flying in one
+        // direction, so turning them would only tip the drawing over.
+        lead: null,
+        travelLast: SPELL_TRAVEL_LAST,
+      },
+      from,
+      to,
+      color,
+      o,
+    );
+  }
+
+  /**
+   * A boss swing, painted, played where it lands and left to burn out.
+   *
+   * Unlike a mage sheet this one has no flight half — nothing throws it — so all
+   * ten frames are played straight through in place.
+   *
+   * It goes on **over** the procedural effect the swing already had, not instead
+   * of it. Those effects are sized off the layout: the breath cone has to reach
+   * the hero row, the shock ring has to cross the screen, the claw marks have to
+   * land along the side the body actually swung to. A painted square dropped in
+   * their place would be prettier and would stop the attack reading. Additive
+   * light composites, so the sheet is detail laid into a shape that already
+   * works.
+   *
+   * @returns {boolean} whether a sheet was there to play
+   */
+  bossSwing(kind, at, opts) {
+    const frames = spellFrames(BOSS_SPELLS[kind]);
+    if (!frames) return false;
+
+    const o = opts || {};
+    const size = o.size || 420;
+    const base = o.alpha === undefined ? 1 : o.alpha;
+    const grow = o.grow === undefined ? 0.25 : o.grow;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.x = at.x;
+    s.y = at.y;
+    s.rotation = o.rotation || 0;
+    s.alpha = base;
+    this.field.addChild(s);
+
+    tweenValue(0, 1, o.duration || 0.5, (p) => {
+      s.texture = frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
+      const w = size * (1 + p * grow);
+      s.setSize(w, w / SPELL_ASPECT);
+      // Only the tail fades, for the same reason the fireball's does: a swing
+      // that starts dying on the frame it lands never reads as having landed.
+      s.alpha = base * (p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3);
+    }).then(() => s.destroy());
+
+    return true;
+  }
+
+  /**
+   * The player behind every painted attack that travels.
+   *
+   * Split out of `fireball` when the other five ultimates got sheets of their
+   * own: the two differ only in which grid they walk and whether the drawing has
+   * a heading to correct for, and that is not enough to justify two copies of
+   * the clock, the lead glow and the blast.
+   */
+  async paintedBolt(art, from, to, color, o) {
+    const { frames, aspect, lead: leadAngle, travelLast } = art;
     const size = o.size || 420;
     const travel = o.travel || 0.26;
     const angle = Math.atan2(to.y - from.y, to.x - from.x);
@@ -189,7 +303,7 @@ export class Vfx extends Container {
     s.x = from.x;
     s.y = from.y;
     // Turned so the painted comet's own heading becomes the one it is flying.
-    s.rotation = angle - FIRE_LEAD;
+    s.rotation = leadAngle === null ? 0 : angle - leadAngle;
     this.field.addChild(s);
 
     // The head of the comet leads its own light, so the glow is not a halo on
@@ -204,7 +318,7 @@ export class Vfx extends Container {
 
     const show = (i, w) => {
       s.texture = frames[i];
-      s.setSize(w, w / FIRE_ASPECT);
+      s.setSize(w, w / aspect);
     };
 
     // Frames rather than a tween on scale: the swell is painted into the sheet,
@@ -215,7 +329,7 @@ export class Vfx extends Container {
       lead.x = s.x;
       lead.y = s.y;
       show(
-        Math.min(FIRE_TRAVEL_LAST, Math.floor(p * (FIRE_TRAVEL_LAST + 1))),
+        Math.min(travelLast, Math.floor(p * (travelLast + 1))),
         size * (0.42 + p * 0.28),
       );
     });
@@ -230,7 +344,7 @@ export class Vfx extends Container {
     s.y = to.y;
     const blast = o.blast || 0.52;
     tweenValue(0, 1, blast, (p) => {
-      const i = FIRE_TRAVEL_LAST + 1;
+      const i = travelLast + 1;
       const n = frames.length - i;
       show(i + Math.min(n - 1, Math.floor(p * n)), size * (1 + p * 0.35));
       // Only the tail fades: an explosion that starts dying on the frame it

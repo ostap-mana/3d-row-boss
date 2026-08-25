@@ -11,12 +11,12 @@ import {
   WIND,
 } from "../config.js";
 import { glowTexture, canvasTexture } from "./textures.js";
-import fireUrl from "../assets/gems/fire.png";
-import waterUrl from "../assets/gems/water.png";
-import earthUrl from "../assets/gems/nature.png";
-import sunUrl from "../assets/gems/lightning.png";
-import moonUrl from "../assets/gems/arcane.png";
-import windUrl from "../assets/gems/wind.png";
+import fireUrl from "../assets/gems/fire.webp";
+import waterUrl from "../assets/gems/water.webp";
+import earthUrl from "../assets/gems/nature.webp";
+import sunUrl from "../assets/gems/lightning.webp";
+import moonUrl from "../assets/gems/arcane.webp";
+import windUrl from "../assets/gems/wind.webp";
 
 /** All shapes are authored in a 100x100 box centred on the origin. */
 const ART = 100;
@@ -31,15 +31,15 @@ const TEX_SPAN = (ART + PAD * 2) / ART;
  * for the slot each one won rather than for what it depicts: the element colours
  * drive the beams, the pop sparks, the hint glow and the hero cards, so a gem
  * whose art disagrees with its colour makes the whole board fire the wrong hue.
- * That is why the sun disc answers to `lightning.png` (gold) and the leaf to
- * `nature.png` (green) — the slot each one lands in is the one whose GEM_COLORS
+ * That is why the sun disc answers to `lightning.webp` (gold) and the leaf to
+ * `nature.webp` (green) — the slot each one lands in is the one whose GEM_COLORS
  * entry it already matches, and the filename says so now instead of describing
  * the drawing and leaving the reader to work it out.
  *
- * `arcane.png` is the purple moon-and-star; it carries the element SILANTH casts
+ * `arcane.webp` is the purple moon-and-star; it carries the element SILANTH casts
  * VOID ECLIPSE with. It arrived as `image.png` off the roundel sheet.
  *
- * `wind.png` is the one that brought a sixth element onto the board with it. Its
+ * `wind.webp` is the one that brought a sixth element onto the board with it. Its
  * pale aqua is the only colour on that sheet the five slots had no home for, so
  * WIND, TARANIS and a re-authored opening board exist because of it.
  */

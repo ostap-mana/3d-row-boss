@@ -101,13 +101,24 @@ export class Director {
     this.idleToken = 0;
     /**
      * The one hint the creative gives. `openingSpent` is the whole of its
-     * lifetime rule: armed until the player does something, then never again.
-     * `openingLive` is whether the hand is demonstrating right now, which is
-     * what refreshHint needs to know before it re-points at a moved board.
+     * lifetime rule: armed until the player touches the board, then never
+     * again — not paused, not re-armed, gone. `openingLive` is whether the
+     * hand is demonstrating right now, which is what refreshHint needs to know
+     * before it re-points at a moved board.
      */
     this.openingToken = 0;
     this.openingSpent = false;
     this.openingLive = false;
+    /**
+     * Whether a lesson — either one — is on screen this instant.
+     *
+     * Read by refreshHint, which is the one caller that has to tell "the board
+     * moved under a hint nobody is watching" from "the board moved under a hand
+     * somebody is watching right now". The first waits its turn; the second is
+     * re-aimed on the spot, because a player following a hand has already been
+     * made to wait for it once.
+     */
+    this.lessonLive = false;
     this.moveToken = 0;
     this.ultResolver = null;
     this.ultQueued = false;
@@ -155,19 +166,23 @@ export class Director {
       // dropObsidian and eruptObsidian re-point the hand after lockCells has
       // been all the way through ensurePlayable, which is the correct moment.
     };
-    // A rejected swap gets the hand back instantly — no buzzer, no red flash,
-    // and the lesson back on the clock: a swap that bounced is the clearest
-    // signal in the fight that the rule has not landed yet.
+    // A rejected swap gets no buzzer and no red flash: the nudge and the stones
+    // coming back is the whole of the answer. The lesson is not put back on the
+    // clock with it — a swap cannot bounce until the player has touched the
+    // board, and the touch that let them try is what spent it.
     board.onInvalid = () => {
-      this.restartOpeningHint();
       this.restartIdle(true);
     };
     board.onInteract = () => {
       this.playerActed = true;
-      // A finger on the glass, which is not the same thing as a move. The
-      // lesson gets out of the way of it and comes back if nothing comes of
-      // it — see pauseOpeningHint, and spendOpeningHint for what does end it.
-      this.pauseOpeningHint();
+      // A finger on the glass ends the lesson, and ends it for good. It used
+      // to only step aside: the rule was that comprehension is a move landing
+      // rather than a touch, so a tap on nothing or a swap that bounced put
+      // the hand back on its one second timer. The rule reads well and plays
+      // badly — a first-timer's opening gesture is exactly a tap on nothing,
+      // so the prop kept coming back over the board they were already trying
+      // to play, between every fumbled swipe. See spendOpeningHint.
+      this.spendOpeningHint();
       this.restartIdle();
     };
 
@@ -193,11 +208,10 @@ export class Director {
       board.onTouchMove = (x, y) => hand.dragTo(board.x + x, board.y + y);
     }
     board.onTouchEnd = () => {
+      // A no-op unless T.touchHand put the prop on the finger to begin with.
       hand.letGo();
-      // Nothing came of that touch, or the swap it fired is still being
-      // judged. Either way the lesson goes back on its timer, and a move that
-      // does land spends it before the timer can run out.
-      this.restartOpeningHint();
+      // The lesson is not re-armed here either: onInteract spent it when this
+      // touch began.
       this.restartIdle();
     };
   }
@@ -220,8 +234,8 @@ export class Director {
    * The clock ran out with the boss still standing.
    *
    * This used to be nothing at all: the race resolved, `finish` set the end
-   * card, and a creative that had spent twenty seconds telling the player a
-   * cataclysm was coming simply stopped one frame later. The one mechanic the
+   * card, and a creative that had spent twenty-five seconds telling the player
+   * a cataclysm was coming simply stopped one frame later. The one mechanic the
    * whole mode is built on had never fired, because with DOOM.seconds equal to
    * the runtime the clock can never reach zero inside it, and the ending was a
    * cut rather than an ending.
@@ -283,13 +297,10 @@ export class Director {
       const action = await this.playerTurn();
       if (this.ended) return;
 
-      // A move actually made — a swap that matched, or a hero spent. This and
-      // nothing else retires the opening lesson: it is the first moment the
-      // player has demonstrably understood what the board is for, and it is
-      // deliberately not "they touched the screen". A first-timer's opening
-      // gesture is a tap on nothing or a swap that bounces, and a tutorial
-      // that treats either as comprehension is a tutorial that vanishes
-      // exactly when it was about to be needed.
+      // A move actually made — a swap that matched, or a hero spent. A player
+      // who got here spent the lesson on the touch that started the move, so
+      // this is ordinarily a no-op; it is kept for the one path that reaches a
+      // move without a touch, which is T.autoPlay driving the board itself.
       if (action === "swap" || action === "ult") this.spendOpeningHint();
 
       // A boss beat ended the fight while the player was still holding their
@@ -454,31 +465,112 @@ export class Director {
 
   /* ---------------------------------------------------------------- intro */
 
+  /**
+   * The pose the creative holds until somebody touches the screen.
+   *
+   * Which is the fight, standing still. The golem is up in the ruins, the board
+   * is dealt, the party is on its feet and the bar is full — the first frame
+   * drawn is the game, and there is nothing in front of it and nothing missing
+   * from it. Three things have stood here and two of them are gone: a gate
+   * screen with the wordmark on it, then one line of type over an emptied
+   * arena. Both were a frame spent on something that was not the game.
+   *
+   * Nothing in it advances. Every clock in the creative — the cataclysm, the
+   * boss's own turn timer, the auto-hint, the CTA banner — is armed from
+   * Director.run, and run is what the touch starts. What does move is the arena
+   * itself: the braziers, the drifting embers, the light. So the frame is alive
+   * without anything in the fight having happened, which is exactly the line
+   * the do-not-autostart rule draws.
+   *
+   * Two things are held back rather than shown, because both would be lying:
+   */
+  armIntro() {
+    const { boss, board, heroRow, hud } = this.s;
+
+    // Unless the entrance is switched back on, in which case it wants the same
+    // empty stage it always did. See T.entrance for why it is off, and note
+    // that this is `visible` rather than a position: a rotation before the
+    // touch runs the whole relayout, and that puts every one of these back
+    // exactly where it belongs.
+    if (T.entrance) {
+      boss.visible = false;
+      board.visible = false;
+      heroRow.visible = false;
+      hud.alpha = 0;
+    }
+
+    // The board, which is not playable until a turn is actually waiting on it.
+    // Already false at construction; said out loud here because this is where
+    // the reason lives rather than where the default is.
+    board.lockInput();
+    // And the doom strip, which would otherwise sit over the fight reading
+    // CATACLYSM against a clock that has not started counting. armDoom puts it
+    // back on the frame it starts.
+    hud.hideDoom();
+  }
+
   async intro() {
     const { boss, board, heroRow, hud, vfx, shake, layout } = this.s;
 
-    hud.alpha = 0;
-    board.alpha = 0;
-    heroRow.alpha = 0;
+    /**
+     * Everything arrives on the same frame, and leaves on the same one.
+     *
+     * Spec §3 puts the whole opening in one beat — "Бос вилазить з лави, рев,
+     * екран трясе. Дошка з'їжджає знизу", 0.0–1.2s. The rise used to be awaited
+     * before any of the rest started, which spent the first second on an arena
+     * with nothing in it but the boss, and made the board read as a second
+     * event arriving after him instead of as part of the same shot.
+     *
+     * Starting them together fixed half of that and left the other half: they
+     * all set off at zero and then finished in four instalments — the party at
+     * 0.35, the HUD at 0.4, the board at 0.55, the boss four tenths behind the
+     * last of them — so the shot still resolved as a queue, only a queue that
+     * had started tidily. Four things landing one after another is four events,
+     * whichever end of them is lined up.
+     *
+     * So all four are handed T.introIn and nothing else. One duration, four
+     * curves: the boss eases up out of the pool, the board overshoots its rail,
+     * the party lifts and fades, the HUD comes on flat — every one of them is
+     * moving on the first frame of the shot and still moving on the last. There
+     * is exactly one number behind the opening now, and it lives in config.js.
+     */
+    if (T.entrance) {
+      boss.visible = true;
+      board.visible = true;
+      heroRow.visible = true;
+      hud.alpha = 0;
 
-    const rising = boss.rise();
-    shake(6, 0.6);
-    await delay(0.55);
+      const rising = boss.rise(T.introIn);
+      const entering = Promise.all([
+        board.slideIn(layout, T.introIn),
+        heroRow.introIn(T.introIn),
+        tween(hud, { alpha: 1 }, T.introIn),
+      ]);
+      // The ground settles when they do: the shake decays linearly over its own
+      // length, so given the same one it reaches zero on the frame the last
+      // mover stops. It ran 0.6 and left three tenths of a still arena with the
+      // boss still climbing through it.
+      shake(6, T.introIn);
+
+      await Promise.all([rising, entering]);
+    }
+
+    // The flash, and with the entrance off it is the first frame of the whole
+    // creative that moves. It used to punctuate the arrival — it sat at 0.55,
+    // the frame the board came to rest on, and then moved onto the frame all
+    // four movers landed on together. There is no arrival left to punctuate, so
+    // what it punctuates now is the touch: the answer starts on the same frame
+    // the finger lands, which is the one thing this beat has to get right.
     vfx.flash(0xff7a1a, 0.28, 0.45);
-    await rising;
 
+    // And the roar, on a screen that has been assembled since the first frame —
+    // so the shake it carries reads against the board and the row rather than
+    // against an empty arena, which is what it was written to do and never
+    // quite got to.
     const roaring = boss.roar();
     shake(14, 0.5);
 
-    board.alpha = 1;
-    heroRow.alpha = 1;
-    const entering = Promise.all([
-      board.slideIn(layout),
-      heroRow.introIn(),
-      tween(hud, { alpha: 1 }, 0.4),
-    ]);
-
-    await Promise.all([roaring, entering]);
+    await roaring;
     // Banner clock starts once the player can actually act.
     this.startBannerTimer();
     hud.shout(COPY.tutorial, COPY.tutorialHold);
@@ -692,12 +784,12 @@ export class Director {
   onCardTap(index) {
     if (this.ended) return;
     this.playerActed = true;
-    this.pauseOpeningHint();
+    // A tap on a hero card is somebody playing, whether or not that card turned
+    // out to be spendable, so it retires the lesson exactly as a touch on the
+    // board does. See spendOpeningHint.
+    this.spendOpeningHint();
     if (!this.canUlt(index)) {
-      // That hero is not charged, or is down: no penalty, just point again —
-      // and the lesson goes back on its clock, because a tap on a card the
-      // player cannot spend is one more thing that did not turn into a move.
-      this.restartOpeningHint();
+      // That hero is not charged, or is down: no penalty, and nothing to say.
       this.restartIdle();
       return;
     }
@@ -1170,6 +1262,14 @@ export class Director {
       len: layout.w * 1.05,
       gap: layout.h * 0.032,
     });
+    // Painted slashes over the drawn ones, when the sheet is there. Laid on the
+    // same point and the same side, so it is the marks getting hotter rather
+    // than a second swipe arriving from somewhere else.
+    vfx.bossSwing(
+      "rake",
+      { x: at.x, y: at.y + layout.h * 0.03 },
+      { size: layout.w * 0.95, duration: 0.4, alpha: 0.85, grow: 0.16 },
+    );
     vfx.flash(0xff2a3a, 0.16, 0.3);
 
     const spreading = this.dropObsidian(cells, 0.06);
@@ -1199,11 +1299,20 @@ export class Director {
 
     shake(10, 0.4);
     const row = layout.cards;
-    const flame = vfx.cone(
-      boss.mouthPoint(),
-      { x: row.x + row.w / 2, y: row.y + row.h * 0.45 },
-      0xff6a10,
-      { hold: 0.5, spread: row.w, mouth: 44 * layout.ui },
+    const mouth = boss.mouthPoint();
+    const onto = { x: row.x + row.w / 2, y: row.y + row.h * 0.45 };
+    const flame = vfx.cone(mouth, onto, 0xff6a10, {
+      hold: 0.5,
+      spread: row.w,
+      mouth: 44 * layout.ui,
+    });
+    // The painted fire rides the middle of the jet the cone already draws, so
+    // the detail lands where the player is looking rather than at either end of
+    // a shape that is mostly travel.
+    vfx.bossSwing(
+      "breath",
+      { x: (mouth.x + onto.x) / 2, y: (mouth.y + onto.y) / 2 },
+      { size: row.w * 1.15, duration: 0.62, alpha: 0.9, grow: 0.3 },
     );
     const spreading = this.dropObsidian(cells, 0.1);
 
@@ -1239,6 +1348,13 @@ export class Director {
       size: layout.w * 0.9,
       width: 8,
       duration: 0.4,
+    });
+    // Under both rings, at the fists. The rings are the shape of the blast and
+    // the sheet is what is actually burning inside it.
+    vfx.bossSwing("smash", impact, {
+      size: layout.w * 1.15,
+      duration: 0.5,
+      grow: 0.35,
     });
     vfx.flash(0xff2a06, 0.18, 0.35);
 
@@ -1376,19 +1492,22 @@ export class Director {
    * pointing at a swap that is under a block, or at gems the reshuffle moved.
    */
   refreshHint() {
-    if (this.ended || !this.idleHint) return;
-    // The opening hand is not on the idle timer and restartIdle would not
-    // touch it — T.hints is off, and that is the gate it returns on. It still
-    // has to be re-aimed, for the same reason everything else here does: the
-    // lava lands on the cells the player is most likely to be looking at.
+    if (this.ended) return;
+    // The opening hand is not on the idle timer and restartIdle will not touch
+    // it, so it is the one that has to be re-aimed by hand.
     if (this.openingLive && !this.openingSpent) {
-      if (this.s.coach) this.s.coach.stop();
-      this.s.board.cancelPreview();
+      this.retireLesson();
       this.pointOpeningHand();
       return;
     }
+    if (!this.idleHint) return;
+    // Straight back up if it was already up. A hint on screen when the lava
+    // lands is a hand pointing at a cell that is now under a block, and the
+    // player who was following it should not have to sit through another
+    // `hint` of silence to be told where to look instead.
+    const live = this.lessonLive;
     this.idleHint = this.currentHint();
-    this.restartIdle();
+    this.restartIdle(live);
   }
 
   swapMakesMatch(a, b) {
@@ -1458,21 +1577,20 @@ export class Director {
       y: layout.board.y + layout.board.size * 0.2,
     };
 
-    // Ricklow throws the painted one. Everybody else gets the beam — see
-    // fx/vfx.js, where the fireball falls back to exactly that call if the
-    // sheet never decoded, so this branch cannot strand him without an ult.
-    if (element === "fire") {
-      await vfx.fireball(origin, target, color, {
-        size: layout.board.size * 1.25,
-        travel: 0.22,
-      });
-    } else {
-      await vfx.beam(origin, target, color, {
-        thickness: 64,
-        impact: 2.6,
-        travel: 0.2,
-      });
-    }
+    // One call for all six. `vfx.spell` sends Ricklow to the painted fireball
+    // and every other mage to their own sheet, and anyone whose sheet has not
+    // been packed yet gets `beam` — which is what all five of them threw before
+    // the sheets existed, tuned exactly as it was.
+    //
+    // This used to branch on `element === "fire"`, comparing a hero's element
+    // against a string when every element in config.js is an index. It was
+    // never true, so the one painted ultimate in the build had never played:
+    // Ricklow fell through to the same beam as everybody else.
+    await vfx.spell(element, origin, target, color, {
+      size: layout.board.size * 1.25,
+      travel: 0.22,
+      beam: { thickness: 64, impact: 2.6, travel: 0.2 },
+    });
     if (this.ended) return;
 
     sfx.ultBlast(element);
@@ -1559,15 +1677,20 @@ export class Director {
   /* ------------------------------------------------------- the one hint */
 
   /**
-   * Arm the opening hint: the hand demonstrating the first swap, once.
+   * Arm the opening hint: the lesson on the first swap, before the first touch.
+   *
+   * Once, and only ever before the player has shown up. What takes over
+   * afterwards is the auto-hint on `T.hint` — same lesson, same door in — so
+   * this is not the last help anybody gets, it is the help that arrives without
+   * being earned by stalling. See restartIdle and escalate.
    *
    * Armed from every player turn rather than once from the intro, and that is
    * deliberate. A turn can end without the player having touched anything —
    * the cataclysm collects, the boss's track wipes the party — and the
    * `stopIdle` that ends it takes the hand off the screen with everything
    * else. Re-arming here is what puts it back for a player who has still not
-   * moved, and `openingSpent` is what guarantees it never comes back for one
-   * who has.
+   * touched the board, and `openingSpent` is what guarantees it never comes
+   * back for one who has.
    */
   armOpeningHint() {
     if (this.openingSpent || !T.openingHint) return;
@@ -1578,30 +1701,6 @@ export class Director {
       }
       this.pointOpeningHand();
     });
-  }
-
-  /**
-   * A finger landed on the board. Step aside without giving up.
-   *
-   * The hand prop is about to be taken by the touch anyway (Hand.grab bumps
-   * the same token the lesson is driving), and a preview showing two stones on
-   * each other's cells is not a board anybody should be swiping on. So both
-   * come down immediately — and the rule stays armed, because a touch is not
-   * an understanding.
-   */
-  pauseOpeningHint() {
-    if (this.openingSpent) return;
-    this.openingToken++;
-    this.openingLive = false;
-    if (this.s.coach) this.s.coach.stop();
-    this.s.board.cancelPreview();
-    this.s.hand.setUrgency(1);
-  }
-
-  /** Back on the clock after a touch that did not turn into a move. */
-  restartOpeningHint() {
-    if (this.openingSpent || this.ended) return;
-    this.armOpeningHint();
   }
 
   /**
@@ -1619,49 +1718,90 @@ export class Director {
    * old behaviour is still underneath: hand, two lit gems, no lesson.
    */
   pointOpeningHand() {
+    // A shade larger than the auto-hint's hand: this one is talking to
+    // somebody who has not yet worked out that the board is a board.
+    this.openingLive = this.showLesson(1.15);
+  }
+
+  /**
+   * Put the lesson on screen for whatever the board is offering right now.
+   *
+   * The one door in. The opening hint and the auto-hint used to be two paths
+   * showing two different things — a lesson for the first, a hand sliding
+   * between two cells for the second — so the help a stalled player got in the
+   * middle of the fight was both the weaker of the two and unrecognisable as
+   * the thing that had taught them the rule at the top of the run.
+   *
+   * The swap is solved here rather than handed in: whatever armed this is at
+   * least a second old by the time it runs, and on a bad second the boss has
+   * dropped a block on the cell it was going to point at.
+   *
+   * @param {number} urgency how large the hand stands — see Hand.setUrgency
+   * @returns {boolean} whether anything is now being shown
+   */
+  showLesson(urgency) {
     const { hand, board, coach } = this.s;
     const hint = this.currentHint();
-    if (!hint) return;
+    if (!hint) return false;
 
     this.idleHint = hint;
     if (this.highlighted) board.setHighlight(this.highlighted, false);
     this.highlighted = null;
-    this.openingLive = true;
-    hand.setUrgency(1.15);
+    this.lessonLive = true;
+    hand.setUrgency(urgency);
 
     const shape = coach && board.matchShape(hint.a, hint.b);
     if (shape) {
       coach.play(board, hand, shape);
-      return;
+      return true;
     }
+    // A board whose swap cannot be taken apart into a pair and a traveller
+    // still gets what this always did: hand, two lit gems, no lesson.
     this.pointHand();
     this.highlighted = [hint.a, hint.b];
     board.setHighlight(this.highlighted, true);
+    return true;
+  }
+
+  /**
+   * Take the lesson off the screen and give the board back to the model.
+   *
+   * Every path that ends a hint comes through here, because a lesson on screen
+   * is three things at once — the marks, the prop, and real gems standing
+   * somewhere the model does not think they are — and dropping any one of them
+   * on its own leaves an outline floating over a board that has moved on.
+   */
+  retireLesson() {
+    const { board, coach, hand } = this.s;
+    this.lessonLive = false;
+    if (coach) coach.stop();
+    board.cancelPreview();
+    // Back to its own size before anything else can pick the prop up: the demo
+    // hand is shown a shade large on purpose and nothing else here is a demo.
+    hand.setUrgency(1);
+    hand.stop();
+    if (this.highlighted) {
+      board.setHighlight(this.highlighted, false);
+      this.highlighted = null;
+    }
   }
 
   /**
    * The player showed up. The hand comes off, and stays off.
    *
-   * Called before the board hands the same touch on to `hand.grab`, so the
-   * demo is already cancelled by the time the prop goes to the finger — see
-   * Board.handleDown, where onInteract fires first for exactly this reason.
+   * The only exit the lesson has, and it is a one-way door: `openingSpent` is
+   * never cleared, so nothing below can put the prop back on screen for the
+   * rest of the run. Driven off the first touch on the board rather than off
+   * the first move that lands — see onInteract, which Board.handleDown fires
+   * before it has even looked at whether input is enabled, so a tap during a
+   * cascade retires the lesson exactly as a swipe does.
    */
   spendOpeningHint() {
     if (this.openingSpent) return;
     this.openingSpent = true;
     this.openingLive = false;
     this.openingToken++;
-    if (this.s.coach) this.s.coach.stop();
-    // Whatever the lesson was showing, the board goes back to the board.
-    this.s.board.cancelPreview();
-    // Back to its own size before the prop goes to the finger: the demo hand
-    // is shown a shade large on purpose, and the player's is not a demo.
-    this.s.hand.setUrgency(1);
-    this.s.hand.stop();
-    if (this.highlighted) {
-      this.s.board.setHighlight(this.highlighted, false);
-      this.highlighted = null;
-    }
+    this.retireLesson();
   }
 
   /**
@@ -1722,12 +1862,14 @@ export class Director {
    * @param {boolean} immediate skip the initial silence (used after a bad swap)
    */
   restartIdle(immediate) {
-    if (this.ended || !T.hints) return;
-    if (!this.idleHint) return;
+    if (this.ended) return;
     const token = ++this.idleToken;
-    this.s.hand.stop();
-    this.s.board.setHighlight(this.highlighted, false);
-    this.highlighted = null;
+    // The opening lesson is not on this timer — it owns the prop outright
+    // until the player touches the board — so it is the one thing here that is
+    // not taken down. Everything else comes off now and comes back on the
+    // clock, which is what makes a touch landing during a hint read as instant.
+    if (!this.openingLive) this.retireLesson();
+    if (!T.hints || !this.idleHint) return;
     this.escalate(token, immediate);
   }
 
@@ -1738,8 +1880,25 @@ export class Director {
       await delay(T.hint);
       if (token !== this.idleToken || this.ended) return;
     }
-    hand.setUrgency(1);
-    this.pointHand();
+
+    // And then it waits on the board as well as on the clock. The lesson
+    // slides the real stones — Board.previewSwap, which refuses outright while
+    // a cascade or a wave of obsidian is in the air — so a hint that fired on
+    // time onto a moving board would spend its first pass drawing outlines
+    // over gems that are somewhere else and then quietly do nothing at all.
+    while (board.busy) {
+      await delay(0.12);
+      if (token !== this.idleToken || this.ended) return;
+    }
+
+    // The opening lesson owns the prop outright while it is up, and it is
+    // already showing this exact swap. Restarting it here would reset a demo
+    // mid-sentence every time the two clocks crossed, which is the one thing a
+    // loop like this must never look like. The idle chain is armed again by
+    // the touch that spends the opening hint — see onInteract.
+    if (this.openingLive && !this.openingSpent) return;
+
+    if (!this.showLesson(1)) return;
 
     // Clamped: the two delays are independent knobs and nothing stops a
     // retune putting `pulse` under `hint`, which would otherwise light the
@@ -1765,8 +1924,8 @@ export class Director {
    * seconds, which is the ceiling T.auto, which is what it would have done with
    * no guard at all.
    *
-   * Measured, that is a health bar which moves twice in a twenty second creative
-   * and stands perfectly still for the nine seconds in between. The bar was not
+   * Measured, that is a health bar which moves twice in the whole creative and
+   * stands perfectly still for the nine seconds in between. The bar was not
    * broken and neither was the drain; there was simply almost nothing happening
    * to it. A boss fight whose boss visibly loses no health is not selling a boss
    * fight.
@@ -1824,14 +1983,8 @@ export class Director {
     // the one thing that ends it for good.
     this.openingToken++;
     this.openingLive = false;
-    if (this.s.coach) this.s.coach.stop();
-    this.s.board.cancelPreview();
+    this.retireLesson();
     this.idleHint = null;
-    this.s.hand.stop();
-    if (this.highlighted) {
-      this.s.board.setHighlight(this.highlighted, false);
-      this.highlighted = null;
-    }
   }
 
   /* -------------------------------------------------------------- end card */

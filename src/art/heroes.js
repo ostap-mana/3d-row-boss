@@ -1509,18 +1509,32 @@ export class HeroRow extends Container {
     await Promise.all(this.cards.map((card, i) => card.heal(to, i * 0.06)));
   }
 
-  async introIn() {
+  /**
+   * The row comes up as one.
+   *
+   * The cards used to be dealt in, 0.05s apart, which put the sixth of them a
+   * quarter of a second behind the first. That is a nice enough flourish on its
+   * own and the wrong one here: the opening is meant to land as a single shot,
+   * so a party that arrives in six instalments is six more things appearing
+   * after the thing before them.
+   *
+   * One clock for the row and one for the shot around it: the length comes from
+   * the caller — T.introIn, the same number the boss, the board and the HUD are
+   * given — and the fade and the lift are both handed it, so a card is not done
+   * appearing before it is done arriving. The fade eases out, which is what
+   * keeps a longer span from reading as a card left hanging half transparent:
+   * it is legible early and simply finishes on cue.
+   */
+  async introIn(seconds) {
+    const d = seconds === undefined ? 0.35 : seconds;
     await Promise.all(
-      this.cards.map((card, i) => {
+      this.cards.map((card) => {
         card.alpha = 0;
         const home = card.y;
         card.y = home + 40;
         return Promise.all([
-          tween(card, { alpha: 1 }, 0.25, { delay: i * 0.05 }),
-          tween(card, { y: home }, 0.35, {
-            delay: i * 0.05,
-            ease: Ease.backOut,
-          }),
+          tween(card, { alpha: 1 }, d, { ease: Ease.quadOut }),
+          tween(card, { y: home }, d, { ease: Ease.backOut }),
         ]);
       }),
     );

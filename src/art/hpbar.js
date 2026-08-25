@@ -3,7 +3,7 @@
  *
  * Four files in `src/assets/hp/`, and between them they are the whole bar:
  *
- *   black-bar.png  972x48  the frame. Flat black at 40% alpha, and the only one
+ *   black-bar.webp 972x48  the frame. Flat black at 40% alpha, and the only one
  *                          of the four that is a silhouette rather than a
  *                          colour: nothing in it is coloured, so nothing in it
  *                          can be tinted — black multiplied by any tint is
@@ -11,12 +11,12 @@
  *                          stamp at load, and every layer of the bar is then
  *                          that one stamp, either under a tint or poured full
  *                          of one of the paints below.
- *   dark-red.png   965x40  the empty gauge, a deep #6a1d1d bevelled dark along
+ *   dark-red.webp  965x40  the empty gauge, a deep #6a1d1d bevelled dark along
  *                          its long edges. The track used to be a flat tint of
  *                          the stamp; this is the colour the art was drawn in.
- *   red-bar.png    812x40  the health still standing, #ca3333, bevelled the
+ *   red-bar.webp   812x40  the health still standing, #ca3333, bevelled the
  *                          same way.
- *   white-bar.png   12x40  the health just lost, a swatch of warm white. Twelve
+ *   white-bar.webp  12x40  the health just lost, a swatch of warm white. Twelve
  *                          pixels wide because there is nothing along its
  *                          length to resolve; it is a colour, and it stretches.
  *
@@ -38,10 +38,10 @@
 
 import { getRenderer } from "../core/context.js";
 import { canvasTexture } from "./textures.js";
-import barUrl from "../assets/hp/black-bar.png";
-import trackUrl from "../assets/hp/dark-red.png";
-import fillUrl from "../assets/hp/red-bar.png";
-import chipUrl from "../assets/hp/white-bar.png";
+import barUrl from "../assets/hp/black-bar.webp";
+import trackUrl from "../assets/hp/dark-red.webp";
+import fillUrl from "../assets/hp/red-bar.webp";
+import chipUrl from "../assets/hp/white-bar.webp";
 
 /**
  * How far the frame stands proud of the bar, as a fraction of the bar's height.

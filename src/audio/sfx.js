@@ -16,7 +16,14 @@
  */
 
 import { AUDIO } from "../config.js";
-import { audioBus, audioContext, chord, noise, tone } from "./engine.js";
+import {
+  audioBus,
+  audioContext,
+  chord,
+  noise,
+  onAudioReset,
+  tone,
+} from "./engine.js";
 
 /**
  * A voice per element, so a hero's attack sounds like their colour.
@@ -641,6 +648,15 @@ export function cta() {
  */
 let bedNodes = null;
 let bedTension = -1;
+
+// The nodes belong to the context that made them. If that context is thrown
+// away — see rebuild in engine.js — the bed has to forget its own, or start()
+// looks at a set of dead nodes, decides it is already running, and the room
+// goes quiet for the rest of the session.
+onAudioReset(() => {
+  bedNodes = null;
+  bedTension = -1;
+});
 
 function buildBed(c, out) {
   const gain = c.createGain();

@@ -8,15 +8,15 @@
  * top and are untouched.
  *
  * The three files are named for the colour they are painted, not the element
- * they end up on — `plate-blue.png` carries WATER and NATURE both, and the tint
+ * they end up on — `plate-blue.webp` carries WATER and NATURE both, and the tint
  * below is what tells them apart.
  */
 
 import { FIRE, WATER, NATURE, LIGHTNING, ARCANE, WIND } from "../config.js";
 import { canvasTexture } from "./textures.js";
-import blueUrl from "../assets/cards/plate-blue.png";
-import goldUrl from "../assets/cards/plate-gold.png";
-import violetUrl from "../assets/cards/plate-violet.png";
+import blueUrl from "../assets/cards/plate-blue.webp";
+import goldUrl from "../assets/cards/plate-gold.webp";
+import violetUrl from "../assets/cards/plate-violet.webp";
 
 /**
  * Which plate each hero stands on, and the tint that lands it on its element.

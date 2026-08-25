@@ -507,3 +507,46 @@ frames a hero is roughly 300 kB on top — which clears Google's and Unity's 5 M
 but puts the creative over Meta's 2 MB. Two idle frames and one cast frame per
 hero is about 110 kB and still reads as animation at 7 fps; the boss is proof
 that a short ping-ponged loop is enough.
+
+## Spell and boss attack sheets
+
+These are the one set whose prompts are **not** written out here. They live in
+`tools/gen-spells.mjs`, next to the model and the settings that go with them,
+because unlike everything above they are executable: `node tools/gen-spells.mjs`
+runs them and writes the clips, and a prompt copied into a document is a prompt
+that drifts out of step with the tool that sends it.
+
+The pipeline is three commands:
+
+```console
+node tools/gen-spells.mjs              # -> src/source/fx/clips/<id>.mp4
+node tools/pack-spells.mjs --contact   # -> src/assets/fx/<id>-sheet.webp
+node tools/pack-spells.mjs <id> --start 0.9 --span 1.4    # retime, per clip
+```
+
+Eight ids: `water`, `nature`, `lightning`, `wind`, `arcane` are the five mage
+ultimates that had been throwing a plain tinted beam, and `breath`, `slam`,
+`claw` are Magmaroth's three swings. Fire is not among them — Ricklow's sheet
+was cut off a still by `tools/pack-fire.mjs` and keeps its own module.
+
+Two things differ from every other prompt in this file:
+
+- **Black, not white.** Nothing here goes through `tools/cut-bg.mjs`. The sheets
+  are played with the `add` blend, so the backdrop is not cut away, it is
+  clamped to zero — and a white ground would add a white rectangle over the
+  arena. This is also why no prompt asks for smoke or dust: dark paint on a dark
+  ground subtracts to nothing.
+- **A gather, then a release.** A mage sheet is cut down the middle, frames 0–4
+  are the bolt in flight and 5–9 are it landing, so a clip that opens on the
+  detonation has nothing left to throw.
+
+`src/art/spells.js` finds the sheets by globbing `src/assets/fx`, so an id
+appears in the game as soon as it is packed and nothing has to be wired up. An
+id that has not been generated yet falls back to the effect it always had.
+
+### What a sheet costs
+
+Read `--contact` before trusting a window, and read the total the packer prints
+before committing: the bundle is about 1.72 MB, base64 costs a third on top, and
+Meta's limit is 2 MB. `CELL` and `QUALITY` in `tools/pack-spells.mjs` are the
+levers.

@@ -4,22 +4,28 @@
  *   node tools/pack-arena.mjs             # -> src/assets/arena/sky.webp
  *   node tools/pack-arena.mjs --png       # keep the intermediate PNG too
  *
- * The source is a 4096x2048 export at 12 MB. Every byte of this build is
- * base64'd into one index.html, so it arrives 4/3 larger again — the raw file is
- * roughly four times the entire shipping budget on its own.
+ * Every byte of this build is base64'd into one index.html, so it arrives 4/3
+ * larger again — a raw render is several times the entire shipping budget on its
+ * own, which is the whole reason this tool exists.
  *
  * Height is the dimension that has to carry it, not width. The layout cover-fits
- * this over the screen with a little overscan, so on a phone held upright a 2:1
- * painting is scaled to the screen's *height* and most of its width is cropped
- * away. 1080 tall matches what the lava arena it replaces already shipped at,
- * which keeps the sharpness the build is used to; the extra width past 16:9 is
- * near-free because it is nothing but sky and cloud, and it is what stops the
- * flanking spires being cropped off on a tablet.
+ * the plate over the screen with a little overscan, so on a phone held upright a
+ * landscape painting is scaled to the screen's *height* and most of its width is
+ * cropped away. Everything past that is near-free and is what stops the flanking
+ * detail being cropped off on a tablet.
  *
- * No trim pass: this is a full-bleed painting with no alpha in it. There is no
- * ink box to find — it would return the whole file — and the layout aims at the
- * composition's centre, so cropping would move the castle off the axis the
- * board is centred on.
+ * No trim pass: these are full-bleed paintings with no alpha in them. There is
+ * no ink box to find — it would return the whole file — and the layout aims at
+ * the composition's centre, so cropping the sides would move the subject off the
+ * axis the board is centred on. What does get cut, or added, is at the top and
+ * the bottom, and only ever to put the ground line where the layout needs it:
+ * see `crop` and `padBottom` in the job.
+ *
+ * Three paintings have been through here — a 4096x2048 sky castle, a 1254 square
+ * demon gate, and the landscape ruins that ship today. The first one's render is
+ * no longer on disk: it was 12 MB of the repo for an arena two generations gone,
+ * and the prompt it came from is still in src/source/prompts.md, which is the
+ * part worth keeping.
  */
 
 import { execFileSync } from "node:child_process";
@@ -31,7 +37,20 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const JOBS = [
   {
-    src: "src/source/arena/gate.png",
+    /**
+     * The ruined city, and the third painting this slot has held: a sky castle,
+     * then the demon gate, now a chained gothic sprawl over a fog chasm.
+     *
+     * Delivered 1024x585 — a landscape crop, which is a shape this slot has not
+     * had before and the reason `padBottom` exists below. The gate render was
+     * square and the sky castle was 2:1 at 4K; both had height to spare, and
+     * this has none. See the note on padBottom for what that costs and how it
+     * is paid.
+     *
+     * Swap back by pointing `src` at gate.png and restoring `crop`/`floor`
+     * from the note in each — the two are alternatives, not a sequence.
+     */
+    src: "src/source/arena/ruins.png",
     out: "src/assets/arena/sky.webp",
     /**
      * Drop the top quarter — the storm sky, and with it the gate's horns.
@@ -58,7 +77,51 @@ const JOBS = [
      * round. The pillars, the rune panels and the black doorway all survive,
      * and those are what the beast is actually read against.
      */
-    crop: { top: 0.26 },
+    /**
+     * Where the ground line sits in the delivered file, as a fraction of its
+     * height, and where it has to sit in the packed one.
+     *
+     * Measured off the render with guides rather than guessed: the braziers,
+     * the base of the central pillar and the front of the fog bank all land on
+     * 0.70. `horizon` is the number art/background.js is holding — HORIZON
+     * there — and the pair is what padBottom solves for.
+     *
+     * The gate render had 0.63 and was cut down to 0.50 by cropping the top
+     * 26%. That trade is wrong for this art: a landscape file has no height to
+     * give away, and the crop would have to be 40% to reach the same place,
+     * which is the entire skyline — every spire, every chain — for a floor
+     * line. So the correction is made at the other end instead.
+     */
+    floor: 0.7,
+    horizon: 0.5,
+    /**
+     * Extend the bottom until the ground line lands on `horizon`.
+     *
+     * The same geometry the crop was doing, from the other side, and it is
+     * nearly free here — which is a claim worth showing rather than asserting.
+     *
+     * The layout cover-fits this by height and slides it so the ground line
+     * lands on the boss's floor, which is about 0.42 down the screen. So what
+     * the packed file's proportions actually decide is how much of the painting
+     * is *above* that line, and everything below it is behind the board, the
+     * scrim at 0.84 to 0.95 alpha, and the hero row. Rows added down there are
+     * paid for in bytes and in nothing else.
+     *
+     * The win is resolution. Reaching HORIZON 0.50 by cropping leaves 433 rows
+     * to cover a screen the layout then magnifies by OVERSCAN, and on a 390x844
+     * phone that is a 2.8x blow-up of which 13% of the width is visible.
+     * Padding leaves 819, the same phone draws it at 1.3x, and 30% of the width
+     * survives — twice the sharpness and twice the composition, for 234 rows
+     * nobody can see.
+     *
+     * What is in them: each column's own last real pixel, carried down and
+     * faded to `floorMix` of itself. Per column rather than one flat band so
+     * the rocks and the mist at the bottom edge continue as streaks instead of
+     * stopping against a line, and dark because the alternative is inventing
+     * foreground detail that the scrim would then have to hide.
+     */
+    padBottom: true,
+    floorMix: 0.22,
     /**
      * The crop's own height: no downscale at all, which is as sharp as this
      * source can ever be, and it is not enough.
@@ -83,8 +146,8 @@ const JOBS = [
      * protection from is not a failure mode here — and the source is small
      * enough that every kilobyte of it lands in the bundle magnified.
      */
-    quality: 80,
-    what: "gate arena",
+    quality: 90,
+    what: "ruined city",
   },
 ];
 
@@ -203,6 +266,76 @@ function resample(src, sw, sh, dw, dh) {
 
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
+/**
+ * Carry the bottom edge down until `floor` sits at `horizon`.
+ *
+ * Each added row is the file's own last row, smeared sideways and dimmed further
+ * the further down it goes — a fade to `mix` of the original, eased so the join at the top of the
+ * pad is invisible and the bottom is nearly black. Nothing is invented and
+ * nothing is mirrored: a mirror brings recognisable shapes back up the frame
+ * upside down, and the one thing this band must not do is draw the eye.
+ */
+function padRows(px, w, h, job) {
+  const target = Math.round((job.floor * h) / job.horizon);
+  const pad = target - h;
+  if (pad <= 0) return { px, w, h };
+
+  const out = Buffer.alloc(w * target * 4);
+  px.copy(out, 0, 0, w * h * 4);
+
+  /**
+   * The seed row, smeared sideways first.
+   *
+   * Carried down raw it is a comb: every column keeps its own colour for 234
+   * rows, and a bottom edge that happens to alternate rock and mist becomes a
+   * curtain of vertical stripes. A wide horizontal average over it keeps the
+   * left-to-right shape of the edge — dark at the sides, the pale chasm in the
+   * middle — and throws away everything narrower than the smear, which is
+   * exactly the banding.
+   */
+  const seed = Buffer.alloc(w * 4);
+  const reach = Math.max(1, Math.round(w * 0.06));
+  const src0 = (h - 1) * w * 4;
+  for (let x = 0; x < w; x++) {
+    let r = 0,
+      g = 0,
+      b = 0,
+      n = 0;
+    for (let k = -reach; k <= reach; k++) {
+      const sx = Math.min(w - 1, Math.max(0, x + k));
+      const i = src0 + sx * 4;
+      r += px[i];
+      g += px[i + 1];
+      b += px[i + 2];
+      n++;
+    }
+    seed[x * 4] = clamp8(r / n);
+    seed[x * 4 + 1] = clamp8(g / n);
+    seed[x * 4 + 2] = clamp8(b / n);
+    seed[x * 4 + 3] = px[src0 + x * 4 + 3];
+  }
+
+  const mix = job.floorMix === undefined ? 0.3 : job.floorMix;
+
+  for (let y = 0; y < pad; y++) {
+    // Squared rather than linear: the first rows off the edge stay close to it,
+    // which is what makes the seam disappear, and the fall happens lower down
+    // where there is nothing left to protect.
+    const t = (y + 1) / pad;
+    const k = 1 - (1 - mix) * t * t;
+    const row = (h + y) * w * 4;
+    for (let x = 0; x < w; x++) {
+      const s = x * 4;
+      const d = row + x * 4;
+      out[d] = clamp8(seed[s] * k);
+      out[d + 1] = clamp8(seed[s + 1] * k);
+      out[d + 2] = clamp8(seed[s + 2] * k);
+      out[d + 3] = seed[s + 3];
+    }
+  }
+  return { px: out, w, h: target };
+}
+
 /** Rows `top`..`bottom` (fractions of the height), copied into their own buffer. */
 function cropRows(px, w, h, crop) {
   const y0 = Math.round((crop.top || 0) * h);
@@ -225,9 +358,10 @@ for (const job of JOBS) {
   const info = probe(source);
   const raw = decode(source);
 
-  const src = job.crop
+  let src = job.crop
     ? cropRows(raw, info.w, info.h, job.crop)
     : { px: raw, w: info.w, h: info.h };
+  if (job.padBottom) src = padRows(src.px, src.w, src.h, job);
 
   const dh = Math.min(job.height, src.h);
   const dw = Math.max(1, Math.round((dh * src.w) / src.h));
@@ -251,7 +385,7 @@ for (const job of JOBS) {
   ]);
 
   console.log(
-    `${job.what.padEnd(12)} ${info.w}x${info.h} -> crop ${src.w}x${src.h}` +
+    `${job.what.padEnd(12)} ${info.w}x${info.h} -> plate ${src.w}x${src.h}` +
       ` -> ${dw}x${dh}  aspect ${(dw / dh).toFixed(3)}` +
       `   ${kb(source).padStart(8)} kB -> ${kb(out).padStart(7)} kB` +
       `   (about ${((statSync(out).size * 4) / 3 / 1024).toFixed(0)} kB of` +

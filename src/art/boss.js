@@ -651,11 +651,20 @@ export class Boss extends Container {
       ((this.enraged ? 0.85 : 0.6) + pulse * 0.2) * this.glowGain;
   }
 
-  async rise() {
+  /**
+   * Out of the pool.
+   *
+   * The length is the director's to set, not this file's: the rise is one of
+   * four things arriving on the same frame and they all take T.introIn, so a
+   * number kept here would be a fourth clock nobody could see. The curve is
+   * still ours — cubicOut, the weight of something heavy settling.
+   */
+  async rise(seconds) {
     this.y = this.homeY + this.riseFrom;
     this.alpha = 1;
     sfx.bossRise();
-    await tween(this, { y: this.homeY }, 0.95, { ease: Ease.cubicOut });
+    const d = seconds === undefined ? 0.95 : seconds;
+    await tween(this, { y: this.homeY }, d, { ease: Ease.cubicOut });
   }
 
   async roar() {

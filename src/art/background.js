@@ -1,21 +1,30 @@
 /**
- * Arena backdrop: a painted demon gate over a cracked stone courtyard, framed
- * so the courtyard floor lands exactly on the boss floor — the same line the
- * boss rig is masked at, so the golem stands on the stone *in the picture*
- * instead of in front of it.
+ * Arena backdrop: a chained gothic city over a fog chasm, framed so the rubble
+ * the braziers stand on lands exactly on the boss floor — the same line the boss
+ * rig is masked at, so the golem stands on the rock *in the picture* instead of
+ * in front of it.
  *
- * This replaced a gold-lit sky fortress above a cloud sea, and the swap is the
- * whole answer to a note that said the boss did not read as a boss. It was
- * true, and it was never the boss's fault: a sunlit castle in an open sky is a
- * hero's establishing shot, and the darkest silhouette in the creative was
- * standing in the middle of one. The grade below still runs, but it is now a
- * light touch on art that arrives dark rather than a rescue of art that does
- * not — see DOOM_GRADE for what that cost when it was the only tool there was.
+ * Third painting in this slot. A gold-lit sky fortress first, which was the
+ * whole reason a note said the boss did not read as a boss — a sunlit castle in
+ * an open sky is a hero's establishing shot, and the darkest silhouette in the
+ * creative was standing in the middle of one. Then a demon gate over a stone
+ * courtyard, which fixed that by arriving dark. This one keeps the dark and
+ * changes what kind: violet and slate instead of ember and sandstone, spires
+ * and chains instead of one gate, and a pale fog chasm dead centre — which is
+ * the best thing in it, because a portrait phone puts the golem exactly there
+ * and a dark shape against pale fog is the strongest silhouette this creative
+ * has had. See POOL_ALPHA, which is the layer that reads it.
+ *
+ * It is also the smallest file any of the three arrived as — 1024x585, a
+ * landscape crop with no height to spare — and that shape is the whole reason
+ * tools/pack-arena grew a `padBottom` pass. See OVERSCAN and HORIZON below for
+ * the geometry it buys, and the tool for why the alternative cost the skyline.
  *
  * Everything layered on top of the bitmap is still procedural: the firelight on
  * the floor line, the drifting embers and the scrim that keeps the board
  * readable all reflow with the layout, and they are what stop a still image
- * from reading as one.
+ * from reading as one. The two shaft colours were already the ember-against-
+ * rune pair this painting is lit with, so not one of them was retuned for it.
  */
 
 import { Container, Sprite, Texture, ImageSource } from "pixi.js";
@@ -24,12 +33,21 @@ import { BOSS_ART } from "../core/layout.js";
 import arenaUrl from "../assets/arena/sky.webp";
 
 /**
- * Height fraction of the source art where the courtyard floor sits.
+ * Height fraction of the source art where the ground line sits.
  *
- * Measured on the *packed* file, not the render it came from: the stone starts
- * at 0.63 of the delivered square, and tools/pack-arena cuts 26% off the top
+ * Measured on the *packed* file, not the render it came from: the braziers and
+ * the base of the central pillar sit at 0.70 of the delivered landscape crop,
+ * and tools/pack-arena carries the bottom edge down by 40% of the height
  * precisely so this number lands somewhere the fit below can actually reach.
- * Change one of the two and the other is wrong.
+ * Change one of the two and the other is wrong — `floor` and `horizon` in that
+ * tool's job are the two halves of this contract, and the second of them is
+ * this constant.
+ *
+ * Held at 0.50 across the swap on purpose. The gate render got here by having
+ * its top quarter cut off and this one by having its bottom extended, which are
+ * opposite operations for the same reason: everything below this line is behind
+ * the board, the scrim and the hero row, so it is the cheapest part of the frame
+ * to own and the dearest to throw away.
  */
 const HORIZON = 0.5;
 
@@ -51,29 +69,38 @@ const HORIZON = 0.5;
  * 1.25 rather than that 1.16, and rather than the 1.45 the sky castle needed.
  * The slack over the minimum is what absorbs a screen shorter than 9:16 — an
  * iPhone SE still pins exactly at 1.25 — and every point above it is paid for
- * twice: it magnifies a 928-row source further, and it narrows the strip of a
- * 1.35:1 painting that a portrait phone gets to show at all. At 1.25 that strip
- * is about 27% of the width, centred, which is the gate's left pillar, the
- * doorway and the stairs. Push it back to 1.45 and it is 24%, softer, for
- * nothing.
+ * twice: it magnifies an 819-row source further, and it narrows the strip of a
+ * 1.25:1 plate that a portrait phone gets to show at all. At 1.25 that strip is
+ * about 30% of the width, centred, which is the broken pillar, the shrine tower
+ * and the fog chasm between them.
+ *
+ * Unchanged across the arena swap, and that is the point of the padding rather
+ * than a crop: reaching HORIZON by cutting the top of a 585-row file would have
+ * left 433 rows and forced this number to 1.45, which on a 390x844 phone is a
+ * 2.8x blow-up showing 13% of the picture. The plate is 819 rows instead, the
+ * same phone draws it at 1.3x, and nothing in this file had to move.
  */
 const OVERSCAN = 1.25;
 
 /**
  * Fallback wash, and the base colour behind the bitmap either way.
  *
- * Repainted with the arena. It was a blue-to-cream sky because the painting in
- * front of it was one; a device that cannot decode WebP now falls through to an
- * ember dusk over dark stone, which is plain but is at least the same fight. A
- * fallback left in the old palette would be a bright blue hole in the one
- * screen the whole creative is composed on.
+ * Repainted with the arena, for the third time and for the same reason each
+ * time: a device that cannot decode WebP has to fall through to the same fight,
+ * not to the previous one. It was a blue-to-cream sky under the fortress and an
+ * ember dusk under the gate; under a violet city in fog it is a storm slate
+ * going pale at the chasm line and black at the foot of the frame.
+ *
+ * The pale band at 0.52 is not decoration. It is where the fog sits in the
+ * painting, and it is what the boss is read against — a fallback that is dark
+ * all the way down loses the silhouette the whole composition is built on.
  */
 const SKY_STOPS = [
-  [0.0, "#2b1420"],
-  [0.34, "#6d2a24"],
-  [0.52, "#c25a22"],
-  [0.66, "#7a4030"],
-  [1.0, "#2a1b1c"],
+  [0.0, "#171626"],
+  [0.34, "#2e2a44"],
+  [0.52, "#5b5570"],
+  [0.66, "#39304a"],
+  [1.0, "#140f1c"],
 ];
 
 /**
@@ -143,7 +170,17 @@ const CROWN_STOPS = [
  * and no better than the one they were written for.
  */
 const GRADE_TINT = 0x9a90a6;
-const GRADE_ALPHA = 0.2;
+/**
+ * Down again with the arena, from 0.2 to 0.12.
+ *
+ * This is a cool grey multiply and its two jobs were to pull warmth out of the
+ * top of the frame and to stop the stone competing with the hero cards to be
+ * the warmest thing on screen. Neither is a job any more: the painting under it
+ * is already slate and violet, and its only warm light is the braziers along
+ * the floor line, which are the one thing here that should stay warm. Left at
+ * 0.2 it was not seating the art, it was greying the only colour in it.
+ */
+const GRADE_ALPHA = 0.12;
 
 /** The dark the silhouette is read against. */
 const POOL_TINT = 0x4a3c50;

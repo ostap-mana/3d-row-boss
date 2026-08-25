@@ -6,7 +6,7 @@
  * it, and the two are separate surfaces because this one is asked for at a far
  * wider spread of aspects than any single bitmap can hold.
  *
- * `src/assets/ui/golden-button.png` is a 698x172 panel: a flat gold field, a four
+ * `src/assets/ui/golden-button.webp` is a 698x172 panel: a flat gold field, a four
  * pixel darker rim around it, and a nine pixel corner. Measured off the file
  * rather than guessed, because both of those are the whole look of the thing and
  * both stop reading the moment they are stretched unevenly — the button is asked
@@ -20,7 +20,7 @@
 
 import { NineSliceSprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
-import buttonUrl from "../assets/ui/golden-button.png";
+import buttonUrl from "../assets/ui/golden-button.webp";
 
 /** Natural size of the source art. */
 export const BUTTON_ART = { w: 698, h: 172 };

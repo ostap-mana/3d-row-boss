@@ -3,7 +3,7 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * twenty second fight — T.hardCap, and every other number in config.js is
+ * twenty-five second fight — T.hardCap, and every other number in config.js is
  * fitted to it — and hands the player to the store.
  */
 
@@ -27,6 +27,7 @@ import { loadCardBars } from "./art/cardbars.js";
 import { Boss, loadBossArt } from "./art/boss.js";
 import { loadBossCrest } from "./art/crest.js";
 import { loadFireArt } from "./art/fire.js";
+import { loadSpellArt } from "./art/spells.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -34,19 +35,25 @@ import { Hud } from "./ui/hud.js";
 import { Hand } from "./ui/hand.js";
 import { Coach } from "./ui/coach.js";
 import { EndCard } from "./ui/endcard.js";
+import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
 import {
   audioSleep,
+  installAudioUnlock,
   onAudioOpen,
   setMuted,
-  unlockAudio,
 } from "./audio/engine.js";
 import { bed } from "./audio/sfx.js";
 
 async function boot() {
+  // Before a single await. The first touch can land while the fonts and the
+  // fourteen bitmaps below are still decoding, and on a phone that first touch
+  // is the one that owns the sound for the rest of the session.
+  installAudioUnlock();
+
   const app = new Application();
 
   await app.init({
@@ -91,6 +98,7 @@ async function boot() {
     loadBossArt(),
     loadBossCrest(),
     loadFireArt(),
+    loadSpellArt(),
     loadCardPlates(),
     loadCardFrames(),
     loadHeroAvatars(),
@@ -127,6 +135,10 @@ async function boot() {
   const coach = new Coach();
   const cutin = new CutIn();
   const endcard = new EndCard((source) => ctaClick(source));
+  // The one line the creative shows before it is touched, over the fight rather
+  // than in front of it — see ui/startprompt.js, and firstTouch below for what
+  // actually takes the touch.
+  const prompt = new StartPrompt();
 
   let director = null;
   const heroRow = new HeroRow((index) => {
@@ -144,7 +156,7 @@ async function boot() {
     hud,
     hand,
   );
-  overlay.addChild(cutin, endcard);
+  overlay.addChild(cutin, endcard, prompt);
 
   /* ------------------------------------------------------------ layout */
 
@@ -184,6 +196,7 @@ async function boot() {
     vfx,
     cutin,
     endcard,
+    prompt,
     shake,
   };
 
@@ -202,6 +215,7 @@ async function boot() {
     vfx.resize(layout);
     cutin.resize(layout);
     endcard.resize(layout);
+    prompt.resize(layout);
 
     lavaMask.clear();
     lavaMask.rect(
@@ -237,37 +251,12 @@ async function boot() {
    * Not a policy we work around — a policy we agree with. The boss is already
    * roaring by the time most impressions are looked at, and a creative that
    * makes noise at somebody who has not touched it yet has earned the mute it
-   * gets. Whatever the intro plays into a suspended context is simply lost.
+   * gets. Whatever the intro asks for before that first touch is simply lost.
    *
-   * Every gesture, in the capture phase, for the rest of the session. Each of
-   * those three is a session that used to come up silent:
-   *
-   *   - Every gesture, because only some of them carry the user activation an
-   *     unlock needs, and a finger's `pointerdown` carries none — for touch
-   *     the activation rides on `pointerup` and `touchend`. This list used to
-   *     be `pointerdown` and `touchend`, which is why a tap could open the
-   *     sound and a swipe was a coin toss. A swipe is the only thing anybody
-   *     does to a match-3 board.
-   *   - In the capture phase, because Pixi's own listeners sit on the canvas
-   *     and call preventDefault on the way past. Window capture runs first.
-   *   - For the rest of the session, because the audio can be taken away again
-   *     — a call, a route change, a lock screen — and the next swipe should
-   *     hand it back without anybody noticing. unlockAudio costs one state
-   *     read once the context is running.
+   * The listening for that touch is installed at the top of boot rather than
+   * here — see installAudioUnlock, and the note there on why a drag is the
+   * hardest gesture in the world to hang an unlock on.
    */
-  const wake = () => unlockAudio();
-  const GESTURES = [
-    "pointerdown",
-    "pointerup",
-    "touchstart",
-    "touchend",
-    "mousedown",
-    "click",
-    "keydown",
-  ];
-  GESTURES.forEach((type) =>
-    window.addEventListener(type, wake, { capture: true, passive: true }),
-  );
   // The bed hangs off the context actually opening rather than off the gesture
   // that opened it: resume() is a promise, and the handler that called it is
   // long gone by the time it settles.
@@ -278,6 +267,9 @@ async function boot() {
   );
 
   /* ------------------------------------------------------------- shake */
+
+  /** Starts the run without a finger — set by firstTouch, for __SIEGE__. */
+  let begin = () => {};
 
   let shakeAmount = 0;
   let shakeLeft = 0;
@@ -303,6 +295,52 @@ async function boot() {
     world.y = (Math.random() - 0.5) * a * 2;
   }
 
+  /* ------------------------------------------------------- the first touch */
+
+  /**
+   * The gesture the whole run hangs off, and the whole of how the
+   * do-not-autostart rule is answered now.
+   *
+   * There was a screen here: a scrim over the arena, the wordmark, TAP TO
+   * BEGIN, and the run behind a tap on it. It went because of what it cost —
+   * a playable's first frame is the one moment it is guaranteed to be looked
+   * at, and that one spent it on a title card. What the player saw first was
+   * not the game.
+   *
+   * So the gate is a listener instead of a picture. The arena is assembled and
+   * standing still from the first frame (see Director.armIntro), nothing in it
+   * advances, and the first touch anywhere on the screen starts the fight. The
+   * rule is kept exactly — nothing moves, no clock runs and no sound plays
+   * until a person does something — and the screen it used to cost is back.
+   *
+   * On `window` in the capture phase rather than on a display object: an
+   * invisible full-screen catcher in the overlay would be one more thing to
+   * take down before the board underneath could be played, and would eat the
+   * touch that took it down. Nothing here eats anything — Pixi routes the same
+   * pointerdown to whatever is under it, which for the first frames is a board
+   * that is deliberately not listening yet.
+   *
+   * `pointerdown` rather than a click, and `touchstart` and `mousedown`
+   * beside it: a click is a press and a release, and on a board played by
+   * dragging the release can land a whole swipe after the press. The two older
+   * events are for the webviews that never got pointer events at all; whichever
+   * arrives first wins and the rest are taken off.
+   */
+  function firstTouch() {
+    const EVENTS = ["pointerdown", "touchstart", "mousedown"];
+    return new Promise((resolve) => {
+      const go = () => {
+        EVENTS.forEach((type) => window.removeEventListener(type, go, true));
+        resolve();
+      };
+      EVENTS.forEach((type) =>
+        window.addEventListener(type, go, { capture: true, passive: true }),
+      );
+      // The one path in that is not a finger. See __SIEGE__ below.
+      begin = go;
+    });
+  }
+
   /* -------------------------------------------------------------- loop */
 
   app.ticker.add((ticker) => {
@@ -317,6 +355,7 @@ async function boot() {
     heroRow.update(dt);
     hud.update(dt);
     endcard.update(dt);
+    prompt.update(dt);
     updateShake(dt);
   });
 
@@ -327,38 +366,31 @@ async function boot() {
 
   // QA handle: lets an automated pass drive real swaps and assert the combo
   // invariants from spec §5 without shipping any logging. `mute` is on it for
-  // the networks that ask for a kill switch they can call.
+  // the networks that ask for a kill switch they can call. The run does not
+  // start until something is touched, so a pass calls `__SIEGE__.begin()`
+  // before it drives anything.
   scene.mute = setMuted;
+  scene.begin = () => begin();
   window.__SIEGE__ = scene;
 
-  signalReady();
-  startWhenVisible(() => director.run());
-}
+  // Nothing is held back and nothing is put in front: the first frame of the
+  // creative is the fight, standing still, with one line of type over it asking
+  // to be touched. See Director.armIntro and ui/startprompt.js.
+  director.armIntro();
 
-/**
- * MRAID slots can load the creative long before it is on screen. Waiting for
- * viewability keeps the storyboard clock honest.
- */
-function startWhenVisible(start) {
-  const mraid = window.mraid;
-  if (!mraid || typeof mraid.isViewable !== "function") {
-    start();
-    return;
-  }
-  try {
-    if (mraid.isViewable()) {
-      start();
-      return;
-    }
-    const onViewable = (viewable) => {
-      if (!viewable) return;
-      mraid.removeEventListener("viewableChange", onViewable);
-      start();
-    };
-    mraid.addEventListener("viewableChange", onViewable);
-  } catch (e) {
-    start();
-  }
+  signalReady();
+  // And that is where it waits.
+  //
+  // Not on viewability, which is what used to release it — a slot reporting
+  // itself viewable is not a person agreeing to be shown a monster, and every
+  // network this ships to asks a playable not to start on its own. A touch is
+  // both at once, so the viewability wait is gone rather than kept alongside:
+  // it is the stricter of the two, and the twenty-five second clock now starts
+  // on the same gesture the player starts the fight with.
+  firstTouch().then(() => {
+    prompt.dismiss();
+    director.run();
+  });
 }
 
 boot();

@@ -2,7 +2,7 @@
  * Heads-up display: boss health, callouts, damage numbers, the CTA lockup.
  *
  * The health bar deliberately carries no numbers — nobody reads
- * "7,500,000 / 10,000,000" in a twenty second creative (spec §7).
+ * "7,500,000 / 10,000,000" in a twenty-five second creative (spec §7).
  */
 
 import { Container, Graphics, Sprite, Text, Rectangle, Texture } from "pixi.js";
@@ -88,8 +88,8 @@ const CHIP_DRAIN = 0.85;
  *
  * The bar had no life of its own. Everything it did, it did because it had just
  * been hit: it drained, the white behind it drained after it, and between hits
- * it was a red rectangle. Which is most of a twenty second creative — the boss
- * is hit perhaps six times, and the rest of the time the one piece of chrome
+ * it was a red rectangle. Which is most of a twenty-five second creative — the
+ * boss is hit perhaps six times, and the rest of the time the one piece of chrome
  * saying "this is a fight in progress" was holding perfectly still.
  *
  * So it sweeps. `sweep` is how long the highlight takes to cross, `period` how
@@ -281,7 +281,7 @@ export class Hud extends Container {
       },
     });
     // Right-aligned on the boss name's baseline: the only piece of empty chrome
-    // up here, and it keeps the clock out of the INSTALL banner's corner.
+    // up here, and it keeps the clock out of the CTA lockup's corner.
     this.doomLabel.anchor.set(1, 1);
     this.doomLabel.alpha = 0;
     this.addChild(this.doomLabel);

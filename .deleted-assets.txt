@@ -142,3 +142,61 @@ src/source/unused/letters/image.png
 src/source/unused/mobile/5f903a7d5beb76f25b85b3c2c7675f796526e7b9 (2).png
 src/source/unused/mobile/image.png
 src/source/unused/progress-bar.png
+
+--- 2026-08-25, unused-asset sweep ---
+src/source/arena/sky-4k.png
+  12.1 MB. The sky-fortress render, 4096x2048. Source for the first of the three
+  arenas this creative has had — replaced by the demon gate, then by the ruined
+  city that ships today. No tool reads it, nothing imports it, and it cannot be
+  reached from any job in tools/pack-arena.mjs any more. The prompt it was
+  generated from is still in src/source/prompts.md, so the render is reproducible
+  and the file was the only thing lost. Tracked in git before deletion, so it is
+  also recoverable from history.
+
+Deliberately NOT deleted in this sweep, though nothing imports them:
+  src/assets/fonts/OFL-Cinzel.txt, OFL-Oswald.txt
+    The SIL Open Font License requires the licence to travel with the font.
+    Deleting these makes the build non-compliant, not lighter.
+  src/assets/fonts/README-elan.md
+    Live instructions for dropping in the licensed game face. Still an open task.
+  src/source/seedance-prompts.md
+    Prompt notes. Documentation, not an asset.
+  src/assets/ui/cta-banner.webp, src/art/ctabanner.js, src/source/ui/cta-banner.png,
+  tools/pack-cta-banner.mjs
+    The gem banner chain. art/ctabanner.js says in its own header that it is kept
+    on purpose so the art is not lost, and it is tree-shaken out of the bundle
+    for as long as nothing imports it. Costs the build nothing where it stands.
+  src/assets/my-bard/*.png
+    Misfiled — it is source material sitting in src/assets — but live: the HP and
+    mana bars in src/assets/board are sliced out of it by tools/slice-bars.mjs.
+  everything else under src/source
+    Every remaining file there is read by a packer in tools/. They are the only
+    copies of the renders the shipped assets are made from.
+
+--- 2026-08-25, PNG -> WebP conversion ---
+src/assets/cards/plate-blue.png, plate-gold.png, plate-violet.png
+src/assets/gems/arcane.png, fire.png, lightning.png, nature.png, water.png, wind.png
+src/assets/hp/black-bar.png, dark-red.png, red-bar.png, white-bar.png
+src/assets/ui/golden-button.png
+  The last fourteen PNGs the bundle still carried, each replaced in place by a
+  `.webp` of the same name and the imports in src/art/{plates,gems,hpbar,button}.js
+  pointed at it. Encoded lossless (`-c:v libwebp -lossless 1 -compression_level 6
+  -pix_fmt bgra`), so nothing was resampled and no quality was traded: every one
+  decodes back to the same RGBA the PNG did, verified pixel by pixel. The two
+  exceptions are golden-button and plate-gold, where 69 and 30 fully transparent
+  pixels lost the dead RGB hiding under alpha 0 — WebP drops colour it cannot
+  show, and those pixels render identically either way.
+  266 kB of PNG became 117 kB of WebP on disk. Thirteen of the fourteen reach
+  the bundle — art/button.js is imported by nothing today, so golden-button is
+  tree-shaken out and its 66 kB is a saving held in reserve — and those thirteen
+  cut the inlined base64 from 158 kB to 68 kB: dist/index.html measured at
+  1685274 B before and 1595791 B after, 89 kB off a one-file creative.
+  No packer generated any of these files — they were hand-placed — so nothing in
+  tools/ had to change. Tracked in git before deletion.
+
+Deliberately left as PNG:
+  src/assets/my-bard/*.png, src/source/**/*.png
+    Source material, not shipped art. Every one of them is a master a packer in
+    tools/ reads to cut a shipped asset from, and none is imported by the game or
+    reaches dist/index.html — converting them would cost the packers their
+    unencoded input and buy the bundle nothing.

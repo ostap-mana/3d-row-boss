@@ -1,12 +1,12 @@
 /**
- * The opening lesson.
+ * The lesson — the opening one, and every auto-hint after it.
  *
  * The creative used to explain itself with four words and a hand. `MATCH TO
  * ATTACK` says what to do to somebody who already knows what a match is, and
  * the hand demonstrates a swipe — but a swipe over gems that never move shows
  * a gesture and not a rule. Somebody meeting a match-three for the first time,
- * in a twenty second window, with a monster roaring at them, is not going to
- * infer "line three of the same colour up" from a gauntlet sliding sideways.
+ * in a twenty-five second window, with a monster roaring at them, is not going
+ * to infer "line three of the same colour up" from a gauntlet sliding sideways.
  * They will decide the screen is busy and wait for it to be over.
  *
  * So this shows the rule instead of naming it, in four beats and no words:
@@ -20,11 +20,22 @@
  *   4. the three light as one, joined by a bar drawn across them — this is
  *      what you were making.
  *
- * Then it puts everything back and does it again, until the player touches the
- * board. The first touch ends it for the whole run — see
- * Director.spendOpeningHint. Nothing here ever blocks input: at every beat the
- * board underneath is live, and a player who has understood it two beats in
- * can swipe straight through the lesson.
+ * Then it puts everything back and does it again, holding the pair lit at
+ * REST_ALPHA in between, until whoever started it calls stop().
+ *
+ * Two things start it, both through Director.showLesson. The opening hint runs
+ * it a second into the fight for a player who has not touched the board yet,
+ * and the first touch ends that one for the whole run — see
+ * Director.spendOpeningHint. The auto-hint runs the same thing, on the same
+ * board, every time somebody stalls for T.hint afterwards, and every touch puts
+ * it away again. The second is the reason this file is not called the tutorial:
+ * a player five moves in gets exactly the demonstration a player who has made
+ * none gets, because there is only one way to say "three of these, in a line"
+ * and the fight is too short to teach it twice.
+ *
+ * Nothing here ever blocks input: at every beat the board underneath is live,
+ * and a player who has understood it two beats in can swipe straight through
+ * the lesson.
  *
  * Drawn, not painted: outlines, a bar and a chevron in Graphics, which is zero
  * kilobytes and sharp on any screen.
@@ -39,6 +50,18 @@ const HOLD = 0.62;
 /** The travel, out and back. Out is the lesson; back is only bookkeeping. */
 const TRAVEL = 0.4;
 const RETURN = 0.26;
+/** The beat between one pass and the next. */
+const REST = 0.5;
+/**
+ * What the marks fade back to between passes rather than off.
+ *
+ * The lesson used to go to nothing and come back from nothing, which on a loop
+ * is a set of outlines blinking on and off over the board — and blinking is the
+ * one thing on a screen that cannot be ignored and cannot be read either. Held
+ * dim, the pair stays picked out the whole time the hint is up, so the answer
+ * is on screen continuously and the demonstration of it merely repeats.
+ */
+const REST_ALPHA = 0.42;
 
 export class Coach extends Container {
   constructor() {
@@ -83,19 +106,29 @@ export class Coach extends Container {
     while (id === this.token) {
       await this.lesson(id, board, hand, shape);
       if (id !== this.token) return;
-      await delay(0.4);
+      await delay(REST);
     }
   }
 
   /** One pass. Bails at every await if the lesson has been retired. */
   async lesson(id, board, hand, shape) {
+    // Nothing is drawn over a board that is still moving. Every mark here is
+    // placed from a cell position, and mid-cascade the gems are not on their
+    // cells — so a pass that started now would outline empty squares and then
+    // be refused by previewSwap anyway.
+    while (board.busy) {
+      await delay(0.12);
+      if (id !== this.token) return;
+    }
+
     const { from, to, run, rest } = shape;
     const type = board.typeAt(from.r, from.c);
     const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
 
-    // 1. What is already lined up.
+    // 1. What is already lined up. Up from nothing on the first pass and from
+    //    REST_ALPHA on every one after it, which is why the alpha is not reset
+    //    here: the marks were never all the way off.
     this.draw(board, { lit: rest, color });
-    this.alpha = 0;
     await tween(this, { alpha: 1 }, 0.2);
     if (id !== this.token) return;
     await delay(0.28);
@@ -130,12 +163,13 @@ export class Coach extends Container {
     await delay(HOLD);
     if (id !== this.token) return;
 
-    // 5. Put the board back the way the model has always had it.
+    // 5. Put the board back the way the model has always had it — and leave
+    //    the pair lit underneath while the lesson waits to say it again.
     hand.leave(grip);
     this.draw(board, { lit: rest, color });
     await board.previewSwap(from, to, RETURN, true);
     if (id !== this.token) return;
-    await tween(this, { alpha: 0 }, 0.22);
+    await tween(this, { alpha: REST_ALPHA }, 0.22);
   }
 
   /**

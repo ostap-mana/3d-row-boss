@@ -1492,11 +1492,19 @@ export class Board extends Container {
     tween(this.gemLayer, { alpha: on ? 0.45 : 1 }, 0.25);
   }
 
-  /** Board slides up into frame at the top of the creative. */
-  async slideIn(layout) {
+  /**
+   * Board slides up into frame at the top of the creative.
+   *
+   * Takes its length from the caller — T.introIn, the one duration the whole
+   * opening shares, so the board lands on the same frame as the boss, the party
+   * and the HUD rather than a third of a second ahead of them. The overshoot is
+   * kept: backOut over a longer span is a slower arrival, not a softer one.
+   */
+  async slideIn(layout, seconds) {
     const home = layout.board.y;
     this.y = layout.h + this.size * 0.2;
     this.alpha = 1;
-    await tween(this, { y: home }, 0.55, { ease: Ease.backOut });
+    const d = seconds === undefined ? 0.55 : seconds;
+    await tween(this, { y: home }, d, { ease: Ease.backOut });
   }
 }

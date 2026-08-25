@@ -104,15 +104,16 @@ export const DIFFICULTY = {
    * falls (see `armor`), so a fight is twelve moves deep. A move costs about
    * three seconds to play out — the swap, the cascade, the volley, the boss
    * answering — and twelve of those is thirty-six seconds. The creative is
-   * twenty. So the gauntlet was never a hard fight inside this runtime; it was
-   * a fight that could not be finished inside it, and what a viewer actually
-   * saw was a health bar that ended the ad two thirds full.
+   * twenty-five. So the gauntlet was never a hard fight inside this runtime;
+   * it was a fight that could not be finished inside it, and what a viewer
+   * actually saw was a health bar that ended the ad two thirds full.
    *
    * At 0.075 a triple takes 22% through the armour and a four-run leading a
-   * cascade ends it outright. Four or five moves is a dead boss, four or five
-   * moves is what twenty seconds holds, and the bar is visibly moving in every
-   * one of them. Difficulty in a creative this short is not how many moves it
-   * takes; it is T.hardCap, which is the only opponent that never misses.
+   * cascade ends it outright. Four or five moves is a dead boss and the run
+   * holds seven of them, so the fight fits with a move or two to spare and the
+   * bar is visibly moving in every one of them. Difficulty in a creative this
+   * short is not how many moves it takes; it is T.hardCap, which is the only
+   * opponent that never misses.
    */
   damagePerGem: 0.075,
   /**
@@ -238,10 +239,11 @@ export const DIFFICULTY = {
    *
    * bossRamp punishes taking many turns. This punishes taking a long time over
    * them, which is the thing a turn counter cannot see. Hunting the board for a
-   * five-run is a real strategy and it stays one — but twenty seconds in the
-   * multiplier is already 1.24, and by the hard cap it is pinned at the ceiling
-   * with the golem hitting for half again what it opened with. Thinking stops
-   * being free.
+   * five-run is a real strategy and it stays one — but twenty-five seconds in
+   * the multiplier is 1.30 and still climbing, with the golem hitting for a
+   * third again what it opened with. rageMax sits above what a run can reach on
+   * purpose: what the player is meant to feel is the climb, not a ceiling the
+   * fight flattens out against. Thinking stops being free.
    */
   ragePerSecond: 0.012,
   rageMax: 1.45,
@@ -323,11 +325,11 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Twenty, which is the length of the whole creative — so read what this now
-   * is rather than what it says: the clock is a twenty second countdown that
-   * never reaches zero. T.hardCap is 20, the intro spends about two of them and
-   * T.finaleReserve holds back 3.5, so there are about 14.5 playable seconds
-   * and the label runs 20 down to 5 or so before the end card takes the screen.
+   * Twenty-five, which is the length of the whole creative — so read what this
+   * now is rather than what it says: a twenty-five second countdown that never
+   * reaches zero. T.hardCap is 25, the intro spends about two of them and
+   * T.finaleReserve holds back 3.5, so there are about 19.5 playable seconds,
+   * and the label runs 25 down to 5 or so before the end card takes the screen.
    *
    * Kept equal to the run on purpose: the clock on screen was asked for as the
    * length of the creative, so when the creative moved the clock moved with it
@@ -340,21 +342,22 @@ export const DOOM = {
    * quarters of its length and the run ends. Everything from `repeat` down is
    * still correct and still unreachable.
    *
-   * That is a deliberate choice and not a regression — asked for as a twenty
-   * second timer on screen, with the run left at twenty. It was 9, which is
+   * That is a deliberate choice and not a regression — the timer on screen was
+   * asked for as the length of the creative, whatever that length is, and this
+   * has now followed it from 15 to 20 to 25. It was 9, which is
    * three moves: it landed in the middle of the fight, after the player had felt
    * the bar move and before the kill, with room for exactly one repeat behind
    * it, so the deadline arrived once as a threat and once as proof it was not a
    * bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 20,
+  seconds: 25,
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
    *
    * A fixed repeat is a metronome, and a metronome is something a player
-   * settles into. Five, then 3.9, then a flat 3 — and inside twenty seconds the
-   * second is usually the last one the fight lives to see. The decay is kept
+   * settles into. Five, then 3.9, then a flat 3 — and inside twenty-five
+   * seconds the second is usually the last one the fight lives to see. The decay is kept
    * anyway: it is what makes the first repeat feel like the deadline closing
    * rather than the same beat again, and a player who stalls does meet the
    * third.
@@ -397,21 +400,30 @@ export const BOSS_NAME = "KOLTMOS";
 
 export const T = {
   /**
-   * The idle hint — the hand demonstrating a swap on its own, and the gem
-   * highlight that escalates out of it — off.
+   * The auto-hint — the lesson putting itself back up for a player who stalled.
    *
-   * It shipped at half a second of silence, which meant it came back after
-   * every single settled cascade. On a board this small that is not a guide, it
-   * is a gauntlet permanently in the way of the thing it is pointing at.
+   * On, and what it shows is the opening lesson rather than the bare swipe loop
+   * this flag used to mean: the pair that is already lined up lights, the stone
+   * that would complete the run gets an arrow, the hand carries it across, and
+   * the three light as one. See ui/coach.js and Director.showLesson, which is
+   * the single door both the opening hint and this one now come through — they
+   * were two code paths showing two different things, which meant the help a
+   * stalled player got mid-fight was the weaker of the two and did not look
+   * like the thing that had taught them the rule thirty seconds earlier.
    *
-   * Off means nothing points at a cell of its own accord and no gems light up
-   * at `pulse`. The hand still rides the player's own swipe — that is
-   * `touchHand` below, on its own switch, because a hand that follows a finger
-   * already on the glass suggests nothing to anybody.
+   * It was off, for a reason that was real: it shipped at half a second of
+   * silence, so it came back after every settled cascade and was a gauntlet
+   * permanently in the way of the thing it was pointing at. What fixes that is
+   * what it waits for, not switching the help off — `hint` below is two
+   * seconds of a settled board with nobody touching it, the escalation waits
+   * for `pulse`, the swap is solved again at the moment of showing rather than
+   * remembered from when it was armed, and any touch takes the whole thing off
+   * screen inside a frame.
    *
-   * Flip it back to true and the two delays below decide the pacing again.
+   * The hand still never rides the player's own finger — that is `touchHand`
+   * below, on its own switch, and still off.
    */
-  hints: false,
+  hints: true,
   /**
    * The game swapping gems for the player — off.
    *
@@ -439,53 +451,148 @@ export const T = {
    *
    * 3.2 against moveCost's 2.8: a shade longer than a move takes to play out,
    * so a player mid-cascade is not interrupted by a swing they did not earn,
-   * and short enough that the fourteen and a half playable seconds of a twenty
-   * second run hold four of them. Four beats does not wipe the party at
-   * BOSS_ATTACKS damage — the cataclysm at the end does that, see
-   * Director.timeUp — which is the shape wanted: the party is worn down for the
-   * whole run and dropped at the end of it.
+   * and short enough that the nineteen and a half playable seconds of a
+   * twenty-five second run hold six of them.
+   *
+   * Six, where a twenty second run held four, and the two extra are not free:
+   * the rotation aims at whoever is closest to falling, so a run that goes the
+   * full distance now drops a hero or two on the way. Left as it is on purpose.
+   * A fight cut to end in four or five moves is over before the sixth beat is
+   * ever played, so the only player who meets those two is the one who is not
+   * killing the boss — which is precisely who the pressure is for. It is still
+   * not a wipe: partyWiped wants all six down, and the cataclysm at the end is
+   * what does that. See Director.timeUp.
+   *
+   * Shorten the run and this can stay where it is; lengthen it much past
+   * twenty-five and this is the number to lift with it.
    *
    * The clock restarts on every player turn, so a swipe is always answered by
    * the swing it earned rather than by two of them at once.
    */
   bossPress: 3.2,
   /**
-   * The hand under the player's own thumb — on.
+   * The hand under the player's own thumb — off.
    *
-   * The same prop driven from the other end: it turns up where the finger lands
-   * and rides the swipe out with it, so the gesture on screen is the gesture
-   * being made. It never proposes a move, which is why it outlives `hints`
-   * being off. See Hand.grab and the wiring in Director's constructor.
+   * The same prop driven from the other end: it turned up where the finger
+   * landed and rode the swipe out with it, so the gesture on screen was the
+   * gesture being made. Which is a lovely idea and wrong on a phone. The finger
+   * is already there — it is the one thing on the glass that needs no
+   * illustrating — and what the prop actually did was put a painted gauntlet
+   * over the three cells the player was trying to look at, on every swipe, for
+   * the whole run. The hand is a teaching aid, and it is finished teaching the
+   * moment somebody touches the board.
+   *
+   * So the prop now has exactly one appearance in the creative: the opening
+   * lesson, before the first touch. See `openingHint` below, and
+   * Director.spendOpeningHint for the moment it is put away for good.
+   *
+   * Flip it back on and Hand.grab/dragTo/letGo are wired up again in Director's
+   * constructor; nothing else has to change.
    */
-  touchHand: true,
+  touchHand: false,
   /**
-   * Idle before the hint hand appears, when `hints` is on.
+   * The opening entrance — one duration for every piece of it.
    *
-   * Every touch restarts this timer and so does every boss beat — see
-   * Director.restartIdle and refreshHint — so at the half second it shipped at
-   * the hand was effectively always on screen. Two and a bit is what it says it
-   * is: something that turns up for a player who has actually stalled, on a
-   * clock where stalling for four would be a fifth of the whole creative.
+   * The intro is one shot, not four, and this is the number that makes it one.
+   * The boss climbing out of the pool, the board sliding up off the bottom of
+   * the screen, the party fading up into the row and the HUD coming on all
+   * start on the same frame and all land on the same frame, because all four
+   * are handed this and nothing else. See Director.intro, which is the only
+   * place it is read — Boss.rise, Board.slideIn and HeroRow.introIn each take
+   * it as an argument rather than reaching for it, so there is exactly one
+   * number to move.
+   *
+   * They used to run 0.95 / 0.55 / 0.35 / 0.4, which started together and then
+   * finished in four separate instalments: the HUD arrived, then the party,
+   * then the board, then a quarter of a second later the boss — an assembly
+   * queue where a single arrival was wanted. Each still keeps its own curve, so
+   * the board still overshoots and the boss still eases out; what they no
+   * longer keep is their own clock.
+   *
+   * 0.95, which is what the rise was: the slowest mover set the length of the
+   * shot before and still does, so the intro costs the run exactly what it
+   * always cost — about two seconds of T.hardCap, which is what every other
+   * number in this file is fitted around.
    */
-  hint: 2.2,
-  /** idle before the hand pulses harder and gems highlight */
+  introIn: 0.95,
+  /**
+   * The entrance itself — off.
+   *
+   * `introIn` above is its length and stays correct; this is whether it is
+   * played at all, and it is not. There is nothing left for it to bring on:
+   * the arena is assembled from the first frame drawn, so the four movers would
+   * be taking a screen the player is already looking at, throwing it away and
+   * putting it back the instant they touched it.
+   *
+   * That is a consequence of losing the screen in front of it rather than a
+   * change of mind about the shot. The entrance was written to arrive into
+   * something — first an empty arena behind a gate, then an empty arena with a
+   * line of type on it — and both of those were asked for and then taken out
+   * again, in that order, because a playable's first frame is the one moment it
+   * is guaranteed to be looked at and neither of them spent it on the game.
+   * With nothing in front, an arena held empty for the entrance to fill is the
+   * same mistake a third time: a creative showing anything other than itself.
+   *
+   * So the fight is simply there, and the touch is answered by the fight
+   * starting rather than by the screen assembling — the flash, the roar and the
+   * shake, which were always the part of the opening that had the monster in
+   * it. See Director.armIntro and Director.intro, which is the only reader of
+   * this, and Boss.rise, Board.slideIn and HeroRow.introIn, which are all still
+   * here and all still correct.
+   *
+   * Flip it back to true and the opening shot comes back exactly as it was.
+   */
+  entrance: false,
+  /**
+   * Idle before the auto-hint puts the lesson back up.
+   *
+   * Every touch restarts this timer, so does every boss beat, and so does the
+   * turn itself — see Director.beginIdle, restartIdle and refreshHint — so at
+   * the half second it shipped at the hand was effectively always on screen.
+   * Two is what it says it is: something that turns up for a player who has
+   * actually stalled, on a clock where stalling for four would be a fifth of
+   * the whole creative.
+   *
+   * Measured from a board that has stopped moving, not from the last event:
+   * Director.escalate holds the lesson back while a cascade or a wave of
+   * obsidian is still in the air, because the marks are placed from cell
+   * positions and mid-cascade the gems are not on their cells.
+   */
+  hint: 2.0,
+  /**
+   * Idle before the hint stops suggesting and starts insisting: the hand goes
+   * up a size and the two gems it is pointing at light under it.
+   *
+   * Two and a half seconds after the lesson began, which is about one full pass
+   * of it — so the escalation lands on somebody who has watched the whole
+   * thing once and still not moved, rather than on top of the first showing.
+   */
   pulse: 4.5,
   /**
-   * Idle before the one opening hint — on, and the only hint in the creative.
+   * Idle before the opening hint — the first of the two, and the shorter wait.
    *
-   * `hints` above is the nagging loop: a hand that comes back after every
-   * settled cascade, for the whole run. That stays off. This is the other
-   * thing the word covered, and the two were switched off together — a single
-   * demonstration of the opening swap, shown once to somebody who has not yet
-   * worked out that the board is a board.
+   * `hints` above is the auto-hint: the same lesson, on the same board, put
+   * back up any time somebody stalls for `hint` seconds. This is the one that
+   * runs before anybody has touched anything, and it is on a wait of its own
+   * because the two are answering different questions — this one is for a
+   * player who does not yet know the board is a board, so it does not make
+   * them earn it by stalling for two full seconds first.
    *
    * Spent on the first touch and never armed again — see
    * Director.spendOpeningHint. Somebody who swipes inside the first second
    * never sees it at all, which is exactly the intent: it is for the player
    * who hesitates, and it is over the moment they stop hesitating.
    *
+   * On the first *touch*, and this file has always said so — the director used
+   * to spend it on the first move that landed instead, and put the hand back
+   * on this timer after any touch that did not produce one. A first-timer's
+   * opening gesture is a tap on nothing or a swap that bounces, so in practice
+   * the prop kept returning over the board between fumbled swipes, which is
+   * how a single demonstration turned into a gauntlet that would not take no
+   * for an answer. One showing is all it owes anybody.
+   *
    * A second, against an intro that ends around two and a playable window of
-   * about fourteen and a half. Late enough not to talk over the MATCH TO
+   * about nineteen and a half. Late enough not to talk over the MATCH TO
    * ATTACK shout, early enough that hesitating is not most of the run.
    */
   openingHint: 1.0,
@@ -504,46 +611,60 @@ export const T = {
    * playing itself out, so the fastest the demo ever goes is a move every three
    * and a bit seconds. It only reaches that when the boss is deep enough that
    * the run cannot afford anything slower. It is a pace, not a stampede — but
-   * the whole run is twenty seconds, and a second of dead air is a twentieth of
-   * the ad spent watching nothing.
+   * the whole run is twenty-five seconds, and a second of dead air is a
+   * twenty-fifth of the ad spent watching nothing.
    */
   autoFloor: 0.35,
   /**
-   * Persistent INSTALL banner drops in at this point on the clock.
+   * The persistent CTA lockup drops in at this point on the clock.
+   *
+   * The wordmark over the PLAY NOW plate — the end card's own two pieces at HUD
+   * size, see `banner` in core/layout.js. It said INSTALL on gem-banner art
+   * until the two CTA surfaces were made one lockup, and it is not going back:
+   * the one persistent surface in the fight should name the game rather than
+   * the chore, and it should be the thing the player is being walked towards.
    *
    * A third of the way in: late enough that the opening is the fight and not a
    * store button, early enough that it is on screen for the two thirds of the
    * creative anybody is still watching.
    *
    * A third of the run and nothing else — a share rather than a duration, so
-   * it moves every time T.hardCap does.
+   * it moves every time T.hardCap does. It has now moved twice: 5 when the run
+   * was fifteen, 6.7 at twenty, 8.3 at twenty-five.
    */
-  banner: 6.7,
+  banner: 8.3,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Twenty seconds, because that is the creative. Everything else in this file
-   * is fitted to it rather than the other way round: DOOM.seconds so the clock
-   * on screen is the length of the thing it is counting, `banner` so the store
-   * button lands a third of the way in, finaleReserve so the death still gets
-   * played, DIFFICULTY.damagePerGem so the boss can be dead before it.
+   * Twenty-five seconds, because that is the creative. Everything else in this
+   * file is fitted to it rather than the other way round: DOOM.seconds so the
+   * clock on screen is the length of the thing it is counting, `banner` so the
+   * store button lands a third of the way in, finaleReserve so the death still
+   * gets played, DIFFICULTY.damagePerGem so the boss can be dead before it.
    *
-   * That last one is the thing to know about this number, because it is the
-   * reason the run is twenty rather than fifteen. The damage curve is cut to a
-   * dead boss in four or five moves, and moveCost puts a move at 2.8 seconds.
-   * Twenty, less about two for the intro and the 3.5 of finaleReserve, leaves
-   * fourteen and a half playable seconds — five moves and change, so a player
-   * reading the board well can actually finish the fight the damage table was
-   * balanced for. At fifteen it was nine and a half seconds and three moves,
-   * and the fight as balanced did not fit inside the run at all: playing well
-   * still ended with the boss standing, which is not difficulty, it is a
-   * creative that stops before its own climax.
+   * That last one is the thing to know about this number. The damage curve is
+   * cut to a dead boss in four or five moves, and moveCost puts a move at 2.8
+   * seconds. Twenty-five, less about two for the intro and the 3.5 of
+   * finaleReserve, leaves nineteen and a half playable seconds — seven moves,
+   * against a fight balanced to end in five.
+   *
+   * That gap is the whole reason the number has climbed twice. At fifteen the
+   * run held nine and a half playable seconds and three moves, and the fight as
+   * balanced did not fit inside it at all: playing well still ended with the
+   * boss standing, which is not difficulty, it is a creative that stops before
+   * its own climax. At twenty it held five and a bit, which is the fight
+   * exactly and no room for a mistake in it — one fumbled swipe and the clock
+   * collected instead of the player. Twenty-five is the first number with slack
+   * in it: a player who reads the board kills the boss with a move or two in
+   * hand, and one who needs a second to work out what a match even is can still
+   * get there. Nobody is being given the fight; they are being given the time
+   * to lose a move to it.
    *
    * This number is what the run is racing — see Director.run, where it is
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 20.0,
+  hardCap: 25.0,
   /** beat after the boss dies before the end card */
   victoryHold: 1.4,
   /**
@@ -551,8 +672,8 @@ export const T = {
    * pace guard treats this as untouchable so a hands-off viewer still sees the
    * boss explode instead of being cut off by the hard cap.
    *
-   * Three and a half of the twenty, which is most of what the collapse and the
-   * shout actually take. Trimming it further buys one more move and spends the
+   * Three and a half of the twenty-five, which is most of what the collapse and
+   * the shout actually take. Trimming it further buys one more move and spends the
    * only moment in the creative that is pure payoff to get it.
    */
   finaleReserve: 3.5,
@@ -665,12 +786,26 @@ export const BADGE_STORE = {
 
 export const COPY = {
   /**
+   * The line over the fight before anybody has touched the creative.
+   *
+   * A caption, not a screen. There was a title card here once — scrim,
+   * wordmark, this line under it — and then this line over an arena held empty
+   * behind it; both are gone and what is behind it now is the game itself. See
+   * ui/startprompt.js.
+   *
+   * Says GAME, and the word is not filler: this is shown inside somebody
+   * else's app, where a line reading START could as easily be about the thing
+   * they were already doing. It also deliberately avoids PLAY, which is the
+   * store button on every other surface in the creative — see `cta` below.
+   */
+  start: "CLICK TO START THE GAME",
+  /**
    * The opening line, and it names the rule now rather than assuming it.
    *
    * "MATCH TO ATTACK" is an instruction to somebody who already knows what a
    * match is. Plenty of the people this is shown to have never played one, and
-   * they get twenty seconds to work it out with a golem roaring at them. The
-   * number is the whole of the difference: it is the one word that turns a
+   * they get twenty-five seconds to work it out with a golem roaring at them.
+   * The number is the whole of the difference: it is the one word that turns a
    * verb nobody has a definition for into a thing to count. The rest of the
    * teaching is done in pictures — see ui/coach.js.
    */
@@ -682,7 +817,7 @@ export const COPY = {
    * shout in the fight. Every other callout names something the player has
    * just watched happen — a combo, a layer breaking, lava landing — so it only
    * has to label a picture they already have. This one arrives before the
-   * player has any picture at all and is the only sentence in twenty seconds
+   * player has any picture at all and is the only sentence in the whole run
    * that says what the game is. 1.6 puts it comfortably clear of the boss's
    * first attack callout, which is the next thing that overwrites it.
    */
