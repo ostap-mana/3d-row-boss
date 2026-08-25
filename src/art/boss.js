@@ -54,6 +54,18 @@ const RUNE = 0xb43cff;
 const RUNE_HOT = 0xff8ae8;
 
 /**
+ * The colour of the ground the beast stands on, multiplied under its feet.
+ *
+ * Blue-black rather than neutral: the deck it lands on is a cloud sea lit from
+ * two sides, and a grey shadow on it reads as a smudge on the lens where a cold
+ * one reads as the beast blocking the light coming up through the cloud.
+ */
+const SHADOW_TINT = 0x33304a;
+
+/** How far the render is taken down, and toward what. See buildPainted. */
+const ART_GRADE = 0xc6bdd8;
+
+/**
  * The packed render, exactly as tools/pack-boss-still.mjs measured it.
  *
  * `anchor` is the beast's stance — the middle of its feet — and the sprite is
@@ -168,6 +180,29 @@ export class Boss extends Container {
   constructor() {
     super();
 
+    /**
+     * Contact shadow, and the one thing a cut-out render cannot do for itself.
+     *
+     * The art arrives trimmed to its own ink, which means it has no ground
+     * under it — hung over a painted cloud deck it does not stand on anything,
+     * it is pasted onto something. A soft dark ellipse on the beast's own floor
+     * line is what turns those two into each other, and over a backdrop this
+     * bright it is also the darkest thing in contact with the silhouette, which
+     * is half of why the figure reads at all. See background.js POOL_TINT for
+     * the other half — the two were tuned in one pass and against each other.
+     *
+     * Bottom of the stack and outside `rig`, so the breath cycle does not
+     * scale it: a shadow that swells with the chest is a shadow the eye reads
+     * as a second creature underneath the first one.
+     */
+    this.shadow = new Sprite(glowTexture());
+    this.shadow.anchor.set(0.5);
+    this.shadow.blendMode = "multiply";
+    this.shadow.tint = SHADOW_TINT;
+    this.shadow.alpha = 0.58;
+    this.shadow.setSize(BOSS_ART.w * 0.9, BOSS_ART.h * 0.19);
+    this.addChild(this.shadow);
+
     this.aura = new Sprite(glowTexture());
     this.aura.anchor.set(0.5);
     this.aura.blendMode = "add";
@@ -186,6 +221,9 @@ export class Boss extends Container {
     this.charge = 0;
     if (this.painted) this.buildPainted();
     else this.buildDrawn();
+
+    // Only now: `feetY` is whichever rig came up, and the two do not agree.
+    this.shadow.y = this.feetY - 8;
 
     this.shards = new Container();
     this.addChild(this.shards);
@@ -224,6 +262,21 @@ export class Boss extends Container {
     this.headNode = figure;
 
     this.art = this.artSprite();
+    /**
+     * The render, graded down.
+     *
+     * The art is lit as a hero card is lit: a cream-white belly and gold plate
+     * catching a key light from the front, which is the brightest thing on the
+     * screen and reads as a character somebody plays rather than one they
+     * fight. Taking it down and cooling it does two jobs at once — the mass
+     * goes dark, and the violet fire in the eyes and the jaw, which is additive
+     * and so untouched by this, comes forward as the only light the beast has.
+     *
+     * On `art` and not on the Boss container: `tint` there is spoken for by
+     * hit() and enrage(), both of which lerp from plain white and would wipe
+     * this out on the first hero swing.
+     */
+    this.art.tint = ART_GRADE;
     figure.addChild(this.art);
 
     /**
@@ -739,6 +792,80 @@ export class Boss extends Container {
     tween(this.mouth.scale, { y: 1 }, 0.34, { delay: 0.14 });
   }
 
+  /**
+   * The rake — three claws across the air, and the only beat here that repeats.
+   *
+   * Asked for by name: something the beast visibly *does* on the moments the
+   * screen shakes, instead of the screen shaking at a monster that is standing
+   * still. Every other attack on this rig is a wind-up and a release aimed at
+   * something — the board, the row, the floor. This one is aimed at the player,
+   * costs nothing to play twice in a row, and is short enough to drop into a
+   * gap the other three cannot fit in.
+   *
+   * A painting has no arm to swing, so the swipe is the whole silhouette
+   * whipping across its own axis: back and twisted away on the wind-up, then
+   * through and past centre on the release, with the head thrown forward and
+   * the jaw open on the frame the claws would land. `rig.rotation` rather than
+   * `headNode.rotation` because update() owns the latter every frame — a tween
+   * on it is a tween that gets overwritten before it draws.
+   *
+   * Returns the side it swung to, so the caller can lay its claw marks along
+   * the same diagonal the body just travelled instead of guessing.
+   */
+  async rake(side) {
+    const dir =
+      side === undefined ? (Math.random() < 0.5 ? -1 : 1) : side < 0 ? -1 : 1;
+
+    // The roar is on the wind-up, not the release. A roar landing with the
+    // claws is a sound effect; a roar landing a quarter second before them is
+    // the reason the player flinches.
+    sfx.bossRoar();
+    await Promise.all([
+      tween(this, { breath: 0.9, lunge: -12, charge: 0.75 }, 0.26, {
+        ease: Ease.quadOut,
+      }),
+      tween(this.rig, { x: -dir * 26, rotation: -dir * 0.07 }, 0.26, {
+        ease: Ease.quadOut,
+      }),
+      tween(this.headNode, { y: HEAD_REST - 22 }, 0.26),
+    ]);
+    // The held frame at the top of the wind-up, same as smash(): the tell that
+    // tells the player it is coming.
+    await delay(0.1);
+    if (!this.alive) return dir;
+
+    sfx.bossSmash();
+    await Promise.all([
+      tween(this, { breath: 1.12, lunge: 26, charge: 1 }, 0.1, {
+        ease: Ease.quadIn,
+      }),
+      tween(this.rig, { x: dir * 34, rotation: dir * 0.09 }, 0.1, {
+        ease: Ease.quadIn,
+      }),
+      tween(this.headNode, { y: HEAD_REST + 22 }, 0.1, { ease: Ease.quadIn }),
+      tween(this.mouth.scale, { y: 2.3 }, 0.1, { ease: Ease.backOut }),
+    ]);
+    this.spawnShards(7, 0.8);
+
+    // Fire and forget from here, the same recovery every other beat runs — and
+    // `charge` on its own tween for the same reason smash() splits it out: the
+    // elastic overshoot above rings past zero, and a charge that rang past zero
+    // would light the beast straight back up.
+    tween(this, { breath: 1, lunge: 0 }, 0.5, {
+      delay: 0.08,
+      ease: Ease.elasticOut,
+    });
+    tween(this.rig, { x: 0, rotation: 0 }, 0.46, {
+      delay: 0.08,
+      ease: Ease.elasticOut,
+    });
+    tween(this, { charge: 0 }, 0.22, { ease: Ease.quadOut });
+    tween(this.headNode, { y: HEAD_REST }, 0.38, { delay: 0.08 });
+    tween(this.mouth.scale, { y: 1 }, 0.32, { delay: 0.1 });
+
+    return dir;
+  }
+
   /** Reaction to taking a hit: flinch, flash, spit rock chips. */
   hit(power) {
     const p = power || 1;
@@ -813,6 +940,8 @@ export class Boss extends Container {
       tween(this.rig, { alpha: 0 }, 0.35),
       tween(this.rig.scale, { x: 0.6, y: 0.4 }, 0.4, { ease: Ease.quadIn }),
       tween(this.aura, { alpha: 0 }, 0.5),
+      // Nothing left standing, so nothing left casting one.
+      tween(this.shadow, { alpha: 0 }, 0.4),
     ]);
   }
 }

@@ -137,6 +137,81 @@ The one asset that is _not_ square: it is cover-fitted over the whole screen.
 Then: `node tools/pack-arena.mjs` — read its header first, the crop is tuned so
 the cloud line lands on the boss's floor.
 
+#### The arena is a boss arena — re-shoot
+
+The prompt above is the one the shipped `sky-4k.png` came from, and read back
+now it is the note the review returned: *gold-lit*, *warm sunset*, a castle
+somebody is rescued in. That is a hero's establishing shot, and the darkest
+silhouette in the creative is standing in the middle of it.
+
+`art/background.js` grades it down at runtime — see the DOOM_GRADE block there —
+and that is a real fix and a shipping one, but it is a fix applied to the wrong
+painting. Grading a bright picture dark costs contrast the picture never gets
+back; a dark picture graded lightly keeps all of it. Re-shoot with this, and
+then take GRADE_ALPHA and POOL_ALPHA back down to about half, together:
+
+> **[style]** wide fantasy arena backdrop, a vast ruined black citadel of
+> cracked obsidian towers half-swallowed by a storm, standing above a churning
+> sea of dark ash cloud, lit from below by molten red and ember orange breaking
+> up through the cloud deck, cold blue-black thunderhead sky above with forked
+> lightning behind the spires, embers and ash drifting up, heavy shadow,
+> ominous, oppressive, the seat of a demon king, an empty foreground cloud
+> shelf running across the picture about two thirds of the way down for a boss
+> to stand on, no characters, no creatures, no text, painted concept art,
+> cinematic, high contrast, dark, 2:1 aspect
+
+Two clauses are load-bearing beyond taste, and `tools/pack-arena.mjs` will not
+save you if they are dropped:
+
+- **the shelf two thirds down** — the packer crops the top 23.9% precisely so
+  the shelf lands at 0.58 of what is left, which is the one height
+  `Background.fitArena` can pin to the boss floor. A painting whose horizon is
+  somewhere else comes out with the golem hovering in open sky.
+- **lit from below** — the beast's own fire has to have somewhere to come from.
+  A backdrop lit from above is a backdrop the boss is a hole in.
+
+### Boss
+
+`src/assets/boss/magmaroth.webp`, and the second half of the same note: the
+render in the build is a horned brute in gold plate with a rider on its
+shoulders, painted with a cream-white key light on its chest. It is a
+*character* — the art reads the way the six hero busts read, which is exactly
+why it does not read as the thing fighting them.
+
+`art/boss.js` grades the render down and pins violet fire to it, and
+`background.js` cuts a dark pool behind it, which is enough to make the
+silhouette separate. None of it makes the beast frightening. That is this:
+
+> **[style]** a colossal terrifying demon golem raid boss, hulking hunched
+> brute of cracked black obsidian rock veined with white-hot molten lava,
+> enormous curved black horns sweeping back from a skull-like helm, burning
+> white-orange slit eyes, jaw torn open in a full roar showing molten fangs
+> and a furnace glowing down its throat, both huge clawed hands raised wide
+> with long jagged talons spread ready to slash, heavy gold-inlaid pauldrons
+> cracked and battle-scarred, embers and ash streaming up off its shoulders,
+> evil predatory stance leaning toward the viewer, full body head to feet, both
+> feet planted flat, front view, no rider, no other characters **[technical]**
+
+Then: `node tools/cut-bg.mjs src/source/boss/still.png --trim` →
+`node tools/pack-boss-still.mjs`.
+
+**The packer prints three numbers you then have to put back into it.** `LIGHTS`
+at the top of `tools/pack-boss-still.mjs` is the one thing in that file that is
+picked and not measured — the eyes, the open jaw and the chest, in *source*
+pixels — and they are picked because a hot-pixel search on art like this finds
+every rune on the beast's back instead. Open the new render, read the three
+points off it, edit them in, and run the packer again. Skipping that puts the
+boss's eye-flicker somewhere over its shoulder.
+
+Two clauses are load-bearing:
+
+- **both feet planted flat** — `FLOOR_COVER` in the packer finds the floor as
+  the lowest row carrying 8% of the figure's width. A beast rearing on one leg
+  has no such row and gets hung off its own knee.
+- **jaw torn open** — `roar()`, `spit()` and `lavaBreath()` all open a light
+  pinned to the maw. A closed mouth means every one of those beats fires a
+  glow at a slab of jaw.
+
 ## Animation
 
 Nothing in the build is frame-animated. The boss is one still,

@@ -37,11 +37,85 @@ let master = null;
 let noiseBuf = null;
 let voices = 0;
 let muted = false;
-let poked = false;
+/** True once the context has actually reached `running` — not once we tried. */
+let opened = false;
+let watching = false;
+/** Waiting on the audio genuinely opening. See onAudioOpen. */
+let openCbs = [];
 
 /** No window, no audio — and the creative still has to run. */
 function host() {
   return typeof window === "undefined" ? null : window;
+}
+
+function hidden() {
+  return typeof document !== "undefined" && document.hidden;
+}
+
+/**
+ * The iOS ring/silent switch.
+ *
+ * Web Audio with no media element behind it runs in an ambient session, and an
+ * ambient session is silenced by the hardware switch — not by the volume keys,
+ * which is why a phone in silent mode plays a mute creative at somebody who is
+ * pressing volume-up and getting nowhere. `playback` is the one session type
+ * that ignores the switch, and it is off by default because it also stops
+ * whatever the player was listening to. See AUDIO.overrideSilentSwitch.
+ */
+function session(w) {
+  if (!AUDIO.overrideSilentSwitch) return;
+  try {
+    if (w.navigator && w.navigator.audioSession) {
+      w.navigator.audioSession.type = "playback";
+    }
+  } catch (e) {
+    /* an unknown session type is not a reason to lose the audio */
+  }
+}
+
+/** The audio is genuinely open. Everything that was waiting on that runs. */
+function opening() {
+  opened = true;
+  const waiting = openCbs;
+  openCbs = [];
+  waiting.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      /* one listener throwing is not worth the rest of the audio */
+    }
+  });
+}
+
+/**
+ * Watch the context's own account of itself.
+ *
+ * Two things this catches that a flag of our own could not. Safari parks a
+ * context as `interrupted` — a call, a route change, a lock screen — and an
+ * interrupted context never comes back on its own. And `resume()` is a
+ * promise: the gesture that finally opens the audio has long since returned by
+ * the time the state flips, so nothing that must *begin* on the first sound
+ * can hang off the handler that unlocked it.
+ */
+function watch(c) {
+  if (watching || typeof c.addEventListener !== "function") return;
+  watching = true;
+  c.addEventListener("statechange", () => {
+    if (c.state === "running") {
+      opening();
+      return;
+    }
+    // Only what was taken from us, and only while somebody is looking: a
+    // context we parked ourselves reads `suspended`, and the ad being off
+    // screen is the one case where the silence is the point.
+    if (c.state === "interrupted" && opened && !hidden()) {
+      try {
+        c.resume().catch(() => {});
+      } catch (e) {
+        /* nothing left to try */
+      }
+    }
+  });
 }
 
 /**
@@ -62,6 +136,10 @@ function context() {
   } catch (e) {
     return null;
   }
+
+  session(w);
+  watch(ctx);
+  if (ctx.state === "running") opened = true;
 
   bus = ctx.createDynamicsCompressor();
   bus.threshold.value = -16;
@@ -89,19 +167,70 @@ export function audioBus() {
   return bus;
 }
 
+/** Whether sound is actually coming out, rather than merely having been asked for. */
+export function audioReady() {
+  return !!ctx && ctx.state === "running";
+}
+
+/**
+ * Run `fn` the moment the audio is genuinely open, or now if it already is.
+ *
+ * Anything that has to *begin* with the first sound — the bed — hangs off this
+ * rather than off a gesture, because the gesture handler has returned long
+ * before `resume()` settles.
+ */
+export function onAudioOpen(fn) {
+  if (audioReady()) {
+    fn();
+    return;
+  }
+  openCbs.push(fn);
+  // Constructing it is what arms the statechange watcher above.
+  context();
+}
+
 /**
  * Open the audio, from inside a user gesture.
  *
- * Safe to call on every touch and cheap after the first: resume() on a running
- * context is a no-op. The silent tick is the iOS half of it — some builds keep
- * a resumed context muted until a node has actually played through it.
+ * Safe to call on every gesture and free after the first: the live state is
+ * the guard, so audio taken away mid-fight simply comes back on the next
+ * swipe rather than staying gone for the session.
+ *
+ * Two things used to go wrong here and each one cost a session its sound.
+ * `resume()` was only tried while the state read exactly `suspended`, so
+ * Safari's `interrupted` was a dead end. And the silent tick was a one-shot,
+ * spent on the first `pointerdown` — an event that for a finger carries no
+ * user activation at all — so the tick went into a locked context and the
+ * `touchend` that could have opened it never got one. A tap survived that by
+ * accident. A swipe, which is the only thing anybody does to a match-3 board,
+ * did not.
+ *
+ * @returns {boolean} whether the context is running *already*; the gesture
+ *   that does the opening reports false, because resume() has not settled yet.
+ *   Use onAudioOpen to be told, and audioReady to ask.
  */
 export function unlockAudio() {
   const c = context();
-  if (!c) return;
-  if (c.state === "suspended" && c.resume) c.resume().catch(() => {});
-  if (poked) return;
-  poked = true;
+  if (!c) return false;
+  // Also the fallback for a webview with no `statechange` to listen to: the
+  // gesture after the one that opened the audio is what notices, and notices
+  // is all anything waiting on onAudioOpen needs.
+  if (c.state === "running") {
+    if (!opened) opening();
+    return true;
+  }
+
+  if (c.resume) {
+    try {
+      c.resume().catch(() => {});
+    } catch (e) {
+      /* the tick below is the other half and may still land */
+    }
+  }
+
+  // The iOS half: some builds keep a resumed context muted until a node has
+  // actually played through it. Every attempt gets one, until one of them
+  // takes — see the note above about why this used to be a one-shot.
   try {
     const src = c.createBufferSource();
     src.buffer = c.createBuffer(1, 1, c.sampleRate);
@@ -110,6 +239,8 @@ export function unlockAudio() {
   } catch (e) {
     /* the resume above was the part that mattered */
   }
+
+  return c.state === "running";
 }
 
 /** Park the audio while the ad is off screen; wake it when it comes back. */
@@ -117,7 +248,7 @@ export function audioSleep(asleep) {
   if (!ctx) return;
   try {
     if (asleep) ctx.suspend();
-    else if (poked) ctx.resume();
+    else if (opened) ctx.resume();
   } catch (e) {
     /* a context that will not park is not worth a broken creative */
   }

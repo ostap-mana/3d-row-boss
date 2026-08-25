@@ -17,9 +17,12 @@
  * The card hands its own box to fitCardFrame and gets the frame laid *on* that
  * box, margin hanging outside it. That is the whole contract, and it has not
  * changed: the cards wore a set of thick neon frames on this same contract until
- * these arrived. That art is still in src/assets/cards/frame-<colour>.webp, with
- * tools/slice-frames.mjs and tools/pack-frames.mjs still pointed at its own
- * sheet — swapping the six imports below back is the whole revert.
+ * these arrived. The packed neon set has since been swept out of src/assets with
+ * the rest of the dead art, but the revert is still cheap and still whole: its
+ * master sheet is kept at src/source/cards/frames-sheet.png, and
+ * `node tools/slice-frames.mjs` then `node tools/pack-frames.mjs` rebuilds
+ * src/assets/cards/frame-<colour>.webp from it. Swap the six imports below back
+ * and the cards are wearing neon again.
  */
 
 import { NineSliceSprite } from "pixi.js";

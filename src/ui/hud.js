@@ -1,5 +1,5 @@
 /**
- * Heads-up display: boss health, callouts, damage numbers, install banner.
+ * Heads-up display: boss health, callouts, damage numbers, the CTA lockup.
  *
  * The health bar deliberately carries no numbers — nobody reads
  * "7,500,000 / 10,000,000" in a twenty second creative (spec §7).
@@ -13,16 +13,15 @@ import { hpBarShape, hpBarPaint, HP_FRAME } from "../art/hpbar.js";
 import { glowTexture, sheenTexture } from "../art/textures.js";
 import { BossCrest, haveBossCrest } from "../art/crest.js";
 import {
-  BANNER_BAR_H,
-  BANNER_FILL,
-  BANNER_LABEL,
-  BANNER_LABEL_FILL,
-  BANNER_LABEL_STROKE,
-  BANNER_RIM,
-  bannerHeight,
-  ctaBannerSprite,
-  fitCtaBanner,
-} from "../art/ctabanner.js";
+  PLAY_FILL,
+  PLAY_LABEL,
+  PLAY_LABEL_STROKE,
+  PLAY_RIM,
+  fitLogo,
+  fitPlayPlate,
+  logoSprite,
+  playPlateSprite,
+} from "../art/brand.js";
 import { fitFont } from "./text.js";
 import * as sfx from "../audio/sfx.js";
 
@@ -309,27 +308,38 @@ export class Hud extends Container {
     this.banner = new Container();
     this.banner.alpha = 0;
     this.banner.visible = false;
-    // The painted gem banner — see art/ctabanner.js. It holds one aspect, so
-    // resize() asks it for a width and lets it name its own height; the end
-    // card's CTA keeps the nine-sliced gold plate, which is the only one of the
-    // two that can survive being pulled to 9:1 on a phone held sideways.
+    /**
+     * The end card's own lockup at HUD size: the wordmark over the PLAY NOW
+     * plate — see art/brand.js. Neither may be stretched, so each takes a width
+     * and stands at its own aspect; the layout has already reserved the height
+     * that implies. See `banner` in core/layout.js.
+     *
+     * Both are guarded, and separately. The brand art is decoded piece by piece
+     * and a device that could not read one of these still gets the other, so a
+     * missing wordmark leaves the plate exactly where it was rather than taking
+     * the CTA down with it.
+     */
     this.bannerBg = new Graphics();
     this.banner.addChild(this.bannerBg);
-    this.bannerArt = ctaBannerSprite();
+    this.bannerLogo = logoSprite();
+    if (this.bannerLogo) this.banner.addChild(this.bannerLogo);
+    this.bannerArt = playPlateSprite();
     if (this.bannerArt) this.banner.addChild(this.bannerArt);
 
     this.bannerText = new Text({
-      text: COPY.banner,
+      text: COPY.cta,
       style: {
         fontFamily: FONT,
         fontSize: 15,
         fontWeight: "900",
-        fill: BANNER_LABEL_FILL,
+        fill: PLAY_LABEL,
         letterSpacing: 1.2,
-        stroke: { color: BANNER_LABEL_STROKE, width: 3, join: "round" },
+        stroke: { color: PLAY_LABEL_STROKE, width: 3, join: "round" },
       },
     });
     this.bannerText.anchor.set(0.5);
+    // The plate has PLAY NOW painted into it. The label is the stand-in's label.
+    this.bannerText.visible = !this.bannerArt;
     this.banner.addChild(this.bannerText);
     this.banner.eventMode = "static";
     this.banner.cursor = "pointer";
@@ -503,52 +513,72 @@ export class Hud extends Container {
     this.callout.style.fontSize = this.calloutSize;
 
     /**
-     * The plate is handed a box by the layout and fills it — see `banner` in
+     * The lockup is handed a box by the layout and fills it — see `banner` in
      * core/layout.js, which is where the width and the corner are decided now
      * and why. This used to size itself and then hang itself off whichever
      * corner looked free from in here, which is how a gold plate came to be
      * drawn over the top right of the board: from inside the HUD the screen's
      * right edge looks like empty chrome, and sideways it is the play field.
      *
-     * The height in the box carries the breath `update` gives the plate. The
-     * art itself is fitted at its own resting aspect, so `bh` is asked for
-     * again here rather than read off the box.
+     * The `h` in the box already carries the breath `update` gives the lockup,
+     * which is the layout's business and not this one's — so what gets arranged
+     * here is measured off the pieces, at rest.
      */
-    const bw = layout.banner.w;
-    const bh = bannerHeight(bw);
-    const labelW = bw * BANNER_LABEL.w;
-    const labelH = bh * BANNER_LABEL.h;
+    const { w: bw, stacked, plateW, plateH, logoW, logoH, gap } = layout.banner;
+    const contentH = stacked ? logoH + gap + plateH : Math.max(logoH, plateH);
+    const top = -contentH / 2;
+    const left = -bw / 2;
+    const logoX = stacked ? 0 : left + logoW / 2;
+    const logoY = stacked ? top + logoH / 2 : 0;
+    const plateX = stacked ? 0 : left + logoW + gap + plateW / 2;
+    const plateY = stacked ? top + logoH + gap + plateH / 2 : 0;
+
+    if (this.bannerLogo) {
+      fitLogo(this.bannerLogo, logoW);
+      this.bannerLogo.position.set(logoX, logoY);
+    }
+
     // Set before fitting, not after: the rim is part of what the word measures.
     this.bannerText.style.stroke = {
-      color: BANNER_LABEL_STROKE,
-      width: Math.max(2, labelH * 0.16),
+      color: PLAY_LABEL_STROKE,
+      width: Math.max(2, plateH * 0.09),
       join: "round",
     };
-    fitFont(this.bannerText, labelW, Math.min(labelH * 0.78, 15 * ui));
+    fitFont(this.bannerText, plateW * 0.7, Math.max(12, plateH * 0.42));
+    this.bannerText.position.set(plateX, plateY);
 
     this.bannerBg.clear();
     if (this.bannerArt) {
-      fitCtaBanner(this.bannerArt, bw);
+      fitPlayPlate(this.bannerArt, plateW);
+      this.bannerArt.position.set(plateX, plateY);
     } else {
-      // Stand-in for a bitmap that never decoded, in the banner's own colours.
-      // It draws the bar alone — the finials and the two stars are silhouette,
-      // and a plain rectangle out to their reach is not the shape of anything.
-      const barH = bh * BANNER_BAR_H;
-      this.bannerBg.roundRect(-bw / 2, -barH / 2, bw, barH, barH * 0.26);
-      this.bannerBg.fill({ color: BANNER_FILL });
+      // Stand-in for a bitmap that never decoded, in the plate's own colours
+      // and cut to the box the plate would have filled — a device that fell
+      // back to it gets the same layout, not a second one. The CTA is the last
+      // thing in this creative allowed to go missing.
+      this.bannerBg.roundRect(
+        plateX - plateW / 2,
+        plateY - plateH / 2,
+        plateW,
+        plateH,
+        plateH * 0.22,
+      );
+      this.bannerBg.fill({ color: PLAY_FILL });
       this.bannerBg.stroke({
-        width: Math.max(2, barH * 0.1),
-        color: BANNER_RIM,
+        width: Math.max(2, plateH * 0.08),
+        color: PLAY_RIM,
       });
     }
-    // A few pixels of slack around the plate: it is a small target that slides
-    // into place, and a near miss on a CTA is a lost install.
+    // A few pixels of slack around the lockup: it is a small target that slides
+    // into place, and a near miss on a CTA is a lost install. The wordmark is
+    // inside the target too — it is part of the button rather than decoration
+    // beside one, and a thumb that lands on the logo meant the plate.
     const slack = 7 * ui;
     this.banner.hitArea = new Rectangle(
-      -bw / 2 - slack,
-      -bh / 2 - slack,
+      left - slack,
+      top - slack,
       bw + slack * 2,
-      bh + slack * 2,
+      contentH + slack * 2,
     );
     this.banner.x = layout.banner.x;
     this.banner.y = layout.banner.y;

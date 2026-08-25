@@ -11,12 +11,13 @@
  * painted gem with a faceted field, a gold frame and a diamond finial off each
  * end; the wordmark is type; the badges are somebody else's trade dress and
  * their proportions are not ours to change. So every fit here takes a width and
- * hands back the height that width implies — the same contract the gem banner
- * uses, and for the same reason. See art/ctabanner.js.
+ * hands back the height that width implies.
  *
  * The end card is laid out around those returned heights rather than around
  * numbers of its own, which is what lets one stack solve for a phone held
- * upright and the same one held sideways.
+ * upright and the same one held sideways. The HUD's persistent CTA is the same
+ * two pieces at a smaller width — the wordmark over the plate — for the same
+ * reason: see `banner` in core/layout.js.
  */
 
 import { Sprite } from "pixi.js";

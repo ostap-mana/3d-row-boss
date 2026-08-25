@@ -429,6 +429,91 @@ export class Vfx extends Container {
   }
 
   /**
+   * Three claws opening the air where the boss just swung.
+   *
+   * Drawn rather than painted, for the reason everything in this file is: it is
+   * zero kilobytes, it is sharp on any screen, and — the part that matters here
+   * — it can be aimed. The rake picks a side at random every time it plays, and
+   * marks baked into a sprite would have to be mirrored, which puts the light
+   * on the wrong side of the gash half the time.
+   *
+   * Each gash is a tapered lens, widest a third of the way along and nothing at
+   * either end, because that is the shape a claw leaves and a rounded rectangle
+   * is not. They open one after another rather than together: three lines that
+   * arrive on the same frame read as a graphic laid over the screen, and three
+   * that arrive forty milliseconds apart read as one hand going through.
+   */
+  claw(x, y, color, opts) {
+    const o = opts || {};
+    const dir = (o.dir || 1) < 0 ? -1 : 1;
+    const len = o.len || 460;
+    const gap = o.gap || 62;
+
+    const marks = new Container();
+    marks.x = x;
+    marks.y = y;
+    // Down and across, mirrored onto whichever side the body travelled.
+    marks.rotation = (o.angle === undefined ? 0.5 : o.angle) * dir;
+    this.field.addChild(marks);
+
+    // The heat behind the cut. Without it the gashes are three bright lines on
+    // a dark screen; with it they are three lines torn in something.
+    const heat = new Sprite(glowTexture());
+    heat.anchor.set(0.5);
+    heat.blendMode = "add";
+    heat.tint = color;
+    heat.alpha = 0;
+    heat.setSize(len * 1.1, gap * 4);
+    marks.addChild(heat);
+    tween(heat, { alpha: 0.5 }, 0.08).then(() =>
+      tween(heat, { alpha: 0 }, 0.34),
+    );
+
+    // Sized off the gap rather than in pixels: `gap` is handed down from the
+    // layout, and a gash measured in constants is a hairline on a tablet and a
+    // bar on a small phone.
+    const thick = gap * 0.42;
+    const core = o.core || 0xffd9e2;
+
+    for (let i = 0; i < 3; i++) {
+      const off = (i - 1) * gap;
+      // The middle claw runs longest and cuts deepest — a hand is not a comb.
+      const mid = i === 1;
+      const l = len * (mid ? 1 : 0.84);
+      const bow = l * 0.13;
+
+      const gash = new Graphics();
+      // Two passes, and the second is what makes this read as a cut rather
+      // than as a stripe: a wide soft body in the attack's colour, and a thin
+      // white-hot line down the middle of it. One pass at either width is a
+      // ribbon; the pair is an edge with heat coming off it.
+      for (const [k, tone] of [
+        [1, color],
+        [0.34, core],
+      ]) {
+        const wide = thick * (mid ? 1.5 : 1) * k;
+        gash.moveTo(-l / 2, off);
+        gash.quadraticCurveTo(0, off - bow - wide, l / 2, off);
+        gash.quadraticCurveTo(0, off - bow + wide, -l / 2, off);
+        gash.fill({ color: tone });
+      }
+      gash.blendMode = "add";
+      gash.scale.x = 0.05;
+      marks.addChild(gash);
+
+      tween(gash.scale, { x: 1 }, 0.09, {
+        delay: i * 0.04,
+        ease: Ease.quadOut,
+      });
+      // Held before it goes. At 0.12 the third claw was fading before the
+      // first had finished opening, and what the eye caught was a flicker.
+      tween(gash, { alpha: 0 }, 0.42, { delay: 0.2 + i * 0.04 });
+    }
+
+    delay(0.75).then(() => marks.destroy({ children: true }));
+  }
+
+  /**
    * Band of force rolling down the screen, boss floor to hero row.
    * This is what connects a golem at the top of the screen to the cards at
    * the bottom — without it the heroes just lose health for no visible reason.

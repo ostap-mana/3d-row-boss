@@ -3,7 +3,7 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * fifteen second fight — T.hardCap, and every other number in config.js is
+ * twenty second fight — T.hardCap, and every other number in config.js is
  * fitted to it — and hands the player to the store.
  */
 
@@ -19,7 +19,6 @@ import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
 import { loadCardFrames } from "./art/cardframe.js";
 import { loadBoardFrame } from "./art/boardframe.js";
-import { loadCtaBanner } from "./art/ctabanner.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadHeroAvatars } from "./art/avatars.js";
 import { loadHintHand } from "./art/hinthand.js";
@@ -33,12 +32,18 @@ import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
 import { Hud } from "./ui/hud.js";
 import { Hand } from "./ui/hand.js";
+import { Coach } from "./ui/coach.js";
 import { EndCard } from "./ui/endcard.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
-import { audioSleep, setMuted, unlockAudio } from "./audio/engine.js";
+import {
+  audioSleep,
+  onAudioOpen,
+  setMuted,
+  unlockAudio,
+} from "./audio/engine.js";
 import { bed } from "./audio/sfx.js";
 
 async function boot() {
@@ -66,9 +71,10 @@ async function boot() {
   // available when it was made, the arena so it is never briefly a
   // gradient, the painted gems because the board bakes its textures below and
   // a late arrival would miss that, the board frame because the Board constructor
-  // reads it to lay its grid out, the gem banner because the Hud picks it up as
-  // it is built, the wordmark and the PLAY NOW plate and the store badges
-  // because the EndCard does the same, the golem because the
+  // reads it to lay its grid out, the wordmark and the PLAY NOW plate and the
+  // store badges because the Hud and the EndCard both pick them up as they are
+  // built — the two CTA surfaces wear the same lockup now, so there is one set
+  // of brand art between them and no gem banner any more, the golem because the
   // Boss constructor either builds around the painting or falls back to the
   // drawn rig, the crest because the Hud only puts a badge on the bar if the
   // art for one arrived, the card plates and hero busts because each HeroCard does the
@@ -81,7 +87,6 @@ async function boot() {
     loadArena(),
     loadGemArt(),
     loadBoardFrame(),
-    loadCtaBanner(),
     loadBrandArt(),
     loadBossArt(),
     loadBossCrest(),
@@ -118,6 +123,8 @@ async function boot() {
   const vfx = new Vfx();
   const hud = new Hud((source) => ctaClick(source));
   const hand = new Hand();
+  // Above the gems it draws on and below the hand that points at them.
+  const coach = new Coach();
   const cutin = new CutIn();
   const endcard = new EndCard((source) => ctaClick(source));
 
@@ -126,7 +133,17 @@ async function boot() {
     if (director) director.onCardTap(index);
   });
 
-  world.addChild(bg, lavaMask, bossLayer, board, heroRow, vfx, hud, hand);
+  world.addChild(
+    bg,
+    lavaMask,
+    bossLayer,
+    board,
+    coach,
+    heroRow,
+    vfx,
+    hud,
+    hand,
+  );
   overlay.addChild(cutin, endcard);
 
   /* ------------------------------------------------------------ layout */
@@ -160,6 +177,7 @@ async function boot() {
     bg,
     boss,
     board,
+    coach,
     heroRow,
     hud,
     hand,
@@ -180,6 +198,7 @@ async function boot() {
     heroRow.resize(layout);
     hud.resize(layout);
     hand.resize(layout);
+    coach.resize(layout);
     vfx.resize(layout);
     cutin.resize(layout);
     endcard.resize(layout);
@@ -220,16 +239,39 @@ async function boot() {
    * makes noise at somebody who has not touched it yet has earned the mute it
    * gets. Whatever the intro plays into a suspended context is simply lost.
    *
-   * Both events, because a webview may deliver one and not the other, and
-   * neither is `once`: unlocking is idempotent and a wrapper that swallows the
-   * first gesture must not cost the whole ad its audio.
+   * Every gesture, in the capture phase, for the rest of the session. Each of
+   * those three is a session that used to come up silent:
+   *
+   *   - Every gesture, because only some of them carry the user activation an
+   *     unlock needs, and a finger's `pointerdown` carries none — for touch
+   *     the activation rides on `pointerup` and `touchend`. This list used to
+   *     be `pointerdown` and `touchend`, which is why a tap could open the
+   *     sound and a swipe was a coin toss. A swipe is the only thing anybody
+   *     does to a match-3 board.
+   *   - In the capture phase, because Pixi's own listeners sit on the canvas
+   *     and call preventDefault on the way past. Window capture runs first.
+   *   - For the rest of the session, because the audio can be taken away again
+   *     — a call, a route change, a lock screen — and the next swipe should
+   *     hand it back without anybody noticing. unlockAudio costs one state
+   *     read once the context is running.
    */
-  const wake = () => {
-    unlockAudio();
-    bed.start();
-  };
-  window.addEventListener("pointerdown", wake);
-  window.addEventListener("touchend", wake);
+  const wake = () => unlockAudio();
+  const GESTURES = [
+    "pointerdown",
+    "pointerup",
+    "touchstart",
+    "touchend",
+    "mousedown",
+    "click",
+    "keydown",
+  ];
+  GESTURES.forEach((type) =>
+    window.addEventListener(type, wake, { capture: true, passive: true }),
+  );
+  // The bed hangs off the context actually opening rather than off the gesture
+  // that opened it: resume() is a promise, and the handler that called it is
+  // long gone by the time it settles.
+  onAudioOpen(() => bed.start());
   // An ad scrolled off screen goes quiet rather than playing to an empty room.
   document.addEventListener("visibilitychange", () =>
     audioSleep(document.hidden),

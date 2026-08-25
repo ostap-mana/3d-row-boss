@@ -23,7 +23,7 @@ import {
   FRAME_ART,
   FRAME_OPENING,
 } from "../art/boardframe.js";
-import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
+import { tween, delay, Ease, killTweensOf, now } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 
@@ -42,7 +42,34 @@ const PROBE = { probe: true };
  * player. Two is the floor that makes "he takes one of your ideas" a threat
  * rather than a softlock.
  */
-const MIN_SWAPS = 2;
+export const MIN_SWAPS = 2;
+
+/**
+ * What a reshuffle aims to leave behind, as opposed to what it owes.
+ *
+ * The search used to stop at the first arrangement that cleared MIN_SWAPS,
+ * which parked the board back on the exact edge it had just fallen off: the
+ * boss's next block knocked it straight over again and the player watched the
+ * screen mix itself two and three times in a row. Four is headroom — enough
+ * that a wave of obsidian, or a cascade that eats half the board, costs the
+ * player options without costing them the board.
+ */
+const SHUFFLE_TARGET = 4;
+
+/**
+ * Seconds between one reshuffle and the next.
+ *
+ * Only a board with no move at all is allowed to ignore this. Everything else
+ * — the one-move board that is tight rather than dead — waits, because two
+ * mixes inside a second do not read as two events. They read as the game
+ * having a fit, and a mechanic the player cannot separate into beats is a
+ * mechanic they cannot learn to expect.
+ */
+const SHUFFLE_GAP = 2.0;
+
+/** The wind-up before the stones move, and the beat they land on. */
+const SHUFFLE_TELL = 0.22;
+const SHUFFLE_SETTLE = 0.16;
 
 /**
  * Alternating cell wash: a 5x5 still has to read as a grid.
@@ -102,6 +129,19 @@ export class Board extends Container {
     this.moveResolver = null;
     /** Something is writing the grid: a swap, a cascade, obsidian. See claim(). */
     this.busy = false;
+    /** Game-clock stamp of the last reshuffle — see SHUFFLE_GAP. */
+    this.lastShuffle = -Infinity;
+    /**
+     * The swap the opening lesson is showing but has not made, or null.
+     *
+     * A preview is a lie the board is telling on purpose: two gems are drawn
+     * on each other's cells while the model has them exactly where it always
+     * did. Everything that writes the grid cancels it first, because the one
+     * thing worse than not teaching the player is teaching them a board that
+     * is not the board. See previewSwap.
+     */
+    this.preview = null;
+    this.previewToken = 0;
 
     /** Hooks the director subscribes to. */
     this.onPop = null;
@@ -229,6 +269,10 @@ export class Board extends Container {
 
     // An orientation flip can land mid-cascade: cancel any in-flight motion
     // and snap gems to their cells rather than letting stale tween targets win.
+    // That includes a lesson in progress, which is drawn from cell positions
+    // that have just moved underneath it.
+    this.preview = null;
+    this.previewToken++;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const gem = this.grid[r][c];
@@ -398,7 +442,14 @@ export class Board extends Container {
   handleUp(e) {
     const drag = this.drag;
     this.drag = null;
-    if (drag && !drag.fired && this.onTouchEnd) this.onTouchEnd();
+    // Every touch that did not already spend itself on a swipe reports its end
+    // here, including one that never found a cell to begin with — a press on
+    // the frame is still a press, and letGo is a no-op when the prop was never
+    // taken. The director hangs the tutorial's re-arm off this being the
+    // honest end of a touch rather than the end of a *successful* one.
+    if (!drag || !drag.fired) {
+      if (this.onTouchEnd) this.onTouchEnd();
+    }
     if (!drag || drag.fired || !this.inputEnabled) return;
 
     // No swipe: fall back to tap-tap selection, which some players prefer.
@@ -475,6 +526,8 @@ export class Board extends Container {
   }
 
   async attemptSwap(a, b) {
+    // Whatever the lesson was showing, the player is answering it now.
+    this.cancelPreview();
     if (this.busy) return;
 
     // Encased gems do not budge. Same soft feedback as any other bad swap:
@@ -509,6 +562,92 @@ export class Board extends Container {
     const resolver = this.moveResolver;
     this.moveResolver = null;
     if (resolver) resolver({ a, b });
+  }
+
+  /* ------------------------------------------------------------- the lesson */
+
+  /**
+   * Trade two gems on screen without trading them in the model.
+   *
+   * This is what lets the opening tutorial show the move rather than describe
+   * it: the stones the player is looking at actually travel, and the three in
+   * a row they land in is the real board arrangement one swipe away — not an
+   * illustration of one. Calling it a second time on the same pair slides them
+   * home, which is what `home` is for.
+   *
+   * Deliberately outside claim(): a lesson that took the board would be a
+   * tutorial the player has to sit through, and the whole point is that they
+   * can swipe straight through it. Everything that does claim the board
+   * cancels the preview on its way in.
+   *
+   * @returns {Promise<boolean>} whether it finished without being cancelled
+   */
+  async previewSwap(a, b, dur, home) {
+    if (this.busy) return false;
+    const ga = this.grid[a.r][a.c];
+    const gb = this.grid[b.r][b.c];
+    if (!ga || !gb) return false;
+    if (this.isLocked(a.r, a.c) || this.isLocked(b.r, b.c)) return false;
+
+    const token = ++this.previewToken;
+    this.preview = { a, b };
+    await this.animateSwap(ga, gb, dur === undefined ? 0.4 : dur);
+    if (token !== this.previewToken) return false;
+    if (home) this.preview = null;
+    return true;
+  }
+
+  /**
+   * Put the shown board back to the board the model is holding.
+   *
+   * Called by everything that is about to write the grid, and by the director
+   * on the player's first touch. Cheap and safe to call when nothing is being
+   * previewed, which is most of the time.
+   */
+  cancelPreview() {
+    this.previewToken++;
+    if (!this.preview) return;
+    this.preview = null;
+    this.snapGems();
+  }
+
+  /** Every gem back on its own cell, killing whatever was moving it. */
+  snapGems() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const gem = this.grid[r][c];
+        if (!gem) continue;
+        killTweensOf(gem);
+        const p = this.cellPos(r, c);
+        gem.x = p.x;
+        gem.y = p.y;
+      }
+    }
+  }
+
+  /**
+   * What a swap would actually make: the run it completes, which end of it
+   * travels into that run, and which cells were already sitting in it.
+   *
+   * The lesson needs all three separately — the pair to light first, the stone
+   * to point at, and the line to join up afterwards — and none of them can be
+   * read off the swap alone. Model-only: it swaps, looks, and swaps back.
+   *
+   * @returns {?{run:Array, from:object, to:object, rest:Array}}
+   */
+  matchShape(a, b) {
+    this.swapModel(a, b);
+    const run = this.findMatches();
+    this.swapModel(a, b);
+    if (run.length === 0) return null;
+
+    const holds = (p) => run.some((cell) => cell.r === p.r && cell.c === p.c);
+    const to = holds(a) ? a : holds(b) ? b : null;
+    if (!to) return null;
+    const from = to === a ? b : a;
+    const rest = run.filter((cell) => !(cell.r === to.r && cell.c === to.c));
+    if (rest.length === 0) return null;
+    return { run, from, to, rest };
   }
 
   /** Tiny "this will not move" wobble on a block the player tried to drag. */
@@ -659,6 +798,24 @@ export class Board extends Container {
    */
   async whenQuiet() {
     while (this.busy) await delay(0.04);
+  }
+
+  /**
+   * Settles once no finger is on the board — or after `cap` seconds, whichever
+   * comes first.
+   *
+   * The boss lands its wave on its own clock and the player swipes on theirs,
+   * so the two collide constantly: a block written into a cell somebody is
+   * halfway through dragging out of costs them the move and never says why.
+   * Waiting out the gesture is most of the difference between the fight
+   * happening around the player and the fight happening to them.
+   *
+   * Bounded, because a thumb parked on the glass is not a reason for the boss
+   * to stop swinging.
+   */
+  async handsOff(cap) {
+    const until = now() + (cap === undefined ? 0.7 : cap);
+    while (this.drag && now() < until) await delay(0.04);
   }
 
   /**
@@ -940,10 +1097,32 @@ export class Board extends Container {
    * So this is a permutation, and only a permutation. Every arrangement it can
    * reach holds exactly the elements the board already had.
    *
+   * What it is not allowed to be is a surprise. It takes the board out of the
+   * player's hands for the best part of a second, and it used to do that with
+   * no warning, as often as three times inside two of them — which is not a
+   * mechanic anybody can learn to expect, it is a screen that occasionally
+   * stops working. Three rules pace it now, and between them they are the
+   * whole fix: it aims for SHUFFLE_TARGET rather than the bare floor, so the
+   * board it hands back does not fall over again on the next block; a board
+   * that still has a move waits SHUFFLE_GAP before it will fire a second time;
+   * and it announces itself before it moves anything — see tellShuffle. The
+   * boss holds up its end from the other side, in Director.worstCell, where it
+   * is no longer allowed to bury the board under the floor in the first place.
+   *
    * @returns {Promise<boolean>} whether a reshuffle was needed
    */
   async ensurePlayable() {
-    if (this.countSwaps() >= MIN_SWAPS) return false;
+    const swaps = this.countSwaps();
+    if (swaps >= MIN_SWAPS) return false;
+
+    // A board with one move left on it is tight, not dead, and restocking it
+    // is a courtesy rather than a rescue. The courtesy is what made the whole
+    // mechanic unreadable: the boss's wave took the count under the floor, the
+    // player's own cascade took it under again a beat later, and the screen
+    // mixed itself three times while they were still holding a swipe they
+    // never got to spend. So a courtesy waits its turn. A board with no move
+    // at all never waits — there is nothing left to wait for.
+    if (swaps > 0 && now() - this.lastShuffle < SHUFFLE_GAP) return false;
 
     const free = [];
     for (let r = 0; r < ROWS; r++) {
@@ -954,14 +1133,21 @@ export class Board extends Container {
     if (free.length < 2) return false;
 
     const gems = free.map((p) => this.grid[p.r][p.c]);
+    // The board as the player is reading it right now. The search deals over
+    // the grid to score its candidates, so this is what it has to put back
+    // before anything is allowed to be seen.
+    const original = gems.slice();
     const deal = (order) =>
       free.forEach((p, i) => {
         this.grid[p.r][p.c] = order[i];
       });
 
-    // Keep the best arrangement seen rather than the last one tried: a board
-    // this boxed in by obsidian may have no perfect permutation at all, and
-    // one legal move beats giving up and inventing gems.
+    // Keep the best arrangement seen rather than the first one that clears the
+    // floor. A board this boxed in by obsidian may have no perfect permutation
+    // at all, and one legal move beats giving up and inventing gems — but the
+    // opposite failure is the one that actually shipped: stopping the moment
+    // MIN_SWAPS was met handed the board back balanced on the same edge it had
+    // just fallen off. SHUFFLE_TARGET is where the search is happy to stop.
     let best = null;
     for (let attempt = 0; attempt < 60; attempt++) {
       for (let i = gems.length - 1; i > 0; i--) {
@@ -974,23 +1160,90 @@ export class Board extends Container {
       // An arrangement with a match already sitting on it would pay the player
       // for having run the board dry, so it does not count as solved.
       if (this.findMatches().length > 0) continue;
-      const swaps = this.countSwaps();
-      if (swaps >= MIN_SWAPS) {
-        best = gems.slice();
-        break;
+      const found = this.countSwaps();
+      if (!best || found > best.swaps) {
+        best = { order: gems.slice(), swaps: found };
       }
-      if (!best || swaps > best.swaps) {
-        const snapshot = gems.slice();
-        snapshot.swaps = swaps;
-        best = snapshot;
-      }
+      if (found >= SHUFFLE_TARGET) break;
     }
-    if (best) deal(best);
 
+    // Whatever the search tried, the player gets their own board back until
+    // the tell has played over it.
+    deal(original);
+    // Nothing better than what they already had is not worth taking the board
+    // away for. A silent no beats a mix that changes nothing.
+    if (!best || best.swaps <= swaps) return false;
+
+    // The mix is about to move every loose stone on the board; a preview of
+    // two of them going somewhere else is not something to reconcile.
+    this.cancelPreview();
+    this.lastShuffle = now();
     sfx.shuffle();
     if (this.onShuffle) this.onShuffle();
+    await this.tellShuffle(free);
+    deal(best.order);
     await this.slideShuffle(free);
+    await this.settleShuffle(free);
     return true;
+  }
+
+  /**
+   * The half-beat before the stones move.
+   *
+   * The reshuffle used to have no first frame. The chime, the banner and the
+   * gems sliding all landed together, so a swipe begun a moment earlier
+   * finished on stones that were already somewhere else — and from the other
+   * side of the glass that is not a mechanic, it is the game eating an input.
+   *
+   * So the board tenses first. Every loose gem draws in and lights up
+   * together, the gesture in flight is let go where the player can watch it
+   * happen rather than discover it afterwards, and only then does anything
+   * move. A fifth of a second costs the run nothing and is long enough to be
+   * felt before it is understood, which is the only way a beat this fast ever
+   * gets read.
+   */
+  async tellShuffle(cells) {
+    // Let the prop go the same way a real pointerup would, or the hand stays
+    // clamped to a gem that is about to be somewhere else.
+    if (this.drag && this.onTouchEnd) this.onTouchEnd();
+    this.drag = null;
+    this.clearSelection();
+    await Promise.all(
+      cells.map((p, i) => {
+        const gem = this.grid[p.r][p.c];
+        if (!gem) return Promise.resolve();
+        // Nothing here kills a tween it did not start, except on the glow:
+        // clearSelection above is fading one out this instant, and two live
+        // tweens on one alpha is a gem that flickers instead of tensing.
+        killTweensOf(gem.glow);
+        tween(gem.glow, { alpha: 0.5 }, SHUFFLE_TELL);
+        return tween(gem.scale, { x: 0.78, y: 0.78 }, SHUFFLE_TELL, {
+          delay: (i % COLS) * 0.012,
+          ease: Ease.quadIn,
+        });
+      }),
+    );
+  }
+
+  /**
+   * The stones land and take their size back.
+   *
+   * The closing bracket of the tell: the board is playable again, and it says
+   * so in the same language it used to say it was about to change. Without it
+   * the gems simply stay small and dim, and the player is left reading a board
+   * that looks like it is still mid-something.
+   */
+  async settleShuffle(cells) {
+    await Promise.all(
+      cells.map((p) => {
+        const gem = this.grid[p.r][p.c];
+        if (!gem) return Promise.resolve();
+        tween(gem.glow, { alpha: 0 }, SHUFFLE_SETTLE);
+        return tween(gem.scale, { x: 1, y: 1 }, SHUFFLE_SETTLE, {
+          ease: Ease.backOut,
+        });
+      }),
+    );
   }
 
   /**
@@ -1123,6 +1376,12 @@ export class Board extends Container {
    * has to have the board to itself.
    */
   async lockCells(cells) {
+    // The wave waits out a swipe already in flight rather than landing on top
+    // of it. See handsOff — bounded, so a parked thumb cannot stall the fight.
+    await this.handsOff();
+    // A block written over a gem the lesson has drawn somewhere else would
+    // trap the wrong stone on screen.
+    this.cancelPreview();
     const made = await this.claim(() => this.encase(cells));
     await Promise.all(made.map((m) => m.lock.form()));
     await this.claim(() => this.ensurePlayable());

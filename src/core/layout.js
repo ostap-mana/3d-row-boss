@@ -7,7 +7,7 @@
  */
 
 import { FRAME_ART, FRAME_OPENING } from "../art/boardframe.js";
-import { BANNER_ART } from "../art/ctabanner.js";
+import { LOGO_ART, PLAY_ART } from "../art/brand.js";
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -129,19 +129,71 @@ function gutter(w) {
  * layout is the one thing on this screen that knows where everything else is,
  * so it hands the HUD a box and the HUD fills it. See ui/hud.js.
  *
- * 124 is not arbitrary — it is the width at which the flat middle of the gem
- * plate carries its label at the 14 points the old drawn pill set it at, and
- * narrower means a smaller word with no slack to take. The height comes off the
- * art's own aspect, and the 1.045 is the breath the HUD gives it in update():
- * the star on its top edge is what touches first, so the box has to be measured
- * against the plate at its largest, not at rest.
+ * It is the wordmark over the PLAY NOW plate — the end card's own two pieces,
+ * at HUD size. It used to be the gem banner with INSTALL set across it, which
+ * spent the one persistent surface in the fight on the one word in the
+ * creative that names a chore rather than the game, and spent it in art
+ * nothing else on screen wears. The card's lockup is the thing the player is
+ * being walked towards; showing it early is what makes the card a landing
+ * rather than an interruption.
+ *
+ * 124 is not arbitrary — it is the width at which the PLAY NOW baked into the
+ * plate still reads on the smallest phone this runs on, and the plate is the
+ * half that has to be legible. The wordmark is held under that width rather
+ * than matched to it: flush edges read as one blob at this size.
+ *
+ * Both heights come off their arts' own aspects, and the 1.045 is the breath
+ * the HUD gives the lockup in update() — the box is measured against it at its
+ * largest, not at rest.
  */
 const BANNER_W = 124;
+/** The wordmark over the plate, as a fraction of the plate's width. */
+const BANNER_LOGO_W = 0.84;
+/** Beside it instead, where the wordmark is no longer paying in height. */
+const BANNER_LOGO_W_WIDE = 0.9;
+/** Air between the two, as a fraction of the plate's height. */
+const BANNER_GAP = 0.2;
 const BANNER_BREATH = 1.045;
 
-function bannerBox(ui) {
-  const w = Math.max(100, BANNER_W * ui);
-  return { w, h: ((w * BANNER_ART.h) / BANNER_ART.w) * BANNER_BREATH };
+/**
+ * The box, and the pieces inside it.
+ *
+ * The HUD arranges them and does not size them, so what the layout reserves and
+ * what actually gets drawn cannot drift — which is the whole reason this plate
+ * stopped being the HUD's own business.
+ *
+ * `stacked` is why the two orientations get different shapes rather than one
+ * shape at two scales. Upright the lockup is an overlay in the corner above the
+ * golem: height there is free and width is not, so the wordmark goes over the
+ * plate. Sideways the CTA is a bought band across the top and the board yields
+ * the height for it — every point the lockup grows downwards is a point off the
+ * grid — so the wordmark goes beside the plate instead and the band stays one
+ * plate tall. Stacking it in both would have cost a landscape board a ninth of
+ * its size to say the same thing.
+ *
+ * @param {boolean} stacked wordmark over the plate, rather than left of it
+ * @returns {{w:number,h:number,stacked:boolean,plateW:number,plateH:number,
+ *   logoW:number,logoH:number,gap:number}}
+ */
+function bannerBox(ui, stacked) {
+  const plateW = Math.max(100, BANNER_W * ui);
+  const plateH = (plateW * PLAY_ART.h) / PLAY_ART.w;
+  const logoW = plateW * (stacked ? BANNER_LOGO_W : BANNER_LOGO_W_WIDE);
+  const logoH = (logoW * LOGO_ART.h) / LOGO_ART.w;
+  const gap = plateH * BANNER_GAP;
+  const content = stacked
+    ? { w: plateW, h: logoH + gap + plateH }
+    : { w: logoW + gap + plateW, h: Math.max(logoH, plateH) };
+  return {
+    w: content.w,
+    h: content.h * BANNER_BREATH,
+    stacked,
+    plateW,
+    plateH,
+    logoW,
+    logoH,
+    gap,
+  };
 }
 
 /**
@@ -251,7 +303,7 @@ function portraitLayout(w, h, ui, safe) {
   // screen's right edge less the gutter. Nothing is reserved for it: the board
   // in portrait starts a long way below the chrome — it is the boss's band that
   // is up here — and the plate has never had to be fitted in against anything.
-  const plate = bannerBox(ui);
+  const plate = bannerBox(ui, true);
 
   return {
     w,
@@ -261,10 +313,9 @@ function portraitLayout(w, h, ui, safe) {
     safe,
     board: { x: boardX, y: boardY, size, cell },
     banner: {
+      ...plate,
       x: safe.left + gut + chromeW - plate.w / 2,
       y: chromeBottom + 3 * ui + plate.h / 2,
-      w: plate.w,
-      h: plate.h,
     },
     boss: {
       x: w / 2,
@@ -315,7 +366,7 @@ function landscapeLayout(w, h, ui, safe) {
    * it is a little over a tenth of the board — a cell of 145 points against 126,
    * both of them still well past the flat 520 this used to be capped at.
    */
-  const plate = bannerBox(ui);
+  const plate = bannerBox(ui, false);
   const bannerY = chromeBottom + 3 * ui + plate.h / 2;
   const bandBottom = bannerY + plate.h / 2 + pad * 0.6;
 
@@ -372,10 +423,9 @@ function landscapeLayout(w, h, ui, safe) {
     // plate and the grid under it share an edge, so the two read as one column
     // of chrome rather than as a badge that happened to land there.
     banner: {
+      ...plate,
       x: rightEdge - plate.w / 2,
       y: bannerY,
-      w: plate.w,
-      h: plate.h,
     },
     // The bar gets the boss's column and not a point more. It used to be
     // `max(w * 0.4, column)`, a floor under how short the health bar is allowed

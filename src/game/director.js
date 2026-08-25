@@ -44,6 +44,7 @@ import {
   ULT_HEAL_TO,
   WATER,
 } from "../config.js";
+import { MIN_SWAPS } from "./board.js";
 import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
@@ -98,6 +99,15 @@ export class Director {
     this.healsUsed = 0;
 
     this.idleToken = 0;
+    /**
+     * The one hint the creative gives. `openingSpent` is the whole of its
+     * lifetime rule: armed until the player does something, then never again.
+     * `openingLive` is whether the hand is demonstrating right now, which is
+     * what refreshHint needs to know before it re-points at a moved board.
+     */
+    this.openingToken = 0;
+    this.openingSpent = false;
+    this.openingLive = false;
     this.moveToken = 0;
     this.ultResolver = null;
     this.ultQueued = false;
@@ -136,12 +146,28 @@ export class Director {
       scene.shake(7, 0.22);
     };
     board.onShuffle = () => {
-      hud.shout(COPY.shuffle, 0.5, { fill: 0xc9b6ff, from: 1.3 });
+      // Held for the whole tell-slide-settle beat rather than half of it: the
+      // banner is the only thing on screen that names what is happening, and
+      // one that clears while the stones are still moving explains nothing.
+      hud.shout(COPY.shuffle, 0.75, { fill: 0xc9b6ff, from: 1.3 });
+      // No refreshHint here on purpose: this fires before the stones have
+      // moved, so the board it would solve is the one about to be thrown away.
+      // dropObsidian and eruptObsidian re-point the hand after lockCells has
+      // been all the way through ensurePlayable, which is the correct moment.
     };
-    // A rejected swap gets the hand back instantly — no buzzer, no red flash.
-    board.onInvalid = () => this.restartIdle(true);
+    // A rejected swap gets the hand back instantly — no buzzer, no red flash,
+    // and the lesson back on the clock: a swap that bounced is the clearest
+    // signal in the fight that the rule has not landed yet.
+    board.onInvalid = () => {
+      this.restartOpeningHint();
+      this.restartIdle(true);
+    };
     board.onInteract = () => {
       this.playerActed = true;
+      // A finger on the glass, which is not the same thing as a move. The
+      // lesson gets out of the way of it and comes back if nothing comes of
+      // it — see pauseOpeningHint, and spendOpeningHint for what does end it.
+      this.pauseOpeningHint();
       this.restartIdle();
     };
 
@@ -168,6 +194,10 @@ export class Director {
     }
     board.onTouchEnd = () => {
       hand.letGo();
+      // Nothing came of that touch, or the swap it fired is still being
+      // judged. Either way the lesson goes back on its timer, and a move that
+      // does land spends it before the timer can run out.
+      this.restartOpeningHint();
       this.restartIdle();
     };
   }
@@ -190,7 +220,7 @@ export class Director {
    * The clock ran out with the boss still standing.
    *
    * This used to be nothing at all: the race resolved, `finish` set the end
-   * card, and a creative that had spent fifteen seconds telling the player a
+   * card, and a creative that had spent twenty seconds telling the player a
    * cataclysm was coming simply stopped one frame later. The one mechanic the
    * whole mode is built on had never fired, because with DOOM.seconds equal to
    * the runtime the clock can never reach zero inside it, and the ending was a
@@ -207,7 +237,7 @@ export class Director {
    * caught it, because a strip reading five seconds under a cataclysm landing is
    * the creative disagreeing with itself in the last two seconds anybody watches.
    *
-   * Runs after T.hardCap rather than inside it, so the deliverable is fifteen
+   * Runs after T.hardCap rather than inside it, so the deliverable is twenty
    * seconds of fight and then this. Everything in it is already bounded — see
    * bossSettled, which will wait 0.8s for an in-flight swing and no longer.
    */
@@ -252,6 +282,15 @@ export class Director {
 
       const action = await this.playerTurn();
       if (this.ended) return;
+
+      // A move actually made — a swap that matched, or a hero spent. This and
+      // nothing else retires the opening lesson: it is the first moment the
+      // player has demonstrably understood what the board is for, and it is
+      // deliberately not "they touched the screen". A first-timer's opening
+      // gesture is a tap on nothing or a swap that bounces, and a tutorial
+      // that treats either as comprehension is a tutorial that vanishes
+      // exactly when it was about to be needed.
+      if (action === "swap" || action === "ult") this.spendOpeningHint();
 
       // A boss beat ended the fight while the player was still holding their
       // move. The checks at the top of the loop are what act on it.
@@ -442,7 +481,7 @@ export class Director {
     await Promise.all([roaring, entering]);
     // Banner clock starts once the player can actually act.
     this.startBannerTimer();
-    hud.shout(COPY.tutorial, 0.7);
+    hud.shout(COPY.tutorial, COPY.tutorialHold);
   }
 
   startBannerTimer() {
@@ -653,8 +692,12 @@ export class Director {
   onCardTap(index) {
     if (this.ended) return;
     this.playerActed = true;
+    this.pauseOpeningHint();
     if (!this.canUlt(index)) {
-      // That hero is not charged, or is down: no penalty, just point again.
+      // That hero is not charged, or is down: no penalty, just point again —
+      // and the lesson goes back on its clock, because a tap on a card the
+      // player cannot spend is one more thing that did not turn into a move.
+      this.restartOpeningHint();
       this.restartIdle();
       return;
     }
@@ -994,9 +1037,13 @@ export class Director {
   blockAnOption() {
     const board = this.s.board;
     const swaps = board.listSwaps();
-    // Never take the last one. If the board is somehow down to a single move,
-    // the wave squeezes elsewhere and ensurePlayable() restocks afterwards.
-    if (swaps.length < 2) return null;
+    // Never take the board under the floor it owes the player. It used to be
+    // allowed down to a single move, which meant the boss itself was the thing
+    // triggering most reshuffles: it buried an option, ensurePlayable found the
+    // count short and mixed the board, and the player got a wave and a
+    // scramble as one indistinguishable event. Leaving MIN_SWAPS standing
+    // makes "he takes one of your ideas" the whole of what happens.
+    if (swaps.length <= MIN_SWAPS) return null;
 
     const shortlist = swaps.slice(0, Math.min(OPTIONS_IN_PLAY, swaps.length));
     const target = shortlist[rndInt(shortlist.length)];
@@ -1007,7 +1054,7 @@ export class Director {
     let best = null;
     ends.forEach((cell) => {
       const left = board.probeLock(cell.r, cell.c, () => board.countSwaps());
-      if (left < 1) return;
+      if (left < MIN_SWAPS) return;
       const denied = swaps.length - left;
       if (!best || denied > best.denied) best = { cell, denied };
     });
@@ -1039,8 +1086,10 @@ export class Director {
       for (let c = 0; c < COLS; c++) {
         if (board.isLocked(r, c)) continue;
         const left = board.probeLock(r, c, () => board.countSwaps());
-        // Never the cell that empties the board — the player is owed a move.
-        if (left < 1) continue;
+        // Never a cell that takes the board under its floor — the player is
+        // owed MIN_SWAPS, and a squeeze that spends them is a squeeze that
+        // hands the turn straight to the reshuffle. See blockAnOption.
+        if (left < MIN_SWAPS) continue;
         const water = board.typeAt(r, c) === WATER ? 1 : 0;
         const central = 1 - Math.abs(c - mid) / (mid || 1);
         scored.push({
@@ -1079,12 +1128,62 @@ export class Director {
     if (this.ended) return;
     const cells = this.pickObsidian(attack);
 
-    if (attack.kind === "smash") {
+    if (attack.kind === "rake") {
+      await this.bossRake(attack, cells);
+    } else if (attack.kind === "smash") {
       await this.bossSmash(attack, cells);
     } else {
       await this.bossBreath(attack, cells);
     }
     this.turn++;
+  }
+
+  /**
+   * Claw rake: the beast swipes, and three gashes come down the screen.
+   *
+   * The short beat on the track. Breath and slam are both a wind-up, a
+   * travelling effect and a landing, and they take the better part of a second
+   * and a half each — on a fourteen second playable window that is a tenth of
+   * the run per swing, which is why there were only ever going to be four of
+   * them. This one is a wind-up and a hit, it is over in about half of that,
+   * and it is the one the fight can afford to repeat.
+   *
+   * `boss.rake()` returns the side the body actually travelled to, and the
+   * claw marks are laid along it. That handshake is the whole point of the
+   * beat: a swipe to the left with the marks torn to the right is two effects
+   * playing at once, not one attack.
+   */
+  async bossRake(attack, cells) {
+    const { boss, hud, vfx, shake, layout } = this.s;
+
+    hud.shout(attack.shout || COPY.rake, 0.4, { fill: 0xff5a6e, from: 1.4 });
+    const dir = await boss.rake();
+    if (this.ended) return;
+
+    // On the beast rather than in front of it: the marks are what its own
+    // claws opened, so they start where the claws are and the wave below is
+    // what carries the hit down to the row.
+    const at = boss.impactPoint();
+    shake(16, 0.4);
+    vfx.claw(at.x, at.y + layout.h * 0.02, 0xff3a5a, {
+      dir,
+      len: layout.w * 1.05,
+      gap: layout.h * 0.032,
+    });
+    vfx.flash(0xff2a3a, 0.16, 0.3);
+
+    const spreading = this.dropObsidian(cells, 0.06);
+
+    const row = layout.cards;
+    await vfx.wave(at.y, row.y + row.h * 0.5, 0xff3a5a, {
+      thickness: row.h * 1.1,
+      duration: 0.2,
+    });
+    if (this.ended) return;
+
+    const falling = this.strikeHeroes(attack);
+    shake(11, 0.32);
+    await Promise.all([spreading, falling, delay(0.22)]);
   }
 
   /**
@@ -1278,6 +1377,16 @@ export class Director {
    */
   refreshHint() {
     if (this.ended || !this.idleHint) return;
+    // The opening hand is not on the idle timer and restartIdle would not
+    // touch it — T.hints is off, and that is the gate it returns on. It still
+    // has to be re-aimed, for the same reason everything else here does: the
+    // lava lands on the cells the player is most likely to be looking at.
+    if (this.openingLive && !this.openingSpent) {
+      if (this.s.coach) this.s.coach.stop();
+      this.s.board.cancelPreview();
+      this.pointOpeningHand();
+      return;
+    }
     this.idleHint = this.currentHint();
     this.restartIdle();
   }
@@ -1443,7 +1552,116 @@ export class Director {
     this.idleHint = hint;
     this.armAutoPlay();
     this.armBossPress();
+    this.armOpeningHint();
     this.restartIdle();
+  }
+
+  /* ------------------------------------------------------- the one hint */
+
+  /**
+   * Arm the opening hint: the hand demonstrating the first swap, once.
+   *
+   * Armed from every player turn rather than once from the intro, and that is
+   * deliberate. A turn can end without the player having touched anything —
+   * the cataclysm collects, the boss's track wipes the party — and the
+   * `stopIdle` that ends it takes the hand off the screen with everything
+   * else. Re-arming here is what puts it back for a player who has still not
+   * moved, and `openingSpent` is what guarantees it never comes back for one
+   * who has.
+   */
+  armOpeningHint() {
+    if (this.openingSpent || !T.openingHint) return;
+    const token = ++this.openingToken;
+    delay(T.openingHint).then(() => {
+      if (token !== this.openingToken || this.ended || this.openingSpent) {
+        return;
+      }
+      this.pointOpeningHand();
+    });
+  }
+
+  /**
+   * A finger landed on the board. Step aside without giving up.
+   *
+   * The hand prop is about to be taken by the touch anyway (Hand.grab bumps
+   * the same token the lesson is driving), and a preview showing two stones on
+   * each other's cells is not a board anybody should be swiping on. So both
+   * come down immediately — and the rule stays armed, because a touch is not
+   * an understanding.
+   */
+  pauseOpeningHint() {
+    if (this.openingSpent) return;
+    this.openingToken++;
+    this.openingLive = false;
+    if (this.s.coach) this.s.coach.stop();
+    this.s.board.cancelPreview();
+    this.s.hand.setUrgency(1);
+  }
+
+  /** Back on the clock after a touch that did not turn into a move. */
+  restartOpeningHint() {
+    if (this.openingSpent || this.ended) return;
+    this.armOpeningHint();
+  }
+
+  /**
+   * Run the opening lesson on the swap the board is currently offering.
+   *
+   * The swap is solved fresh rather than remembered: the board it was armed
+   * against is a second old by the time this runs, and on a bad second the
+   * boss has dropped a block on the cell it was going to point at.
+   *
+   * `matchShape` is what makes this a lesson rather than a hint — it takes the
+   * swap apart into the pair that is already lined up, the stone that has to
+   * travel and the run the two of them make, which are the three things
+   * ui/coach.js needs to say "three of these, in a line" without a word of
+   * copy. If the board somehow offers a swap whose shape cannot be read, the
+   * old behaviour is still underneath: hand, two lit gems, no lesson.
+   */
+  pointOpeningHand() {
+    const { hand, board, coach } = this.s;
+    const hint = this.currentHint();
+    if (!hint) return;
+
+    this.idleHint = hint;
+    if (this.highlighted) board.setHighlight(this.highlighted, false);
+    this.highlighted = null;
+    this.openingLive = true;
+    hand.setUrgency(1.15);
+
+    const shape = coach && board.matchShape(hint.a, hint.b);
+    if (shape) {
+      coach.play(board, hand, shape);
+      return;
+    }
+    this.pointHand();
+    this.highlighted = [hint.a, hint.b];
+    board.setHighlight(this.highlighted, true);
+  }
+
+  /**
+   * The player showed up. The hand comes off, and stays off.
+   *
+   * Called before the board hands the same touch on to `hand.grab`, so the
+   * demo is already cancelled by the time the prop goes to the finger — see
+   * Board.handleDown, where onInteract fires first for exactly this reason.
+   */
+  spendOpeningHint() {
+    if (this.openingSpent) return;
+    this.openingSpent = true;
+    this.openingLive = false;
+    this.openingToken++;
+    if (this.s.coach) this.s.coach.stop();
+    // Whatever the lesson was showing, the board goes back to the board.
+    this.s.board.cancelPreview();
+    // Back to its own size before the prop goes to the finger: the demo hand
+    // is shown a shade large on purpose, and the player's is not a demo.
+    this.s.hand.setUrgency(1);
+    this.s.hand.stop();
+    if (this.highlighted) {
+      this.s.board.setHighlight(this.highlighted, false);
+      this.highlighted = null;
+    }
   }
 
   /**
@@ -1601,6 +1819,13 @@ export class Director {
     this.idleToken++;
     this.moveToken++;
     this.pressToken++;
+    // Only the pending chain, not the rule: armOpeningHint puts it back on the
+    // next player turn if the player still has not moved. spendOpeningHint is
+    // the one thing that ends it for good.
+    this.openingToken++;
+    this.openingLive = false;
+    if (this.s.coach) this.s.coach.stop();
+    this.s.board.cancelPreview();
     this.idleHint = null;
     this.s.hand.stop();
     if (this.highlighted) {

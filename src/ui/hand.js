@@ -208,6 +208,54 @@ export class Hand extends Container {
     });
   }
 
+  /* ------------------------------------------------- a lesson, beat by beat */
+
+  /**
+   * The same gesture as swipeLoop, taken apart.
+   *
+   * swipeLoop owns its own timing, which is right for a hint that only has to
+   * nag and wrong for a lesson: the opening tutorial has to move the hand and
+   * the stone under it on the same clock, and it cannot do that from outside a
+   * loop that decides for itself when the travel starts. So the demo is handed
+   * over in three pieces and the caller keeps the beat — see ui/coach.js.
+   *
+   * `reach` returns the token the rest of the beats have to be passed, and 0
+   * if the prop was refused or taken. Every piece re-checks it, so a real
+   * touch arriving mid-lesson (grab bumps the same token) stops the whole
+   * thing exactly where it is rather than fighting the finger for the hand.
+   *
+   * @returns {Promise<number>} the token to drive the rest of the beats with
+   */
+  async reach(x, y) {
+    if (this.held) return 0;
+    const id = ++this.token;
+    this.visible = true;
+    this.x = x;
+    this.y = y;
+    this.alpha = 0;
+    this.applySize();
+    await tween(this, { alpha: 1 }, 0.18);
+    if (id !== this.token) return 0;
+    await this.press();
+    return id === this.token ? id : 0;
+  }
+
+  /** Carry the pressed hand to another point. */
+  async slideTo(id, x, y, dur) {
+    if (id !== this.token) return false;
+    await tween(this, { x, y }, dur, { ease: Ease.cubicInOut });
+    return id === this.token;
+  }
+
+  /** Let go and fade out. Fire and forget: nothing waits on a hand leaving. */
+  async leave(id) {
+    if (id !== this.token) return;
+    await this.release();
+    if (id !== this.token) return;
+    await tween(this, { alpha: 0 }, 0.2);
+    if (id === this.token && this.alpha === 0) this.visible = false;
+  }
+
   /** Loop a tap demo on one point until stopped. */
   tapLoop(at) {
     if (this.held) return;

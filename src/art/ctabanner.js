@@ -1,5 +1,13 @@
 /**
- * The gem banner — the painted plate under INSTALL in the HUD corner.
+ * The gem banner — the painted plate that used to sit under INSTALL in the HUD
+ * corner.
+ *
+ * Nothing imports this any more. The HUD's persistent CTA is the end card's own
+ * lockup at a smaller width now — the wordmark over the PLAY NOW plate, out of
+ * art/brand.js — so the fight and the card make the same promise in the same
+ * furniture, and INSTALL is not a word this creative says at all. Kept here,
+ * with tools/pack-cta-banner.mjs, only so the art is not lost; it is out of the
+ * bundle for as long as it is out of main.js.
  *
  * `src/assets/ui/cta-banner.webp` is a 512x141 cutout packed out of a 2172x724
  * render by tools/pack-cta-banner.mjs: a gem bar in a gold frame, a diamond

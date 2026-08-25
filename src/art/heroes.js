@@ -398,7 +398,11 @@ const BAR_SHARE = 0.088;
  *            never reflows by a fraction of one.
  *
  * Re-measure if the face or the weight changes; the type sizing below is derived
- * from these and nothing else.
+ * from these and nothing else. That includes the day Elan ITC Pro arrives in
+ * src/assets/fonts: it is the head of FONT and these readouts are the one place
+ * in the game whose type size is not fitted at runtime but solved from the three
+ * numbers here, so a serif with its own cap height draws at the grotesque's size
+ * until they are taken again.
  */
 const OSWALD = { cap: 0.825, descend: 0.015, advance: 0.55 };
 

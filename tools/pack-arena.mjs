@@ -31,49 +31,60 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const JOBS = [
   {
-    src: "src/source/arena/sky-4k.png",
+    src: "src/source/arena/gate.png",
     out: "src/assets/arena/sky.webp",
     /**
-     * Drop the top quarter — the empty blue above the cloud swirl.
+     * Drop the top quarter — the storm sky, and with it the gate's horns.
      *
-     * Not a taste call, a geometry one. The layout pins the painting's cloud
-     * line to the boss floor, which sits about 0.42 down a portrait screen,
-     * and the fit can only slide the picture by the overscan it has. In the
-     * export as delivered the cloud shelf sits at 0.68 of the height, and no
-     * affordable amount of overscan can drag a point that low that far up —
-     * the fit clamps, and the boss ends up standing in open sky above the
-     * clouds. Cutting the top moves the shelf to 0.58 of what is left, which
-     * the fit can reach. The swirl survives; only the flat blue above it goes,
-     * and that is the strip the HUD scrim covers anyway.
+     * Not a taste call, a geometry one, and the same one the sky castle this
+     * replaced was cut for. The layout pins the painting's floor line to the
+     * boss floor, which sits about 0.42 down a portrait screen, and `fitArena`
+     * can only slide the picture by the overscan it has. Work the clamp
+     * backwards and it gives a hard rule: the pin is only reachable when the
+     * floor sits at or above `1 - 0.58/OVERSCAN` of the packed art.
+     *
+     * In this render the courtyard stone starts at 0.63 of the height, and 0.63
+     * needs an overscan of 1.57 — which is a 2.2x blow-up of a 1254px source on
+     * a phone, i.e. a painting drawn by the GPU's bilinear filter. Cutting the
+     * top 26% moves the floor to 0.50 of what is left, which OVERSCAN 1.25
+     * reaches with room to spare.
+     *
+     * What goes is the horned skull over the gate, and that is worth saying out
+     * loud because it is the best thing in the picture. It could not have been
+     * shown anyway: a portrait screen has 42% of its height above the boss
+     * floor and this art has 63% above its own, so a third of the art above the
+     * floor line is unshowable at any crop — and what stands in that space on
+     * screen is the boss. The horns lose to the monster, which is the right way
+     * round. The pillars, the rune panels and the black doorway all survive,
+     * and those are what the beast is actually read against.
      */
-    crop: { top: 0.239 },
+    crop: { top: 0.26 },
     /**
-     * Height, not width — height is the dimension a 9:16 screen makes this
-     * picture cover, and the wide crop means the sides are thrown away on a
-     * phone regardless.
+     * The crop's own height: no downscale at all, which is as sharp as this
+     * source can ever be, and it is not enough.
      *
-     * 1559 is the crop's own height: no downscale at all, which is as sharp as
-     * this source can ever be. It is not a taste call either. The layout covers
-     * the screen and then multiplies by OVERSCAN 1.45, so the picture is always
-     * magnified on a phone — at the 1300 this shipped at, a 390x844 screen at
-     * 2x drew the texture 2448 device pixels tall, a 1.88x blow-up, and a Pixel
-     * 7 managed 2.04x. Every cloud edge in the painting was being invented by
-     * the GPU's bilinear filter.
+     * The delivered render is 1254 square — a fifth of the pixels the sky
+     * castle export had — so after the crop there are 928 rows to cover a
+     * screen the layout then magnifies by OVERSCAN. A 390x844 phone at 2x draws
+     * this 2530 device pixels tall, a 2.7x blow-up. That is soft, and no
+     * setting in this file fixes it: there are no more pixels in the file.
      *
-     * At 1559 the same screen lands at 1.57x, and the iPhone SE class at 1.24x.
-     * Still magnified — the delivered export is only 2048 tall before the crop,
-     * so there is no setting here that reaches 1:1 — but it is the whole of
-     * what the source has, and it costs about 50 kB.
+     * It is survivable here in a way it was not for the sky, and the reason is
+     * what the two paintings are made of. A cloud bank is one long gentle ramp
+     * and a bilinear stretch across it invents visible seams; cracked stone,
+     * banners and firelight are high-frequency noise, and a stretch across
+     * those reads as haze rather than as error. Re-run the arena prompt in
+     * prompts.md at 4K if this ever has to hold up on a tablet.
      */
-    height: 1559,
+    height: 928,
     /**
-     * Higher than the end card's key art runs at. Smooth sky is exactly where
-     * WebP's chroma handling shows its seams — a cloud bank is one long gentle
-     * ramp, and banding across it is far more visible than a soft edge on rock
-     * ever was. It still lands small: gradients are what this codec is good at.
+     * Lower than the sky arena's 84. This picture is stone, ember and shadow
+     * rather than one long gradient, so the banding that quality was buying
+     * protection from is not a failure mode here — and the source is small
+     * enough that every kilobyte of it lands in the bundle magnified.
      */
-    quality: 84,
-    what: "sky arena",
+    quality: 80,
+    what: "gate arena",
   },
 ];
 

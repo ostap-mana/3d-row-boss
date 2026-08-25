@@ -323,14 +323,16 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Fifteen, which is the length of the whole creative — so read what this now
-   * is rather than what it says: the clock is a fifteen second countdown that
-   * never reaches zero. T.hardCap is 15, the intro spends about two of them and
-   * T.finaleReserve holds back 3.5, so there are about 9.5 playable seconds and
-   * the label runs 15 down to 5 or so before the end card takes the screen.
+   * Twenty, which is the length of the whole creative — so read what this now
+   * is rather than what it says: the clock is a twenty second countdown that
+   * never reaches zero. T.hardCap is 20, the intro spends about two of them and
+   * T.finaleReserve holds back 3.5, so there are about 14.5 playable seconds
+   * and the label runs 20 down to 5 or so before the end card takes the screen.
    *
    * Kept equal to the run on purpose: the clock on screen was asked for as the
-   * length of the creative, so when the creative moved the clock moved with it.
+   * length of the creative, so when the creative moved the clock moved with it
+   * — which has now happened twice, in both directions, and this number went
+   * with it both times.
    *
    * Which means the cataclysm does not fire, and neither does anything hung off
    * it: no KOLTMOS IS CHARGING at warnAt[0], no BRACE at warnAt[1], no red
@@ -345,7 +347,7 @@ export const DOOM = {
    * it, so the deadline arrived once as a threat and once as proof it was not a
    * bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 15,
+  seconds: 20,
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
@@ -437,8 +439,8 @@ export const T = {
    *
    * 3.2 against moveCost's 2.8: a shade longer than a move takes to play out,
    * so a player mid-cascade is not interrupted by a swing they did not earn,
-   * and short enough that the nine and a half playable seconds of a fifteen
-   * second run hold three of them. Three beats does not wipe the party at
+   * and short enough that the fourteen and a half playable seconds of a twenty
+   * second run hold four of them. Four beats does not wipe the party at
    * BOSS_ATTACKS damage — the cataclysm at the end does that, see
    * Director.timeUp — which is the shape wanted: the party is worn down for the
    * whole run and dropped at the end of it.
@@ -469,6 +471,25 @@ export const T = {
   /** idle before the hand pulses harder and gems highlight */
   pulse: 4.5,
   /**
+   * Idle before the one opening hint — on, and the only hint in the creative.
+   *
+   * `hints` above is the nagging loop: a hand that comes back after every
+   * settled cascade, for the whole run. That stays off. This is the other
+   * thing the word covered, and the two were switched off together — a single
+   * demonstration of the opening swap, shown once to somebody who has not yet
+   * worked out that the board is a board.
+   *
+   * Spent on the first touch and never armed again — see
+   * Director.spendOpeningHint. Somebody who swipes inside the first second
+   * never sees it at all, which is exactly the intent: it is for the player
+   * who hesitates, and it is over the moment they stop hesitating.
+   *
+   * A second, against an intro that ends around two and a playable window of
+   * about fourteen and a half. Late enough not to talk over the MATCH TO
+   * ATTACK shout, early enough that hesitating is not most of the run.
+   */
+  openingHint: 1.0,
+  /**
    * Idle before the game plays the move itself — and it only ever did that for a
    * viewer who had not touched the screen once. See Director.armAutoPlay.
    *
@@ -494,33 +515,35 @@ export const T = {
    * store button, early enough that it is on screen for the two thirds of the
    * creative anybody is still watching.
    *
-   * A third of fifteen rather than of twenty — this is a share of the run, and
-   * it moved when the run did.
+   * A third of the run and nothing else — a share rather than a duration, so
+   * it moves every time T.hardCap does.
    */
-  banner: 5.0,
+  banner: 6.7,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Fifteen seconds, because that is the creative. Everything else in this file
+   * Twenty seconds, because that is the creative. Everything else in this file
    * is fitted to it rather than the other way round: DOOM.seconds so the clock
-   * on screen is the length of the thing it is counting, finaleReserve so the
-   * death still gets played, DIFFICULTY.damagePerGem so the boss can be dead
-   * before it.
+   * on screen is the length of the thing it is counting, `banner` so the store
+   * button lands a third of the way in, finaleReserve so the death still gets
+   * played, DIFFICULTY.damagePerGem so the boss can be dead before it.
    *
-   * That last one no longer holds and is the thing to know about this number.
-   * It was twenty, and the damage curve was cut to it: at damagePerGem 0.075 a
-   * dead boss is four or five moves, and moveCost puts a move at 2.8 seconds.
-   * Fifteen, less about two for the intro and the 3.5 of finaleReserve, leaves
-   * nine and a half playable seconds — three moves and a bit. So the fight as
-   * balanced does not fit in the run any more, and a viewer playing it well can
-   * still be cut off with the boss standing. Raising damagePerGem is what closes
-   * that, and it is a balance decision rather than a timing one.
+   * That last one is the thing to know about this number, because it is the
+   * reason the run is twenty rather than fifteen. The damage curve is cut to a
+   * dead boss in four or five moves, and moveCost puts a move at 2.8 seconds.
+   * Twenty, less about two for the intro and the 3.5 of finaleReserve, leaves
+   * fourteen and a half playable seconds — five moves and change, so a player
+   * reading the board well can actually finish the fight the damage table was
+   * balanced for. At fifteen it was nine and a half seconds and three moves,
+   * and the fight as balanced did not fit inside the run at all: playing well
+   * still ended with the boss standing, which is not difficulty, it is a
+   * creative that stops before its own climax.
    *
    * This number is what the run is racing — see Director.run, where it is
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 15.0,
+  hardCap: 20.0,
   /** beat after the boss dies before the end card */
   victoryHold: 1.4,
   /**
@@ -565,6 +588,21 @@ export const AUDIO = {
   /** The lava room tone under the fight. */
   bed: true,
   bedLevel: 0.035,
+  /**
+   * Play through the iOS ring/silent switch.
+   *
+   * Web Audio with no media element behind it runs in an ambient session, and
+   * an ambient session is silenced by the hardware switch — not by the volume
+   * keys, so a player in silent mode presses volume-up at a mute creative and
+   * gets nowhere. Turning this on asks iOS 16.4+ for a `playback` session,
+   * which is the one session type that ignores the switch.
+   *
+   * Off by default, because a playback session also stops whatever the player
+   * was listening to, and an ad that kills a podcast to sell a match-3 has
+   * bought itself a worse impression than a silent one. Turn it on only for
+   * placements where the sound is the point.
+   */
+  overrideSilentSwitch: false,
   /**
    * Voices allowed in the air at once.
    *
@@ -626,7 +664,29 @@ export const BADGE_STORE = {
 /* -------------------------------------------------------------------- copy */
 
 export const COPY = {
-  tutorial: "MATCH TO ATTACK",
+  /**
+   * The opening line, and it names the rule now rather than assuming it.
+   *
+   * "MATCH TO ATTACK" is an instruction to somebody who already knows what a
+   * match is. Plenty of the people this is shown to have never played one, and
+   * they get twenty seconds to work it out with a golem roaring at them. The
+   * number is the whole of the difference: it is the one word that turns a
+   * verb nobody has a definition for into a thing to count. The rest of the
+   * teaching is done in pictures — see ui/coach.js.
+   */
+  tutorial: "MATCH 3 TO ATTACK",
+  /**
+   * How long the opening line is held, in seconds.
+   *
+   * Its own number rather than the 0.6 default, and longer than any other
+   * shout in the fight. Every other callout names something the player has
+   * just watched happen — a combo, a layer breaking, lava landing — so it only
+   * has to label a picture they already have. This one arrives before the
+   * player has any picture at all and is the only sentence in twenty seconds
+   * that says what the game is. 1.6 puts it comfortably clear of the boss's
+   * first attack callout, which is the next thing that overwrites it.
+   */
+  tutorialHold: 1.6,
   /** `{hero}` is filled in with whoever just charged. */
   ultReady: "TAP {hero}",
   victory: "VICTORY",
@@ -637,13 +697,23 @@ export const COPY = {
    */
   endTitle: "INVOKERS\nTITAN LEGACY",
   endSub: "COLLECT YOUR HEROES",
+  /**
+   * Read by a device that could not decode the plate, and by nothing else.
+   *
+   * Both CTA surfaces wear the same painted plate now — the end card's and the
+   * one the HUD carries through the fight — and PLAY NOW is baked into the art
+   * on each. There is no second word: the HUD banner used to say INSTALL, which
+   * spent the only persistent surface in the fight naming a chore instead of
+   * the game.
+   */
   cta: "PLAY NOW",
-  banner: "INSTALL",
   lava: "LAVA SPREADS!",
   lavaHint: "BREAK IT",
   ultClear: "BOARD CLEARED!",
   breath: "LAVA BREATH!",
   smash: "MAGMA SLAM!",
+  /** The swing the beast opens on, and the only one it repeats. */
+  rake: "CLAW RAKE!",
   /** The third swing — it does not exist until the boss has earned it. */
   eruption: "ERUPTION!",
   ultHeal: "TEAM HEALED!",
@@ -678,20 +748,30 @@ export const COPY = {
 /**
  * The UI face: everything the game labels rather than announces.
  *
- * Oswald, condensed, and the system stack behind it for a device that cannot
- * decode the file — see ui/fonts.js, which is where the bytes are and why they
- * were worth spending after a build that ran on the system stack alone.
+ * Elan ITC Pro first, which is the face this creative is briefed on, and Oswald
+ * behind it — condensed, and what every label was fitted against — and the
+ * system stack behind that for a device that cannot decode a file at all. See
+ * ui/fonts.js: two of those three ship as bytes in this repo and Elan does not,
+ * so the head of this list is live the moment a licensed cut is dropped into
+ * src/assets/fonts and inert, costing nothing, until then.
  */
 export const FONT =
-  '"Oswald", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  '"Elan ITC Pro", "Oswald", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /**
  * The display face: the boss's name, the hero's name on an ultimate, and the
  * end card's headline. Three places, all of them large, all of them a name
  * being announced — which is the whole argument for a second font. Anything
  * that is read rather than heard stays on FONT.
+ *
+ * Elan heads this list as well as FONT's. Once its bytes are here the two
+ * constants resolve to the same face and the distinction stops being a
+ * difference in type and becomes one in size alone — which is the point of
+ * asking for one family everywhere, and the reason Cinzel stays underneath it
+ * rather than being deleted.
  */
-export const FONT_TITLE = '"Cinzel", Georgia, "Times New Roman", serif';
+export const FONT_TITLE =
+  '"Elan ITC Pro", "Cinzel", Georgia, "Times New Roman", serif';
 
 /* ------------------------------------------------------------------ heroes */
 
@@ -763,6 +843,30 @@ export const HERO_CRITICAL = 0.42;
  * it is what makes a single bad move actually cost a hero.
  */
 export const BOSS_ATTACKS = [
+  /**
+   * The rake, and it is first for a reason that is about the creative and not
+   * about the fight.
+   *
+   * `bossPress` is 3.2 seconds against roughly fourteen playable ones, so this
+   * rotation gets four entries played in a run and the first of them is the
+   * only one everybody sees. Whatever sits at index 0 is what a boss *is* to a
+   * viewer who scrolls past at eight seconds — and the note this was written
+   * for is exactly that: the beast reads as scenery, the screen shakes and
+   * nothing on it swung. So the run opens on the one beat where the monster
+   * visibly comes at the player.
+   *
+   * Single target, and lighter than the slam. It is played most often, it is
+   * the shortest beat on the track, and it is the one the run opens on before
+   * anybody has made a match — a party chewed up by the opening swing is a
+   * party that meets ERUPTION on turn three with nothing left.
+   */
+  {
+    kind: "rake",
+    targets: "lowest",
+    damage: 0.14,
+    splash: 0.04,
+    shout: COPY.rake,
+  },
   { kind: "breath", targets: "all", damage: 0.085, shout: COPY.breath },
   {
     kind: "smash",

@@ -1,9 +1,10 @@
 /**
  * The painted CTA button — the gold plate under PLAY NOW on the end card.
  *
- * The HUD's INSTALL banner used to be this same plate at a smaller size; it now
- * wears the gem banner instead — see art/ctabanner.js, which also says why that
- * art cannot do this job.
+ * Not the plate the HUD carries: that one is the end card's own painted gem
+ * plate at a smaller width — see art/brand.js. This is the gold panel behind
+ * it, and the two are separate surfaces because this one is asked for at a far
+ * wider spread of aspects than any single bitmap can hold.
  *
  * `src/assets/ui/golden-button.png` is a 698x172 panel: a flat gold field, a four
  * pixel darker rim around it, and a nine pixel corner. Measured off the file
