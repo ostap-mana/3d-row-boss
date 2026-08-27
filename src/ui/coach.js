@@ -5,7 +5,7 @@
  * ATTACK` says what to do to somebody who already knows what a match is, and
  * the hand demonstrates a swipe — but a swipe over gems that never move shows
  * a gesture and not a rule. Somebody meeting a match-three for the first time,
- * in a twenty-five second window, with a monster roaring at them, is not going
+ * in a thirty second window, with a monster roaring at them, is not going
  * to infer "line three of the same colour up" from a gauntlet sliding sideways.
  * They will decide the screen is busy and wait for it to be over.
  *

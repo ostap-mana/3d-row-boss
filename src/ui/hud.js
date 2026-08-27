@@ -2,7 +2,7 @@
  * Heads-up display: boss health, callouts, damage numbers, the CTA lockup.
  *
  * The health bar deliberately carries no numbers — nobody reads
- * "7,500,000 / 10,000,000" in a twenty-five second creative (spec §7).
+ * "7,500,000 / 10,000,000" in a thirty second creative (spec §7).
  */
 
 import { Container, Graphics, Sprite, Text, Rectangle, Texture } from "pixi.js";
@@ -55,6 +55,19 @@ const BAR_LOW = 0xff3b1f;
  * of the bar is the real signal; this is the second one.
  */
 const PAINT_FULL = 0xffffff;
+
+/**
+ * The doom strip's three, and two of them are fallbacks.
+ *
+ * `DOOM_TRACK` and `DOOM_HOT` are the flat colours the strip drew itself in
+ * before it had art — they stand in only when tools/pack-doom.mjs has not been
+ * run, so the clock is readable on a build with no paints in it. `DOOM_PANIC`
+ * is not a fallback: it multiplies the amber charge into red and is the colour
+ * of the last seconds either way.
+ */
+const DOOM_TRACK = 0x1c0a12;
+const DOOM_HOT = 0xffa030;
+const DOOM_PANIC = 0xff2f1a;
 const PAINT_LOW = 0xff8a72;
 
 /**
@@ -88,7 +101,7 @@ const CHIP_DRAIN = 0.85;
  *
  * The bar had no life of its own. Everything it did, it did because it had just
  * been hit: it drained, the white behind it drained after it, and between hits
- * it was a red rectangle. Which is most of a twenty-five second creative — the
+ * it was a red rectangle. Which is most of a thirty second creative — the
  * boss is hit perhaps six times, and the rest of the time the one piece of chrome
  * saying "this is a fight in progress" was holding perfectly still.
  *
@@ -260,8 +273,29 @@ export class Hud extends Container {
     this.name.anchor.set(0, 1);
     this.addChild(this.name);
 
-    /* The doom clock: how long the party has before the cataclysm lands. */
-    this.doomBar = new Graphics();
+    /*
+     * The doom clock: how long the party has before the cataclysm lands.
+     *
+     * A container of two painted layers rather than the two rounded rectangles
+     * it used to be — a near-black track at 0x1c0a12 with a flat 0xffa030 over
+     * it. Flat orange under a painted health bar, on a screen where everything
+     * else is art. Both paints are Invokers Titan Legacy's own HUD now, poured
+     * into the health bar's silhouette so the strip ends in the same mitre the
+     * bar does; see art/hpbar.js and tools/pack-doom.mjs.
+     *
+     * A container because the panic pulse drives `alpha` on the whole thing and
+     * a Graphics answered to that on its own. Two sprites need something to
+     * answer for them, and this keeps that one line in `update` unchanged.
+     */
+    this.doomBar = new Container();
+    // The layer of last resort, and the reason it is still a Graphics: if the
+    // silhouette or either paint fails to decode there is no bake to pour into,
+    // and a clock that vanishes is worse than a flat one. This draws the two
+    // rounded rectangles the strip drew before it had art, and only then.
+    this.doomPlain = new Graphics();
+    this.doomTrack = new Sprite(Texture.EMPTY);
+    this.doomFill = new Sprite(Texture.EMPTY);
+    this.doomBar.addChild(this.doomPlain, this.doomTrack, this.doomFill);
     this.addChild(this.doomBar);
 
     /** The strip's own highlight, on the same terms as the bar's. */
@@ -440,7 +474,7 @@ export class Hud extends Container {
       const crestH = (foot - top) * CREST_RISE;
       const crestW = this.crest.resize(crestH);
       this.crest.x = x + crestW / 2;
-      this.crest.y = layout.safe.top + 2 * ui + crestH / 2;
+      this.crest.y = layout.stage.y + layout.safe.top + 2 * ui + crestH / 2;
       inset = crestW + 2 * ui;
     }
 
@@ -498,17 +532,25 @@ export class Hud extends Container {
        * read whatever the arena is doing behind them, and they are never on top
        * of anybody's face.
        */
-      this.calloutWidth = layout.w - layout.safe.left - layout.safe.right - 24;
-      this.calloutSize = Math.max(17, Math.min(layout.w * 0.078, 38 * ui));
-      this.callout.x = layout.w / 2;
+      // Measured across the stage rather than across the window: on anything
+      // wider than a phone the shout belongs over the board it is about, not
+      // stretched across a monitor the arena is merely bleeding into.
+      const stage = layout.stage;
+      this.calloutWidth = stage.w - layout.safe.left - layout.safe.right - 24;
+      this.calloutSize = Math.max(17, Math.min(stage.w * 0.078, 38 * ui));
+      this.callout.x = stage.cx;
       this.callout.y = layout.board.y;
     } else {
       // Landscape has no gap, so the callout lives over the boss column —
       // centring it on screen would put it straight through the health bar.
-      this.calloutWidth = layout.board.x * 0.92;
-      this.calloutSize = Math.max(16, Math.min(layout.board.x * 0.17, 34 * ui));
+      // The column, which is the board's left edge less wherever the stage
+      // starts — on a phone that is the board's own x and this is the line it
+      // always was.
+      const column = layout.board.x - layout.stage.x;
+      this.calloutWidth = column * 0.92;
+      this.calloutSize = Math.max(16, Math.min(column * 0.17, 34 * ui));
       this.callout.x = layout.boss.x;
-      this.callout.y = layout.boss.floor - layout.h * 0.13;
+      this.callout.y = layout.boss.floor - layout.stage.h * 0.13;
     }
     this.callout.style.fontSize = this.calloutSize;
 
@@ -589,7 +631,59 @@ export class Hud extends Container {
 
     this.bakeBar();
     this.drawBar();
+    this.bakeDoom();
     this.drawDoom();
+  }
+
+  /**
+   * Rebake the strip's two paints at the size the layout just handed us.
+   *
+   * The same two-step the health bar runs — a track that never crops and a
+   * charge that does — at a third of the depth. The charge gets a Texture of
+   * its own over its bake and is made dynamic for the same reason the bar's
+   * fill is: without that a Sprite goes on drawing the quad it batched when the
+   * texture was assigned, however far the frame is cut back.
+   */
+  bakeDoom() {
+    const { w, h } = this.doomRect();
+    this.disposeDoom();
+
+    const track = hpBarPaint(w, h, "doomTrack");
+    const fill = hpBarPaint(w, h, "doomFill");
+    this.doomShape = track && fill ? { pw: fill.pw, ph: fill.ph } : null;
+    if (!this.doomShape) return;
+
+    this.doomBakes = [track.texture, fill.texture];
+    this.doomPainted = fill.painted;
+
+    this.doomTrack.texture = track.texture;
+    // Unpainted, the stamp is flat white and stands in for the track the strip
+    // used to draw itself. Painted, it brings its own navy and wants no tint.
+    this.doomTrack.tint = track.painted ? PAINT_FULL : DOOM_TRACK;
+    this.doomTrack.alpha = track.painted ? 1 : 0.9;
+
+    // `dynamic` belongs on the Texture, not on the source under it: a Sprite
+    // subscribes to its texture's "update" only when the texture itself
+    // declares it, and a TextureSource has no such flag to read. Set on the
+    // source it was a stray field nothing looked at, so every tex.update() in
+    // drawDoom emitted to nobody and the strip drew the full-width quad it
+    // batched here for the whole run — the clock counted down and the charge
+    // never moved. See bakeBar, where the health bar's layers get this right.
+    this.doomFill.texture = new Texture({
+      source: fill.texture.source,
+      frame: new Rectangle(0, 0, fill.pw, fill.ph),
+      dynamic: true,
+    });
+  }
+
+  disposeDoom() {
+    if (this.doomFill.texture && this.doomFill.texture !== Texture.EMPTY) {
+      this.doomFill.texture.destroy(false);
+    }
+    this.doomFill.texture = Texture.EMPTY;
+    this.doomTrack.texture = Texture.EMPTY;
+    (this.doomBakes || []).forEach((t) => t.destroy(true));
+    this.doomBakes = [];
   }
 
   /**
@@ -695,6 +789,7 @@ export class Hud extends Container {
     this.barTrack.texture = Texture.EMPTY;
     (this.barBakes || []).forEach((t) => t.destroy(true));
     this.barBakes = [];
+    this.disposeDoom();
   }
 
   /**
@@ -745,22 +840,64 @@ export class Hud extends Container {
   }
 
   drawDoom() {
-    if (!this.barRect) return;
-    const g = this.doomBar;
+    if (!this.barRect) {
+      this.doomBar.visible = false;
+      return;
+    }
     const { x, y, w, h } = this.doomRect();
-    const r = h / 2;
-
-    g.clear();
+    this.doomBar.visible = this.doomOn;
     if (!this.doomOn) return;
 
-    g.roundRect(x, y, w, h, r);
-    g.fill({ color: 0x1c0a12, alpha: 0.9 });
-
     const left = Math.max(0, Math.min(1, this.doomLeft / this.doomTotal));
-    if (left > 0.001) {
-      g.roundRect(x, y, w * left, h, r);
-      g.fill({ color: this.doomPanic() ? 0xff2f1a : 0xffa030 });
+
+    if (!this.doomShape) {
+      this.doomTrack.visible = false;
+      this.doomFill.visible = false;
+      this.doomPlain.visible = true;
+      const g = this.doomPlain;
+      g.clear();
+      g.roundRect(x, y, w, h, h / 2);
+      g.fill({ color: DOOM_TRACK, alpha: 0.9 });
+      if (left > 0.001) {
+        g.roundRect(x, y, w * left, h, h / 2);
+        g.fill({ color: this.doomPanic() ? DOOM_PANIC : DOOM_HOT });
+      }
+      return;
     }
+    this.doomPlain.visible = false;
+    this.doomTrack.visible = true;
+
+    this.doomTrack.setSize(w, h);
+    this.doomTrack.x = x;
+    this.doomTrack.y = y;
+
+    this.doomFill.visible = left > 0.001;
+    if (!this.doomFill.visible) return;
+
+    const tex = this.doomFill.texture;
+    tex.frame.width = Math.max(1, Math.round(this.doomShape.pw * left));
+    tex.frame.height = this.doomShape.ph;
+    tex.update();
+    this.doomFill.setSize(w * left, h);
+    this.doomFill.x = x;
+    this.doomFill.y = y;
+
+    /*
+     * Panic is a tint over the charge rather than a second file, and it is the
+     * one place this differs from the card gauges — those ship a red bevel of
+     * their own because Pixi tints by multiplying and no multiple of green is
+     * red. This paint is amber running to near-white, so every channel it needs
+     * is already up: 0xff2f1a over it lands on a clean red and keeps the bevel
+     * and the ramp that the flat fill never had.
+     *
+     * Unpainted, the layer is the white stamp and the tint is the whole colour,
+     * which is what the strip drew before any of this art existed.
+     */
+    this.doomFill.tint = this.doomPanic()
+      ? DOOM_PANIC
+      : this.doomPainted
+        ? PAINT_FULL
+        : DOOM_HOT;
   }
 
   doomPanic() {
@@ -960,8 +1097,9 @@ export class Hud extends Container {
     label.y = y;
     // Numbers over the outer hero cards start half off screen otherwise.
     if (this.layout) {
+      const stage = this.layout.stage;
       const half = label.width / 2 + 4;
-      label.x = Math.min(Math.max(x, half), this.layout.w - half);
+      label.x = Math.min(Math.max(x, stage.x + half), stage.x + stage.w - half);
     }
     label.scale.set(0.4);
     this.numbers.addChild(label);

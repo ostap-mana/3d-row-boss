@@ -1,30 +1,54 @@
 /**
- * Arena backdrop: a chained gothic city over a fog chasm, framed so the rubble
- * the braziers stand on lands exactly on the boss floor — the same line the boss
- * rig is masked at, so the golem stands on the rock *in the picture* instead of
- * in front of it.
+ * Arena backdrop: a chain of floating islands under a mint sky, framed so the
+ * front lip of the near island lands exactly on the boss floor — the same line
+ * the boss rig is masked at, so the golem stands on the rock *in the picture*
+ * instead of in front of it.
  *
- * Third painting in this slot. A gold-lit sky fortress first, which was the
- * whole reason a note said the boss did not read as a boss — a sunlit castle in
- * an open sky is a hero's establishing shot, and the darkest silhouette in the
- * creative was standing in the middle of one. Then a demon gate over a stone
- * courtyard, which fixed that by arriving dark. This one keeps the dark and
- * changes what kind: violet and slate instead of ember and sandstone, spires
- * and chains instead of one gate, and a pale fog chasm dead centre — which is
- * the best thing in it, because a portrait phone puts the golem exactly there
- * and a dark shape against pale fog is the strongest silhouette this creative
- * has had. See POOL_ALPHA, which is the layer that reads it.
+ * Sixth painting in this slot, and the first that is not a render made for it.
+ * It is `T_CAM_Lobby_Background_01` out of the Invokers Titan Legacy build: the
+ * game this creative advertises, so the arena is now that game's own sky rather
+ * than a painting of somewhere like it. The five before it were a gold-lit sky
+ * fortress, a demon gate over a stone courtyard, a violet city over a fog
+ * chasm, a burning rift, and a lightning storm over a ruined spire city.
  *
- * It is also the smallest file any of the three arrived as — 1024x585, a
- * landscape crop with no height to spare — and that shape is the whole reason
- * tools/pack-arena grew a `padBottom` pass. See OVERSCAN and HORIZON below for
- * the geometry it buys, and the tool for why the alternative cost the skyline.
+ * The measurement that matters is the one that goes the wrong way, and it is
+ * the reason two constants below moved further in this swap than in any before
+ * it. Over the band directly behind the beast's mass — the only part of the
+ * picture the silhouette is actually read against — the storm plate came in at
+ * 53 mean luminance. This one comes in at 157. It is a lobby background: it was
+ * lit to sit behind menus, and the middle of it is open mist from edge to edge.
+ * No ground line in it measures better; taken at every candidate from 0.45 to
+ * 0.76 the band runs between two and three times the plate it replaces.
+ *
+ * So the darkening moved off the picture and onto the boss. GRADE_ALPHA — a
+ * global multiply — came *down*, because the half of its job that survived the
+ * storm swap was darkening a bright top of frame and this frame's top is 55
+ * where the storm's was 116. POOL_ALPHA, the one layer aimed at the silhouette
+ * rather than at the picture, went up hard and its tint went darker with it.
+ * Graded, the band behind the beast lands at 48 against the storm's 38: not the
+ * same reading, and honestly not reachable from a source three times as bright,
+ * but a silhouette that separates. See both constants for the arithmetic.
+ *
+ * What the swap buys back is colour and cold. The frame is teal and violet with
+ * no warm light anywhere in it — measured 35 points cooler in blue than in red
+ * behind the beast — so the ember, the motes and the shafts are once again the
+ * only warm things on the screen, and they read as the golem's own fire rather
+ * than as the painting's. That was true of the storm plate too and it is more
+ * true here.
+ *
+ * Geometrically it is the plate that needed the most inventing: 2048x1024 in,
+ * standing its ground line at 0.76, so tools/pack-arena pads the bottom by the
+ * full length of the picture again to reach HORIZON — 1024 smeared rows under
+ * 1024 real ones. All of it is behind the board, the scrim and the hero row.
+ * It arrives clean, with no letterbox at either edge, which is the first plate
+ * in three not to need a crop.
  *
  * Everything layered on top of the bitmap is still procedural: the firelight on
- * the floor line, the drifting embers and the scrim that keeps the board
- * readable all reflow with the layout, and they are what stop a still image
- * from reading as one. The two shaft colours were already the ember-against-
- * rune pair this painting is lit with, so not one of them was retuned for it.
+ * the floor line, the drifting motes and the scrim that keeps the board readable
+ * all reflow with the layout, and they are what stop a still image from reading
+ * as one. The two shaft colours were not retuned, and under this plate they read
+ * as the beast's own light rather than the painting's — which is what they are
+ * pinned to anyway, the floor line the golem stands on.
  */
 
 import { Container, Sprite, Texture, ImageSource } from "pixi.js";
@@ -35,21 +59,44 @@ import arenaUrl from "../assets/arena/sky.webp";
 /**
  * Height fraction of the source art where the ground line sits.
  *
- * Measured on the *packed* file, not the render it came from: the braziers and
- * the base of the central pillar sit at 0.70 of the delivered landscape crop,
- * and tools/pack-arena carries the bottom edge down by 40% of the height
- * precisely so this number lands somewhere the fit below can actually reach.
- * Change one of the two and the other is wrong — `floor` and `horizon` in that
- * tool's job are the two halves of this contract, and the second of them is
- * this constant.
+ * Measured on the *packed* file, not the source it came from: the near island's
+ * green top stops and its rock underside starts at 0.76 of the delivered
+ * texture, and tools/pack-arena carries the bottom edge down by the full length
+ * of the picture precisely so this number lands somewhere the fit below can
+ * actually reach. Change one of the two and the other is wrong — `floor` and
+ * `horizon` in that tool's job are the two halves of this contract, and the
+ * second of them is this constant.
  *
- * Held at 0.50 across the swap on purpose. The gate render got here by having
- * its top quarter cut off and this one by having its bottom extended, which are
- * opposite operations for the same reason: everything below this line is behind
- * the board, the scrim and the hero row, so it is the cheapest part of the frame
- * to own and the dearest to throw away.
+ * 0.38, and the four plates before the storm citadel all packed at 0.50. This is the
+ * first time the number has moved, and it moved because it was wrong — not for
+ * this painting, which it fits, but for three of the screens the creative ships
+ * to. See OVERSCAN below for the measurement and the arithmetic; the short
+ * version is that on a short or a wide-ish portrait screen the board takes the
+ * height it is owed, the boss's floor comes up the screen with it, and the fit
+ * then cannot slide the picture far enough to follow — so the painted ground
+ * line came to rest below the golem's feet and he stood in mid-air. A 375x667
+ * SE was out by 57 points, an iPad in portrait by 72, and a 438 point window by
+ * 24. At 0.38 every screen in the matrix pins exactly, in both orientations.
+ *
+ * What made it the cheap fix rather than an expensive one is what is under the
+ * line. Everything below it is behind the board, the scrim and the hero row, so
+ * lowering it does not throw picture away — it asks tools/pack-arena for more of
+ * the smear nobody can see, 787 rows against 452, and buys back the pin plus
+ * about a third more of the painting's width on a phone: a taller plate is
+ * cover-fitted at a smaller scale, so the same screen shows more of it. Measured
+ * across the matrix, the narrowest crop went from 37% of the plate's width to
+ * 49%. The gate render reached
+ * its own horizon by having its top quarter cut off and all three landscape
+ * plates by having their bottoms extended; this is the same trade one notch
+ * further, and the same reason it is affordable.
+ *
+ * The window is [0.34, 0.42] and 0.38 is the middle of it. Below 0.34 the other
+ * clamp in `fitArena` starts to bite and the ground line rides *above* the feet
+ * on a tall phone; above 0.42 the SE goes back to floating. Anything that moves
+ * the boss's floor — BOSS_MIN, BOSS_OVERLAP, the hero row's share — moves that
+ * window, so re-measure rather than assume.
  */
-const HORIZON = 0.5;
+const HORIZON = 0.38;
 
 /**
  * Extra scale on top of a plain cover fit. Without slack there is no room to
@@ -62,45 +109,76 @@ const HORIZON = 0.5;
  *
  *     OVERSCAN >= (1 - bossFloor/screenHeight) / (1 - HORIZON)
  *
- * and the boss floor sits about 0.42 down a portrait screen, so with HORIZON at
- * 0.50 the minimum is 1.16. Below it the fit clamps and the golem walks up off
- * the stone into the middle distance.
+ * and the boss floor runs from 0.29 of a portrait screen on a short phone to
+ * 0.42 on a tall one, so with HORIZON at 0.38 the binding screen asks for 1.15.
+ * Below it the fit clamps and the golem walks up off the stone into the middle
+ * distance.
  *
- * 1.25 rather than that 1.16, and rather than the 1.45 the sky castle needed.
- * The slack over the minimum is what absorbs a screen shorter than 9:16 — an
- * iPhone SE still pins exactly at 1.25 — and every point above it is paid for
- * twice: it magnifies an 819-row source further, and it narrows the strip of a
- * 1.25:1 plate that a portrait phone gets to show at all. At 1.25 that strip is
- * about 30% of the width, centred, which is the broken pillar, the shrine tower
- * and the fog chasm between them.
+ * 1.25 rather than that 1.15, and rather than the 1.45 the sky castle needed.
+ * Every point above the minimum is paid for twice: it magnifies the source
+ * further, and it narrows the strip of the plate that a portrait phone gets to
+ * show at all. At 1.25 that strip is about 50% of the width, centred, which is
+ * the gate tower, the near spires and the lit windows between them.
  *
- * Unchanged across the arena swap, and that is the point of the padding rather
- * than a crop: reaching HORIZON by cutting the top of a 585-row file would have
- * left 433 rows and forced this number to 1.45, which on a 390x844 phone is a
- * 2.8x blow-up showing 13% of the picture. The plate is 819 rows instead, the
- * same phone draws it at 1.3x, and nothing in this file had to move.
+ * Where the slack runs out, measured rather than assumed — and this is the
+ * paragraph the HORIZON change above was made for, so it is worth keeping the
+ * old numbers next to the new ones. At HORIZON 0.50 a 390x844 phone pinned
+ * exactly and an iPad sideways pinned exactly, and three screens did not: a
+ * 375x667 SE was out by 57 points, an iPad in portrait by 72, a 438x860 window
+ * by 24. The shape of the miss is always the same. A short or wide-ish portrait
+ * screen gives the board the width it is owed, the board's height comes out of
+ * the boss's band, the boss's floor rides up the screen — 0.29 of the height on
+ * the SE against 0.42 on a 390 — and the fit is then asked to slide the picture
+ * further than `h - dh` will let it, because the plate's bottom edge would come
+ * into frame. Work that clamp backwards and it wants
+ *
+ *     OVERSCAN * (1 - HORIZON) >= 1 - bossFloor/screenHeight
+ *
+ * which at HORIZON 0.50 needed an OVERSCAN of 1.42 on the SE. That was never
+ * payable here: 1.42 is a 2.8x blow-up showing a quarter of the picture. The
+ * same inequality read the other way is free, because 1 - HORIZON is on the
+ * cheap side of the frame — hence 0.38, hence 0 misses across the matrix, and
+ * hence this number not moving at all.
+ *
+ * Unchanged across every arena swap, then, and that is the point of the padding
+ * rather than a crop. This plate's ground line sits at 0.872 of its render, so
+ * reaching HORIZON by cutting the top instead would have taken 482 of the 608
+ * rows and left 126 — the storm, the lightning and every tower in the picture,
+ * spent to save a smear nobody can see. The plate is 1395 rows, a 390x844 phone
+ * draws it at 0.76x in CSS pixels, and nothing in this file had to move.
  */
 const OVERSCAN = 1.25;
 
 /**
  * Fallback wash, and the base colour behind the bitmap either way.
  *
- * Repainted with the arena, for the third time and for the same reason each
+ * Repainted with the arena, for the fifth time and for the same reason each
  * time: a device that cannot decode WebP has to fall through to the same fight,
- * not to the previous one. It was a blue-to-cream sky under the fortress and an
- * ember dusk under the gate; under a violet city in fog it is a storm slate
- * going pale at the chasm line and black at the foot of the frame.
+ * not to the previous one. It was a blue-to-cream sky under the fortress, an
+ * ember dusk under the gate, a storm slate under the violet city and a bruised
+ * violet over an ember plain under the rift; under the citadel it is stormlight
+ * at the top falling to black rock.
  *
- * The pale band at 0.52 is not decoration. It is where the fog sits in the
- * painting, and it is what the boss is read against — a fallback that is dark
- * all the way down loses the silhouette the whole composition is built on.
+ * Sampled off the packed plate *through the fit* rather than read off the file:
+ * the layout pins the ground line to the boss floor at 0.42 of the screen and
+ * cover-fits at OVERSCAN, so a screen fraction lands about `0.5 + (s - 0.42) *
+ * 0.8` down the plate on a 390x844 phone. Every stop below is that sample.
+ *
+ * Where the light sits is the one thing that moved, and it moved because the
+ * painting moved it. Under the rift the bright stop was at 0.52 — *below* the
+ * ground line, because the light down there was lava. This picture keeps its
+ * light in the sky: 91 luminance at the top of the screen, 51 at the floor line
+ * and 10 a fifth below it. So the bright end is the top, the boss is read
+ * against a muted violet rather than against fire, and the fallback still does
+ * the one job it exists for — a wash that is dark all the way down loses the
+ * silhouette the whole composition is built on.
  */
 const SKY_STOPS = [
-  [0.0, "#171626"],
-  [0.34, "#2e2a44"],
-  [0.52, "#5b5570"],
-  [0.66, "#39304a"],
-  [1.0, "#140f1c"],
+  [0.0, "#5c5688"],
+  [0.22, "#674c6e"],
+  [0.42, "#412d3e"],
+  [0.6, "#0b0911"],
+  [1.0, "#040306"],
 ];
 
 /**
@@ -124,11 +202,19 @@ const SCRIM_STOPS = [
  *
  * A gradient rather than the flat band the drawn arena used: over a painting,
  * a hard-edged rectangle of black reads as a rendering bug, not as depth.
- * Deeper than the lava arena carried, because the strip it has to hold type
- * against is now lit sky rather than a black ceiling.
+ *
+ * 0.72 to 0.54 with the sky islands, and the reason is the one this constant
+ * was given in the first place. It went deep because the strip it holds type
+ * against was lit sky — the rift's and the storm's tops of frame both measured
+ * over 110 mean luminance. This plate's is 55, and after GRADE_ALPHA it is 53:
+ * the darkest ceiling any painting has put behind that type. At 0.72 over it
+ * the boss's name sits in a black bar with a picture either side of it, which
+ * is the flat-band failure this gradient was written to avoid, arrived at from
+ * the other direction. 0.54 keeps the same contrast under the type that the
+ * storm plate had over a sky twice as bright.
  */
 const CROWN_STOPS = [
-  [0.0, "rgba(6,11,26,0.72)"],
+  [0.0, "rgba(6,11,26,0.54)"],
   [0.5, "rgba(6,11,26,0.3)"],
   [1.0, "rgba(6,11,26,0)"],
 ];
@@ -143,25 +229,32 @@ const CROWN_STOPS = [
  * the painting never gets back, and at the alphas that shipped, the cloud sea
  * came out flat.
  *
- * The gate render made the job small. It arrives dark, lit by its own fires,
- * already the tone the grade was faking, so what is left for these three is
- * seating rather than rescue — and the alphas below are about a third of what
- * they were, which is the whole reason the stone still has depth in it.
+ * The gate and the ruined city made the job small. Both arrive dark, lit by
+ * their own fires, already the tone the grade was faking, so what was left for
+ * these three was seating rather than rescue, and the alphas came down to about
+ * a third of what they had been.
+ *
+ * The rift takes some of that back. It is a bright plate again — a burning ring
+ * filling the top left and a lit plain running the width — so these three are
+ * doing more than seating for the first time since the fortress, and the numbers
+ * below moved up rather than down. Not all the way: a fifth of the way, because
+ * the fire and the daylight are not the same problem. Daylight had to be
+ * cancelled; fire only has to be kept from out-shouting the boss.
  *
  * Three sprites, and not one of them is a new asset:
  *
- *   1. `grade` takes the whole painting down a fifth and cools it a little,
- *      which pulls the sunset off the top of the frame and stops the stone
- *      competing with the hero cards to be the warmest thing on screen.
+ *   1. `grade` takes the whole painting down and cools it, which pulls the
+ *      rift's orange off the top of the frame and stops the plain competing with
+ *      the hero cards to be the warmest thing on screen.
  *   2. `pool` is a soft dark ellipse pinned behind the beast's mass. It is the
  *      one thing here aimed at the boss rather than at the sky, and it is the
- *      one that actually does the job: the figure is a dark shape, the cloud
- *      line behind it is the brightest band in the painting, and no amount of
+ *      one that actually does the job: the figure is a dark shape, the band
+ *      behind it is the brightest thing in the painting, and no amount of
  *      overall darkening separates those two — only darkening exactly where the
  *      silhouette is does.
  *   3. `ember` is firelight along the floor line, which is what stops 1 and 2
- *      reading as a screenshot with the brightness pulled down. The braziers in
- *      the painting are already doing this; the sprite is what makes it move.
+ *      reading as a screenshot with the brightness pulled down. The lava seams
+ *      in the painting are already doing this; the sprite is what makes it move.
  *
  * Tuned as one, so move them as one. If the arena art is ever replaced again,
  * take GRADE_ALPHA and POOL_ALPHA in the direction the new art needs — up over
@@ -171,25 +264,68 @@ const CROWN_STOPS = [
  */
 const GRADE_TINT = 0x9a90a6;
 /**
- * Down again with the arena, from 0.2 to 0.12.
+ * Down again with the arena, 0.16 to 0.08, and the lowest this has ever run.
  *
- * This is a cool grey multiply and its two jobs were to pull warmth out of the
- * top of the frame and to stop the stone competing with the hero cards to be
- * the warmest thing on screen. Neither is a job any more: the painting under it
- * is already slate and violet, and its only warm light is the braziers along
- * the floor line, which are the one thing here that should stay warm. Left at
- * 0.2 it was not seating the art, it was greying the only colour in it.
+ * This is a cool grey multiply and it had two jobs: pull warmth out of the top
+ * of the frame, and stop the ground competing with the hero cards to be the
+ * warmest thing on screen. The storm citadel killed the first one — it arrived
+ * cold — and the sky islands keep it dead: measured behind the beast this plate
+ * runs 35 points cooler in blue than in red. There is still no warmth to pull.
+ *
+ * What killed the second half is new, and it is the one place this painting is
+ * *darker* than the plate it replaces. The storm's top of frame was a pale
+ * lightning bank at 116 mean luminance, and 0.16 of grey multiply over it was
+ * earned. This one's top is deep teal cloud at 55 — under half — and the same
+ * multiply over it only takes colour out of the one band of the picture that
+ * was already dark enough. So the global layer steps back to almost nothing.
+ *
+ * It is worth being exact about what this does *not* do: it does not darken the
+ * band behind the beast. That band is three times brighter here than it was
+ * under the storm, and a global multiply strong enough to fix it would grey out
+ * the whole painting to fix one sixth of it. POOL_ALPHA below is the layer that
+ * answers it, and this swap is the clearest case yet for why the two exist
+ * separately rather than as one number.
  */
-const GRADE_ALPHA = 0.12;
+const GRADE_ALPHA = 0.08;
 
-/** The dark the silhouette is read against. */
-const POOL_TINT = 0x4a3c50;
-const POOL_ALPHA = 0.4;
+/**
+ * The dark the silhouette is read against, and the layer this swap turns on.
+ *
+ * Against the grade, and hard: 0.40 to 0.78, with the tint taken from 0x4a3c50
+ * down to 0x241d2a to buy the last of it. Both numbers are the same measurement
+ * twice. The band directly behind the beast's mass runs 157 mean luminance in
+ * this painting against the storm's 53 — it is open mist, lit for a lobby — and
+ * left at 0.40 it would grade out at 103, which is brighter than the *ungraded*
+ * plate this replaces. A dark golem in front of that is a shape, not a threat.
+ *
+ * At 0.78 of 0x241d2a it grades out at 48, against the storm plate's 38. That
+ * is the honest number and it is not a match: three times the light going in
+ * does not come out the same, and a multiply cannot take a band below the tint
+ * it is multiplying by however hard it is pushed. What it is, is separation -
+ * the beast reads against sky that is darker than the sky either side of it,
+ * which is the whole job of a layer aimed at the boss rather than at the frame.
+ *
+ * The tint went with the alpha rather than instead of it because the two do
+ * different things to the colour. Alpha alone at this depth pushes the band
+ * toward the tint's own violet-grey and the pool starts to read as a painted
+ * vignette; taking the tint darker lets the same darkening arrive with less of
+ * its own hue in it. If this ever needs to come back, it comes back as a pair.
+ */
+const POOL_TINT = 0x241d2a;
+const POOL_ALPHA = 0.78;
 
 /**
  * The two fires on the deck: the haze the beast's feet stand in, and the wider
  * wash under it. Ember rather than the gold the haze used to carry — whatever
  * colour this is, the boss is standing in it.
+ *
+ * Unchanged across this swap, and it is the one warm thing on the screen that
+ * had to survive it. Under the rift the painting's own lava ran along this line
+ * and these two agreed with it; under the citadel the line is cold rock, so the
+ * same two sprites now read as light coming off the golem rather than light it
+ * is standing in. That is the better reading of the two — it is a fire golem —
+ * and it is the only firelight left in the frame, which is what stops the grade
+ * and the pool above from turning the deck into a dark screenshot.
  */
 const BLOOM_TINT = 0xff8a44;
 const EMBER_TINT = 0xff5a1e;

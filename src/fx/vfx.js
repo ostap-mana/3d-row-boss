@@ -640,8 +640,12 @@ export class Vfx extends Container {
     band.anchor.set(0.5);
     band.blendMode = "add";
     band.tint = color;
-    band.setSize(this.layout.w * 1.4, o.thickness || 130);
-    band.x = this.layout.w / 2;
+    // Across the composition, not across the window: the band is what carries
+    // a hit from the golem down to the hero row, and both of them live on the
+    // stage. On a phone the two are the same width.
+    const stage = this.layout.stage;
+    band.setSize(stage.w * 1.4, o.thickness || 130);
+    band.x = stage.cx;
     band.y = fromY;
     band.alpha = 0.95;
     this.field.addChild(band);

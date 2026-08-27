@@ -97,25 +97,37 @@ export const DIFFICULTY = {
   /**
    * Boss health taken by one gem cleared in the first step of a match.
    *
-   * Back to 0.075, from the 0.028 the gauntlet tuning took it down to, and the
-   * reason is the clock rather than a change of heart about difficulty.
+   * 0.058, and the reason is the clock rather than a change of heart about
+   * difficulty. This number has been set twice by the same argument, once in
+   * each direction, and both times the run length is what moved it.
    *
-   * At 0.028 a plain triple takes 8% off a boss that also armours up as it
-   * falls (see `armor`), so a fight is twelve moves deep. A move costs about
-   * three seconds to play out — the swap, the cascade, the volley, the boss
-   * answering — and twelve of those is thirty-six seconds. The creative is
-   * twenty-five. So the gauntlet was never a hard fight inside this runtime;
-   * it was a fight that could not be finished inside it, and what a viewer
-   * actually saw was a health bar that ended the ad two thirds full.
+   * Down first: at 0.028, where the gauntlet tuning had it, a plain triple
+   * takes 8% off a boss that also armours up as it falls (see `armor`), so a
+   * fight is twelve moves deep. A move costs about three seconds to play out —
+   * the swap, the cascade, the volley, the boss answering — and twelve of those
+   * is thirty-six seconds against a thirty second creative. That was never a
+   * hard fight inside this runtime; it was a fight that could not be finished
+   * inside it, and what a viewer actually saw was a health bar that ended the
+   * ad two thirds full. That is the failure mode this number exists to stay
+   * clear of, and it is what took it up to 0.075.
    *
-   * At 0.075 a triple takes 22% through the armour and a four-run leading a
-   * cascade ends it outright. Four or five moves is a dead boss and the run
-   * holds seven of them, so the fight fits with a move or two to spare and the
-   * bar is visibly moving in every one of them. Difficulty in a creative this
-   * short is not how many moves it takes; it is T.hardCap, which is the only
-   * opponent that never misses.
+   * Then 0.075 overshot the other way once the run grew to thirty. A triple
+   * took 22% through the armour, a four-run leading a cascade ended the fight
+   * outright, and four moves killed a boss inside a window that holds eight —
+   * the bar fell off a cliff and the back third of the creative had nothing
+   * left in it to watch.
+   *
+   * At 0.058 a triple takes about 17%, the same four-run is a serious dent
+   * rather than a finish, and the kill lands around move six: still two moves
+   * of slack against the clock for a player who fumbles one, and all six of
+   * them have something at stake. Anything under about 0.05 and the twelve-move
+   * problem starts coming back — that is the floor, not this.
+   *
+   * Difficulty in a creative this short is not how many moves it takes; it is
+   * T.hardCap, which is the only opponent that never misses. What this number
+   * decides is whether the fight fills the time that clock gives it.
    */
-  damagePerGem: 0.075,
+  damagePerGem: 0.058,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -239,8 +251,8 @@ export const DIFFICULTY = {
    *
    * bossRamp punishes taking many turns. This punishes taking a long time over
    * them, which is the thing a turn counter cannot see. Hunting the board for a
-   * five-run is a real strategy and it stays one — but twenty-five seconds in
-   * the multiplier is 1.30 and still climbing, with the golem hitting for a
+   * five-run is a real strategy and it stays one — but thirty seconds in
+   * the multiplier is 1.36 and still climbing, with the golem hitting for a
    * third again what it opened with. rageMax sits above what a run can reach on
    * purpose: what the player is meant to feel is the climb, not a ceiling the
    * fight flattens out against. Thinking stops being free.
@@ -293,23 +305,23 @@ export const DIFFICULTY = {
   /**
    * Deal a fresh opening board every run instead of the authored START_BOARD.
    *
-   * Off. The board is a fixed, hand-authored layout and it stays that way: the
-   * creative is a demo of one specific board, and re-dealing it on every boot
-   * meant nobody ever saw the same fight twice — including the people reviewing
-   * it. Turn back on together with a bare reseed() (see RUN_SEED) for a
-   * different opening every run.
+   * On, and paired with the bare reseed() in main.js: every run opens on its
+   * own arrangement. The deal is retried until it has no free match sitting on
+   * it and offers the MIN_SWAPS the board owes at every other moment, so a
+   * random opening is still a fair one. Turn off, together with a fixed
+   * RUN_SEED, to go back to the one hand-authored demo board.
    */
-  randomOpening: false,
+  randomOpening: true,
 };
 
 /**
- * The seed every run starts from.
+ * The seed a pinned run starts from.
  *
- * Fixed, and paired with randomOpening:false above: together they are what make
- * the board the same board every single time — the same opening deal, the same
- * refills dropping into the same cells, the same obsidian landing in the same
- * places. Pass undefined to reseed() in main.js to go back to a board nobody
- * can predict.
+ * Unused by default: main.js calls a bare reseed(), so every run rolls its own
+ * seed and gets its own board — its own opening deal, its own refills, its own
+ * obsidian. Pass this to reseed() in main.js when a run has to be reproducible
+ * — a bug worth replaying, or a recording where everyone must see the same
+ * fight — and set randomOpening:false above to pin the opening deal with it.
  */
 export const RUN_SEED = 0x2f6e2b1;
 
@@ -325,38 +337,41 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Twenty-five, which is the length of the whole creative — so read what this
-   * now is rather than what it says: a twenty-five second countdown that never
-   * reaches zero. T.hardCap is 25, the intro spends about two of them and
-   * T.finaleReserve holds back 3.5, so there are about 19.5 playable seconds,
-   * and the label runs 25 down to 5 or so before the end card takes the screen.
+   * Thirty, which is the length of the whole creative — so read what this now
+   * is rather than what it says: a thirty second countdown that runs out at the
+   * end of the run and nowhere before it. T.hardCap is 30 and the clock is
+   * armed the moment the intro is off the screen, so what the strip has left
+   * when the cap collects is exactly what the intro cost — about two seconds —
+   * and Director.timeUp drives that last sliver to zero itself before the
+   * cataclysm lands.
    *
    * Kept equal to the run on purpose: the clock on screen was asked for as the
    * length of the creative, so when the creative moved the clock moved with it
-   * — which has now happened twice, in both directions, and this number went
-   * with it both times.
+   * — which has now happened three times, in both directions, and this number
+   * went with it every time: 15, then 20, then 25, now 30.
    *
-   * Which means the cataclysm does not fire, and neither does anything hung off
-   * it: no KOLTMOS IS CHARGING at warnAt[0], no BRACE at warnAt[1], no red
-   * pulse under panicAt, no wipe, no WE HELD. The doom strip drains about three
-   * quarters of its length and the run ends. Everything from `repeat` down is
-   * still correct and still unreachable.
+   * What that costs is the mechanic in the middle of the fight. The clock
+   * cannot reach zero while there is still a fight to land a cataclysm in, so
+   * `repeat` and everything under it only ever describe the one cast timeUp
+   * makes. What does survive is the last few seconds of a run the deadline
+   * collects: warnAt is 4 and 2 and panicAt is 3.5, all three of which a capped
+   * run reaches, so the strip goes red and KOLTMOS IS CHARGING still gets said
+   * on the way into it.
    *
    * That is a deliberate choice and not a regression — the timer on screen was
-   * asked for as the length of the creative, whatever that length is, and this
-   * has now followed it from 15 to 20 to 25. It was 9, which is
-   * three moves: it landed in the middle of the fight, after the player had felt
-   * the bar move and before the kill, with room for exactly one repeat behind
-   * it, so the deadline arrived once as a threat and once as proof it was not a
-   * bluff. Put it back at 9 and the mechanic comes back with it.
+   * asked for as the length of the creative, whatever that length is. It was 9,
+   * which is three moves: it landed in the middle of the fight, after the player
+   * had felt the bar move and before the kill, with room for exactly one repeat
+   * behind it, so the deadline arrived once as a threat and once as proof it was
+   * not a bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 25,
+  seconds: 30,
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
    *
    * A fixed repeat is a metronome, and a metronome is something a player
-   * settles into. Five, then 3.9, then a flat 3 — and inside twenty-five
+   * settles into. Five, then 3.9, then a flat 3 — and inside thirty
    * seconds the second is usually the last one the fight lives to see. The decay is kept
    * anyway: it is what makes the first repeat feel like the deadline closing
    * rather than the same beat again, and a player who stalls does meet the
@@ -449,10 +464,10 @@ export const T = {
    * own — BOSS_ATTACKS, and `turn` walks it whoever moved last — so all this
    * does is let it advance on time instead of on permission.
    *
-   * 3.2 against moveCost's 2.8: a shade longer than a move takes to play out,
+   * 4 against moveCost's 2.8: comfortably longer than a move takes to play out,
    * so a player mid-cascade is not interrupted by a swing they did not earn,
-   * and short enough that the nineteen and a half playable seconds of a
-   * twenty-five second run hold six of them.
+   * and short enough that the twenty-four and a half playable seconds of a
+   * thirty second run hold six of them.
    *
    * Six, where a twenty second run held four, and the two extra are not free:
    * the rotation aims at whoever is closest to falling, so a run that goes the
@@ -463,13 +478,15 @@ export const T = {
    * not a wipe: partyWiped wants all six down, and the cataclysm at the end is
    * what does that. See Director.timeUp.
    *
-   * Shorten the run and this can stay where it is; lengthen it much past
-   * twenty-five and this is the number to lift with it.
+   * A share of the run rather than a fixed beat, which is why it moved when
+   * the run did: 3.2 held six inside twenty-five, and 4 holds six inside
+   * thirty. Left at 3.2 the longer run would have handed the golem two extra
+   * swings nobody asked for. Shorten the run and this comes back down with it.
    *
    * The clock restarts on every player turn, so a swipe is always answered by
    * the swing it earned rather than by two of them at once.
    */
-  bossPress: 3.2,
+  bossPress: 4.0,
   /**
    * The hand under the player's own thumb — off.
    *
@@ -611,8 +628,8 @@ export const T = {
    * playing itself out, so the fastest the demo ever goes is a move every three
    * and a bit seconds. It only reaches that when the boss is deep enough that
    * the run cannot afford anything slower. It is a pace, not a stampede — but
-   * the whole run is twenty-five seconds, and a second of dead air is a
-   * twenty-fifth of the ad spent watching nothing.
+   * the whole run is thirty seconds, and a second of dead air is a thirtieth
+   * of the ad spent watching nothing.
    */
   autoFloor: 0.35,
   /**
@@ -629,14 +646,14 @@ export const T = {
    * creative anybody is still watching.
    *
    * A third of the run and nothing else — a share rather than a duration, so
-   * it moves every time T.hardCap does. It has now moved twice: 5 when the run
-   * was fifteen, 6.7 at twenty, 8.3 at twenty-five.
+   * it moves every time T.hardCap does. It has now moved three times: 5 when
+   * the run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty.
    */
-  banner: 8.3,
+  banner: 10.0,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Twenty-five seconds, because that is the creative. Everything else in this
+   * Thirty seconds, because that is the creative. Everything else in this
    * file is fitted to it rather than the other way round: DOOM.seconds so the
    * clock on screen is the length of the thing it is counting, `banner` so the
    * store button lands a third of the way in, finaleReserve so the death still
@@ -644,27 +661,28 @@ export const T = {
    *
    * That last one is the thing to know about this number. The damage curve is
    * cut to a dead boss in four or five moves, and moveCost puts a move at 2.8
-   * seconds. Twenty-five, less about two for the intro and the 3.5 of
-   * finaleReserve, leaves nineteen and a half playable seconds — seven moves,
-   * against a fight balanced to end in five.
+   * seconds. Thirty, less about two for the intro and the 3.5 of
+   * finaleReserve, leaves twenty-four and a half playable seconds — eight
+   * moves, against a fight balanced to end in five.
    *
-   * That gap is the whole reason the number has climbed twice. At fifteen the
+   * That gap is the whole reason the number has climbed three times. At fifteen the
    * run held nine and a half playable seconds and three moves, and the fight as
    * balanced did not fit inside it at all: playing well still ended with the
    * boss standing, which is not difficulty, it is a creative that stops before
    * its own climax. At twenty it held five and a bit, which is the fight
    * exactly and no room for a mistake in it — one fumbled swipe and the clock
-   * collected instead of the player. Twenty-five is the first number with slack
-   * in it: a player who reads the board kills the boss with a move or two in
-   * hand, and one who needs a second to work out what a match even is can still
-   * get there. Nobody is being given the fight; they are being given the time
-   * to lose a move to it.
+   * collected instead of the player. Twenty-five was the first number with
+   * slack in it, and thirty is that with a beat spare: a player who reads the
+   * board kills the boss with two or three moves in hand, and one who spends
+   * the opening working out what a match even is — reads the line, watches the
+   * coach show it once, fumbles a swipe — can still get there. Nobody is being
+   * given the fight; they are being given the time to lose a move or two to it.
    *
    * This number is what the run is racing — see Director.run, where it is
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 25.0,
+  hardCap: 30.0,
   /** beat after the boss dies before the end card */
   victoryHold: 1.4,
   /**
@@ -672,7 +690,7 @@ export const T = {
    * pace guard treats this as untouchable so a hands-off viewer still sees the
    * boss explode instead of being cut off by the hard cap.
    *
-   * Three and a half of the twenty-five, which is most of what the collapse and
+   * Three and a half of the thirty, which is most of what the collapse and
    * the shout actually take. Trimming it further buys one more move and spends the
    * only moment in the creative that is pure payoff to get it.
    */
@@ -709,6 +727,80 @@ export const AUDIO = {
   /** The lava room tone under the fight. */
   bed: true,
   bedLevel: 0.035,
+  /**
+   * Play the game's own recordings rather than the synthesized palette.
+   *
+   * See audio/samples.js. Thirty-three one-shots lifted out of the game — the
+   * boss's roar, the blade, the match clear, the victory horn — in one sprite,
+   * plus the game's volcano ambience on a loop under the board, for about
+   * 416 kB base64'd into the single inlined file.
+   *
+   * Turning it off plays audio/sfx.js exactly as it always played, and so does
+   * a webview that will not decode an MP3: every event falls through to its
+   * synthesized version on its own. This switch is for the mix, not for
+   * compatibility — nothing goes missing either way.
+   */
+  sfxSamples: true,
+  /**
+   * Master for the recorded one-shots, over the level each already carries.
+   *
+   * Each slice in samples.js keeps the gain its synthesized twin was tuned to,
+   * so the palette balances against itself the way it did; this is the one
+   * number that moves all thirty-three against the music and the room.
+   */
+  sfxSampleLevel: 1.0,
+  /**
+   * Seconds of room inside room.mp3, past the silence it opens with.
+   *
+   * The loop is crossfaded into itself at exactly this length. It is the cut,
+   * not a measurement — changing the asset means changing this. See tracks.js,
+   * where the two music cuts carry the same number for the same reason.
+   */
+  roomLoop: 7.0,
+  /**
+   * The theme over it — see audio/music.js, which plays it rather than loads it.
+   *
+   * Level set against the bed and the palette rather than picked: at 0.09 the
+   * horn line is audible under a five-step cascade and the kick is felt under
+   * the boss's fists, and neither one is competing with them. Music that wins
+   * that fight is music that ate the feedback the player's own taps are made of.
+   * Turn `music` off for placements that want the room and the hits alone.
+   */
+  music: true,
+  musicLevel: 0.09,
+  /**
+   * Prefer the game's own score over the written theme.
+   *
+   * See audio/tracks.js. Two cuts out of the game itself — sixteen bars of the
+   * battle track under the fight, twelve of the lobby theme under the end card
+   * — for about 416 kB base64'd into the single inlined file, against the five
+   * megabytes the spec allows. Turn it off and audio/music.js plays the
+   * synthesized theme it always did, at no cost but the unreferenced asset.
+   *
+   * Off is also what a device that cannot decode an MP3 gets, without anybody
+   * setting it: the fallback is automatic and this switch is for the mix, not
+   * for compatibility.
+   */
+  musicTracks: true,
+  /**
+   * Level for the recorded cuts — the one number to turn if the mix is wrong.
+   *
+   * Higher than `musicLevel` and not comparable to it. That one scales a synth
+   * whose voices peak near full scale on every note; this scales a mastered
+   * stereo mix whose RMS is a fraction of its peaks, so the same number would
+   * put the recording far under the fight. Set against the bed and the palette
+   * the way `musicLevel` was: loud enough to be recognisably the game's music,
+   * quiet enough that a five-step cascade still lands on top of it.
+   */
+  musicTrackLevel: 0.22,
+  /**
+   * The lobby theme under the end card.
+   *
+   * The card is a store pitch, and the game's own menu music is what the store
+   * is selling. Off leaves the card to the sting in sfx.js and nothing else,
+   * which is what it had before the score went in — see `music.endcard`.
+   */
+  musicEndcard: true,
   /**
    * Play through the iOS ring/silent switch.
    *
@@ -804,7 +896,7 @@ export const COPY = {
    *
    * "MATCH TO ATTACK" is an instruction to somebody who already knows what a
    * match is. Plenty of the people this is shown to have never played one, and
-   * they get twenty-five seconds to work it out with a golem roaring at them.
+   * they get thirty seconds to work it out with a golem roaring at them.
    * The number is the whole of the difference: it is the one word that turns a
    * verb nobody has a definition for into a thing to count. The rest of the
    * teaching is done in pictures — see ui/coach.js.
@@ -883,15 +975,15 @@ export const COPY = {
 /**
  * The UI face: everything the game labels rather than announces.
  *
- * Elan ITC Pro first, which is the face this creative is briefed on, and Oswald
- * behind it — condensed, and what every label was fitted against — and the
- * system stack behind that for a device that cannot decode a file at all. See
- * ui/fonts.js: two of those three ship as bytes in this repo and Elan does not,
- * so the head of this list is live the moment a licensed cut is dropped into
- * src/assets/fonts and inert, costing nothing, until then.
+ * Hitzone first, which is the type the Invokers Titan Legacy build sets its own
+ * interface in — so every label here is now the same face the player meets in
+ * the game itself, rather than a layout wearing whatever the device had. Elan
+ * ITC Pro sits behind it, still briefed and still without bytes in this repo,
+ * and the system stack behind that for a device that cannot decode a file at
+ * all. See ui/fonts.js, where the head of this list ships as bytes.
  */
 export const FONT =
-  '"Elan ITC Pro", "Oswald", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  '"Hitzone", "Elan ITC Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /**
  * The display face: the boss's name, the hero's name on an ultimate, and the
@@ -899,14 +991,15 @@ export const FONT =
  * being announced — which is the whole argument for a second font. Anything
  * that is read rather than heard stays on FONT.
  *
- * Elan heads this list as well as FONT's. Once its bytes are here the two
- * constants resolve to the same face and the distinction stops being a
- * difference in type and becomes one in size alone — which is the point of
- * asking for one family everywhere, and the reason Cinzel stays underneath it
- * rather than being deleted.
+ * Hitzone Med is the game's own answer to the same question: the cut its build
+ * keeps for the titles it draws on gold, and a heavier cut of the face FONT is
+ * set in rather than a different design. So the distinction between the two
+ * constants is no longer a difference in kind of type but one of weight and
+ * size — which is the point of asking for one family everywhere, and why plain
+ * Hitzone sits directly underneath as the fallback rather than a serif.
  */
 export const FONT_TITLE =
-  '"Elan ITC Pro", "Cinzel", Georgia, "Times New Roman", serif';
+  '"Hitzone Med", "Hitzone", "Elan ITC Pro", Georgia, "Times New Roman", serif';
 
 /* ------------------------------------------------------------------ heroes */
 
@@ -982,8 +1075,8 @@ export const BOSS_ATTACKS = [
    * The rake, and it is first for a reason that is about the creative and not
    * about the fight.
    *
-   * `bossPress` is 3.2 seconds against roughly fourteen playable ones, so this
-   * rotation gets four entries played in a run and the first of them is the
+   * `bossPress` is 4 seconds against roughly twenty-four playable ones, so this
+   * rotation gets all four entries played in a run and the first of them is the
    * only one everybody sees. Whatever sits at index 0 is what a boss *is* to a
    * viewer who scrolls past at eight seconds — and the note this was written
    * for is exactly that: the beast reads as scenery, the screen shakes and

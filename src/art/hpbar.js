@@ -42,6 +42,8 @@ import barUrl from "../assets/hp/black-bar.webp";
 import trackUrl from "../assets/hp/dark-red.webp";
 import fillUrl from "../assets/hp/red-bar.webp";
 import chipUrl from "../assets/hp/white-bar.webp";
+import doomTrackUrl from "../assets/doom/doom-track.webp";
+import doomFillUrl from "../assets/doom/doom-fill.webp";
 
 /**
  * How far the frame stands proud of the bar, as a fraction of the bar's height.
@@ -60,7 +62,18 @@ let stamp = null;
  * so each one carries its own colour and still ends in the same mitre as the
  * frame it sits in.
  */
-const PAINT_URL = { track: trackUrl, fill: fillUrl, chip: chipUrl };
+const PAINT_URL = {
+  track: trackUrl,
+  fill: fillUrl,
+  chip: chipUrl,
+  // The doom strip's two, poured into this same silhouette. It is drawn under
+  // the health bar at a third of its depth and the two are meant to read as one
+  // gauge running in two directions, which is an easier promise to keep when
+  // both are literally the same shape: one stamp, one mitre, four paints.
+  // tools/pack-doom.mjs packs them; they are Invokers Titan Legacy's own HUD.
+  doomTrack: doomTrackUrl,
+  doomFill: doomFillUrl,
+};
 const paints = {};
 
 /** Alpha at or above which a pixel of the normalised stamp is inside the shape. */

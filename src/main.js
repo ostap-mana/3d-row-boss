@@ -3,13 +3,12 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * twenty-five second fight — T.hardCap, and every other number in config.js is
+ * thirty second fight — T.hardCap, and every other number in config.js is
  * fitted to it — and hands the player to the store.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
 
-import { RUN_SEED } from "./config.js";
 import { computeLayout } from "./core/layout.js";
 import { setApp } from "./core/context.js";
 import { updateTweens } from "./core/tween.js";
@@ -47,6 +46,7 @@ import {
   setMuted,
 } from "./audio/engine.js";
 import { bed } from "./audio/sfx.js";
+import { music } from "./audio/music.js";
 
 async function boot() {
   // Before a single await. The first touch can land while the fonts and the
@@ -69,9 +69,10 @@ async function boot() {
   });
 
   setApp(app);
-  // Fixed seed: the board is the same board every run — same opening deal, same
-  // refills, same lava. Drop the argument to give every impression its own.
-  reseed(RUN_SEED);
+  // No argument: every run rolls its own seed, so each impression gets its own
+  // board — its own opening deal, its own refills, its own lava. Pass RUN_SEED
+  // to pin a run down to a single reproducible board.
+  reseed();
 
   // Decoded before the first frame: the two web fonts because every Text in
   // the game is built below and a Pixi text texture bakes whatever face was
@@ -257,10 +258,14 @@ async function boot() {
    * here — see installAudioUnlock, and the note there on why a drag is the
    * hardest gesture in the world to hang an unlock on.
    */
-  // The bed hangs off the context actually opening rather than off the gesture
-  // that opened it: resume() is a promise, and the handler that called it is
-  // long gone by the time it settles.
-  onAudioOpen(() => bed.start());
+  // The bed and the theme hang off the context actually opening rather than off
+  // the gesture that opened it: resume() is a promise, and the handler that
+  // called it is long gone by the time it settles. Both are subscriptions, not
+  // one-shots — a context that had to be rebuilt starts them again.
+  onAudioOpen(() => {
+    bed.start();
+    music.start();
+  });
   // An ad scrolled off screen goes quiet rather than playing to an empty room.
   document.addEventListener("visibilitychange", () =>
     audioSleep(document.hidden),
@@ -385,7 +390,7 @@ async function boot() {
   // itself viewable is not a person agreeing to be shown a monster, and every
   // network this ships to asks a playable not to start on its own. A touch is
   // both at once, so the viewability wait is gone rather than kept alongside:
-  // it is the stricter of the two, and the twenty-five second clock now starts
+  // it is the stricter of the two, and the thirty second clock now starts
   // on the same gesture the player starts the fight with.
   firstTouch().then(() => {
     prompt.dismiss();

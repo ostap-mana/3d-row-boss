@@ -376,7 +376,7 @@ export class EndCard extends Container {
   aimBackdrop(clear) {
     this.focus = { x: clear.x, y: clear.y };
     this.glow.setSize(
-      Math.max(40, this.layout.w * 0.9),
+      Math.max(40, this.layout.stage.w * 0.9),
       Math.max(40, (clear.bottom - clear.top) * 1.2),
     );
     this.glow.position.set(this.focus.x, this.focus.y);
@@ -422,24 +422,38 @@ export class EndCard extends Container {
   }
 
   stackPortrait(layout) {
-    const { w, h, ui } = layout;
+    const { ui } = layout;
+    /**
+     * The column keeps to the stage; the painting behind it does not.
+     *
+     * See core/layout.js. The card is the one screen in the creative that is
+     * genuinely full-bleed — the key art fills whatever it is given — but the
+     * type and the CTA on top of it are a stack, and a stack solved off a
+     * desktop window is a wordmark stretched across a metre of monitor with a
+     * store row a foot below it. So the picture gets the window and the stack
+     * gets the same box the fight was played in.
+     */
+    const s = layout.stage;
+    const { w, h } = s;
     const pad = h * 0.045;
 
     const badge = this.layoutBadges(Math.min(w * 0.94, 520 * ui), 34 * ui);
-    const badgeY = h - pad - badge.h / 2;
-    this.badges.position.set(w / 2, badgeY);
+    const badgeY = s.bottom - pad - badge.h / 2;
+    this.badges.position.set(s.cx, badgeY);
 
     const bw = Math.min(w * 0.82, 430 * ui);
     const bh = this.fitPlay(bw);
     const buttonY = badgeY - badge.h / 2 - Math.max(10, h * 0.024) - bh / 2;
-    this.placeButton(w / 2, buttonY, bw, bh);
+    this.placeButton(s.cx, buttonY, bw, bh);
 
     const outSize = this.fitLine(
       this.outcome,
       w * 0.86,
       clamp(w * 0.045, 11, 22 * ui),
     );
-    if (outSize) this.outcome.position.set(w / 2, h * 0.05 + outSize * 0.7);
+    if (outSize) {
+      this.outcome.position.set(s.cx, s.y + h * 0.05 + outSize * 0.7);
+    }
 
     const logoH = this.fitBrand(
       Math.min(w * 0.86, 460 * ui),
@@ -449,8 +463,8 @@ export class EndCard extends Container {
     // there is not — a shade lower than the headline used to start, so the
     // wordmark reads as the top of the card rather than as something that has
     // slid up into the space above it.
-    const brandTop = outSize ? this.outcome.y + outSize * 0.8 : h * 0.07;
-    this.brand.position.set(w / 2, brandTop + logoH / 2);
+    const brandTop = outSize ? this.outcome.y + outSize * 0.8 : s.y + h * 0.07;
+    this.brand.position.set(s.cx, brandTop + logoH / 2);
 
     const subSize = this.fitLine(
       this.sub,
@@ -458,7 +472,7 @@ export class EndCard extends Container {
       clamp(w * 0.042, 10, 20 * ui),
     );
     if (subSize) {
-      this.sub.position.set(w / 2, this.brand.y + logoH / 2 + subSize * 1.2);
+      this.sub.position.set(s.cx, this.brand.y + logoH / 2 + subSize * 1.2);
     }
 
     // Where the painting is allowed to start: under whichever of the two is
@@ -466,7 +480,7 @@ export class EndCard extends Container {
     const top = subSize ? this.sub.y + subSize * 0.8 : this.brand.y + logoH / 2;
     const bottom = buttonY - bh / 2 - h * 0.02;
     const clear = {
-      x: w / 2,
+      x: s.cx,
       y: (top + bottom) / 2,
       top: top + h * 0.05,
       bottom,
@@ -483,9 +497,12 @@ export class EndCard extends Container {
    * still leaving room for the picture leaves every one of them too small.
    */
   stackLandscape(layout) {
-    const { w, h, ui } = layout;
+    const { ui } = layout;
+    // The same split as upright, on the same box — see stackPortrait.
+    const s = layout.stage;
+    const { w, h } = s;
     const colW = w * 0.5;
-    const cx = w * 0.26;
+    const cx = s.x + w * 0.26;
     const gap = Math.max(8, h * 0.03);
 
     // Every rung is measured before any of them is placed: the column is
@@ -555,7 +572,7 @@ export class EndCard extends Container {
       (sum, r, i) => sum + r.h + (i < rungs.length - 1 ? r.gap * gap : 0),
       0,
     );
-    let y = (h - total) / 2;
+    let y = s.y + (h - total) / 2;
     rungs.forEach((r, i) => {
       r.place(y);
       y += r.h + (i < rungs.length - 1 ? r.gap * gap : 0);
@@ -570,13 +587,15 @@ export class EndCard extends Container {
     // and drops the phone straight through the CTA; a fifth of overscan buys
     // enough slack to push the whole composition clear of the column.
     const clear = {
-      x: w * 0.78,
-      y: h * 0.5,
-      top: h * 0.16,
-      bottom: h * 0.84,
+      x: s.x + w * 0.78,
+      y: s.cy,
+      top: s.y + h * 0.16,
+      bottom: s.y + h * 0.84,
       zoom: 1.2,
     };
-    this.placeArt(clear, w * 0.6);
+    // The wash runs from the window's own left edge to the right of the column,
+    // which is where the column ends and not where the stage does.
+    this.placeArt(clear, s.x + w * 0.6);
     this.aimBackdrop(clear);
   }
 

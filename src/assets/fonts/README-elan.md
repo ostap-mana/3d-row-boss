@@ -1,8 +1,11 @@
 # Elan ITC Pro — drop the licensed file here
 
-`Elan ITC Pro` is the head of both family lists in [`src/config.js`](../../config.js)
-(`FONT` and `FONT_TITLE`), so every label, name and headline in the game is set
-in it as soon as a file for it exists. Nothing else needs editing.
+`Elan ITC Pro` is wired into [`src/ui/fonts.js`](../../ui/fonts.js) and loads as
+soon as a file for it exists — but it no longer heads the family lists in
+[`src/config.js`](../../config.js). Hitzone does, taken from the Invokers Titan
+Legacy build; see [README-hitzone.md](README-hitzone.md). A licensed Elan cut
+dropped in here is loaded and then never asked for until `FONT` and `FONT_TITLE`
+are re-ordered to name it first, which is the only edit needed.
 
 It is **not** in this repo and cannot be: ITC Elan is Monotype's, sold per
 licence, and unlike Oswald and Cinzel — both SIL OFL, licences beside them —
@@ -43,7 +46,7 @@ range, and that is why the two fonts already here are 13 kB each.
 ## After the file lands
 
 Re-measure the digit metrics in [`src/art/heroes.js`](../../art/heroes.js) — the
-`OSWALD` constant. The hero cards' HP readouts size themselves off a cap height
-and a digit advance measured from Oswald 700; Elan is a serif with its own, so
+`HITZONE` constant. The hero cards' HP readouts size themselves off a cap height
+and a digit advance measured from Hitzone 400; Elan is a serif with its own, so
 the numbers will draw in the new face at the old face's size until those three
 numbers are taken again.

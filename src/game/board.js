@@ -176,14 +176,16 @@ export class Board extends Container {
   /**
    * Deal the opening board.
    *
-   * The hand-authored START_BOARD, every run — see DIFFICULTY.randomOpening.
-   * It guarantees the tutorial swap is the most obvious move on screen, and it
-   * guarantees the board a viewer sees is the board everybody else saw.
+   * A fresh random deal every run — see DIFFICULTY.randomOpening. The deal is
+   * rejected and retried until it has no free match sitting on it and offers
+   * the same MIN_SWAPS the board owes at every other moment, so the boss can
+   * take an option on turn one without leaving the player stranded.
    *
-   * The random path below is the opt-in. Its deal is rejected and retried until
-   * it has no free match sitting on it and offers the same MIN_SWAPS the board
-   * owes at every other moment, so the boss can take an option on turn one
-   * without leaving the player stranded.
+   * The hand-authored START_BOARD is the opt-in now, kept for the runs that
+   * have to be reproducible: it guarantees the tutorial swap is the most
+   * obvious move on screen and that the board a viewer sees is the board
+   * everybody else saw. It is also the fallback below, for the deal that never
+   * comes good.
    */
   build() {
     for (let r = 0; r < ROWS; r++) {

@@ -1,9 +1,32 @@
 /**
  * Responsive layout solver.
  *
- * Phones only — the creative is built for a 375x667 iPhone SE as the worst
- * case and scales up from there. Both orientations must survive, so every
- * region is derived from the current viewport instead of being authored once.
+ * The creative is built for a 375x667 iPhone SE as the worst case and scales up
+ * from there. Both orientations must survive, so every region is derived from
+ * the current viewport instead of being authored once.
+ *
+ * It is not phones only any more, and the stage below is what that cost. A
+ * playable is opened on a tablet and on a desktop browser as often as it is
+ * reviewed on one, and a composition solved straight off the window does two
+ * things wrong up there. It stretches: an iPad's 4:3 gives the board a width it
+ * cannot use — the board is bound by the height it has — while the health bar
+ * and the hero row keep taking the whole 4:3 anyway, so nothing on the screen
+ * shares an edge with anything else. And it swells: on a 1920x1080 desktop the
+ * same layout comes out at nearly three times the size it was drawn for, which
+ * is a wall of 178 point gems, bitmaps packed for a phone stretched well past
+ * the resolution they were packed at, and a hero card the size of a hand.
+ *
+ * So the layout is solved inside a stage rather than inside the window: a
+ * centred box whose aspect is held to the range each orientation was actually
+ * drawn for, and whose size stops at twice the reference phone — the same
+ * ceiling `ui` has always had. Every region below is measured in that box and
+ * translated into the window on the way out, so nothing downstream changes.
+ *
+ * Nothing is letterboxed by it. `w` and `h` are still the window, and the things
+ * that are meant to fill it — the arena, the scrims, the flashes, the end card's
+ * painting — still do. What the stage bounds is the composition: the board, the
+ * boss, the row, the chrome. On every phone in the matrix the stage is the whole
+ * window and this file computes exactly what it computed before.
  */
 
 import { FRAME_ART, FRAME_OPENING } from "../art/boardframe.js";
@@ -197,18 +220,165 @@ function bannerBox(ui, stacked) {
 }
 
 /**
+ * The box the composition is solved in — the safe zone.
+ *
+ * `short` is the reference phone's short side, and it is the same 375 `ui` has
+ * always divided by; `maxScale` is the same 2.0 `ui` has always clamped to. Tying
+ * the stage to those two numbers is the point of it: past this size the type
+ * stopped growing, so past this size nothing else may either, and a composition
+ * that stops growing all at once keeps the proportions it was drawn with
+ * instead of coming apart at one end.
+ *
+ * The aspects are read off the devices rather than chosen. Upright, every phone
+ * this ships to is between 0.42 wide over tall (a 21:9 Xperia) and 0.5625 (a
+ * 9:16 SE), so the range is exactly the phones and every one of them gets the
+ * whole window. Anything squarer than 9:16 — an iPad's 0.75, a desktop window's
+ * anything — is a shape the creative was never drawn for, and it gets a 9:16
+ * stage centred in it with the arena running out to the edges behind. Sideways
+ * the same reading gives 1.2 to 2.2: an SE on its side is 1.78 and a modern
+ * phone 2.17, while an ultrawide desktop's 2.37 is trimmed back to a shape the
+ * boss's column and the board can still share honestly.
+ */
+const STAGE = {
+  short: 375,
+  maxScale: 2,
+  portrait: { min: 0.42, max: 0.5625 },
+  landscape: { min: 1.2, max: 2.2 },
+};
+
+/**
+ * Corner the ad container keeps for its own close button.
+ *
+ * Every network draws one over the creative — Unity, ironSource, AppLovin,
+ * Google — and every one of them draws it in a top corner, at a fixed size in
+ * CSS pixels rather than at ours, somewhere around forty points square with a
+ * margin outside it. Nothing in here can move it, so the one thing this file can
+ * do about it is not put the CTA underneath it.
+ *
+ * And it is the CTA and only the CTA that this pushes down. The lockup is the
+ * one thing on the fight screen a player taps on purpose, in both orientations
+ * it is right-aligned at the top, and a tap that lands on a close button instead
+ * of on PLAY NOW is the whole creative wasted. The boss name and the doom clock
+ * are up there too and are left where they are: they are read rather than
+ * touched, and buying them the same clearance would cost the board fifty points
+ * on every phone to protect type a close button overlaps for the last seconds of
+ * a thirty second fight.
+ *
+ * Zero it to put the lockup back at the foot of the chrome.
+ */
+const CLOSE_KEEPOUT = 52;
+
+/**
+ * The stage: the largest box of an allowed shape and size, centred in the
+ * window.
+ *
+ * Two clamps, in order. The aspect first — the window is trimmed on whichever
+ * axis is too long for the range, so a 4:3 tablet loses width and a folded
+ * phone's sliver loses height. Then the size, which scales the box down whole
+ * rather than trimming it again: past twice the reference phone the creative
+ * gains nothing by being bigger, and a box that keeps its shape while it shrinks
+ * is the difference between a desktop showing the game and a desktop showing a
+ * stretched phone.
+ */
+function stageBox(w, h, portrait) {
+  const range = portrait ? STAGE.portrait : STAGE.landscape;
+  const view = w / h;
+  const aspect = clamp(view, range.min, range.max);
+
+  let sw = view > aspect ? h * aspect : w;
+  let sh = view < aspect ? w / aspect : h;
+
+  const cap = STAGE.short * STAGE.maxScale;
+  const over = Math.min(sw, sh) / cap;
+  if (over > 1) {
+    sw /= over;
+    sh /= over;
+  }
+
+  return {
+    x: (w - sw) / 2,
+    y: (h - sh) / 2,
+    w: sw,
+    h: sh,
+    cx: w / 2,
+    cy: h / 2,
+    right: (w + sw) / 2,
+    bottom: (h + sh) / 2,
+  };
+}
+
+/**
+ * Every region the solver returned, moved out of stage space and into the
+ * window's.
+ *
+ * The two solvers below are written against a box at the origin and they stay
+ * that way — this is the one place that knows the box is not at the origin any
+ * more. `w` and `h` come back as the window rather than as the stage on purpose:
+ * everything that is meant to fill the screen reads them, and everything that is
+ * part of the composition reads `stage` instead.
+ */
+function place(solved, stage, w, h) {
+  const { x: dx, y: dy } = stage;
+  const move = (r) => ({ ...r, x: r.x + dx, y: r.y + dy });
+
+  return {
+    ...solved,
+    w,
+    h,
+    stage,
+    board: move(solved.board),
+    banner: move(solved.banner),
+    cards: move(solved.cards),
+    hud: move(solved.hud),
+    boss: { ...move(solved.boss), floor: solved.boss.floor + dy },
+  };
+}
+
+/**
  * @param {{top:number,right:number,bottom:number,left:number}} [safe] device
  *   insets — the notch, the home indicator. Measured in main.js; zero is a
  *   perfectly good answer and every browser without cutouts gives it.
  */
 export function computeLayout(w, h, safe) {
-  const inset = safe || { top: 0, right: 0, bottom: 0, left: 0 };
+  const device = safe || { top: 0, right: 0, bottom: 0, left: 0 };
   const portrait = h >= w;
-  const ui = clamp(Math.min(w, h) / 375, 0.72, 2.0);
+  const stage = stageBox(w, h, portrait);
 
-  return portrait
-    ? portraitLayout(w, h, ui, inset)
-    : landscapeLayout(w, h, ui, inset);
+  /**
+   * The cutouts, as much of them as actually reaches into the stage.
+   *
+   * A notch is measured from the window's edge and the stage does not always
+   * start there any more, so on a tablet with a home indicator and a margin
+   * under the stage the indicator is already outside the box and the layout owes
+   * it nothing. On a phone the stage is the window and these are the insets
+   * themselves, which is why every phone lays out exactly as it did before.
+   *
+   * This is what comes back as `layout.safe`, and it is stage-relative like
+   * every other number in here: read it against `layout.stage`, never against
+   * the window.
+   */
+  const inset = {
+    top: Math.max(0, device.top - stage.y),
+    right: Math.max(0, device.right - (w - stage.right)),
+    bottom: Math.max(0, device.bottom - (h - stage.bottom)),
+    left: Math.max(0, device.left - stage.x),
+  };
+
+  // The same measurement for the close button: it is drawn at the window's
+  // corner, so what the stage owes it is whatever is left of it once the margin
+  // above the stage has cleared it. On a desktop that is nothing.
+  const keepout = Math.max(0, CLOSE_KEEPOUT - stage.y);
+
+  // Off the stage rather than off the window — this is the number the whole
+  // creative is scaled by and it has to agree with the box it is scaling inside.
+  // On a phone the two are the same thing.
+  const ui = clamp(Math.min(stage.w, stage.h) / STAGE.short, 0.72, 2.0);
+
+  const solved = portrait
+    ? portraitLayout(stage.w, stage.h, ui, inset, keepout)
+    : landscapeLayout(stage.w, stage.h, ui, inset, keepout);
+
+  return place(solved, stage, w, h);
 }
 
 /**
@@ -234,7 +404,7 @@ const BOSS_OVERLAP = 0.07;
  */
 const BOSS_MIN = 0.215;
 
-function portraitLayout(w, h, ui, safe) {
+function portraitLayout(w, h, ui, safe, keepout) {
   const pad = 10 * ui;
   const gut = gutter(w);
 
@@ -303,7 +473,13 @@ function portraitLayout(w, h, ui, safe) {
   // screen's right edge less the gutter. Nothing is reserved for it: the board
   // in portrait starts a long way below the chrome — it is the boss's band that
   // is up here — and the plate has never had to be fitted in against anything.
+  //
+  // The one thing it is fitted in against is the container's close button. See
+  // CLOSE_KEEPOUT: on a tall phone the chrome clears that corner already and
+  // this is the line the lockup was on anyway; on a short one it drops a few
+  // points into the sky over the golem, where there is nothing to collide with.
   const plate = bannerBox(ui, true);
+  const bannerTop = Math.max(chromeBottom + 3 * ui, keepout);
 
   return {
     w,
@@ -315,7 +491,7 @@ function portraitLayout(w, h, ui, safe) {
     banner: {
       ...plate,
       x: safe.left + gut + chromeW - plate.w / 2,
-      y: chromeBottom + 3 * ui + plate.h / 2,
+      y: bannerTop + plate.h / 2,
     },
     boss: {
       x: w / 2,
@@ -333,7 +509,7 @@ function portraitLayout(w, h, ui, safe) {
   };
 }
 
-function landscapeLayout(w, h, ui, safe) {
+function landscapeLayout(w, h, ui, safe, keepout) {
   const pad = 9 * ui;
   const gut = gutter(h);
 
@@ -367,7 +543,11 @@ function landscapeLayout(w, h, ui, safe) {
    * both of them still well past the flat 520 this used to be capped at.
    */
   const plate = bannerBox(ui, false);
-  const bannerY = chromeBottom + 3 * ui + plate.h / 2;
+  // Held down off the corner the container's close button lands in, the same as
+  // upright — and here the board is what pays for it, because the board starts
+  // under the band. Six points on a phone, nothing at all on anything with a
+  // margin above the stage. See CLOSE_KEEPOUT.
+  const bannerY = Math.max(chromeBottom + 3 * ui, keepout) + plate.h / 2;
   const bandBottom = bannerY + plate.h / 2 + pad * 0.6;
 
   // What the height leaves under the CTA band, or half the width — the half

@@ -48,6 +48,7 @@ import { MIN_SWAPS } from "./board.js";
 import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
+import { music } from "../audio/music.js";
 
 /**
  * How far below the best score a cell can be and still get picked.
@@ -234,7 +235,7 @@ export class Director {
    * The clock ran out with the boss still standing.
    *
    * This used to be nothing at all: the race resolved, `finish` set the end
-   * card, and a creative that had spent twenty-five seconds telling the player
+   * card, and a creative that had spent thirty seconds telling the player
    * a cataclysm was coming simply stopped one frame later. The one mechanic the
    * whole mode is built on had never fired, because with DOOM.seconds equal to
    * the runtime the clock can never reach zero inside it, and the ending was a
@@ -251,7 +252,7 @@ export class Director {
    * caught it, because a strip reading five seconds under a cataclysm landing is
    * the creative disagreeing with itself in the last two seconds anybody watches.
    *
-   * Runs after T.hardCap rather than inside it, so the deliverable is twenty
+   * Runs after T.hardCap rather than inside it, so the deliverable is thirty
    * seconds of fight and then this. Everything in it is already bounded — see
    * bossSettled, which will wait 0.8s for an in-flight swing and no longer.
    */
@@ -610,6 +611,9 @@ export class Director {
       // The room tightens with the clock — the one thing in the mix that says
       // something the screen has not already said.
       sfx.bed.setTension(1 - this.doomLeft / this.doomTotal);
+      // Same number to the arrangement: the strings open up, the shaker comes
+      // in and the mix leans forward. See music.setTension.
+      music.setTension(1 - this.doomLeft / this.doomTotal);
 
       for (let i = 0; i < DOOM.warnAt.length; i++) {
         const at = DOOM.warnAt[i];
@@ -675,11 +679,11 @@ export class Director {
 
     const impact = boss.impactPoint();
     vfx.shock(impact.x, impact.y, 0xff2a06, {
-      size: layout.w * 2.4,
+      size: layout.stage.w * 2.4,
       width: 18,
     });
     vfx.shock(impact.x, impact.y, 0xffd35a, {
-      size: layout.w * 1.4,
+      size: layout.stage.w * 1.4,
       width: 10,
       duration: 0.45,
     });
@@ -1257,18 +1261,18 @@ export class Director {
     // what carries the hit down to the row.
     const at = boss.impactPoint();
     shake(16, 0.4);
-    vfx.claw(at.x, at.y + layout.h * 0.02, 0xff3a5a, {
+    vfx.claw(at.x, at.y + layout.stage.h * 0.02, 0xff3a5a, {
       dir,
-      len: layout.w * 1.05,
-      gap: layout.h * 0.032,
+      len: layout.stage.w * 1.05,
+      gap: layout.stage.h * 0.032,
     });
     // Painted slashes over the drawn ones, when the sheet is there. Laid on the
     // same point and the same side, so it is the marks getting hotter rather
     // than a second swipe arriving from somewhere else.
     vfx.bossSwing(
       "rake",
-      { x: at.x, y: at.y + layout.h * 0.03 },
-      { size: layout.w * 0.95, duration: 0.4, alpha: 0.85, grow: 0.16 },
+      { x: at.x, y: at.y + layout.stage.h * 0.03 },
+      { size: layout.stage.w * 0.95, duration: 0.4, alpha: 0.85, grow: 0.16 },
     );
     vfx.flash(0xff2a3a, 0.16, 0.3);
 
@@ -1341,18 +1345,18 @@ export class Director {
     const impact = boss.fistPoint();
     shake(20, 0.55);
     vfx.shock(impact.x, impact.y, 0xff8a3d, {
-      size: layout.w * 1.6,
+      size: layout.stage.w * 1.6,
       width: 14,
     });
     vfx.shock(impact.x, impact.y, 0xffd35a, {
-      size: layout.w * 0.9,
+      size: layout.stage.w * 0.9,
       width: 8,
       duration: 0.4,
     });
     // Under both rings, at the fists. The rings are the shape of the blast and
     // the sheet is what is actually burning inside it.
     vfx.bossSwing("smash", impact, {
-      size: layout.w * 1.15,
+      size: layout.stage.w * 1.15,
       duration: 0.5,
       grow: 0.35,
     });
@@ -1993,9 +1997,13 @@ export class Director {
     if (this.ended) return;
     this.ended = true;
     this.stopIdle();
-    // The room goes out with the fight; the end card gets its own sound and
-    // nothing else. A drone under a store button is a drone nobody asked for.
+    // The room goes out with the fight — a drone under a store button is a
+    // drone nobody asked for. The music does not go out with it: it crosses to
+    // the game's lobby theme under the card, which is the one piece of sound on
+    // that screen that is also the thing being sold. See music.endcard, and
+    // AUDIO.musicEndcard for placements that want the card quiet.
     sfx.bed.stop();
+    music.endcard();
     this.doomArmed = false;
     this.s.hud.hideDoom();
     this.s.board.lockInput();

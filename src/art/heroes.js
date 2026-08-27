@@ -384,27 +384,32 @@ function readouts(w, h) {
 const BAR_SHARE = 0.088;
 
 /**
- * Oswald's own metrics at weight 700, measured off a canvas rather than assumed.
+ * Hitzone's own metrics, measured off the shipped WOFF2 rather than assumed.
+ *
+ * Taken from the 400 cut, which is the one that draws here: the readout asks
+ * for FONT at weight 700, FONT heads on plain Hitzone, and that family is
+ * registered across the whole weight scale — see ui/fonts.js — so 700 lands on
+ * the 400 file exactly rather than on Hitzone Med.
  *
  *   cap      how far a digit reaches above the baseline, as a fraction of the
- *            type size. 0.825 — high, because this is a condensed display face,
- *            and it is why the numbers fill a bar that looks too shallow for
- *            them.
- *   descend  how far one reaches below it. 0.015, which is a hair of overshoot
+ *            type size. 0.713, against the 0.825 of the Oswald this replaced:
+ *            a lower cap, so the rule below draws the numbers about a seventh
+ *            larger to fill the same bar to the same depth of ink.
+ *   descend  how far one reaches below it. 0.008, which is a hair of overshoot
  *            on the round digits and nothing else: the ink of a line of numerals
  *            is its cap height and no more.
- *   advance  the width of one digit. Tabular — every digit is the same 0.55 — so
- *            a reading that ticks from 999 to 1000 grows by exactly one digit and
- *            never reflows by a fraction of one.
+ *   advance  the width of the widest digit, which is `0`. Hitzone's figures are
+ *            proportional and not tabular — `1` is nearly a third narrower — so
+ *            this is the guard a reading is fitted against and not a promise
+ *            that a tick from 999 to 1000 grows by exactly one digit's width.
  *
  * Re-measure if the face or the weight changes; the type sizing below is derived
- * from these and nothing else. That includes the day Elan ITC Pro arrives in
- * src/assets/fonts: it is the head of FONT and these readouts are the one place
- * in the game whose type size is not fitted at runtime but solved from the three
- * numbers here, so a serif with its own cap height draws at the grotesque's size
- * until they are taken again.
+ * from these and nothing else. These readouts are the one place in the game
+ * whose type size is not fitted at runtime but solved from the three numbers
+ * here, so a face with its own cap height draws at the last face's size until
+ * they are taken again.
  */
-const OSWALD = { cap: 0.825, descend: 0.015, advance: 0.55 };
+const HITZONE = { cap: 0.713, descend: 0.008, advance: 0.617 };
 
 /**
  * How the numbers are fitted to the bar they sit in.
@@ -423,7 +428,7 @@ const OSWALD = { cap: 0.825, descend: 0.015, advance: 0.55 };
  * digits is half the weight of the border above them, and so is the air under —
  * the type's margin is measured off the same file as the edge it stands off, and
  * that is the whole rule. There is no tuned number in it: the type size falls out
- * as `cap / OSWALD.cap`, which is 0.776 of the bar's depth.
+ * as `cap / HITZONE.cap`, which is 0.898 of the bar's depth.
  *
  * It was a whole rim each side — `cap = u - 4r`, digits with as much air over
  * them as the border holding them — and on a screen where the numbers are
@@ -445,7 +450,7 @@ const OSWALD = { cap: 0.825, descend: 0.015, advance: 0.55 };
  *          thing to go.
  *
  * There is no vertical correction here, and there were two before. Numerals have
- * no descender — see OSWALD.descend — so a line of them is centred on a box with
+ * no descender — see HITZONE.descend — so a line of them is centred on a box with
  * empty space along one edge, and both earlier attempts were constants tuned to
  * put the ink back on the bar's centre line. Both drifted the moment anything
  * else moved, because what was actually throwing the ink off was the outline: at
@@ -518,11 +523,11 @@ const READOUT_PAIR_MIN = 11;
  * once, so a redrawn trough with a different rim moves both.
  */
 function readoutSize(u) {
-  return (u * (1 - BAR_RIM * 3)) / OSWALD.cap;
+  return (u * (1 - BAR_RIM * 3)) / HITZONE.cap;
 }
 
 function readoutDepth(size) {
-  return (size * OSWALD.cap) / (1 - BAR_RIM * 3);
+  return (size * HITZONE.cap) / (1 - BAR_RIM * 3);
 }
 
 /**
@@ -649,13 +654,14 @@ class Gauge extends Container {
 
   /**
    * Whether a bar `w` by `h` can set this gauge's longest reading — `max` over
-   * `max`, which with tabular figures is as wide as the pair ever gets — at a
-   * size a player can read.
+   * `max`, which is the most digits the pair ever carries — at a size a player
+   * can read.
    *
    * Measured rather than predicted, and measured on the label itself: the answer
    * comes out of the same face, weight and tracking the reading will be set in,
-   * which a width computed off OSWALD.advance cannot promise for the slash and
-   * the two spaces around it. The floor goes to fitFont as 1 so what comes back
+   * which a width computed off HITZONE.advance cannot promise for the slash and
+   * the two spaces around it — the less so now that the figures are proportional
+   * and a reading of the same length can run a little wider than this one. The floor goes to fitFont as 1 so what comes back
    * is the size the pair actually wants rather than the size it was allowed, and
    * that is the number READOUT_PAIR_MIN judges.
    *

@@ -1,13 +1,12 @@
 /**
  * Seeded RNG.
  *
- * main.js boots it from the fixed RUN_SEED, so every impression plays back off
- * the same board: the same opening deal, the same refills and the same lava
- * landing in the same cells. That is deliberate — the creative demos one
- * authored board, and a board that re-rolled itself every boot meant nobody
- * ever saw the same fight twice.
+ * main.js calls a bare reseed(), so every impression rolls its own seed and
+ * plays its own board: its own opening deal, its own refills, its own lava.
  *
- * Call reseed() with no argument to hand every run its own board instead.
+ * Pass RUN_SEED (or any fixed number) to reseed() to pin a run down instead —
+ * every boot then replays the identical fight, which is what you want for
+ * reproducing a bug or capturing a recording.
  */
 
 let state = 0x2f6e2b1;

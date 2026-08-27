@@ -131,32 +131,41 @@ export class CutIn extends Container {
       });
     }
 
-    const size = Math.min(h * 0.52, w * 0.72);
+    // The dim and the speed lines above are the window's — they are what makes
+    // the rest of the screen go away. Everything from here down is the lockup
+    // itself, and it is sized and placed on the stage, so on a desktop the
+    // portrait comes in at the size it was drawn at over the middle of the
+    // arena rather than filling a monitor.
+    const s = layout.stage;
+    const size = Math.min(s.h * 0.52, s.w * 0.72);
     this.portrait.setSize(size, size);
-    this.portrait.x = layout.portrait ? w * 0.34 : w * 0.28;
-    this.portrait.y = h * 0.46;
+    this.portrait.x = s.x + s.w * (layout.portrait ? 0.34 : 0.28);
+    this.portrait.y = s.y + s.h * 0.46;
 
     this.glow.setSize(size * 1.9, size * 1.9);
     this.glow.x = this.portrait.x;
     this.glow.y = this.portrait.y;
 
-    const fs = Math.max(22, Math.min(w * 0.11, 54 * layout.ui));
+    const fs = Math.max(22, Math.min(s.w * 0.11, 54 * layout.ui));
     this.name.style.fontSize = fs;
     this.skill.style.fontSize = fs * 0.42;
 
-    const textX = layout.portrait ? w * 0.14 : w * 0.5;
+    const textX = s.x + s.w * (layout.portrait ? 0.14 : 0.5);
     this.name.x = textX;
-    this.name.y = h * (layout.portrait ? 0.72 : 0.44);
+    this.name.y = s.y + s.h * (layout.portrait ? 0.72 : 0.44);
     this.skill.x = textX;
     this.skill.y = this.name.y + fs * 0.78;
 
+    // Run out to the stage's edge rather than the window's: the plate is the
+    // ground the name is set on, and a ground that carries on past the
+    // composition is a bar across a monitor.
     this.plate.clear();
     this.plate.poly([
       textX - fs * 0.5,
       this.name.y - fs * 0.62,
-      w,
+      s.right,
       this.name.y - fs * 0.62,
-      w,
+      s.right,
       this.skill.y + fs * 0.42,
       textX - fs * 0.78,
       this.skill.y + fs * 0.42,
@@ -178,7 +187,9 @@ export class CutIn extends Container {
   /** Slam in, hold, slide out. */
   async play(index) {
     if (index !== undefined) this.setHero(index);
-    const { w } = this.layout;
+    // Every offset below is a distance travelled, and the distance is the
+    // composition's width rather than the window's.
+    const { w } = this.layout.stage;
     this.visible = true;
     this.alpha = 1;
     sfx.ultCutin(HEROES[this.index].element);

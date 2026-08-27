@@ -1,27 +1,32 @@
 /**
  * The web fonts, decoded before a single line of text is measured.
  *
- * This creative ran on the system stack until now — whatever Segoe UI, Roboto
- * or SF Pro happened to be on the device — which is three different creatives
- * wearing one layout, and none of them a game. Two faces fix that for under
- * thirty kilobytes:
+ * This creative ran on the system stack, then on two faces borrowed from
+ * Google, and now on the type the game it is advertising is actually set in.
+ * Both faces here are Hitzone, taken out of the Invokers Titan Legacy build —
+ * two cuts, because the game ships two and gives them two different jobs:
  *
- *   Oswald 700   the UI. A condensed grotesque, which is the one thing this
- *                layout needs most: every label in it is upper case and half of
- *                them are long — CATACLYSM, MATCH TO ATTACK, six hero names in
- *                a row of cards 56 points wide — and condensed is what fits
- *                them without dropping to a size nobody reads.
- *   Cinzel 900   the three places the fight is announced rather than labelled:
+ *   Hitzone      the UI. Everything the game labels rather than announces: the
+ *                hero names, MATCH TO ATTACK, the readouts in the HP bars. This
+ *                is the cut the build sets its own interface in.
+ *   Hitzone Med  the three places the fight is announced rather than labelled:
  *                the boss's name, the hero's name on an ultimate, the end
- *                card's headline. A roman inscription face, and the reason the
- *                UI one can stay plain.
+ *                card's headline. The build reserves this cut for the titles it
+ *                draws on gold, and so does this.
  *
- * Both are SIL Open Font License; the licences sit next to the files. They are
- * the `latin` cut Google serves, so they carry the Latin-1 range and nothing
- * else — this creative has no other characters in it.
+ * They are registered as two families rather than as two weights of one, and
+ * that is what makes the split hold: `FONT` names the first and `FONT_TITLE`
+ * the second, so a request at any weight lands on a real file instead of on the
+ * browser's guess at a heavier version of the other one. See config.js.
  *
- * Elan ITC Pro sits in front of both of them — see ELAN below and the two
- * family lists in config.js — and is the one face whose bytes are not here.
+ * Subset to Latin-1 — the range this creative draws, and nothing past it — at a
+ * little under twenty kilobytes a cut, down from around 218 kB of TrueType. The
+ * full faces carry Cyrillic as well; where they came from and how they were cut
+ * is in README-hitzone.md, next to the files.
+ *
+ * Elan ITC Pro is still wired below and still has no bytes here. It now sits
+ * behind Hitzone in both family lists rather than in front of them, so dropping
+ * a licensed cut in changes nothing until those lists are re-ordered.
  *
  * Never rejects. A device that cannot decode a WOFF2 keeps the system stack
  * that is still the tail of every family list in config.js, and the layout is
@@ -29,8 +34,8 @@
  * authored against one font's metrics.
  */
 
-import oswaldUrl from "../assets/fonts/oswald-700.woff2";
-import cinzelUrl from "../assets/fonts/cinzel-900.woff2";
+import hitzoneUrl from "../assets/fonts/hitzone-400.woff2";
+import hitzoneMedUrl from "../assets/fonts/hitzone-500.woff2";
 
 /**
  * Elan ITC Pro — asked for by name, and the only face here that cannot ship.
@@ -47,10 +52,10 @@ import cinzelUrl from "../assets/fonts/cinzel-900.woff2";
  *     src/assets/fonts/elan-bold-italic.woff2   ->  700 italic
  *
  * — any subset of those, and numeric names like `elan-700.woff2` are read the
- * same way — and every label and every headline in the game comes up set in it
- * on the next build, because "Elan ITC Pro" is already the head of both family
- * lists in config.js. Until a file lands, those lists fall straight through to
- * Oswald and Cinzel and the build is exactly what it is today.
+ * same way. It will not draw anything on its own any more: Hitzone heads both
+ * family lists in config.js now, so a licensed cut dropped in here is loaded and
+ * then never asked for until those lists are re-ordered to put Elan first. The
+ * loading half of the contract is kept so that re-ordering is the only step.
  *
  * A glob rather than an `import`: an import of a file that is not on disk fails
  * the build, and this build has to keep working with no Elan in it. `.otf` and
@@ -85,7 +90,7 @@ const ELAN_WEIGHTS = {
  * a file registered under the wrong number is a file the browser smears bolder
  * itself. Naming it is the cheapest contract that holds.
  *
- * The range trick is the same one Oswald gets below, applied per style: a style
+ * The range trick is the same one Hitzone gets below, applied per style: a style
  * that arrived as a single file answers for the whole 100–900 scale, because the
  * UI asks for 800 and 900 in a dozen places and those numbers were picked when
  * the only faces available were whatever the device had. One file matched
@@ -122,16 +127,21 @@ function elanFaces() {
 /**
  * `weight` is a range, not a number, and both ranges are wider than the file.
  *
- * The UI asks for 800 and 900 all over — those numbers were picked when the
- * only faces available were whatever the device had, where 900 means "as heavy
- * as you have". Registering the real 700 as `500 900` is what makes those
- * requests land on it: matched exactly, drawn as drawn. Without the range the
- * browser takes the nearest face and smears it bolder itself, which on a
- * condensed face closes up the counters and reads as a blur at 11 points.
+ * The UI asks for 700, 800 and 900 all over — those numbers were picked when
+ * the only faces available were whatever the device had, where 900 means "as
+ * heavy as you have". Registering each cut across the whole scale is what makes
+ * those requests land on it: matched exactly, drawn as drawn. Without the range
+ * the browser takes the nearest face and smears it bolder itself, which closes
+ * up the counters and reads as a blur at 11 points.
+ *
+ * The two cuts are told apart by family name rather than by weight, which is
+ * the only way to keep the UI on one and the headlines on the other when both
+ * are asked for at 900: a weight split would hand every heavy request to Med
+ * and leave the lighter cut drawing nothing at all.
  */
 const FACES = [
-  { family: "Oswald", url: oswaldUrl, weight: "500 900" },
-  { family: "Cinzel", url: cinzelUrl, weight: "700 900" },
+  { family: "Hitzone", url: hitzoneUrl, weight: "100 900" },
+  { family: "Hitzone Med", url: hitzoneMedUrl, weight: "100 900" },
   ...elanFaces(),
 ];
 

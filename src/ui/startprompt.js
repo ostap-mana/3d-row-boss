@@ -77,14 +77,17 @@ export class StartPrompt extends Container {
   }
 
   resize(layout) {
-    const { w, h, ui, safe } = layout;
+    const { ui, safe, stage } = layout;
 
-    fitFont(this.label, w * 0.82, Math.max(15, 23 * ui));
-    this.label.x = w / 2;
+    fitFont(this.label, stage.w * 0.82, Math.max(15, 23 * ui));
+    this.label.x = stage.cx;
     // Centred inside the safe area rather than inside the screen: a line under
     // a notch is a line nobody reads, and this is the one sentence in the
-    // creative that has to be read before anything else happens.
-    this.label.y = safe.top + (h - safe.top - safe.bottom) * 0.5;
+    // creative that has to be read before anything else happens. The area is
+    // the stage's, not the window's — on a desktop the sentence belongs over
+    // the board rather than in the middle of the arena bleeding around it.
+    this.label.y =
+      stage.y + safe.top + (stage.h - safe.top - safe.bottom) * 0.5;
   }
 
   update(dt) {

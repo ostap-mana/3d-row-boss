@@ -13,6 +13,13 @@
  * resolves rather than the same pop four times. Everything the boss does is
  * deliberately untuned against that, all noise and detuning, so the two sides of
  * the fight never sound like each other.
+ *
+ * Both rules describe what plays when the game's own recordings cannot. Every
+ * function below opens by offering the event to samples.js, which fires the
+ * sound the real game makes and reports whether it did; what follows the guard
+ * is the synthesized version, unchanged, for the webview that would not decode
+ * an MP3 and for anyone who sets `sfxSamples` false. The palette here is
+ * therefore still the whole palette — it is just no longer the first choice.
  */
 
 import { AUDIO } from "../config.js";
@@ -24,6 +31,7 @@ import {
   onAudioReset,
   tone,
 } from "./engine.js";
+import { samples } from "./samples.js";
 
 /**
  * A voice per element, so a hero's attack sounds like their colour.
@@ -56,11 +64,13 @@ const voice = (element) => ELEMENT[element] || ELEMENT[0];
 
 /** Tap-select: the smallest sound in the creative, and the most frequent. */
 export function select() {
+  if (samples.play("select")) return;
   tone({ freq: 680, to: 1020, dur: 0.08, gain: 0.1, type: "triangle" });
 }
 
 /** Two gems changing places — a short cloth whoosh, not a click. */
 export function swap() {
+  if (samples.play("swap")) return;
   noise({ freq: 900, to: 2600, dur: 0.13, gain: 0.09, q: 0.7 });
   tone({ freq: 300, to: 460, dur: 0.09, gain: 0.06, type: "sine" });
 }
@@ -73,6 +83,7 @@ export function swap() {
  * the one moment in the fight that tells the player off.
  */
 export function reject() {
+  if (samples.play("reject")) return;
   tone({
     freq: 210,
     to: 150,
@@ -91,6 +102,14 @@ export function reject() {
  * @param {number} element the colour that led the clear, which decides the tone
  */
 export function match(step, cells, element) {
+  if (
+    samples.play("match", {
+      rate: samples.rate(step) * samples.elementRate(element),
+      gain: 0.8 + Math.min(cells, 8) * 0.04,
+    })
+  ) {
+    return;
+  }
   const root = LADDER[Math.min(step, LADDER.length) - 1];
   const v = voice(element);
   const notes =
@@ -120,6 +139,7 @@ export function match(step, cells, element) {
 
 /** The whole cascade landing back down. One thunk for the wave, not per gem. */
 export function drop(count) {
+  if (samples.play("drop", { gain: 0.8 + Math.min(count, 12) * 0.03 })) return;
   if (!count) return;
   const weight = Math.min(1, count / 8);
   tone({
@@ -140,6 +160,7 @@ export function drop(count) {
 
 /** A dead board being dealt again — a shimmer walking up the ladder. */
 export function shuffle() {
+  if (samples.play("shuffle")) return;
   LADDER.slice(0, 5).forEach((f, i) => {
     tone({
       freq: f,
@@ -154,6 +175,9 @@ export function shuffle() {
 
 /** Obsidian hardening over a cell. */
 export function obsidianForm(count) {
+  if (samples.play("obsForm", { gain: 0.85 + Math.min(count, 4) * 0.08 })) {
+    return;
+  }
   const n = Math.max(1, count || 1);
   tone({
     freq: 180,
@@ -180,6 +204,9 @@ export function obsidianForm(count) {
 
 /** A block cracking open — the one genuinely bright sound the board makes. */
 export function obsidianBreak(count) {
+  if (samples.play("obsBreak", { gain: 0.85 + Math.min(count, 4) * 0.08 })) {
+    return;
+  }
   const n = Math.max(1, count || 1);
   noise({ type: "highpass", freq: 2200, to: 5200, dur: 0.26, gain: 0.16 });
   tone({ freq: 320, to: 120, dur: 0.18, gain: 0.1, type: "square", cut: 2200 });
@@ -196,6 +223,7 @@ export function obsidianBreak(count) {
 
 /** A thumb dragging a block that will not move. */
 export function knock() {
+  if (samples.play("knock")) return;
   tone({ freq: 140, to: 96, dur: 0.11, gain: 0.13, type: "sine", cut: 600 });
   noise({ type: "lowpass", freq: 600, to: 220, dur: 0.09, gain: 0.07 });
 }
@@ -204,6 +232,7 @@ export function knock() {
 
 /** A hero's bar filling: their own note, arpeggiated up an octave. */
 export function charged(element) {
+  if (samples.play("charged", { rate: samples.elementRate(element) })) return;
   const v = voice(element);
   [1, 1.5, 2].forEach((mul, i) => {
     tone({
@@ -227,6 +256,14 @@ export function charged(element) {
  * @param {boolean} lead the hero whose colour was actually matched
  */
 export function heroStrike(element, lead) {
+  if (
+    samples.play("strike", {
+      rate: samples.elementRate(element),
+      gain: lead ? 1.25 : 0.8,
+    })
+  ) {
+    return;
+  }
   const v = voice(element);
   tone({
     freq: v.note * (lead ? 4 : 3),
@@ -249,6 +286,7 @@ export function heroStrike(element, lead) {
 
 /** A hero eating a hit. */
 export function heroHurt() {
+  if (samples.play("hurt")) return;
   tone({
     freq: 280,
     to: 110,
@@ -262,6 +300,7 @@ export function heroHurt() {
 
 /** A hero going down: the same fall, slower and further. */
 export function heroDown() {
+  if (samples.play("down")) return;
   tone({
     freq: 220,
     to: 82,
@@ -282,6 +321,7 @@ export function heroDown() {
 
 /** The tide picking the party back up. */
 export function heal() {
+  if (samples.play("heal")) return;
   [523.3, 659.3, 784.0, 1046.5].forEach((f, i) => {
     tone({
       freq: f,
@@ -299,6 +339,7 @@ export function heal() {
 
 /** The cut-in: a riser that has to pay off in ultBlast half a second later. */
 export function ultCutin(element) {
+  if (samples.play("cutin", { rate: samples.elementRate(element) })) return;
   const v = voice(element);
   tone({
     freq: v.note * 0.5,
@@ -331,6 +372,10 @@ export function ultCutin(element) {
 
 /** The ultimate landing on the boss. The biggest sound in the fight. */
 export function ultBlast(element) {
+  if (samples.play("ult", { rate: samples.elementRate(element) })) {
+    samples.play("boom", { delay: 0.06, gain: 0.7 });
+    return;
+  }
   const v = voice(element);
   tone({ freq: 120, to: 40, dur: 0.7, gain: 0.26, type: "sine" });
   tone({
@@ -356,6 +401,7 @@ export function ultBlast(element) {
 
 /** Climbing out of the lava. */
 export function bossRise() {
+  if (samples.play("rise")) return;
   tone({ freq: 46, to: 34, dur: 1.1, gain: 0.24, type: "sine", attack: 0.3 });
   noise({
     type: "lowpass",
@@ -369,6 +415,7 @@ export function bossRise() {
 
 /** The roar: detuned, filthy, and the loudest thing the boss owns. */
 export function bossRoar() {
+  if (samples.play("roar")) return;
   [0, -14, 11].forEach((detune, i) => {
     tone({
       freq: 104,
@@ -395,6 +442,7 @@ export function bossRoar() {
 
 /** The wind-up before lava lands on the board. */
 export function bossSpit() {
+  if (samples.play("spit")) return;
   noise({
     type: "bandpass",
     freq: 300,
@@ -409,6 +457,9 @@ export function bossSpit() {
 /** A cone of fire over the party — a held hiss with a fire rumble under it. */
 export function bossBreath(hold) {
   const dur = 0.5 + (hold || 0.6);
+  // Stretched to the length the fight asked for rather than cut off at it: the
+  // cut is 1.2 s of held fire and the hold is whatever the attack needs.
+  if (samples.play("breath", { rate: 1.2 / dur })) return;
   noise({
     type: "bandpass",
     freq: 700,
@@ -425,6 +476,7 @@ export function bossBreath(hold) {
 
 /** Both fists into the floor. */
 export function bossSmash() {
+  if (samples.play("smash")) return;
   tone({ freq: 130, to: 38, dur: 0.55, gain: 0.28, type: "sine" });
   tone({
     freq: 220,
@@ -450,6 +502,9 @@ export function bossSmash() {
 /** The boss taking a hit. `power` is the same number the flinch is scaled by. */
 export function bossHit(power) {
   const p = Math.max(0.3, Math.min(power || 1, 3));
+  if (samples.play("hit", { gain: 0.55 + p * 0.3, rate: 1.06 - p * 0.04 })) {
+    return;
+  }
   tone({
     freq: 190 + p * 30,
     to: 70,
@@ -470,6 +525,7 @@ export function bossHit(power) {
 
 /** The tell that the fight just got worse. */
 export function bossEnrage() {
+  if (samples.play("enrage")) return;
   [155.6, 220].forEach((f, i) => {
     tone({
       freq: f,
@@ -486,6 +542,10 @@ export function bossEnrage() {
 
 /** Dying: a groan, an explosion, and the crumble after it. */
 export function bossDie() {
+  if (samples.play("die")) {
+    samples.play("boom", { delay: 0.18 });
+    return;
+  }
   tone({ freq: 110, to: 30, dur: 1.4, gain: 0.24, type: "sawtooth", cut: 900 });
   tone({ freq: 70, to: 26, dur: 1.5, gain: 0.18, type: "sine" });
   noise({ type: "lowpass", freq: 4000, to: 120, dur: 1.5, gain: 0.22 });
@@ -504,6 +564,7 @@ export function bossDie() {
 
 /** The combo callout, one rung above the match that earned it. */
 export function combo(step) {
+  if (samples.play("combo", { rate: samples.rate(step) })) return;
   const root = LADDER[Math.min(step + 1, LADDER.length) - 1];
   chord([root, root * 1.25, root * 1.5], {
     dur: 0.34,
@@ -520,6 +581,14 @@ export function combo(step) {
  */
 export function doomWarn(level) {
   const base = level > 0 ? 740 : 620;
+  if (
+    samples.play("doomWarn", {
+      rate: level > 0 ? 1.18 : 1,
+      gain: level > 0 ? 1.15 : 1,
+    })
+  ) {
+    return;
+  }
   [0, 0.16].forEach((d) => {
     tone({
       freq: base,
@@ -534,6 +603,7 @@ export function doomWarn(level) {
 
 /** The cataclysm: charge, then the whole screen. */
 export function doomCast() {
+  if (samples.play("doomCast")) return;
   tone({
     freq: 90,
     to: 700,
@@ -565,6 +635,7 @@ export function doomCast() {
 
 /** The boss falls: a major arpeggio with a bell on top. */
 export function victory() {
+  if (samples.play("victory")) return;
   [523.3, 659.3, 784.0, 1046.5].forEach((f, i) => {
     tone({
       freq: f,
@@ -586,6 +657,7 @@ export function victory() {
 
 /** The party falls: the same shape, minor and going the other way. */
 export function defeat() {
+  if (samples.play("defeat")) return;
   [523.3, 466.2, 392.0, 311.1].forEach((f, i) => {
     tone({
       freq: f,
@@ -601,12 +673,14 @@ export function defeat() {
 
 /** The install banner sliding in. */
 export function banner() {
+  if (samples.play("banner")) return;
   tone({ freq: 880, to: 1320, dur: 0.16, gain: 0.11, type: "triangle" });
   noise({ type: "highpass", freq: 3000, dur: 0.1, gain: 0.04 });
 }
 
 /** The end card arriving. */
 export function endcard(defeated) {
+  if (samples.play("endcard", { rate: defeated ? 0.92 : 1 })) return;
   if (defeated) {
     tone({
       freq: 196,
@@ -630,6 +704,7 @@ export function endcard(defeated) {
 
 /** The tap that leaves for the store. */
 export function cta() {
+  if (samples.play("cta")) return;
   tone({ freq: 740, to: 1180, dur: 0.1, gain: 0.16, type: "triangle" });
   tone({ freq: 1180, dur: 0.12, gain: 0.12, type: "sine", delay: 0.08 });
 }
@@ -711,6 +786,13 @@ function buildBed(c, out) {
 
 export const bed = {
   start() {
+    // The game's own volcano first — see samples.room, which is the same room
+    // recorded rather than built, and which fails the same way everything else
+    // in this file does.
+    // `playing` as well as `start`: samples.js starts the room from its own
+    // onAudioOpen hook, which can land before this does, and without the first
+    // half of this test the synthesized bed would start underneath it.
+    if (samples.room.playing() || samples.room.start()) return;
     if (!AUDIO.bed || bedNodes) return;
     const c = audioContext();
     const out = audioBus();
@@ -723,6 +805,7 @@ export const bed = {
    * @param {number} v 0 at the top of the clock, 1 when it is about to land
    */
   setTension(v) {
+    samples.room.setTension(v);
     if (!bedNodes) return;
     const t = Math.max(0, Math.min(1, v || 0));
     // Quantized: this is called every frame and a ramp per frame on the same
@@ -737,6 +820,7 @@ export const bed = {
   },
 
   stop() {
+    samples.room.stop();
     if (!bedNodes) return;
     const c = audioContext();
     bedNodes.gain.gain.setTargetAtTime(0.0001, c.currentTime, 0.5);

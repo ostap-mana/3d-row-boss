@@ -21,11 +21,11 @@
  * the bottom, and only ever to put the ground line where the layout needs it:
  * see `crop` and `padBottom` in the job.
  *
- * Three paintings have been through here — a 4096x2048 sky castle, a 1254 square
- * demon gate, and the landscape ruins that ship today. The first one's render is
- * no longer on disk: it was 12 MB of the repo for an arena two generations gone,
- * and the prompt it came from is still in src/source/prompts.md, which is the
- * part worth keeping.
+ * Five paintings have been through here — a 4096x2048 sky castle, a 1254 square
+ * demon gate, the landscape ruins, the fire rift, and the storm citadel that
+ * ships today. The first one's render is no longer on disk: it was 12 MB of the
+ * repo for an arena three generations gone, and the prompt it came from is still
+ * in src/source/prompts.md, which is the part worth keeping.
  */
 
 import { execFileSync } from "node:child_process";
@@ -38,116 +38,110 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const JOBS = [
   {
     /**
-     * The ruined city, and the third painting this slot has held: a sky castle,
-     * then the demon gate, now a chained gothic sprawl over a fog chasm.
+     * The sky islands, and the sixth painting this slot has held: a sky castle,
+     * the demon gate, the chained gothic city, the burning rift, the storm
+     * citadel, now a chain of floating islands under a mint sky.
      *
-     * Delivered 1024x585 — a landscape crop, which is a shape this slot has not
-     * had before and the reason `padBottom` exists below. The gate render was
-     * square and the sky castle was 2:1 at 4K; both had height to spare, and
-     * this has none. See the note on padBottom for what that costs and how it
-     * is paid.
+     * The first plate here that did not arrive as a render. It is
+     * `T_CAM_Lobby_Background_01`, lifted out of the Invokers Titan Legacy
+     * build at 4096x2048 and area-averaged to 2048x1024 on the way in: the
+     * packed plate is 1395 on its long side, and ten megabytes of source in the
+     * repo would have bought nothing but the repo.
      *
-     * Swap back by pointing `src` at gate.png and restoring `crop`/`floor`
-     * from the note in each — the two are alternatives, not a sequence.
+     * One thing about it has to be said plainly, because every number below and
+     * half of art/background.js turns on it: this painting is lit for a lobby,
+     * not for a boss. Measured the way every plate before it was — the centre
+     * third, the 0.22 of the frame directly behind the beast's mass — it comes
+     * in at 157 mean luminance against the storm citadel's 53. Three times the
+     * light, in the one band where light is the enemy.
+     *
+     * No choice of `floor` answers that. The same measurement taken at every
+     * ground line this picture offers, from 0.45 through 0.76, runs between
+     * 2.0x and 3.0x the plate it replaces, because the middle of this painting
+     * is open mist from edge to edge. What answers it is POOL_ALPHA in
+     * art/background.js — the layer that darkens where the silhouette is rather
+     * than darkening the picture — and the numbers there moved with this swap.
+     * GRADE_ALPHA moved the other way, and for the opposite reason: this frame
+     * is dark at the top where the last four were bright.
+     *
+     * Swap back by pointing `src` at storm.png with `crop: { bottom: 0.9636 }`,
+     * `floor` 0.872 and `height` 1395; at rift.png with `floor` 0.73,
+     * `floorMix` 0.16 and `height` 1191; at ruins.png with `floor` 0.7; or at
+     * gate.png with `crop: { top: 0.26 }`, `floor` 0.5 and `padBottom` off.
+     * The six are alternatives and not a sequence, and the grade in
+     * art/background.js has to travel back with any of them.
      */
-    src: "src/source/arena/ruins.png",
+    src: "src/source/arena/islands.png",
     out: "src/assets/arena/sky.webp",
     /**
-     * Drop the top quarter — the storm sky, and with it the gate's horns.
-     *
-     * Not a taste call, a geometry one, and the same one the sky castle this
-     * replaced was cut for. The layout pins the painting's floor line to the
-     * boss floor, which sits about 0.42 down a portrait screen, and `fitArena`
-     * can only slide the picture by the overscan it has. Work the clamp
-     * backwards and it gives a hard rule: the pin is only reachable when the
-     * floor sits at or above `1 - 0.58/OVERSCAN` of the packed art.
-     *
-     * In this render the courtyard stone starts at 0.63 of the height, and 0.63
-     * needs an overscan of 1.57 — which is a 2.2x blow-up of a 1254px source on
-     * a phone, i.e. a painting drawn by the GPU's bilinear filter. Cutting the
-     * top 26% moves the floor to 0.50 of what is left, which OVERSCAN 1.25
-     * reaches with room to spare.
-     *
-     * What goes is the horned skull over the gate, and that is worth saying out
-     * loud because it is the best thing in the picture. It could not have been
-     * shown anyway: a portrait screen has 42% of its height above the boss
-     * floor and this art has 63% above its own, so a third of the art above the
-     * floor line is unshowable at any crop — and what stands in that space on
-     * screen is the boss. The horns lose to the monster, which is the right way
-     * round. The pillars, the rune panels and the black doorway all survive,
-     * and those are what the beast is actually read against.
+     * No `crop`. This one arrives clean — no letterbox, no black rows at either
+     * edge, measured at 53.6 across the top six rows and 183 across the bottom
+     * six — which is the first plate in three not to need one, and the reason
+     * every fraction below is a fraction of all 1024 delivered rows.
      */
     /**
-     * Where the ground line sits in the delivered file, as a fraction of its
-     * height, and where it has to sit in the packed one.
+     * Where the ground line sits in the file, and where it has to land.
      *
-     * Measured off the render with guides rather than guessed: the braziers,
-     * the base of the central pillar and the front of the fog bank all land on
-     * 0.70. `horizon` is the number art/background.js is holding — HORIZON
-     * there — and the pair is what padBottom solves for.
+     * Measured on the centre third, which is the only part a portrait phone
+     * shows: the big foreground island's flat top runs from 0.69 to about 0.75,
+     * and its front lip — where the green stops and the rock underside starts —
+     * crosses at 0.76. That is the last line in this picture a golem could
+     * stand on. Everything under it is the island's own belly and then cloud.
      *
-     * The gate render had 0.63 and was cut down to 0.50 by cropping the top
-     * 26%. That trade is wrong for this art: a landscape file has no height to
-     * give away, and the crop would have to be 40% to reach the same place,
-     * which is the entire skyline — every spire, every chain — for a floor
-     * line. So the correction is made at the other end instead.
+     * `horizon` is unchanged at 0.38 and has to be: it is the number
+     * art/background.js holds as HORIZON, and the pair is what padBottom
+     * solves for. Change one and the other is wrong.
      */
-    floor: 0.7,
-    horizon: 0.5,
+    floor: 0.76,
+    horizon: 0.38,
     /**
      * Extend the bottom until the ground line lands on `horizon`.
      *
-     * The same geometry the crop was doing, from the other side, and it is
-     * nearly free here — which is a claim worth showing rather than asserting.
+     * 0.76 of 1024 over 0.38 is 2048 exactly, so the pad is the length of the
+     * picture over again: 1024 invented rows under 1024 real ones, the largest
+     * share this slot has ever run. It is affordable for the reason the storm's
+     * 787 rows were — everything below the ground line is behind the board, the
+     * scrim at 0.84 to 0.95 alpha and the hero row, and a horizontal smear is
+     * the cheapest thing WebP encodes.
      *
-     * The layout cover-fits this by height and slides it so the ground line
-     * lands on the boss's floor, which is about 0.42 down the screen. So what
-     * the packed file's proportions actually decide is how much of the painting
-     * is *above* that line, and everything below it is behind the board, the
-     * scrim at 0.84 to 0.95 alpha, and the hero row. Rows added down there are
-     * paid for in bytes and in nothing else.
-     *
-     * The win is resolution. Reaching HORIZON 0.50 by cropping leaves 433 rows
-     * to cover a screen the layout then magnifies by OVERSCAN, and on a 390x844
-     * phone that is a 2.8x blow-up of which 13% of the width is visible.
-     * Padding leaves 819, the same phone draws it at 1.3x, and 30% of the width
-     * survives — twice the sharpness and twice the composition, for 234 rows
-     * nobody can see.
-     *
-     * What is in them: each column's own last real pixel, carried down and
-     * faded to `floorMix` of itself. Per column rather than one flat band so
-     * the rocks and the mist at the bottom edge continue as streaks instead of
-     * stopping against a line, and dark because the alternative is inventing
-     * foreground detail that the scrim would then have to hide.
+     * `floorMix` is the one number this plate could not inherit. Every painting
+     * before it ended on something dark: the storm's dim blue rock at 39.5, the
+     * rift's lit lava at 44, and 0.22 of either is nothing. This one ends on
+     * open cloud at 183 — the brightest edge any plate has handed the smear —
+     * and 0.22 of that is a band at 40 held under the entire board. 0.06 puts
+     * the far end at 11 and leaves the join at the top exactly as invisible,
+     * because hiding the join is what the squared curve does and the mix only
+     * says where the fall ends.
      */
     padBottom: true,
-    floorMix: 0.22,
+    floorMix: 0.06,
     /**
-     * The crop's own height: no downscale at all, which is as sharp as this
-     * source can ever be, and it is not enough.
+     * The storm's height kept. What changed is the shape.
      *
-     * The delivered render is 1254 square — a fifth of the pixels the sky
-     * castle export had — so after the crop there are 928 rows to cover a
-     * screen the layout then magnifies by OVERSCAN. A 390x844 phone at 2x draws
-     * this 2530 device pixels tall, a 2.7x blow-up. That is soft, and no
-     * setting in this file fixes it: there are no more pixels in the file.
+     * `floor` over `horizon` squares this plate off — 2048 rows against 2048
+     * columns, where the storm packed 1024 against 1395 — so at `height` 1395
+     * the width follows the aspect to 1395 as well, and this is the first plate
+     * in three that is genuinely resampled rather than packed at its delivered
+     * size. Both are wanted here: the source is a 4096-wide texture rather than
+     * a render cut to fit, so there is real detail to average down into, and a
+     * third more pixels than the storm plate is bought back by what is in them.
+     * Most of the extra third is smear.
      *
-     * It is survivable here in a way it was not for the sky, and the reason is
-     * what the two paintings are made of. A cloud bank is one long gentle ramp
-     * and a bilinear stretch across it invents visible seams; cracked stone,
-     * banners and firelight are high-frequency noise, and a stretch across
-     * those reads as haze rather than as error. Re-run the arena prompt in
-     * prompts.md at 4K if this ever has to hold up on a tablet.
+     * Height is the dimension the layout scales by, so 1395 is the number that
+     * holds sharpness on a portrait phone and the width is what keeps the
+     * flanking islands on a tablet. Track `horizon` if it ever moves: the pad
+     * solves to `floor * srcH / horizon` and this caps it, so a value above
+     * 2048 would be an upscale of the pad and nothing else.
      */
-    height: 928,
+    height: 1395,
     /**
-     * Lower than the sky arena's 84. This picture is stone, ember and shadow
-     * rather than one long gradient, so the banding that quality was buying
-     * protection from is not a failure mode here — and the source is small
-     * enough that every kilobyte of it lands in the bundle magnified.
+     * Unchanged from the storm plate at first cut, and re-measured after: this
+     * painting is mist and long smooth ramps almost everywhere, which is the
+     * one thing WebP's 8x8 blocks show their edges in, and it is squarer than
+     * anything packed here before. See the run log for what it came out at.
      */
     quality: 90,
-    what: "ruined city",
+    what: "sky islands",
   },
 ];
 
