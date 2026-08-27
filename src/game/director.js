@@ -94,6 +94,14 @@ export class Director {
      * the callout fires once per layer rather than once per cascade step.
      */
     this.phase = 0;
+    /**
+     * Game-clock reading at the first playable frame — see armDoom, which sets
+     * it, and pace(), which is the only thing that reads it.
+     *
+     * Not now() at construction: the intro costs about two seconds and the
+     * schedule pace() measures against is the fight's, not the app's.
+     */
+    this.fightStart = 0;
     /** Cataclysms already landed. Each one is worse, and closer, than the last. */
     this.doomCount = 0;
     /** Tides already spent — each refills the party less. DIFFICULTY.healDecay. */
@@ -363,6 +371,58 @@ export class Director {
   }
 
   /**
+   * How much of a hit the boss shrugs off for being ahead of the clock.
+   *
+   * This one is a pace guard and not a piece of fiction, so it is worth being
+   * blunt about what it does: it reads how far the health bar is ahead of a
+   * straight line from full at the first playable frame to empty at
+   * DIFFICULTY.pace.seconds, and takes damage away from a player who is beating
+   * that line. Nothing is ever given back — a player behind the line is not
+   * helped, and `expected` past zero holds nothing at all, so the last stretch
+   * before the deadline is fought at full strength.
+   *
+   * It exists because time-to-kill and damage-per-move are not the same dial
+   * and only one of them was ever asked for. The fight is over in
+   * moves x seconds-per-move, and seconds-per-move belongs to the player: the
+   * author of this build swipes one every 1.9 seconds and finished in 15, an
+   * ordinary player takes 3.2 and finishes in 24, off the exact same numbers.
+   * Any damage figure that stretches the first one to 25 seconds needs twelve
+   * moves, and twelve moves is thirty-eight seconds for the second one — a
+   * fight nobody but the author can finish. That is not a number that exists;
+   * it is two requirements pulling opposite ways, and this is the join.
+   *
+   * `bite` is how sharply it answers: the shortfall is raised to that power, so
+   * a bar a tenth ahead of schedule is barely touched and one running at double
+   * pace is roughly quartered. `floor` is the least that ever lands, and it is
+   * a floor rather than a stop on purpose — a bar that freezes under a direct
+   * hit reads as a broken game, where one that crawls reads as a boss digging
+   * in. Set `enabled` false and the fight goes straight back to being decided
+   * by DIFFICULTY.damagePerGem alone, which is a legitimate build to ship; it
+   * is simply one that ends when the player is good rather than when the
+   * creative is over.
+   */
+  pace() {
+    const guard = DIFFICULTY.pace;
+    if (!guard || !guard.enabled) return 1;
+    const expected = Math.max(0, 1 - (now() - this.fightStart) / guard.seconds);
+    // Behind the line, or past the end of it: the boss holds nothing back.
+    if (expected <= 0 || this.bossHp >= expected) return 1;
+    return Math.max(guard.floor, Math.pow(this.bossHp / expected, guard.bite));
+  }
+
+  /**
+   * Everything standing between one hit and the health bar: the hide the boss
+   * has grown, and the grip it keeps on a player who is ahead of the clock.
+   *
+   * Every point of damage in the fight goes through here — the volley and the
+   * ultimate both — because a route that skipped it would immediately become
+   * the only move worth making.
+   */
+  resistance() {
+    return this.armor() * this.pace();
+  }
+
+  /**
    * Announce a layer the boss just put up — once, on the hit that broke it.
    *
    * Armour the player cannot see is indistinguishable from a bug. A bar that
@@ -587,6 +647,7 @@ export class Director {
 
   /** Start the countdown, the moment the player can actually act on it. */
   armDoom() {
+    this.fightStart = now();
     this.doomArmed = true;
     this.doomLeft = DOOM.seconds;
     this.doomTotal = DOOM.seconds;
@@ -833,7 +894,7 @@ export class Director {
       combo *
       size *
       party *
-      this.armor()
+      this.resistance()
     );
   }
 
@@ -1572,7 +1633,7 @@ export class Director {
     const total =
       (DIFFICULTY.ultDamage +
         cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
-      this.armor();
+      this.resistance();
     this.bossHp = Math.max(0, this.bossHp - total);
 
     const target = boss.impactPoint();

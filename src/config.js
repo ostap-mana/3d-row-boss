@@ -372,6 +372,41 @@ export const DIFFICULTY = {
   ],
 
   /**
+   * The pace guard: how much of a hit the boss shrugs off for being behind on
+   * the clock. Read and explained in full by Director.pace.
+   *
+   * `seconds` is the schedule the fight is held to — a straight line from a
+   * full bar at the first playable frame to an empty one here. It is 26 rather
+   * than the 25 that was asked for because damage lands in lumps: the killing
+   * blow overshoots the line by most of a move, and measured over hundreds of
+   * runs a 26 second schedule puts the kill at 24.9 seconds for a player
+   * swiping every 1.8 seconds, 25.2 at 2.2 and 25.7 at 2.6 — the spread across
+   * every pace a person actually plays at is under a second, which is the whole
+   * point of holding a line rather than picking a damage number.
+   *
+   * That tight spread is also why the schedule survives a bad estimate of what
+   * a beat costs. The guard reads the clock, so anything that makes the fight
+   * slower — a longer cut-in, a deeper cascade — also advances the line and
+   * releases the grip by exactly as much. Doubling the modelled cost of an
+   * ultimate moved the measured kill by three tenths of a second.
+   *
+   * Keep it under T.hardCap by a clear margin. The schedule is a floor under
+   * the fight's length, not a promise about it, and a schedule that runs to the
+   * cap leaves the guard still biting when the deadline collects — which turns
+   * every good run into a timeout.
+   *
+   * `bite` 2 is the mildest setting that holds the line; 1 lets a strong player
+   * back to 21 seconds and above 2.5 buys almost nothing for a bar that visibly
+   * stops moving. `floor` 0.18 is the least that ever lands.
+   */
+  pace: {
+    enabled: true,
+    seconds: 26,
+    bite: 2,
+    floor: 0.18,
+  },
+
+  /**
    * How much weaker Arissa's tide gets every time it is spent.
    *
    * The heal is the one thing in the fight that undoes damage already taken,
