@@ -97,45 +97,70 @@ export const DIFFICULTY = {
   /**
    * Boss health taken by one gem cleared in the first step of a match.
    *
-   * 0.058, and the reason is the clock rather than a change of heart about
-   * difficulty. This number has been set twice by the same argument, once in
-   * each direction, and both times the run length is what moved it.
+   * 0.044, and the reason is the clock rather than a change of heart about
+   * difficulty. This number has been set three times by the same argument, in
+   * both directions, and every time the run length is what moved it.
    *
-   * Down first: at 0.028, where the gauntlet tuning had it, a plain triple
-   * takes 8% off a boss that also armours up as it falls (see `armor`), so a
-   * fight is twelve moves deep. A move costs about three seconds to play out —
-   * the swap, the cascade, the volley, the boss answering — and twelve of those
-   * is thirty-six seconds against a thirty second creative. That was never a
-   * hard fight inside this runtime; it was a fight that could not be finished
-   * inside it, and what a viewer actually saw was a health bar that ended the
-   * ad two thirds full. That is the failure mode this number exists to stay
-   * clear of, and it is what took it up to 0.075.
+   * Down first: at 0.028, where the gauntlet tuning had it, a fight was twelve
+   * moves deep. A move costs about three seconds to play out — the swap, the
+   * cascade, the volley, the boss answering — and twelve of those is
+   * thirty-six seconds against a thirty second creative. That was never a hard
+   * fight inside this runtime; it was a fight that could not be finished inside
+   * it, and what a viewer actually saw was a health bar that ended the ad two
+   * thirds full. That is the failure mode this number exists to stay clear of.
    *
-   * Then 0.075 overshot the other way once the run grew to thirty. A triple
-   * took 22% through the armour, a four-run leading a cascade ended the fight
-   * outright, and four moves killed a boss inside a window that holds eight —
-   * the bar fell off a cliff and the back third of the creative had nothing
-   * left in it to watch.
+   * Then 0.075, and then 0.058, both overshot the other way. Simulated over
+   * hundreds of runs (see the fight sim in the tuning notes), 0.058 killed the
+   * boss at 13.9 seconds for a player taking the best swap on the board and at
+   * 17.9 for an ordinary one, and it won 98% of ordinary runs. Half the
+   * creative was played out after the fight had already been decided, which is
+   * the same "nothing left to watch" failure as the twelve-move version wearing
+   * the opposite mask.
    *
-   * At 0.058 a triple takes about 17%, the same four-run is a serious dent
-   * rather than a finish, and the kill lands around move six: still two moves
-   * of slack against the clock for a player who fumbles one, and all six of
-   * them have something at stake. Anything under about 0.05 and the twelve-move
-   * problem starts coming back — that is the floor, not this.
+   * 0.044 was the first correction and it did not go far enough: the bar still
+   * emptied in five moves and the kill still landed at 18 seconds with the
+   * board barely under pressure. This is the second pass, and it is the last
+   * one this knob can carry alone — see the floor at the bottom of this note.
+   *
+   * At 0.040 a plain triple takes about 12% off a bare boss, a four-run leading
+   * a cascade is a serious dent rather than a finish, and the kill lands on
+   * move six — 21 seconds for a player taking the best swap every time, 24 for
+   * an ordinary one, with about a third of ordinary runs now losing outright,
+   * most of them to the clock. The fight fills the window instead of ending in
+   * the middle of it, and the boss's last quarter is played against a doom
+   * strip that is already red.
+   *
+   * It is deliberately paired with a trimmed sizeBonus and comboMultiplier
+   * below rather than carrying the whole cut by itself. Damage per gem is the
+   * beginner's number — it is all a plain triple ever earns — while the bonus
+   * tables are the expert's, and the complaint being answered here was that the
+   * fight is trivial for somebody who reads the board. Taking both together
+   * slows the strong player by about two and a half seconds and the weak one
+   * by under a second, which is the shape the complaint asked for.
    *
    * Difficulty in a creative this short is not how many moves it takes; it is
    * T.hardCap, which is the only opponent that never misses. What this number
-   * decides is whether the fight fills the time that clock gives it.
+   * decides is whether the fight fills the time that clock gives it. Under
+   * about 0.034 the twelve-move problem starts coming back: measured with these
+   * bonus tables, an ordinary player's win rate crosses under a coin flip
+   * there — 51% at 0.034, 45% at 0.032 — and the ad starts ending on a health
+   * bar nobody emptied. That is the floor, not this.
    */
-  damagePerGem: 0.058,
+  damagePerGem: 0.04,
   /**
    * Cascade payout by step. Last entry repeats.
    *
-   * Generous, but cascades turn out to be rare on a 5x5 that refuses to refill
-   * into a match — a simulated fight averages a deepest combo of about 1.3 —
-   * so this is the ceiling, not the bread and butter.
+   * Still generous — cascades turn out to be rare on a 5x5 that refuses to
+   * refill into a match, a simulated fight averaging a deepest combo of about
+   * 1.3 — so this is the ceiling, not the bread and butter.
+   *
+   * Trimmed from 1.7/2.5/3.4/4.4 with the same argument as sizeBonus below: a
+   * rare event paying quadruple is how a fight ends in four moves on the one
+   * run where the board happens to fall right, and that run is exactly the one
+   * that reads as "it beat itself". A second step is still worth half again a
+   * first, which is plenty for a cascade to feel like the board paying out.
    */
-  comboMultiplier: [1, 1.7, 2.5, 3.4, 4.4],
+  comboMultiplier: [1, 1.55, 2.1, 2.8, 3.5],
   /**
    * Payout for clearing more than three gems in one step.
    *
@@ -144,12 +169,24 @@ export const DIFFICULTY = {
    * the difference, and playing well stops being worth the seconds it costs —
    * which showed up as a flat win rate across every skill level.
    *
-   * Pushed up again as the damage floor went down. When a triple no longer
+   * Pushed up once as the damage floor went down — when a triple no longer
    * threatens the boss on its own, the payout for finding the bigger shape is
-   * the only lever a good player has left, and it has to be worth the seconds
-   * that hunting for it costs them on the doom clock.
+   * the lever a good player has left, and it has to be worth the seconds that
+   * hunting for it costs them on the doom clock.
+   *
+   * Then trimmed from 1.5/2.3, because that lever had become the whole fight.
+   * Per gem *and* per shape, a five-cell step was paying nearly four times a
+   * triple, so a single good read took a third off the boss and two of them
+   * ended it — which is precisely the "wins itself" the retune was asked for.
+   * At 1.35 and 1.9 a four-run is still worth about 1.8 triples and a five-run
+   * about 3.2, so reading the board is still the best thing a player can do
+   * with their seconds; it is simply no longer the only thing that matters.
+   *
+   * Do not take these to 1: that was measured, and it flattens the win rate
+   * across every skill level, which is the same fight for a player who reads
+   * the board and one who swipes at random.
    */
-  sizeBonus: { 4: 1.5, 5: 2.3 },
+  sizeBonus: { 4: 1.35, 5: 1.9 },
   /**
    * What a hero still contributes once they are down.
    *
@@ -181,17 +218,24 @@ export const DIFFICULTY = {
    * Arissa's charge earned per water gem cleared, and where she starts.
    *
    * She no longer arrives half charged with a free heal already waiting. From
-   * 0.2, one water triple leaves her at 0.86 and the second arms her — so the
+   * 0.16, one water triple leaves her at 0.76 and the second arms her — so the
    * tide costs two moves spent on the one colour the boss is actively burying
    * (see Director.worstCell, which scores water cells up), and the player has
    * to start paying for it before the first warning rather than after it.
    *
-   * This is the most dangerous knob in the mode to touch downwards. Below this
-   * the first cataclysm lands on a party that never had a way to be ready for
-   * it, and that is not difficulty, it is a coin flip.
+   * The opening stake came down from 0.2 with the rest of this pass: the first
+   * tide now lands a move later than it used to, which is a move of the fight
+   * spent unhealed rather than a move of it skipped.
+   *
+   * This is the most dangerous knob in the mode to touch downwards, and two
+   * triples is a hard floor rather than a preference. The threshold is discrete
+   * — the numbers only ever decide whether a colour has to be worked twice or
+   * three times — and at three the simulated fight loses its ultimate entirely
+   * in most runs: no cut-in, no tide, no cataclysm anybody was ready for. That
+   * is not difficulty, it is a coin flip with the feature switched off.
    */
-  chargePerGem: 0.22,
-  chargeStart: 0.2,
+  chargePerGem: 0.2,
+  chargeStart: 0.16,
 
   /**
    * The same, for the four heroes who are not the healer.
@@ -201,16 +245,45 @@ export const DIFFICULTY = {
    * somebody and the fight turned into a queue of cut-ins. At this rate one
    * colour has to be worked twice before its hero is spendable, so choosing
    * which one to feed is an actual decision.
+   *
+   * 0.16 off a 0.06 stake is the same two triples the old 0.18/0.1 asked for,
+   * arriving a beat later. Do not take it under 0.15: the tally is discrete and
+   * that is where two triples stops being enough — see chargePerGem.
    */
-  partyChargePerGem: 0.18,
-  partyChargeStart: 0.1,
-  /** Flat chunk the ultimate hits for, on top of per-gem for the water it eats. */
-  ultDamage: 0.3,
-  ultGemMultiplier: 1.25,
+  partyChargePerGem: 0.16,
+  partyChargeStart: 0.06,
+  /**
+   * Flat chunk the ultimate hits for, on top of per-gem for the water it eats.
+   *
+   * Down from 0.3 and 1.25. That pair made one tap worth about 45% of the boss
+   * — nearly half a fight from a button the player did not have to aim — and it
+   * was the single biggest reason a run ended before the clock got interesting.
+   * 0.24 and 1.15 were still worth about a third of the bar for one tap. At 0.2
+   * and 1.05 an ultimate is a quarter of it: the largest number anybody can put
+   * on the screen in one beat, still the correct answer to a wall of obsidian
+   * and still the thing worth building a run around — it simply no longer pays
+   * for two of the six moves the run has room for.
+   *
+   * The floor here is the cut-in, not the arithmetic. Take the flat chunk much
+   * under 0.15 and the ultimate stops being worth the two seconds its cut-in
+   * costs on T.hardCap, at which point the correct play is never to cast the
+   * feature the creative is selling.
+   */
+  ultDamage: 0.2,
+  ultGemMultiplier: 1.05,
 
-  /** Blocks laid per boss turn: base, plus this much more each turn. */
+  /**
+   * Blocks laid per boss turn: base, plus this much more each turn.
+   *
+   * The growth carries the squeeze rather than the base: an opening wave of
+   * three still leaves the board readable for a first-timer, and 1.2 a turn
+   * means the endgame is fought on a board the player is visibly running out
+   * of. This costs tempo rather than health, which is the honest way to make a
+   * match-3 harder — a smaller board is fewer options to read, not a hidden
+   * multiplier on anything.
+   */
   obsidianBase: 3,
-  obsidianGrowth: 1,
+  obsidianGrowth: 1.2,
   /**
    * Never hold more than this many cells at once, out of 25 — except that the
    * ceiling itself climbs, by obsidianMaxGrowth per boss turn, up to
@@ -226,14 +299,14 @@ export const DIFFICULTY = {
    * turns reshuffling a dozen gems in a corner, and a board that reshuffles
    * every move is random, not hard.
    */
-  obsidianMax: 8,
+  obsidianMax: 9,
   obsidianMaxGrowth: 0.9,
   obsidianMaxCap: 12,
 
   /**
    * Boss attack damage, multiplied by this to the power of the turn index.
    *
-   * Not gentle any more. At 1.13 the golem's fifth swing lands nearly twice as
+   * Not gentle any more. At 1.14 the golem's fifth swing lands nearly twice as
    * hard as its first and its eighth two and a half times, so a fight that runs
    * long does not merely stay dangerous — it accelerates away from the player.
    * The ramp and the doom clock are two clocks racing each other now, and that
@@ -242,8 +315,15 @@ export const DIFFICULTY = {
    * It compounds with rage() below, which is why it is not steeper: at 1.24 the
    * two together took the sixth swing past a full hero bar and the fight ended
    * in a single unanswerable turn instead of an escalation anybody could read.
+   *
+   * The move up from 1.13 is a single notch on purpose. This one is a cliff:
+   * simulated at 1.15 with the rest of this pass, the party wipe rate for an
+   * ordinary player jumped from nothing to a fifth of all runs, because a fight
+   * that now lasts a move and a half longer is also a fight that eats one more
+   * swing off the top of the ramp. Longer already made the boss more dangerous;
+   * this only makes sure the extra turns are felt.
    */
-  bossRamp: 1.13,
+  bossRamp: 1.14,
 
   /**
    * Rage: everything the boss throws, multiplied by this much per second of
@@ -274,15 +354,21 @@ export const DIFFICULTY = {
    * player cannot see is not difficulty, it is a bug report — see
    * Director.checkPhase.
    *
-   * Together these ask for about 23% more total damage than a bare boss.
+   * Thickened from 0.6/0.72/0.85, which asked for about 23% more total damage
+   * than a bare boss; these ask for about 40%. The extra is deliberately loaded
+   * onto the back half rather than spread evenly — the opening still has to
+   * read as the player hitting hard, and what needed fixing was a bar that
+   * emptied at the same speed all the way down and so had no last act at all.
+   *
    * Deliberately survivable: the wall at the end has to be a climax, not a
-   * brick. Anything under ~0.5 on the last layer and a player who earned the
-   * kill watches their damage stop mattering, which reads as cheating.
+   * brick. 0.52 on the last layer is the floor — anything under ~0.5 and a
+   * player who earned the kill watches their damage stop mattering, which reads
+   * as cheating rather than as armour.
    */
   armor: [
-    { below: 0.15, mult: 0.6, name: "MOLTEN CORE" },
-    { below: 0.35, mult: 0.72, name: "OBSIDIAN HIDE" },
-    { below: 0.65, mult: 0.85, name: "HARDENED" },
+    { below: 0.15, mult: 0.52, name: "MOLTEN CORE" },
+    { below: 0.35, mult: 0.66, name: "OBSIDIAN HIDE" },
+    { below: 0.65, mult: 0.8, name: "HARDENED" },
   ],
 
   /**
@@ -1087,19 +1173,28 @@ export const BOSS_ATTACKS = [
    * the shortest beat on the track, and it is the one the run opens on before
    * anybody has made a match — a party chewed up by the opening swing is a
    * party that meets ERUPTION on turn three with nothing left.
+   *
+   * 0.15 rather than 0.14, and the slam 0.27 rather than 0.26. Both are one
+   * notch and no more. The fight got a move and a half longer everywhere else
+   * in this pass, which already hands the golem an extra swing off the top of
+   * DIFFICULTY.bossRamp; the numbers here only have to make sure the party
+   * arrives at the last two moves visibly chewed rather than untouched. Pushed
+   * a full step further — 0.16 and 0.28 together with a 1.15 ramp — the
+   * simulated wipe rate for a weak player went past three runs in four, which
+   * is the "you lose too fast" the previous round of feedback was about.
    */
   {
     kind: "rake",
     targets: "lowest",
-    damage: 0.14,
-    splash: 0.04,
+    damage: 0.15,
+    splash: 0.045,
     shout: COPY.rake,
   },
   { kind: "breath", targets: "all", damage: 0.085, shout: COPY.breath },
   {
     kind: "smash",
     targets: "lowest",
-    damage: 0.26,
+    damage: 0.27,
     splash: 0.05,
     shout: COPY.smash,
   },

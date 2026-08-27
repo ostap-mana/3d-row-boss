@@ -1922,11 +1922,12 @@ export class Director {
    * fight rather than a countdown and an end card.
    *
    * The divisor used to be the literal 4: spread what is left of the run over
-   * four more moves. Four is not the number. At DIFFICULTY.damagePerGem a plain
-   * triple takes 8.4% off the boss, so the boss is twelve moves deep and change
-   * — and a guard planning four of them paced the demo to a move every seven
-   * seconds, which is the ceiling T.auto, which is what it would have done with
-   * no guard at all.
+   * four more moves. Four is not the number, and it never was a number this
+   * file gets to hold an opinion about — DIFFICULTY.damagePerGem has moved four
+   * times since, and every move changed how many moves the boss is actually
+   * worth. A guard planning a fixed four of them paced the demo to a move every
+   * seven seconds, which is the ceiling T.auto, which is what it would have
+   * done with no guard at all.
    *
    * Measured, that is a health bar which moves twice in the whole creative and
    * stands perfectly still for the nine seconds in between. The bar was not
