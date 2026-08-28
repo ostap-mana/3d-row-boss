@@ -23,6 +23,7 @@
  */
 
 import { AUDIO } from "../config.js";
+import { promoteSession, sessionSleep } from "./session.js";
 
 /** Floor for every exponential ramp — the curve cannot reach or pass zero. */
 const MIN = 0.0001;
@@ -82,9 +83,16 @@ let gestured = false;
 const openCbs = [];
 /** Called when a context is thrown away, so whoever holds nodes lets go. */
 const resetCbs = [];
+/**
+ * Called when the browser refuses to build a context at all, so that anything
+ * holding one it does not strictly need gives it up. See onAudioNeedsRoom.
+ */
+const roomCbs = [];
 /** When the context first refused to open, and when we last gave up on one. */
 let refusedAt = 0;
 let rebuiltAt = 0;
+/** True while context() is inside itself. See the guard at the top of it. */
+let building = false;
 
 /** No window, no audio — and the creative still has to run. */
 function host() {
@@ -108,27 +116,6 @@ function hasBeenActive(w) {
     );
   } catch (e) {
     return false;
-  }
-}
-
-/**
- * The iOS ring/silent switch.
- *
- * Web Audio with no media element behind it runs in an ambient session, and an
- * ambient session is silenced by the hardware switch — not by the volume keys,
- * which is why a phone in silent mode plays a mute creative at somebody who is
- * pressing volume-up and getting nowhere. `playback` is the one session type
- * that ignores the switch, and it is off by default because it also stops
- * whatever the player was listening to. See AUDIO.overrideSilentSwitch.
- */
-function session(w) {
-  if (!AUDIO.overrideSilentSwitch) return;
-  try {
-    if (w.navigator && w.navigator.audioSession) {
-      w.navigator.audioSession.type = "playback";
-    }
-  } catch (e) {
-    /* an unknown session type is not a reason to lose the audio */
   }
 }
 
@@ -202,6 +189,10 @@ function watch(c) {
  */
 function context() {
   if (ctx || !AUDIO.on) return ctx;
+  // Re-entrancy guard. The failure path below runs subscribers, and a
+  // subscriber that asks for the context it is helping to build would come
+  // straight back through here to the constructor that just threw.
+  if (building) return null;
   const w = host();
   if (!w) return null;
   // Not one is built before the first gesture — see `gestured`. A page the
@@ -211,13 +202,35 @@ function context() {
   const Ctor = w.AudioContext || w.webkitAudioContext;
   if (!Ctor) return null;
 
+  // Before the constructor, where it used not to be. A context takes its
+  // category from the session in force when it is built, so a `playback`
+  // session asked for afterwards is a context that was already born ambient —
+  // and an ambient context is the one the ring/silent switch mutes, which is
+  // the exact failure this call exists to prevent.
+  promoteSession(w);
+
+  building = true;
   try {
     ctx = new Ctor();
   } catch (e) {
-    return null;
+    // Out of contexts, almost certainly — see onAudioNeedsRoom. Ask for one
+    // back and try exactly once more, because the alternative is a session
+    // that never makes a sound and there is nothing else left to try.
+    fire(roomCbs);
+    try {
+      ctx = new Ctor();
+    } catch (e2) {
+      building = false;
+      return null;
+    }
   }
+  building = false;
 
-  session(w);
+  // And again, on the far side of it. Which order WebKit actually wants is not
+  // worth being clever about: the second ask is a no-op once the first has
+  // taken, and asking in only the wrong one of the two would cost the creative
+  // its sound on every iPhone with the switch flipped.
+  promoteSession(w);
   watch(ctx);
 
   bus = ctx.createDynamicsCompressor();
@@ -283,6 +296,23 @@ export function onAudioReset(fn) {
 }
 
 /**
+ * Run `fn` when a context could not be built, to free one that can be spared.
+ *
+ * There is a cap on how many audio contexts may exist at once — a small one on
+ * WebKit, and an OfflineAudioContext counts against it — and past that cap the
+ * constructor throws rather than handing back something to resume. That is a
+ * creative with no sound at all for the rest of the session, which is the
+ * worst failure in this file, so it is worth spending anything at all to
+ * avoid: a subscriber here gives up a decode still in flight, and a decode
+ * given up is one sound falling through to its synthesized twin. See
+ * audio/decode.js, which is the only subscriber and holds the only context
+ * that is ever expendable.
+ */
+export function onAudioNeedsRoom(fn) {
+  roomCbs.push(fn);
+}
+
+/**
  * Throw the context away and build its replacement here and now.
  *
  * Only ever called from inside a gesture — see the note at the call site for
@@ -343,6 +373,11 @@ function rebuild() {
  */
 export function unlockAudio() {
   gestured = true;
+  // First, and on every gesture rather than the first one. On iOS this is
+  // what decides whether the ring/silent switch applies to everything
+  // below, and on the phones that need a media element for it, the gesture
+  // is the only thing allowed to start one. See audio/session.js.
+  promoteSession(host());
   let c = context();
   if (!c) return false;
   // Also the fallback for a webview with no `statechange` to listen to: the
@@ -473,6 +508,9 @@ export function installAudioUnlock() {
 
 /** Park the audio while the ad is off screen; wake it when it comes back. */
 export function audioSleep(asleep) {
+  // Above the guard below, because the silent-switch keeper is not the context
+  // and an ad parked off screen should not be holding a media session open.
+  sessionSleep(asleep);
   // Only a context that genuinely opened. Suspending one that never did is
   // itself a way to park a context somewhere resume() cannot reach it, and an
   // ad preloaded into an off-screen slot gets that visibilitychange every time.

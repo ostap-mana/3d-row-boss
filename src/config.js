@@ -929,14 +929,29 @@ export const AUDIO = {
    * an ambient session is silenced by the hardware switch — not by the volume
    * keys, so a player in silent mode presses volume-up at a mute creative and
    * gets nowhere. Turning this on asks iOS 16.4+ for a `playback` session,
-   * which is the one session type that ignores the switch.
+   * which is the one session type that ignores the switch. It is asked for
+   * from inside the first gesture and before the context is constructed — see
+   * `session` in audio/engine.js, where the ordering is the part that matters.
    *
-   * Off by default, because a playback session also stops whatever the player
-   * was listening to, and an ad that kills a podcast to sell a match-3 has
-   * bought itself a worse impression than a silent one. Turn it on only for
-   * placements where the sound is the point.
+   * On, and it is a trade rather than a free win. A playback session also
+   * stops whatever the player was listening to, and an ad that kills a podcast
+   * to sell a match-3 has bought itself a worse impression than a silent one.
+   * It is on anyway because the alternative turned out to be worse in
+   * practice: silent-switch iPhones are a large share of impressions, the
+   * report from the floor was volume-up doing nothing at a mute creative —
+   * which is the switch's exact signature — and this creative's feedback is
+   * carried almost entirely by its sound. Set it back to false for placements
+   * where interrupting the player's own audio is the bigger cost.
+   *
+   * Covers every iPhone that can run this creative at all, by two different
+   * routes: `navigator.audioSession` on iOS 16.4 and up, and a media element
+   * playing silence on the versions below it, which is what tells iOS the page
+   * is playing media rather than making ambient noise. The floor under both is
+   * Pixi's — v8 needs WebGL2, so iOS 15 is the oldest phone that renders the
+   * fight in the first place. Android and the desktop have no silent switch
+   * and are left alone by both halves. See audio/session.js.
    */
-  overrideSilentSwitch: false,
+  overrideSilentSwitch: true,
   /**
    * Voices allowed in the air at once.
    *
