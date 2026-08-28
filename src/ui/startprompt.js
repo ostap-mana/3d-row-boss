@@ -23,6 +23,12 @@
  * underneath keeps every point of itself rather than losing the middle of it to
  * a control.
  *
+ * And the board underneath is live while this is up, rather than merely
+ * unobstructed by it. It takes swipes, the opening lesson is already
+ * demonstrating one on it, and the first gesture is both the touch this asks
+ * for and the move it makes — see Director.armIntro. Nothing here is a gate
+ * any more, in either of the two senses a caption over a game can be one.
+ *
  * Deliberately not the word PLAY. That word is the store button on every other
  * surface in the creative — see COPY.cta — and a first screen where it means
  * `begin` against a last screen where it means `install` teaches the player to

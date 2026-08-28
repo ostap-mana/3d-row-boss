@@ -138,7 +138,8 @@ async function boot() {
   const vfx = new Vfx();
   const hud = new Hud((source) => ctaClick(source));
   const hand = new Hand();
-  // Above the gems it draws on and below the hand that points at them.
+  // Above the gems it draws on — and above the hero row as well, because the
+  // ult lesson puts its frame round a card. Below the hand that points at both.
   const coach = new Coach();
   const cutin = new CutIn();
   const endcard = new EndCard((source) => ctaClick(source));
@@ -157,8 +158,8 @@ async function boot() {
     lavaMask,
     bossLayer,
     board,
-    coach,
     heroRow,
+    coach,
     vfx,
     hud,
     hand,
@@ -327,9 +328,12 @@ async function boot() {
    * On `window` in the capture phase rather than on a display object: an
    * invisible full-screen catcher in the overlay would be one more thing to
    * take down before the board underneath could be played, and would eat the
-   * touch that took it down. Nothing here eats anything — Pixi routes the same
-   * pointerdown to whatever is under it, which for the first frames is a board
-   * that is deliberately not listening yet.
+   * touch that took it down. Nothing here eats anything — passive, capturing,
+   * and it stops nothing, so Pixi routes the very same pointerdown on to
+   * whatever is under it. Which is the point: the board is listening from the
+   * first frame (see Director.armIntro), so a first gesture that is a swipe on
+   * the board starts the fight and makes the move, rather than starting the
+   * fight and being thrown away.
    *
    * `pointerdown` rather than a click, and `touchstart` and `mousedown`
    * beside it: a click is a press and a release, and on a board played by

@@ -76,6 +76,17 @@ const OPTIONS_IN_PLAY = 2;
  */
 const ENDING_GRACE = 4.0;
 
+/**
+ * How often the ult lesson looks up from what it is doing — see teachUlt.
+ *
+ * Its window is a fixed span of seconds, but the thing it is pointing at can
+ * stop being worth pointing at inside that: the hero is spent, or the boss
+ * knocks them down. Waiting the span out in one delay would leave a frame round
+ * a card nobody can tap; a fifth of a second is shorter than one beat of the
+ * demo and costs five reads of two fields.
+ */
+const ULT_TICK = 0.2;
+
 export class Director {
   constructor(scene) {
     this.s = scene;
@@ -109,8 +120,12 @@ export class Director {
      * Game-clock reading at the first playable frame — see armDoom, which sets
      * it, and pace(), which is the only thing that reads it.
      *
-     * Not now() at construction: the intro costs about two seconds and the
-     * schedule pace() measures against is the fight's, not the app's.
+     * Not now() at construction: construction is boot, and the fight does not
+     * start until somebody touches the screen — the schedule pace() measures
+     * against is the fight's, not the app's. The two used to be a couple of
+     * seconds apart on top of that, because the intro was awaited before the
+     * first turn; it is not any more (see intro), so what is left between them
+     * is however long the creative sat there being looked at.
      */
     this.fightStart = 0;
     /** Cataclysms already landed. Each one is worse, and closer, than the last. */
@@ -139,6 +154,21 @@ export class Director {
      * made to wait for it once.
      */
     this.lessonLive = false;
+    /**
+     * The other lesson — the frame round a charged hero and the hand tapping
+     * it. See teachUlt.
+     *
+     * `ultLive` is whether it owns the screen, and while it does the board's
+     * own hint stands down entirely: both are drawn by the same Coach and
+     * pointed by the same Hand, and there is one of each. `ultTaught` is the
+     * one-way door the first tap on any card shuts — the same rule the board
+     * lesson keeps in `openingSpent` — and `ultShows` caps how many times it
+     * may be put in front of somebody who keeps ignoring it.
+     */
+    this.ultToken = 0;
+    this.ultLive = false;
+    this.ultTaught = false;
+    this.ultShows = 0;
     this.moveToken = 0;
     this.ultResolver = null;
     this.ultQueued = false;
@@ -684,13 +714,42 @@ export class Director {
       board.visible = false;
       heroRow.visible = false;
       hud.alpha = 0;
+      // A board nobody can see is a board nobody can swipe, and a hand
+      // pointing into an empty arena teaches nothing. Both come on when the
+      // entrance puts the board on screen — see intro().
+      board.lockInput();
+      hud.hideDoom();
+      return;
     }
 
-    // The board, which is not playable until a turn is actually waiting on it.
-    // Already false at construction; said out loud here because this is where
-    // the reason lives rather than where the default is.
-    board.lockInput();
-    // And the doom strip, which would otherwise sit over the fight reading
+    // The board is playable, and it is playable now.
+    //
+    // It used to be locked here — nothing was waiting on a move, so nothing
+    // took one — which made the one line of type over it a gate after all.
+    // A first-timer's opening gesture on a match-3 board is a swipe on the
+    // board, and that swipe was thrown away: it started the fight, and then
+    // they had to make it again. The caption asks to be touched and the board
+    // is what they touch, so the board answers.
+    //
+    // Nothing autostarts because of this. The grid moves when a finger moves
+    // it and not before, no clock is running and no sound is playing — the
+    // rule is about the creative playing itself, and a board that sits still
+    // until it is swiped is the player playing it. `armInput` takes the touch
+    // with no turn behind it; Board.pendingMove is where the swap waits for
+    // the fight to start and collect it, which is the same touch.
+    board.armInput();
+
+    // And the lesson, on the same clock it has always been on, from the frame
+    // the creative is first looked at rather than from the frame after the
+    // roar. The hand is the one thing on screen that says what the board is
+    // for, and holding it behind the touch showed it to nobody who needed it —
+    // whoever hesitated over the caption is exactly who it was written for.
+    // Spent for good by the first finger on the glass, as it always was. See
+    // spendOpeningHint.
+    this.idleHint = this.currentHint();
+    this.armOpeningHint();
+
+    // The doom strip, which would otherwise sit over the fight reading
     // CATACLYSM against a clock that has not started counting. armDoom puts it
     // back on the frame it starts.
     hud.hideDoom();
@@ -740,6 +799,12 @@ export class Director {
       shake(6, T.introIn);
 
       await Promise.all([rising, entering]);
+      // The board has arrived, so it can be played and the lesson has
+      // something to point at. Off the touch for everyone else — see armIntro,
+      // which is where this lives when the entrance is off, which it is.
+      board.armInput();
+      this.idleHint = this.currentHint();
+      this.armOpeningHint();
     }
 
     // The flash, and with the entrance off it is the first frame of the whole
@@ -757,10 +822,19 @@ export class Director {
     const roaring = boss.roar();
     shake(14, 0.5);
 
-    await roaring;
-    // Banner clock starts once the player can actually act.
-    this.startBannerTimer();
-    hud.shout(COPY.tutorial, COPY.tutorialHold);
+    // Not awaited. The roar is a second of monster, and a second of monster
+    // that the fight waits behind is a second the board is dead in the
+    // player's hands — the touch that started the run lands on a grid, the
+    // grid says no, and the creative has answered its own invitation with a
+    // wait. It plays over the top of the first turn instead: the shout and the
+    // banner clock still hang off it finishing, because both of those are
+    // talking about a fight that by then is already being played.
+    roaring.then(() => {
+      if (this.ended) return;
+      // Banner clock starts once the player can actually act.
+      this.startBannerTimer();
+      hud.shout(COPY.tutorial, COPY.tutorialHold);
+    });
   }
 
   startBannerTimer() {
@@ -1051,6 +1125,13 @@ export class Director {
     // out to be spendable, so it retires the lesson exactly as a touch on the
     // board does. See spendOpeningHint.
     this.spendOpeningHint();
+    // And it ends the other lesson on the same rule and just as permanently:
+    // whoever has tapped a card has found the row, which is the whole of what
+    // teachUlt exists to tell them. Set before the card is checked for
+    // spendability, exactly as the line above is — a tap on a hero who is not
+    // charged is still somebody who knows the cards are there.
+    this.ultTaught = true;
+    this.endUltLesson();
     if (!this.canUlt(index)) {
       // That hero is not charged, or is down: no penalty, and nothing to say.
       this.restartIdle();
@@ -1139,7 +1220,7 @@ export class Director {
       if (type >= 0) counts[type] = (counts[type] || 0) + 1;
     });
 
-    heroRow.cards.forEach((card) => {
+    heroRow.cards.forEach((card, index) => {
       const gems = counts[card.hero.element];
       if (!gems) return;
       if (!card.addCharge(gems * card.chargeRate())) return;
@@ -1147,6 +1228,10 @@ export class Director {
         fill: GEM_LIGHT[card.hero.element],
         from: 1.6,
       });
+      // The shout names the hero; the lesson points at the card. Fired and not
+      // awaited — this is the middle of a cascade, and nothing in a cascade
+      // waits on a hand. See teachUlt, which does its own waiting.
+      this.teachUlt(index);
     });
   }
 
@@ -1817,6 +1902,10 @@ export class Director {
    */
   refreshHint() {
     if (this.ended) return;
+    // Nothing is re-aimed at the board while the ult lesson has the screen: it
+    // would take the prop off a card mid-tap to point at a swap nobody is being
+    // asked for yet. teachUlt hands the hint back when it is done.
+    if (this.ultLive) return;
     // The opening hand is not on the idle timer and restartIdle will not touch
     // it, so it is the one that has to be re-aimed by hand.
     if (this.openingLive && !this.openingSpent) {
@@ -2048,6 +2137,12 @@ export class Director {
    */
   armOpeningHint() {
     if (this.openingSpent || !T.openingHint) return;
+    // Already demonstrating, which is only ever the one armed before the touch
+    // — every other caller gets here through a `stopIdle` that put the prop
+    // away first. Re-arming over a live demo would restart it mid-sentence a
+    // second into the fight, for a player who has been watching that exact
+    // loop since before they touched anything.
+    if (this.openingLive) return;
     const token = ++this.openingToken;
     delay(T.openingHint).then(() => {
       if (token !== this.openingToken || this.ended || this.openingSpent) {
@@ -2095,6 +2190,9 @@ export class Director {
    */
   showLesson(urgency) {
     const { hand, board, coach } = this.s;
+    // The ult lesson owns the prop outright while it is up — one hand, one
+    // Coach, and of the two moves on offer it is teaching the more valuable.
+    if (this.ultLive) return false;
     const hint = this.currentHint();
     if (!hint) return false;
 
@@ -2184,6 +2282,103 @@ export class Director {
     this.retireLesson();
   }
 
+  /* -------------------------------------------------------- the ult lesson */
+
+  /**
+   * Teach the ultimate: the frame round the hero who just charged, and the hand
+   * tapping it.
+   *
+   * The creative teaches two moves and this is the second of them. The board
+   * lesson says what a match is; nothing said what the row underneath it was
+   * for — and the ultimate is both the largest number anybody can put on the
+   * boss and the only thing a player can do that is not a swipe. What used to
+   * carry it was the READY caption on the card and a shout that is gone in two
+   * thirds of a second, over the head of somebody who has spent the whole run
+   * looking at the board.
+   *
+   * So it is the same lesson aimed at the row — same painted frame, same hand,
+   * same element colour — and it is bounded on every side, because a hand on
+   * the cards is a hand pointing away from the fight:
+   *
+   *   - it waits T.ultHintIn, so the shout naming the hero lands first rather
+   *     than being talked over by a prop arriving on top of it;
+   *   - it holds the screen for T.ultHint and then gives the board hint its
+   *     clock back — see endUltLesson, and the restartIdle under it;
+   *   - it is offered at most T.ultHintShows times in a run;
+   *   - and the first tap on any card ends it for good, exactly as the first
+   *     touch on the board ends the other one. See onCardTap.
+   *
+   * Nothing here blocks input either: the card is live under the frame from the
+   * first frame of the demo, and a player who taps straight through it gets
+   * their ultimate and never sees the second tap.
+   *
+   * @param {number} index the hero who just charged
+   */
+  async teachUlt(index) {
+    if (!T.ultHints || this.ultTaught || this.ended || this.ultLive) return;
+    if (this.ultShows >= T.ultHintShows) return;
+    const { heroRow, hand, coach } = this.s;
+    const card = heroRow.cards[index];
+    if (!card || !coach) return;
+
+    this.ultShows++;
+    const token = ++this.ultToken;
+    // Live from here rather than from the first frame of the demo, and the
+    // board's lesson comes off now rather than then. The two are on clocks that
+    // cross — the board hint waits T.hint of a settled board, this waits
+    // T.ultHintIn — so anything less would have them trading the hand between
+    // them in front of the player. Every way out below goes through
+    // endUltLesson, which is what gives the other one its clock back.
+    this.ultLive = true;
+    this.retireLesson();
+
+    await delay(T.ultHintIn);
+    if (token !== this.ultToken) return;
+    // Half a second is long enough for the fight to move: the hero can be
+    // knocked down by a boss beat that was already in the air, or spent by a
+    // player who did not need telling.
+    if (this.ended || this.ultTaught || !this.canUlt(index)) {
+      this.endUltLesson();
+      this.restartIdle();
+      return;
+    }
+
+    // A shade larger than the board hint's hand, for the same reason the
+    // opening lesson's is: this one is pointing away from the thing the player
+    // has been looking at for the whole run.
+    hand.setUrgency(1.15);
+    coach.playCard(card, hand, card.hero.element);
+
+    // Polled rather than waited out in one piece — see ULT_TICK.
+    for (let left = T.ultHint; left > 0; left -= ULT_TICK) {
+      await delay(ULT_TICK);
+      if (token !== this.ultToken) return;
+      if (this.ended || !this.canUlt(index)) break;
+    }
+    this.endUltLesson();
+    // And the board gets its hint back, on the clock rather than in the same
+    // frame: the player has just been shown something, and a swipe demo landing
+    // where the tap demo left off is two lessons in one breath.
+    this.restartIdle();
+  }
+
+  /**
+   * Take the ult lesson off the screen.
+   *
+   * The token retires whatever pass of it is in flight — including one still
+   * inside its opening wait — and retireLesson does the clearing, because the
+   * marks and the prop are shared with the board's lesson and there is one
+   * teardown for both. Deliberately does not re-arm the idle chain: the callers
+   * disagree about what should happen next, and a tap that is about to spend an
+   * ultimate does not want a hand over the board a frame later.
+   */
+  endUltLesson() {
+    if (!this.ultLive) return;
+    this.ultToken++;
+    this.ultLive = false;
+    this.retireLesson();
+  }
+
   /**
    * The boss swings on his own clock, whether or not anybody has moved.
    *
@@ -2243,6 +2438,10 @@ export class Director {
    */
   restartIdle(immediate) {
     if (this.ended) return;
+    // Everything below begins by taking the marks and the hand down, which is
+    // the one thing that must not happen to a lesson that is mid-sentence on a
+    // card. The chain is armed again by teachUlt on its way out.
+    if (this.ultLive) return;
     const token = ++this.idleToken;
     // The opening lesson is not on this timer — it owns the prop outright
     // until the player touches the board — so it is the one thing here that is
@@ -2285,6 +2484,12 @@ export class Director {
     // gems up in the same frame as the hand and skip the escalation entirely.
     await delay(Math.max(0, T.pulse - T.hint));
     if (token !== this.idleToken || this.ended) return;
+    // The escalation is the one beat of this chain that outlives its own
+    // lesson: showLesson refuses while the ult lesson is up, but a pass that
+    // got past it a moment earlier is still holding this delay, and what it
+    // does on the other side is grow the hand and light two gems. Both of
+    // those would land on top of a demo pointing at a card.
+    if (this.ultLive) return;
     hand.setUrgency(1.3);
     if (this.idleHint) {
       this.highlighted = [this.idleHint.a, this.idleHint.b];
@@ -2367,6 +2572,10 @@ export class Director {
     // the one thing that ends it for good.
     this.openingToken++;
     this.openingLive = false;
+    // The other lesson comes off with it. This is the end of a turn, and
+    // whatever the turn ended for — a swap, an ultimate, the boss, the clock —
+    // owns the hand from here.
+    this.endUltLesson();
     this.retireLesson();
     this.idleHint = null;
   }

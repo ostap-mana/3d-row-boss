@@ -127,6 +127,22 @@ export class Board extends Container {
 
     this.inputEnabled = false;
     this.moveResolver = null;
+    /**
+     * A swap the player committed while nothing was waiting on one, or null.
+     *
+     * The board takes input from the first frame drawn now — the start prompt
+     * is a caption, not a gate, and the fight's opening beat is an animation
+     * the player watches rather than one they wait through. Both of those
+     * leave a window where a real swipe can land before `waitForMove` has
+     * installed a resolver for it, and a swap that matched has already moved
+     * the model: dropping it would leave a standing match on the board that
+     * nothing is ever going to resolve.
+     *
+     * So it is held here instead, and the next `waitForMove` is answered with
+     * it on the spot. Never cleared by `lockInput` or `cancelWait` for the
+     * same reason it exists — the grid is already in the state this describes.
+     */
+    this.pendingMove = null;
     /** Something is writing the grid: a swap, a cascade, obsidian. See claim(). */
     this.busy = false;
     /** Game-clock stamp of the last reshuffle — see SHUFFLE_GAP. */
@@ -504,9 +520,28 @@ export class Board extends Container {
   /** Resolves with the swap the player (or autoplay) committed. */
   waitForMove() {
     this.inputEnabled = true;
+    // A swipe that landed before this turn existed. See pendingMove.
+    if (this.pendingMove) {
+      const move = this.pendingMove;
+      this.pendingMove = null;
+      this.inputEnabled = false;
+      return Promise.resolve(move);
+    }
     return new Promise((resolve) => {
       this.moveResolver = resolve;
     });
+  }
+
+  /**
+   * Take touches with no turn waiting on one — the pre-fight board.
+   *
+   * `waitForMove` is the same switch with a promise attached to it, and that
+   * promise is the director's turn. This is for the frames before there is a
+   * turn at all: the player can still pick a swap up and make it, and
+   * `pendingMove` is where it waits for the fight to come and collect it.
+   */
+  armInput() {
+    this.inputEnabled = true;
   }
 
   lockInput() {
@@ -564,6 +599,8 @@ export class Board extends Container {
     const resolver = this.moveResolver;
     this.moveResolver = null;
     if (resolver) resolver({ a, b });
+    // Nobody is listening yet — the swipe beat the turn to it. See pendingMove.
+    else this.pendingMove = { a, b };
   }
 
   /* ------------------------------------------------------------- the lesson */

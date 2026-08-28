@@ -91,6 +91,19 @@ const FRAME_SPAN = 0.98;
  */
 const ARROW_SPAN = 0.62;
 
+/**
+ * How far the frame round a hero card stands off it, as a fraction of the
+ * card's width.
+ *
+ * Small, and measured off the width rather than off the height, because the
+ * only thing on either side of a card is another card: the row leaves a gap of
+ * about a hundredth of its own width between them — see CARD.gap in
+ * core/layout.js — and a frame that reached much further would put its bracket
+ * on the neighbour it is not talking about. Enough to clear the card's own
+ * painted border and no more.
+ */
+const CARD_PAD = 0.07;
+
 /** Whether two cells are the same cell. */
 const same = (a, b) => a.r === b.r && a.c === b.c;
 
@@ -106,6 +119,16 @@ export class Coach extends Container {
     this.painted = null;
     /** The beat on screen, kept so a relayout can put it back — see resize(). */
     this.last = null;
+    /**
+     * The point the hand is tapping through an ult lesson.
+     *
+     * Handed to Hand.tapLoop once and then written in place rather than passed
+     * again, because the loop reads it at the top of every pass: a relayout
+     * moves the card under a demo that is already running, and the prop picks
+     * the new place up on its next tap instead of going on knocking at where
+     * the row used to be.
+     */
+    this.cardAt = null;
 
     this.alpha = 0;
     this.visible = false;
@@ -122,6 +145,14 @@ export class Coach extends Container {
     // unmarked board. Nothing is redrawn when nothing is up: stop() drops this.
     if (!this.last) {
       this.clearMarks();
+      return;
+    }
+    // Two lessons, so two things to put back. The row has already been laid out
+    // again by the time this runs — main.js resizes it before the coach — so
+    // the card is simply asked where it is now, and this is also what moves the
+    // point the hand is tapping. See cardAt.
+    if (this.last.card) {
+      this.drawCard(this.last.card, this.last.type, this.last.color);
       return;
     }
     this.draw(this.last.board, this.last.step);
@@ -212,6 +243,104 @@ export class Coach extends Container {
       if (id !== this.token) return;
       await delay(REST);
     }
+  }
+
+  /**
+   * The other lesson: which hero is charged, and what to do about it.
+   *
+   * Everything above teaches the board. This teaches the row underneath it, in
+   * the same marks and the same grammar — the frame off the hint sheet, in the
+   * hero's own element, with the hand that drags gems tapping instead. A player
+   * who has watched the board lesson has already been told what a frame round a
+   * thing means, so this only has to say which thing.
+   *
+   * No arrow and no words: there is nowhere for the card to travel to, and the
+   * gesture is the whole of the instruction. The HUD's own TAP {hero} shout is
+   * still up while this arrives — Director.teachUlt waits for it on purpose —
+   * so the hero is named once, in type, by the surface that names everything
+   * else in the creative, and the hand says the rest.
+   *
+   * Loops until stop(), exactly as play() does, and what bounds it is the
+   * director: the prop is held for T.ultHint and then handed back to the board,
+   * because a hand parked on the row is a hand pointing away from the fight.
+   *
+   * @param {object} card the HeroCard that just charged
+   * @param {object} hand the tutorial hand
+   * @param {number} type the hero's element, which picks the painted set
+   */
+  async playCard(card, hand, type) {
+    const id = ++this.token;
+    this.visible = true;
+    const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
+
+    // The hand wears the hero's colour the way it wears a gem's on the board,
+    // and it is told before it is shown rather than while it is up.
+    hand.setElement(type);
+    this.drawCard(card, type, color);
+    // Fired, not awaited: the loop below is the frame's beat and the tap is the
+    // prop's, and the two are deliberately not on one clock — a frame that
+    // waited for the hand would spend half the lesson holding still.
+    hand.tapLoop(this.cardAt);
+
+    await tween(this, { alpha: 1 }, 0.2);
+    // And then it breathes between full and REST_ALPHA rather than blinking,
+    // for the reason that constant exists at all: the frame is the answer to
+    // "which card", and an answer that goes out is one the player has to wait
+    // for all over again.
+    while (id === this.token) {
+      await delay(0.55);
+      if (id !== this.token) return;
+      await tween(this, { alpha: REST_ALPHA }, 0.3);
+      if (id !== this.token) return;
+      await delay(0.2);
+      if (id !== this.token) return;
+      await tween(this, { alpha: 1 }, 0.22);
+    }
+  }
+
+  /**
+   * Place the frame round one hero card.
+   *
+   * The cards are children of a row that sits at the world's origin, so a
+   * card's own x and y are already coordinates in this container — no
+   * conversion, unlike the board, whose cells are offsets inside it.
+   *
+   * @param {object} card the HeroCard
+   * @param {number} type the element, which picks the painted set
+   * @param {number} color the element's light, which the fallback strokes with
+   */
+  drawCard(card, type, color) {
+    this.last = { card, type, color };
+    const w = card.cardW || 0;
+    const h = card.cardH || 0;
+    // Before the row's first resize a card has no size at all, and a frame
+    // round nothing is a bracket in the corner of the screen.
+    if (!w || !h) return;
+
+    const pad = w * CARD_PAD;
+    const box = {
+      x: card.x - w / 2 - pad,
+      y: card.y - h / 2 - pad,
+      w: w + pad * 2,
+      h: h + pad * 2,
+      // The card's own corner, so the drawn fallback traces the card instead of
+      // putting a capsule round it: a box twice as tall as it is wide, taken at
+      // the stadium radius the board's marks want, comes out an oval. Same
+      // fraction HeroCard.resize falls back to — see art/heroes.js.
+      r: Math.min(w, h) * 0.18,
+    };
+
+    if (this.cardAt) {
+      this.cardAt.x = card.x;
+      this.cardAt.y = card.y;
+    } else {
+      this.cardAt = { x: card.x, y: card.y };
+    }
+
+    // Measured off the card's width rather than a board cell's: it is what the
+    // stroked fallback weights its line against, and a card is about three
+    // quarters of a cell.
+    this.paint([box], null, type, color, w);
   }
 
   /** One pass. Bails at every await if the lesson has been retired. */
@@ -371,13 +500,32 @@ export class Coach extends Container {
       };
     }
 
-    // Asked about this element, not about the set as a whole. Board.typeAt
-    // reports -1 for an encased cell, and the boss can encase one between the
-    // hint being solved and this beat being drawn — wear() would find no art
-    // for -1, quietly draw nothing, and leave the lesson miming over a bare
-    // board. The stroked marks do not care what element it is.
-    if (hintMarksReady(step.type)) this.wear(step.type, boxes, arrow);
-    else this.stroke(boxes, arrow, step.color, size);
+    this.paint(boxes, arrow, step.type, step.color, size);
+  }
+
+  /**
+   * Put one set of boxes on screen: painted where the art allows, stroked where
+   * it does not.
+   *
+   * The one door to the marks, so both lessons come through it and a device
+   * that could not decode the sheet gets them both plainly rather than getting
+   * one of them not at all.
+   *
+   * Asked about this element, not about the set as a whole. Board.typeAt
+   * reports -1 for an encased cell, and the boss can encase one between the
+   * hint being solved and the beat being drawn — wear() would find no art for
+   * -1, quietly draw nothing, and leave the lesson miming over a bare board.
+   * The stroked marks do not care what element it is.
+   *
+   * @param {object[]} boxes what to frame, in this container's coordinates
+   * @param {object} arrow the pointer, or null when there is nowhere to point
+   * @param {number} type the element, which picks the painted set
+   * @param {number} color the element's light, for the fallback
+   * @param {number} size what the fallback weights its line against
+   */
+  paint(boxes, arrow, type, color, size) {
+    if (hintMarksReady(type)) this.wear(type, boxes, arrow);
+    else this.stroke(boxes, arrow, color, size);
   }
 
   /**
@@ -470,8 +618,13 @@ export class Coach extends Container {
       const h = box.h - pad * 2;
       // Cornered at half its own thickness a box comes out a stadium, which on
       // a single cell is the ring round one gem and on a run is that ring at
-      // both ends with the line between them filled in.
-      const r = Math.min(w, h) / 2;
+      // both ends with the line between them filled in. A box that asked for a
+      // corner of its own gets that instead — the hero cards do, because a card
+      // is twice as tall as it is wide and the stadium on that is an oval.
+      const r =
+        box.r === undefined
+          ? Math.min(w, h) / 2
+          : Math.min(box.r, w / 2, h / 2);
       g.roundRect(box.x + pad, box.y + pad, w, h, r);
       g.stroke(shadow);
       g.roundRect(box.x + pad, box.y + pad, w, h, r);

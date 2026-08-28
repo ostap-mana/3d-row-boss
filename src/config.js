@@ -735,6 +735,53 @@ export const T = {
    */
   openingHint: 1.0,
   /**
+   * The ult lesson — the frame round a charged hero card and the hand tapping
+   * it. See Director.teachUlt and Coach.playCard.
+   *
+   * On, and it is the second half of what this creative teaches. `hints` above
+   * teaches the board; nothing taught the row underneath it. A hero fills, the
+   * card grows and glows and puts up READY, the HUD shouts TAP ARISSA for two
+   * thirds of a second — and a player who has spent the whole run looking at
+   * the board is told about a control they have never touched by a caption that
+   * is gone before they look down.
+   *
+   * What it costs to miss is the largest number in the fight: an ultimate is a
+   * quarter of the boss's bar (see DIFFICULTY.ultDamage) and the healer's is
+   * the only thing in the run that clears obsidian or picks the party up. A
+   * creative that never shows it is selling five heroes and demonstrating none.
+   */
+  ultHints: true,
+  /**
+   * How long the READY shout is given before the lesson arrives.
+   *
+   * The shout goes up the instant the bar fills and holds for 0.7 — see
+   * Director.chargeParty. This lands inside that, so the hand turns up while
+   * the hero's name is still on screen and the two read as one sentence rather
+   * than as two announcements a second apart.
+   */
+  ultHintIn: 0.5,
+  /**
+   * How long the lesson holds the prop before handing it back to the board.
+   *
+   * Long enough for two full taps and the beat between them, and no longer: a
+   * hand parked on a card points away from the board for as long as it is up,
+   * and the player still has a fight to play. Somebody who ignores it and keeps
+   * matching gets one more go when the next hero charges — see `ultHintShows`.
+   */
+  ultHint: 3.2,
+  /**
+   * How many times the ult lesson may be offered in one run.
+   *
+   * Twice. Once is a demonstration that can be missed while the boss is
+   * roaring; three times, on a thirty second clock with five heroes charging
+   * off five colours, is a hand that will not leave the row alone.
+   *
+   * Spent whether or not the offer was taken, and never reached at all by a
+   * player who taps a card: the first tap on any of them ends the lesson for
+   * the rest of the run. See Director.onCardTap.
+   */
+  ultHintShows: 2,
+  /**
    * Idle before the game plays the move itself — and it only ever did that for a
    * viewer who had not touched the screen once. See Director.armAutoPlay.
    *
