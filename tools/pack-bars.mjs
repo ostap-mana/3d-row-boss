@@ -25,9 +25,9 @@
  * paints below are cut square to match — nothing in either gauge is rounded, and
  * nothing is framed.
  *
- * PAINTS — `src/assets/my-bard/green.png` and `blue.png`: one bar per file, at the
+ * PAINTS — `src/source/board/bars/green.png` and `blue.png`: one bar per file, at the
  * size it was painted, each already on nothing rather than on a field. They are
- * cut off `src/assets/my-bard/image.png` by tools/slice-bars.mjs, which is where
+ * cut off `src/source/board/bars/sheet.png` by tools/slice-bars.mjs, which is where
  * the field-removal lives and where the reasoning about it is written down: that
  * sheet's four bars are pictures of bars on black, and the blend along every edge
  * of one has to be divided back out before it can be reduced. Nothing in here has
@@ -79,8 +79,8 @@ import { statSync } from "node:fs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = {
   trough: join(ROOT, "src/source/board/bars/progress-2-blue.png"),
-  green: join(ROOT, "src/assets/my-bard/green.png"),
-  blue: join(ROOT, "src/assets/my-bard/blue.png"),
+  green: join(ROOT, "src/source/board/bars/green.png"),
+  blue: join(ROOT, "src/source/board/bars/blue.png"),
 };
 const OUT = join(ROOT, "src/assets/board/bar");
 

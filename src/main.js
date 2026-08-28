@@ -21,12 +21,14 @@ import { loadBoardFrame } from "./art/boardframe.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadHeroAvatars } from "./art/avatars.js";
 import { loadHintHand } from "./art/hinthand.js";
+import { loadHintMarks } from "./art/hintmarks.js";
 import { loadHpBarArt } from "./art/hpbar.js";
 import { loadCardBars } from "./art/cardbars.js";
 import { Boss, loadBossArt } from "./art/boss.js";
 import { loadBossCrest } from "./art/crest.js";
 import { loadFireArt } from "./art/fire.js";
 import { loadSpellArt } from "./art/spells.js";
+import { loadGemPopArt } from "./art/gempop.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -88,7 +90,9 @@ async function boot() {
   // art for one arrived, the card plates and hero busts because each HeroCard does the
   // same, the card frames because each card picks one by element as it is
   // built, and the hint hand because the Hand is built with the scene and reads
-  // it to know which of the two hands it is showing.
+  // it to know which of the two hands it is showing, and the hint marks because
+  // the Coach asks once per beat whether the painted set arrived and strokes its
+  // own rings for the whole lesson if it has not.
   // Every bitmap is inlined in this file, so these are decodes, not downloads.
   await Promise.all([
     loadFonts(),
@@ -100,10 +104,12 @@ async function boot() {
     loadBossCrest(),
     loadFireArt(),
     loadSpellArt(),
+    loadGemPopArt(),
     loadCardPlates(),
     loadCardFrames(),
     loadHeroAvatars(),
     loadHintHand(),
+    loadHintMarks(),
     loadHpBarArt(),
     loadCardBars(),
   ]);

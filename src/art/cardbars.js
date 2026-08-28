@@ -20,7 +20,7 @@
  *   bar-mana.webp    160x16  the charge paint, the same bevel in blue.
  *
  * All three paints stretch: each is the flat middle of a bar drawn on nothing —
- * `src/assets/my-bard/green.png` and `blue.png`, one bar per file
+ * `src/source/board/bars/green.png` and `blue.png`, one bar per file
  * with its own alpha — and there is nothing along such a bar's length to hold
  * still: no row of either varies end to end by more than the noise the export
  * was saved with. They leave the packer square, ends included, and a card lays

@@ -4,7 +4,7 @@
  *   node tools/slice-bars.mjs                 # -> green.png, blue.png
  *   node tools/slice-bars.mjs --preview       # both cuts on magenta, to look at
  *
- * The source is `src/assets/my-bard/image.png`: four bars on a flat near-black
+ * The source is `src/source/board/bars/sheet.png`: four bars on a flat near-black
  * field, 1113x103 each, green over blue and then the same two again. What comes
  * out is each colour on its own, in the same folder, at the size it was painted,
  * with the field gone — the two files the card's gauges are made of.
@@ -59,14 +59,14 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "src/assets/my-bard/image.png");
+const SRC = join(ROOT, "src/source/board/bars/sheet.png");
 
 /**
  * Where the cuts land, and what they are called: `<colour>.png`, beside the sheet
  * they came off. Nothing here moves them somewhere tidier — the folder is where
  * the art was put, and it is where the two halves of it stay.
  */
-const OUT_DIR = join(ROOT, "src/assets/my-bard");
+const OUT_DIR = join(ROOT, "src/source/board/bars");
 
 /**
  * The bars the sheet has, in the order it has them, and what each one is called.

@@ -65,6 +65,17 @@ const OBSIDIAN_SLACK = 7;
  */
 const OPTIONS_IN_PLAY = 2;
 
+/**
+ * The longest the hard cap will hold for an ending that had already started
+ * when it fired.
+ *
+ * Both endings are bounded a long way under this — see win and lose, whose
+ * every wait is a fixed delay or a capped bossSettled — so it is a stop rather
+ * than a schedule: the number exists so nothing can hold the end card open
+ * forever, not because anything is expected to reach it.
+ */
+const ENDING_GRACE = 4.0;
+
 export class Director {
   constructor(scene) {
     this.s = scene;
@@ -133,6 +144,24 @@ export class Director {
     this.ultQueued = false;
     /** Which hero the pending ultimate belongs to — any of them can be spent. */
     this.ultHero = HEALER;
+    /**
+     * Raised by the tap that spends a hero, dropped once that ultimate has
+     * finished resolving. While it is up the party cannot be hurt — see
+     * strikeHeroes for what that is buying and what it deliberately does not
+     * cover.
+     */
+    this.ultCasting = false;
+    /**
+     * The fight's clocks, held while an ultimate is being cast.
+     *
+     * `clockHeld` is how many seconds have been taken off the bill so far and
+     * `clockHoldAt` is when the current hold started, or 0 for a clock that is
+     * running. Everything the player is charged for by wall time — the
+     * cataclysm's fuse and the boss's rage ramp — goes through elapsed()
+     * rather than now(). See holdClock.
+     */
+    this.clockHeld = 0;
+    this.clockHoldAt = 0;
     this.doomResolver = null;
     /** Pulls the player's turn out of the air when the fight is already over. */
     this.stopResolver = null;
@@ -159,7 +188,13 @@ export class Director {
     scene.debug = this;
 
     const { board, vfx, hud, hand } = scene;
-    board.onPop = (x, y, type) => vfx.burst(x, y, GEM_COLORS[type], 5, 0.9);
+    board.onPop = (x, y, type) => {
+      // The sparks first and the painted mark over them. `pop` returns false
+      // until its sheet exists, which is the whole of the fallback: the burst
+      // is what a cleared gem always was and it is still what carries the beat.
+      vfx.burst(x, y, GEM_COLORS[type], 5, 0.9);
+      vfx.pop(x, y, GEM_COLORS[type], board.cell * 1.6);
+    };
     board.onShatter = (x, y) => {
       vfx.burst(x, y, OBSIDIAN.seam, 10, 1.4);
       vfx.ring(x, y, OBSIDIAN.seamHot, 150, 6);
@@ -213,7 +248,16 @@ export class Director {
      * hand rides a swipe the player is already making.
      */
     if (T.touchHand) {
-      board.onTouchStart = (x, y) => hand.grab(board.x + x, board.y + y);
+      board.onTouchStart = (x, y) => {
+        // The gem actually under the finger, so the prop riding the player's own
+        // swipe is the colour of what they picked up. cellAt can answer null on
+        // a press inside the board's frame and typeAt answers -1 for a cell the
+        // boss has encased; setElement takes both and reaches for the neutral
+        // hand, which is what a touch on nothing should look like anyway.
+        const cell = board.cellAt(x, y);
+        hand.setElement(cell ? board.typeAt(cell.r, cell.c) : -1);
+        hand.grab(board.x + x, board.y + y);
+      };
       board.onTouchMove = (x, y) => hand.dragTo(board.x + x, board.y + y);
     }
     board.onTouchEnd = () => {
@@ -231,11 +275,20 @@ export class Director {
     // Which of the two won matters now. The fight resolving is a fight that
     // reached its own ending; the clock resolving is a fight that did not, and
     // that one has an ending of its own to play — see `timeUp`.
+    const fight = this.playFight();
     const capped = await Promise.race([
-      this.playFight().then(() => false),
+      fight.then(() => false),
       delay(T.hardCap).then(() => true),
     ]);
-    if (capped) await this.timeUp();
+    if (capped && this.verdict()) {
+      // The cap is a deadline on the fight, not on its ending. A boss who went
+      // down at twenty-nine seconds has a death already playing, and cutting to
+      // the card over it is the clock arguing with the fight it just watched.
+      // Raced against ENDING_GRACE all the same.
+      await Promise.race([fight, delay(ENDING_GRACE)]);
+    } else if (capped) {
+      await this.timeUp();
+    }
     await this.finish();
   }
 
@@ -265,7 +318,7 @@ export class Director {
    * bossSettled, which will wait 0.8s for an in-flight swing and no longer.
    */
   async timeUp() {
-    if (this.ended || this.outcome) return;
+    if (this.settled()) return;
     const { board, hud } = this.s;
     board.lockInput();
     this.stopIdle();
@@ -299,8 +352,11 @@ export class Director {
     this.armDoom();
 
     while (!this.ended) {
-      if (this.bossHp <= 0) return this.win();
-      if (this.partyWiped()) return this.lose();
+      // One place decides how this fight ends, and it reads a verdict claimed
+      // where the damage actually landed rather than two independent polls that
+      // could both come back true on the same frame. See claim.
+      const called = this.verdict();
+      if (called) return called === "victory" ? this.win() : this.lose();
       if (this.doomDue()) this.castDoomSoon();
 
       const action = await this.playerTurn();
@@ -326,7 +382,11 @@ export class Director {
 
       await this.resolveMove();
       if (this.ended) return;
-      if (this.bossHp <= 0) return this.win();
+      // Back to the top rather than straight into win(): the cascade that just
+      // resolved may have been running alongside a swing that emptied the row,
+      // and the verdict up there is what says which of the two got there first.
+      // It is also what stops a boss turn being queued into an ending.
+      if (this.verdict()) continue;
 
       this.queueBoss(() => this.bossTurn());
     }
@@ -334,6 +394,62 @@ export class Director {
 
   partyWiped() {
     return this.s.heroRow.aliveCount() === 0;
+  }
+
+  /**
+   * Whether the fight has already been called.
+   *
+   * `ended` is the end card's flag and is only raised in `finish`, which is two
+   * animations and several seconds after the fight is actually over. Every
+   * clock still running in that window — the boss's track, the cascade the
+   * player is holding, the cataclysm — has to stand down at the verdict rather
+   * than at the card, or it goes on dealing damage into an ending that has
+   * already been decided. Which is what it used to do: a swing in the air when
+   * the boss went down landed anyway, and the party died inside its own
+   * victory.
+   */
+  settled() {
+    return this.ended || !!this.outcome;
+  }
+
+  /**
+   * Call the fight, once.
+   *
+   * There is no draw in this mode, and the reason there looked like one is that
+   * both endings were read at the top of the fight loop — long after both
+   * conditions had become true. A boss swing and a cascade land on the same
+   * frame often enough: the row emptied inside the same beat that took the last
+   * of the boss's health, and whichever branch happened to be checked first
+   * played its ending over a screen showing the other one.
+   *
+   * So the verdict is claimed at the point of damage, and the first claim is
+   * final. Everything behind it reads `settled` and stops — including the half
+   * of the fight that was about to win it.
+   *
+   * @param {"victory"|"defeat"} kind
+   * @returns {boolean} whether this is the call that decided it
+   */
+  claim(kind) {
+    if (this.outcome) return false;
+    this.outcome = kind;
+    // The clock is part of what has to stand down: a cataclysm queued on the
+    // frame the boss died is the same bug wearing a different coat.
+    this.doomArmed = false;
+    return true;
+  }
+
+  /**
+   * The verdict, for the paths that arrive without having gone through a hit —
+   * the hard cap, a turn boundary, a wipe that landed between beats.
+   *
+   * Reads the claim first, so a fight that was already called stays called
+   * whatever the board looks like by the time anybody asks.
+   */
+  verdict() {
+    if (this.outcome) return this.outcome;
+    if (this.bossHp <= 0) this.claim("victory");
+    else if (this.partyWiped()) this.claim("defeat");
+    return this.outcome;
   }
 
   /* ------------------------------------------------------------ escalation */
@@ -404,6 +520,10 @@ export class Director {
   pace() {
     const guard = DIFFICULTY.pace;
     if (!guard || !guard.enabled) return 1;
+    // The one wall-clock reader deliberately left un-held during an ultimate —
+    // see holdClock. Time only ever loosens this guard's grip, so taking the
+    // cast's seconds off the bill here would be charging the player for it, not
+    // sparing them: the fuse and the rage ramp are the two that bill.
     const expected = Math.max(0, 1 - (now() - this.fightStart) / guard.seconds);
     // Behind the line, or past the end of it: the boss holds nothing back.
     if (expected <= 0 || this.bossHp >= expected) return 1;
@@ -432,7 +552,7 @@ export class Director {
    */
   checkPhase() {
     const depth = this.armorDepth();
-    if (this.ended || depth <= this.phase) return;
+    if (this.settled() || depth <= this.phase) return;
     this.phase = depth;
 
     const layers = DIFFICULTY.armor;
@@ -453,12 +573,16 @@ export class Director {
    * spends eight seconds hunting the perfect swap pays for the eight seconds.
    * Capped by rageMax so a fight that somehow reaches the hard cap ends in a
    * wipe rather than in an arithmetic accident.
+   *
+   * On elapsed() rather than now(): the seconds inside an ultimate are seconds
+   * nobody could have hunted a swap in, and charging for them made spending a
+   * hero the one move in the fight that armed the boss. See holdClock.
    */
   rage() {
     const per = DIFFICULTY.ragePerSecond || 0;
     const cap =
       DIFFICULTY.rageMax === undefined ? Infinity : DIFFICULTY.rageMax;
-    return Math.min(cap, 1 + now() * per);
+    return Math.min(cap, 1 + this.elapsed() * per);
   }
 
   /**
@@ -493,16 +617,18 @@ export class Director {
    * @returns {boolean} whether the beat was taken
    */
   queueBoss(job) {
-    if (this.bossQueued >= 2) return false;
+    if (this.bossQueued >= 2 || this.settled()) return false;
     this.bossQueued++;
     this.bossTrack = (this.bossTrack || Promise.resolve())
-      .then(() => (this.ended ? undefined : job()))
+      .then(() => (this.settled() ? undefined : job()))
       .catch(() => {})
       .then(() => {
         this.bossQueued--;
         // A swing that emptied the row has to reach the player's turn, which
-        // is otherwise parked waiting for a swipe that will never come.
-        if (this.partyWiped()) this.interrupt("wiped");
+        // is otherwise parked waiting for a swipe that will never come. Same
+        // for any verdict claimed on this track: the turn it interrupts is a
+        // turn nobody was ever going to take.
+        if (this.settled() || this.partyWiped()) this.interrupt("wiped");
       });
     return true;
   }
@@ -645,6 +771,64 @@ export class Director {
 
   /* ----------------------------------------------------------- the clock */
 
+  /**
+   * Stop the fight's clocks.
+   *
+   * An ultimate is the one stretch of the fight the player is not playing: the
+   * board is locked, the cut-in owns the screen and there is no swap to be
+   * found for two and a half seconds. A clock that kept counting through that
+   * billed them for watching the thing they had just spent a full bar to earn
+   * — the ultimate quietly cost a tenth of the cataclysm's fuse and left the
+   * boss hitting harder afterwards for having been cast at all.
+   *
+   * So the fuse and the rage ramp are held, not just the damage. Nested holds
+   * are ignored rather than counted: one cast can only stop the clock once.
+   */
+  holdClock() {
+    if (this.clockHoldAt) return;
+    this.clockHoldAt = now();
+    // Stopping the count is not the same as looking stopped. The strip's sheen
+    // and its panic throb run off the HUD's own frame clock, so without this
+    // the fuse froze at a number while a highlight went on sweeping over it —
+    // which is the clock still moving as far as anybody watching is concerned.
+    this.s.hud.holdDoom(true);
+  }
+
+  /** Start them again, with the held stretch taken off the bill for good. */
+  releaseClock() {
+    if (!this.clockHoldAt) return;
+    this.clockHeld += now() - this.clockHoldAt;
+    this.clockHoldAt = 0;
+    this.s.hud.holdDoom(false);
+  }
+
+  /**
+   * Wall time the fight is allowed to charge the player for.
+   *
+   * The game clock minus every second spent inside an ultimate, including the
+   * one currently running, so a reading taken mid-cast is the same reading it
+   * would give on either side of it.
+   */
+  elapsed() {
+    const holding = this.clockHoldAt ? now() - this.clockHoldAt : 0;
+    return now() - this.clockHeld - holding;
+  }
+
+  /**
+   * Raise or drop the cast shield.
+   *
+   * The clocks ride on the same flag as the party's immortality because both
+   * protect the same thing — the window between the tap that commits the bar
+   * and the last frame of the blast it pays for. Every path that drops the
+   * shield goes through here, so the fight can never be left with a clock that
+   * has stopped for an ultimate that finished.
+   */
+  setCasting(on) {
+    this.ultCasting = on;
+    if (on) this.holdClock();
+    else this.releaseClock();
+  }
+
   /** Start the countdown, the moment the player can actually act on it. */
   armDoom() {
     this.fightStart = now();
@@ -665,6 +849,10 @@ export class Director {
    */
   update(dt) {
     if (!this.doomArmed || this.ended || this.doomFiring) return;
+
+    // Held for an ultimate: the fuse stops where it is, the strip holds the
+    // number it was showing, and the room stops tightening. See holdClock.
+    if (this.clockHoldAt) return;
 
     if (this.doomLeft > 0) {
       this.doomLeft = Math.max(0, this.doomLeft - dt);
@@ -736,7 +924,7 @@ export class Director {
     hud.enrage();
     shake(18, 0.5);
     await boss.roar();
-    if (this.ended) return;
+    if (this.settled()) return;
 
     const impact = boss.impactPoint();
     vfx.shock(impact.x, impact.y, 0xff2a06, {
@@ -758,7 +946,7 @@ export class Director {
     });
 
     await delay(0.2);
-    if (this.ended) return;
+    if (this.settled()) return;
 
     const falling = this.strikeHeroes({
       targets: "all",
@@ -769,12 +957,17 @@ export class Director {
       damage: lethal
         ? 1.2
         : DOOM.damage * Math.pow(DOOM.damageRamp || 1, this.doomCount),
+      // ...and it is the one hit an ultimate in flight does not shield against,
+      // for the same reason. timeUp goes straight to lose() whatever this cast
+      // does, so a cataclysm that bounced off a shield would buy nothing but a
+      // party dying on full bars.
+      unstoppable: lethal,
     });
     await Promise.all([rolling, falling]);
     this.doomCount++;
-    if (this.ended) return;
-
-    if (this.partyWiped()) {
+    // The last hero went down, or the fight was called out from under the cast:
+    // either way the clock has nothing left to count to.
+    if (this.settled() || this.partyWiped()) {
       this.doomFiring = false;
       return;
     }
@@ -815,7 +1008,12 @@ export class Director {
       this.ultQueued = false;
       return "ult";
     }
+    // Queued against a hero who is no longer spendable — they went down while
+    // the boss was still animating. The ultimate is gone, and the shield the
+    // tap raised goes with it rather than standing over a cast that will never
+    // happen.
     this.ultQueued = false;
+    this.setCasting(false);
 
     const hint = this.currentHint();
     const swap = board.waitForMove().then(() => "swap");
@@ -859,6 +1057,13 @@ export class Director {
       return;
     }
     this.ultHero = index;
+    // Immortal — and off the clock — from the tap, not from the first frame of
+    // the cut-in. The two can be a whole cascade apart: a tap that lands
+    // mid-resolve has no resolver to wake and is parked in ultQueued until the
+    // next pass through playerTurn, and the boss's track is running for every
+    // frame of that gap.
+    // The player has committed the bar; the commitment is what is protected.
+    this.setCasting(true);
     const resolve = this.ultResolver;
     this.ultResolver = null;
     if (resolve) resolve("ult");
@@ -998,8 +1203,21 @@ export class Director {
     const before = this.bossHp;
 
     await board.resolve((step, cells) => {
+      // The party is already gone: the rest of this cascade is gems falling on
+      // a dead row, and it does not reach back and kill the boss. Whoever
+      // landed first won outright — see claim.
+      //
+      // A cascade that is *winning* goes on playing. The bar is already empty
+      // so the beams left in it cost nothing, and cutting a combo off halfway
+      // is the one place this gate would be visible.
+      if (this.ended || this.outcome === "defeat") return;
+
       const share = this.damageFor(step, cells);
       this.bossHp = Math.max(0, this.bossHp - share);
+      // On the step that actually empties the bar, not at the next turn
+      // boundary: this is what makes the boss's track stand down before the
+      // swing it has in the air can land on anybody.
+      if (this.bossHp <= 0) this.claim("victory");
       this.chargeParty(cells);
 
       const origin = this.centroid(cells);
@@ -1282,7 +1500,7 @@ export class Director {
   async bossTurn() {
     const attack = this.currentAttack();
     await this.s.board.whenQuiet();
-    if (this.ended) return;
+    if (this.settled()) return;
     const cells = this.pickObsidian(attack);
 
     if (attack.kind === "rake") {
@@ -1315,7 +1533,7 @@ export class Director {
 
     hud.shout(attack.shout || COPY.rake, 0.4, { fill: 0xff5a6e, from: 1.4 });
     const dir = await boss.rake();
-    if (this.ended) return;
+    if (this.settled()) return;
 
     // On the beast rather than in front of it: the marks are what its own
     // claws opened, so they start where the claws are and the wave below is
@@ -1344,7 +1562,7 @@ export class Director {
       thickness: row.h * 1.1,
       duration: 0.2,
     });
-    if (this.ended) return;
+    if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
     shake(11, 0.32);
@@ -1358,9 +1576,19 @@ export class Director {
   async bossBreath(attack, cells) {
     const { boss, hud, vfx, shake, layout } = this.s;
 
-    hud.shout(attack.shout || COPY.breath, 0.4, { fill: 0xff8a3d, from: 1.4 });
+    // Inverted, unlike every other shout in the fight. This is the one printed
+    // inside its own effect — the jet opens across the same band the callout
+    // sits on — and light type with a dark rim needs something darker than
+    // itself behind it. On a wall of fire there is nothing darker, which is how
+    // "LAVA BREATH!" came to read as grey embossing on orange. Dark letters with
+    // a hot rim hold against anything the jet does.
+    hud.shout(attack.shout || COPY.breath, 0.4, {
+      fill: 0x2a0803,
+      stroke: 0xffc46a,
+      from: 1.4,
+    });
     await boss.lavaBreath(0.62);
-    if (this.ended) return;
+    if (this.settled()) return;
 
     shake(10, 0.4);
     const row = layout.cards;
@@ -1368,7 +1596,14 @@ export class Director {
     const onto = { x: row.x + row.w / 2, y: row.y + row.h * 0.45 };
     const flame = vfx.cone(mouth, onto, 0xff6a10, {
       hold: 0.5,
-      spread: row.w,
+      // A shade under the row rather than exactly it: the tip carries a forward
+      // bulge now — see paintCone — and at the full width that bulge put the
+      // corner of the fire over the first column of gems.
+      spread: row.w * 0.9,
+      // Upright, the jet crosses the whole play field to reach the row. See
+      // `heat` in vfx.cone: the fire gives way to the board, not the other way
+      // round.
+      heat: layout.portrait ? 0.48 : 1,
       mouth: 44 * layout.ui,
     });
     // The painted fire rides the middle of the jet the cone already draws, so
@@ -1383,7 +1618,7 @@ export class Director {
 
     // Let the fire actually arrive before anyone loses health.
     await delay(0.22);
-    if (this.ended) return;
+    if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
     shake(13, 0.45);
@@ -1401,7 +1636,7 @@ export class Director {
 
     hud.shout(attack.shout || COPY.smash, 0.4, { fill: 0xffb03d, from: 1.4 });
     await boss.smash();
-    if (this.ended) return;
+    if (this.settled()) return;
 
     const impact = boss.fistPoint();
     shake(20, 0.55);
@@ -1432,7 +1667,7 @@ export class Director {
       thickness: row.h * 1.5,
       duration: 0.26,
     });
-    if (this.ended) return;
+    if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
     shake(15, 0.4);
@@ -1455,7 +1690,7 @@ export class Director {
         });
       }),
     );
-    if (this.ended) return;
+    if (this.settled()) return;
     await board.lockCells(cells);
     this.refreshHint();
   }
@@ -1488,6 +1723,21 @@ export class Director {
    */
   strikeHeroes(attack) {
     const { heroRow, hud, vfx, layout } = this.s;
+    // The fight is already called. A swing still in the air when the boss went
+    // down does not get to take the party with it, and that is the whole of the
+    // draw this mode does not have. See claim.
+    if (this.settled()) return Promise.resolve();
+    // An ultimate is in the air, and it is the one move in the fight sold as
+    // the answer to exactly this. A swing landing inside its two seconds of
+    // cut-in used to take the party with it — which then zeroed the ultimate's
+    // own damage on the way past, because playUltimate reads the verdict before
+    // it bills the boss. The player spent a full bar and watched the light show
+    // pay out nothing into a fight it had already won.
+    //
+    // So the cast is immortal rather than merely favoured: the swing still
+    // plays, its obsidian still lands on the board, and the health bars do not
+    // move. The single exception is the clock's own cataclysm — see castDoom.
+    if (this.ultCasting && !attack.unstoppable) return Promise.resolve();
     const targets = heroRow.resolveTargets(attack.targets);
     const solo = targets.length === 1;
     const jobs = [];
@@ -1519,8 +1769,17 @@ export class Director {
       else pop();
     });
 
-    // Announced once for the wave, not once per corpse.
-    if (fell > 0) {
+    // Claimed here, on the frame the hit is committed, rather than once the
+    // bars have finished draining. The drain is four tenths of a second of
+    // tweening, and a cascade resolving inside it would otherwise take the last
+    // of the boss's health after the party was already dead — two winners, one
+    // fight. `fell` skips anyone already down, so this reads as "the attack
+    // takes everybody still standing".
+    if (fell > 0 && fell >= heroRow.aliveCount()) this.claim("defeat");
+
+    // Announced once for the wave, not once per corpse — and not at all over a
+    // wipe, which has an ending of its own to say.
+    if (fell > 0 && !this.settled()) {
       delay(0.45).then(() => {
         if (this.ended || this.partyWiped()) return;
         hud.shout(COPY.down, 0.5, { fill: 0xff6b5a, from: 1.5 });
@@ -1594,9 +1853,26 @@ export class Director {
    * which is what makes hunting water instead of whatever match is nearest the
    * actual skill here. The other four trade that for a straight burn.
    *
-   * It deliberately does not hand the boss a turn: the player paid for it.
+   * It deliberately does not hand the boss a turn: the player paid for it — and
+   * for the same reason it cannot be killed out from under itself. The party is
+   * immortal from the tap until the cast has resolved; `strikeHeroes` is where
+   * that is enforced and why.
    */
   async playUltimate() {
+    try {
+      await this.castUltimate();
+    } finally {
+      // The one place the shield comes down. The cast below has four returns in
+      // it — one for a card that is not there, three for a fight that ended
+      // underneath it — and a shield left standing on any of those paths would
+      // make the party immortal for the rest of the run, over a fight whose
+      // clocks had stopped.
+      this.setCasting(false);
+    }
+  }
+
+  /** The cast itself. Split out only so `playUltimate` has one exit to guard. */
+  async castUltimate() {
     const { board, boss, heroRow, hud, vfx, cutin, shake, layout } = this.s;
     const index = this.ultHero;
     const card = heroRow.cards[index];
@@ -1608,13 +1884,22 @@ export class Director {
     const light = GEM_LIGHT[element];
 
     board.lockInput();
-    await card.spend();
+    // Overlapped, not sequenced. The card's punch and its draining bar run on
+    // under the cut-in, which used to wait a third of a second for them to
+    // finish first — a pause between the tap and the payoff, in the one place
+    // in the fight where the player has just been promised something loud.
+    const spending = card.spend();
+    await delay(0.1);
     await cutin.play(index);
     if (this.ended) return;
 
+    // Underneath the cut-in's wash, which is still on screen: play() hands the
+    // board back on the white rather than after it, so the swing, the sweep and
+    // the kick are already running by the time the board is uncovered.
     card.strike(true);
     vfx.sweep(color);
-    shake(10, 0.4);
+    shake(14, 0.45);
+    await spending;
 
     // Only the tide washes the board clean. Everybody else has to live with the
     // obsidian, which is what keeps her the ultimate worth saving for.
@@ -1634,7 +1919,11 @@ export class Director {
       (DIFFICULTY.ultDamage +
         cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
       this.resistance();
-    this.bossHp = Math.max(0, this.bossHp - total);
+    // Cast into a fight the boss has already won: the light show plays out,
+    // the damage does not. Same rule the cascade runs on — see resolveMove.
+    const dealt = this.outcome === "defeat" ? 0 : total;
+    this.bossHp = Math.max(0, this.bossHp - dealt);
+    if (this.bossHp <= 0) this.claim("victory");
 
     const target = boss.impactPoint();
     const origin = {
@@ -1662,7 +1951,7 @@ export class Director {
     boss.hit(2);
     shake(22, 0.6);
     vfx.flash(light, 0.55, 0.55);
-    hud.damage(total * BOSS_MAX_HP, target.x, target.y - 24, 2);
+    hud.damage(dealt * BOSS_MAX_HP, target.x, target.y - 24, 2);
     hud.setHp(this.bossHp, 0.6);
     this.checkPhase();
 
@@ -1682,7 +1971,7 @@ export class Director {
 
   async win() {
     const { boss, board, hud, vfx, shake } = this.s;
-    this.outcome = "victory";
+    this.claim("victory");
     board.lockInput();
     this.stopIdle();
     this.doomArmed = false;
@@ -1710,7 +1999,7 @@ export class Director {
    */
   async lose() {
     const { boss, board, hud, vfx, shake } = this.s;
-    this.outcome = "defeat";
+    this.claim("defeat");
     board.lockInput();
     this.stopIdle();
     this.doomArmed = false;
@@ -1815,9 +2104,35 @@ export class Director {
     this.lessonLive = true;
     hand.setUrgency(urgency);
 
+    // The lesson loops for as long as the player stalls, and it re-solves its
+    // own swap when the board moves out from under the one it is teaching. It
+    // is handed this rather than left to call currentHint itself so that the
+    // answer lands back here too: `idleHint` is what autoPlay reaches for and
+    // what the escalation lights up, and a coach that re-aimed privately would
+    // leave both of those pointing at the swap before last.
+    const solve = () => {
+      const next = this.currentHint();
+      if (next) {
+        const fresh = board.matchShape(next.a, next.b);
+        if (fresh) {
+          this.idleHint = next;
+          return fresh;
+        }
+      }
+      // Nothing teachable on the board this instant, which in practice means a
+      // reshuffle is in the air. The lesson is handed back to the clock rather
+      // than simply stopped: restartIdle re-arms the chain, escalate waits the
+      // board out, and the player gets the hint again a beat later instead of
+      // never again for the rest of the run.
+      this.lessonLive = false;
+      this.openingLive = false;
+      this.restartIdle();
+      return null;
+    };
+
     const shape = coach && board.matchShape(hint.a, hint.b);
     if (shape) {
-      coach.play(board, hand, shape);
+      coach.play(board, hand, shape, solve);
       return true;
     }
     // A board whose swap cannot be taken apart into a pair and a traveller
@@ -1887,7 +2202,7 @@ export class Director {
     if (!T.bossPress) return;
     const token = ++this.pressToken;
     delay(T.bossPress).then(() => {
-      if (token !== this.pressToken || this.ended || this.outcome) return;
+      if (token !== this.pressToken || this.settled()) return;
       this.queueBoss(() => this.bossTurn());
       this.armBossPress();
     });
@@ -2013,6 +2328,9 @@ export class Director {
     if (!this.idleHint) return;
     const a = board.cellPos(this.idleHint.a.r, this.idleHint.a.c);
     const b = board.cellPos(this.idleHint.b.r, this.idleHint.b.c);
+    // The hand takes the colour of the gem it is about to drag, which is the one
+    // it starts on — the same end ui/coach.js reads its lesson's element off.
+    hand.setElement(board.typeAt(this.idleHint.a.r, this.idleHint.a.c));
     hand.swipeLoop(
       { x: board.x + a.x, y: board.y + a.y },
       { x: board.x + b.x, y: board.y + b.y },

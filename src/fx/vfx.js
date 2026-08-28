@@ -21,23 +21,116 @@ import {
   SPELL_TRAVEL_LAST,
   spellFrames,
 } from "../art/spells.js";
+import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { FIRE } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
 
+/** How many points down each side of a flame cone's edge. */
+const CONE_STEPS = 16;
+
+/** Points across the tip's forward bulge. */
+const CONE_CAP = 7;
+
 /**
  * One layer of a flame cone, pointing along +x from the origin.
- * Drawn at full length and stretched in from zero by the caller, so the
- * flame reads as something shot out rather than something switched on.
+ *
+ * Drawn at full length and stretched in from zero by the caller, so the flame
+ * reads as something shot out rather than something switched on.
+ *
+ * Three things here that the two quadratic curves it used to be did not have.
+ *
+ * The edge is sampled and pushed about by three sines at unrelated rates, so
+ * what leaves the jaw has a broken outline that crawls — `t` is what makes it
+ * crawl, because the shape is the animation. It is held still at the throat,
+ * since a jet does not flap where it leaves the mouth, and held again at the
+ * tip so the cap joins on without a seam.
+ *
+ * The tip is swept on a forward bulge. A cone sampled to a flat end is a
+ * trapezium, and a bright trapezium landing on the hero row draws a hard
+ * horizontal rule across six cards.
+ *
+ * And the whole thing is feathered: `feather` nested outlines at a fraction of
+ * the alpha each, narrowing and shortening as they go inward, so the layer adds
+ * up to a soft-edged wedge instead of a sheet of coloured gel with a visible
+ * border. That border is the single thing that kept this reading as an overlay
+ * rather than as fire — most of all on the layer that does not blend additively,
+ * where there is no brightness to hide it. The stack costs one Graphics and no
+ * extra objects: overlapping fills inside one path accumulate.
+ *
+ * @param {object} c layer spec — len, mouth, spread, color, alpha, wob, seed,
+ *   feather
+ * @param {number} t seconds since the flame opened
  */
-function paintCone(g, len, mouth, spread, color) {
-  g.moveTo(0, -mouth / 2);
-  g.quadraticCurveTo(len * 0.5, -spread * 0.34, len, -spread / 2);
-  g.quadraticCurveTo(len * 1.1, 0, len, spread / 2);
-  g.quadraticCurveTo(len * 0.5, spread * 0.34, 0, mouth / 2);
-  g.closePath();
-  g.fill({ color });
+function paintCone(g, c, t) {
+  const { len, mouth, spread, wob, seed } = c;
+  const feather = c.feather || 1;
+
+  const outline = (narrow, shorten) => {
+    const l = len * (1 - shorten);
+    const halfAt = (p) =>
+      (mouth + (spread - mouth) * p ** 0.78) * 0.5 * (1 - narrow * p);
+    const side = (i, sgn) => {
+      const p = i / CONE_STEPS;
+      const n =
+        Math.sin(p * 9.1 + t * 11 + seed) * 0.55 +
+        Math.sin(p * 17.3 - t * 7.3 + seed * 2.1) * 0.3 +
+        Math.sin(p * 31.7 + t * 19 + seed * 3.7) * 0.15;
+      const grip = Math.min(1, p * 2.4) * Math.min(1, (1 - p) * 4);
+      return [l * p, sgn * halfAt(p) * (1 + n * wob * grip)];
+    };
+
+    const pts = [];
+    for (let i = 0; i <= CONE_STEPS; i++) pts.push(...side(i, -1));
+    const halfEnd = halfAt(1);
+    const bulge = spread * 0.1 * (1 - narrow);
+    for (let j = 1; j < CONE_CAP; j++) {
+      const a = -Math.PI / 2 + (Math.PI * j) / CONE_CAP;
+      pts.push(l + Math.cos(a) * bulge, Math.sin(a) * halfEnd);
+    }
+    for (let i = CONE_STEPS; i >= 0; i--) pts.push(...side(i, 1));
+    return pts;
+  };
+
+  g.clear();
+  for (let j = 0; j < feather; j++) {
+    const f = j / feather;
+    g.poly(outline(f * 0.5, f * 0.16));
+    g.fill({ color: c.color, alpha: c.alpha / feather });
+  }
+}
+
+/**
+ * A lump of molten rock, centred on the origin.
+ *
+ * Deliberately not a circle. The glob that crosses the arena used to be one —
+ * a flat `0xfff0c0` disc with `rotation += 0.4` ticking over on it every frame,
+ * which does precisely nothing to a circle. So what the player actually saw
+ * thrown at the board was a hard-edged pale dot that never turned: the single
+ * most placeholder-looking thing on the screen.
+ *
+ * Nine vertices with the radius knocked about is enough to read as a rock at
+ * the size it crosses at, and the moment it is not round the spin is free.
+ * Built dark crust outwards-in to a hot centre, which is also what it is about
+ * to become: these globs harden into the obsidian that locks the board.
+ */
+function paintGlob(g, r) {
+  const N = 9;
+  const shape = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    shape.push([Math.cos(a), Math.sin(a), rndRange(0.78, 1.16)]);
+  }
+  const ring = (k) =>
+    shape.flatMap(([cx, cy, j]) => [cx * r * k * j, cy * r * k * j]);
+
+  g.poly(ring(1));
+  g.fill({ color: 0x4a1000 });
+  g.poly(ring(0.74));
+  g.fill({ color: 0xff5e0c });
+  g.poly(ring(0.4));
+  g.fill({ color: 0xffd76a });
 }
 
 export class Vfx extends Container {
@@ -93,6 +186,51 @@ export class Vfx extends Container {
     }
   }
 
+  /**
+   * The painted mark on a gem that just cleared.
+   *
+   * Goes **over** `burst` rather than instead of it, the same bargain
+   * `bossSwing` makes with the procedural effects it lands on: the sparks throw
+   * outward and carry the direction and the count, this carries the shape. Both
+   * are additive, so the pair composites into one flash rather than two.
+   *
+   * Tinted, because the sheet is a mask — see art/gempop.js for why this one is
+   * the only one that ships grey.
+   *
+   * The frame is picked off a clock rather than tweened onto the sprite, so the
+   * whole thing is one Sprite and one tween however many gems went at once. A
+   * cascade can clear a dozen cells inside a second and this is the layer that
+   * would notice.
+   *
+   * @returns {boolean} whether a sheet was there to play
+   */
+  pop(x, y, color, size) {
+    const frames = popFrames();
+    if (!frames) return false;
+    if (this.field.children.length >= MAX_PARTICLES) return false;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color;
+    s.x = x;
+    s.y = y;
+    const w = size || 96;
+    s.setSize(w, w / POP_ASPECT);
+    this.field.addChild(s);
+
+    tweenValue(0, 1, 0.34, (p) => {
+      s.texture = frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
+      // It grows a little on the way out, which is what makes a starburst read
+      // as one rather than as a picture of one being cross-faded.
+      const k = w * (1 + p * 0.35);
+      s.setSize(k, k / POP_ASPECT);
+      s.alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
+    }).then(() => s.destroy());
+
+    return true;
+  }
+
   /** Expanding ring — the punctuation mark on every hit. */
   ring(x, y, color, size, width) {
     const g = new Graphics();
@@ -106,6 +244,33 @@ export class Vfx extends Container {
     this.field.addChild(g);
     tween(g.scale, { x: target, y: target }, 0.45, { ease: Ease.quadOut });
     tween(g, { alpha: 0 }, 0.45).then(() => g.destroy());
+  }
+
+  /**
+   * One soft mote that fades where it was dropped.
+   *
+   * The trail behind anything thrown, and nothing else: `burst` scatters its
+   * sparks outwards, which is what an impact does and the opposite of what a
+   * wake does. Respects the particle ceiling, because a trail is the easiest
+   * thing in here to ask for hundreds of.
+   */
+  ember(x, y, size, color) {
+    if (this.field.children.length >= MAX_PARTICLES) return;
+    const s = new Sprite(glowTexture());
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color;
+    s.x = x;
+    s.y = y;
+    s.setSize(size, size);
+    s.alpha = 0.55;
+    this.field.addChild(s);
+    tween(s.scale, { x: s.scale.x * 0.4, y: s.scale.y * 0.4 }, 0.34, {
+      ease: Ease.quadOut,
+    });
+    tween(s, { alpha: 0 }, 0.34).then(() => {
+      if (!s.destroyed) s.destroy();
+    });
   }
 
   /**
@@ -395,13 +560,16 @@ export class Vfx extends Container {
     glob.tint = color;
     const size = o.size || 54;
     glob.setSize(size, size);
+    // Captured before the stretch starts playing with it: setSize writes scale,
+    // and the streak below is a multiple of the rest size rather than of
+    // whatever the last frame left.
+    const base = glob.scale.x;
     glob.x = from.x;
     glob.y = from.y;
     this.field.addChild(glob);
 
     const core = new Graphics();
-    core.circle(0, 0, size * 0.22);
-    core.fill({ color: 0xfff0c0 });
+    paintGlob(core, size * 0.3);
     core.x = from.x;
     core.y = from.y;
     this.field.addChild(core);
@@ -409,6 +577,9 @@ export class Vfx extends Container {
     // Height of the arc, well above both endpoints so it reads as thrown.
     const peak = Math.min(from.y, to.y) - (o.arc || 140);
 
+    let tick = 0;
+    let lastX = from.x;
+    let lastY = from.y;
     await tweenValue(
       0,
       1,
@@ -422,7 +593,35 @@ export class Vfx extends Container {
         glob.y = y;
         core.x = x;
         core.y = y;
-        core.rotation += 0.4;
+        core.rotation += 0.34;
+
+        // The halo stretched along the way it is going, off the step just taken
+        // rather than off the curve's derivative — same answer, and it stays
+        // right if the path ever changes. A round glow on a thrown rock is a
+        // lamp being carried; a streak is something moving.
+        const vx = x - lastX;
+        const vy = y - lastY;
+        const speed = Math.sqrt(vx * vx + vy * vy);
+        if (speed > 0.01) {
+          glob.rotation = Math.atan2(vy, vx);
+          glob.scale.set(
+            base * (1 + Math.min(0.55, speed * 0.02)),
+            base * 0.92,
+          );
+        }
+        lastX = x;
+        lastY = y;
+
+        // A trail, dropped in place. A glob crossing a bright arena with nothing
+        // behind it reads as a sprite being moved across a picture.
+        if (tick++ % 3 === 0) {
+          this.ember(
+            x,
+            y,
+            size * rndRange(0.22, 0.4),
+            tick % 2 ? 0xff8a10 : color,
+          );
+        }
       },
       { delay: o.delay || 0, ease: Ease.linear },
     );
@@ -440,6 +639,17 @@ export class Vfx extends Container {
   async cone(from, to, color, opts) {
     const o = opts || {};
     const hold = o.hold === undefined ? 0.5 : o.hold;
+    /**
+     * How hard the fire burns, as a multiplier on every alpha in here.
+     *
+     * A parameter rather than a constant because the two orientations are two
+     * different shots. Sideways the jet crosses the arena and lands on the hero
+     * row, and it can be as bright as it likes. Upright it crosses the entire
+     * play field on the way there — five columns of gem under a wall of flame —
+     * and the player has to be able to read the board they are about to play on.
+     * At full heat the middle column went white.
+     */
+    const heat = o.heat === undefined ? 1 : o.heat;
     const spread = o.spread || 180;
     const mouth = o.mouth || 34;
     const dx = to.x - from.x;
@@ -452,26 +662,94 @@ export class Vfx extends Container {
     flame.rotation = Math.atan2(dy, dx);
     this.field.addChild(flame);
 
-    // Three nested cones instead of a gradient: the same trick the gems use,
-    // and it costs nothing on a phone GPU.
-    //
-    // The alphas are low on purpose. This fire crosses the whole board on its
-    // way to the hero row, and anything brighter turns the gems into a white
-    // smear for half a second — the player has to still be able to read the
-    // board they are about to play on.
+    /**
+     * Nested cones instead of a gradient: the same trick the gems use, and it
+     * costs nothing on a phone GPU.
+     *
+     * What changed is that the widest one no longer adds. Every layer used to,
+     * with a near-white core on top, and additive light over this arena's bright
+     * sky has only one destination: it went white, and a white wedge is a torch
+     * beam rather than a mouthful of lava. So the outermost layer is drawn
+     * normally in a deep red-orange — it pushes what is behind it *towards*
+     * fire, where adding could only push it towards paper — and the hot layers
+     * add on top of a ground that is already burning.
+     *
+     * The white-hot one is still here and it is short. White is right at the
+     * throat, where the fire leaves the jaw, and wrong everywhere else.
+     *
+     * The alphas stay modest for the reason they always did: this fire crosses
+     * the board on its way to the hero row, and the player has to still be able
+     * to read the board they are about to play on.
+     *
+     * `feather` is how many nested outlines each one is built from — see
+     * paintCone. The wide layers get the most, because a wide edge is where a
+     * border shows; the throat gets one, because at that size a stack is a
+     * blur on something the player reads as a hard hot core.
+     */
     const spec = [
-      [len, mouth, spread, color, 0.26],
-      [len * 0.9, mouth * 0.62, spread * 0.6, 0xffb03d, 0.18],
-      [len * 0.58, mouth * 0.3, spread * 0.32, 0xfff2c0, 0.32],
+      {
+        len,
+        mouth: mouth * 1.12,
+        spread: spread * 1.02,
+        color: 0x8e1f05,
+        alpha: 0.5 * heat,
+        add: false,
+        wob: 0.3,
+        seed: 0,
+        feather: 5,
+      },
+      {
+        len: len * 0.97,
+        mouth: mouth * 0.94,
+        spread: spread * 0.86,
+        color: 0xff4408,
+        alpha: 0.44 * heat,
+        add: true,
+        wob: 0.27,
+        seed: 1.7,
+        feather: 4,
+      },
+      {
+        len: len * 0.8,
+        mouth: mouth * 0.64,
+        spread: spread * 0.48,
+        color: 0xff9c22,
+        alpha: 0.3 * heat,
+        add: true,
+        wob: 0.22,
+        seed: 3.4,
+        feather: 3,
+      },
+      {
+        len: len * 0.4,
+        mouth: mouth * 0.42,
+        spread: spread * 0.16,
+        color: 0xffeeb0,
+        alpha: 0.28 * heat,
+        add: true,
+        wob: 0.17,
+        seed: 5.1,
+        feather: 2,
+      },
     ];
-    const layers = spec.map((s) => {
+    const layers = spec.map((c) => {
       const g = new Graphics();
-      paintCone(g, s[0], s[1], s[2], s[3]);
-      g.blendMode = "add";
-      g.alpha = s[4];
+      paintCone(g, c, 0);
+      if (c.add) g.blendMode = "add";
       flame.addChild(g);
       return g;
     });
+
+    // The throat: one hot spot pinned where the fire leaves the jaw. Without it
+    // the jet has no source — it starts, narrow and orange, in mid-air.
+    const throat = new Sprite(glowTexture());
+    throat.anchor.set(0.5);
+    throat.blendMode = "add";
+    throat.tint = 0xffd487;
+    throat.alpha = 0.55 * heat;
+    const throatW = throat.texture.width || 256;
+    throat.scale.set((mouth * 2.1) / throatW);
+    flame.addChild(throat);
 
     // Shoot out along its own axis; the width comes in a touch behind.
     flame.scale.set(0.05, 0.5);
@@ -496,15 +774,22 @@ export class Vfx extends Container {
       }
     })();
 
+    const tongues = this.flameTongues(flame, len, mouth, spread, hold, heat);
+
     // Flicker: a flame that holds a steady alpha reads as a plastic triangle.
+    // The edges are repainted on the same clock — see paintCone, where the
+    // wobble is a function of this `t` and of nothing stored.
     await tweenValue(
       0,
       hold,
       hold,
       (t) => {
-        layers[0].alpha = spec[0][4] * (0.84 + Math.sin(t * 47) * 0.16);
-        layers[1].alpha = spec[1][4] * (0.8 + Math.sin(t * 61 + 1.3) * 0.2);
-        layers[2].alpha = spec[2][4] * (0.78 + Math.sin(t * 73 + 2.6) * 0.22);
+        if (flame.destroyed) return;
+        for (let i = 0; i < layers.length; i++) {
+          paintCone(layers[i], spec[i], t);
+          layers[i].alpha = 0.82 + Math.sin(t * (41 + i * 13) + i * 1.7) * 0.18;
+        }
+        throat.alpha = (0.46 + Math.sin(t * 53) * 0.16) * heat;
         flame.scale.y = 1 + Math.sin(t * 31) * 0.07;
       },
       { ease: Ease.linear },
@@ -514,8 +799,68 @@ export class Vfx extends Container {
       tween(flame, { alpha: 0 }, 0.22),
       tween(flame.scale, { x: 0.7, y: 0.6 }, 0.22, { ease: Ease.quadIn }),
       embers,
+      tongues,
     ]);
     flame.destroy({ children: true });
+  }
+
+  /**
+   * Tongues rolling down a flame jet, for as long as it is held.
+   *
+   * The cone is the shape; these are the fire. A flame is read off the stuff
+   * travelling inside it rather than off its outline, and an outline on its own
+   * stays a plastic triangle however well it ripples. Each tongue starts small
+   * near the throat, swells as it goes, drifts off the axis and dies before the
+   * tip — which between them is most of what makes a jet look thrown rather
+   * than switched on.
+   *
+   * Parented to the flame, so they live in the cone's own space: the entrance
+   * stretch, the flicker and the collapse at the end all carry them.
+   */
+  async flameTongues(flame, len, mouth, spread, hold, heat) {
+    const widthAt = (d) => mouth + (spread - mouth) * d;
+    const until = hold + 0.12;
+
+    for (let step = 0; step * 0.055 < until; step++) {
+      if (flame.destroyed) return;
+      for (let i = 0; i < 2; i++) {
+        if (this.field.children.length >= MAX_PARTICLES) break;
+        const s = new Sprite(glowTexture());
+        s.anchor.set(0.5);
+        s.blendMode = "add";
+        s.tint = i % 2 ? 0xff7a18 : 0xffc65a;
+        const tex = s.texture.width || 256;
+        const d0 = rndRange(0.05, 0.24);
+        const d1 = rndRange(0.82, 1.06);
+        const w0 = widthAt(d0) * rndRange(0.55, 0.95);
+        const w1 = widthAt(d1) * rndRange(0.6, 1.05);
+        s.scale.set(w0 / tex);
+        s.x = len * d0;
+        s.y = rndRange(-0.3, 0.3) * widthAt(d0);
+        s.alpha = 0;
+        flame.addChild(s);
+
+        const life = rndRange(0.24, 0.4);
+        tween(s, { alpha: rndRange(0.22, 0.44) * heat }, life * 0.35);
+        tween(
+          s,
+          { x: len * d1, y: s.y + rndRange(-0.22, 0.22) * spread },
+          life,
+          {
+            ease: Ease.quadOut,
+          },
+        );
+        tween(s.scale, { x: w1 / tex, y: w1 / tex }, life, {
+          ease: Ease.quadOut,
+        });
+        // Guarded: the flame is destroyed with its children at the end of the
+        // beat, and a tongue still fading is one of them.
+        tween(s, { alpha: 0 }, life * 0.6, { delay: life * 0.4 }).then(() => {
+          if (!s.destroyed) s.destroy();
+        });
+      }
+      await delay(0.055);
+    }
   }
 
   /**

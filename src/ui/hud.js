@@ -409,6 +409,19 @@ export class Hud extends Container {
     this.chipDriver = { v: 1 };
     this.shoutToken = 0;
     this.t = 0;
+    /**
+     * The doom strip's own frame clock, and whether it is stopped.
+     *
+     * Split off `t` because the strip is the one widget up here that is a
+     * reading rather than a decoration. Its sheen and its panic throb are the
+     * fuse being visibly alight, so they have to stop when the fuse stops —
+     * while the boss bar's sheen, the banner's breath and the tip bloom must
+     * not, because none of those are telling the player anything about time.
+     * One shared `t` could not say the difference, which is why a held clock
+     * still had a highlight running over it.
+     */
+    this.doomT = 0;
+    this.doomHeld = false;
     this.layout = null;
   }
 
@@ -511,9 +524,13 @@ export class Hud extends Container {
     this.hpPrinted = -1;
     this.printHp();
 
+    // Kept as a number rather than written straight onto the style: `shout`
+    // rebuilds the stroke per beat to set its colour, and it needs the width
+    // this layout decided on.
+    this.calloutStroke = Math.max(3, 5 * ui);
     this.callout.style.stroke = {
       color: 0x180a1e,
-      width: Math.max(3, 5 * ui),
+      width: this.calloutStroke,
       join: "round",
     };
 
@@ -932,6 +949,20 @@ export class Hud extends Container {
     }
   }
 
+  /**
+   * Stop or restart the strip's own animation.
+   *
+   * The other half of the contract in setDoom. The director owns the count, and
+   * it owns this too: while the fuse is held for an ultimate the sheen parks
+   * where it is and the panic throb holds its pose, so a stopped clock looks
+   * stopped. Nothing is hidden and nothing jumps — the sweep picks back up from
+   * the phase it froze at, because the strip keeps its own accumulator rather
+   * than reading the HUD's.
+   */
+  holdDoom(on) {
+    this.doomHeld = !!on;
+  }
+
   hideDoom() {
     this.doomOn = false;
     this.doomLabel.alpha = 0;
@@ -1041,6 +1072,21 @@ export class Hud extends Container {
     killTweensOf(this.callout.scale);
     this.callout.text = text;
     this.callout.style.fill = o.fill || 0xffffff;
+    /**
+     * The outline, per shout.
+     *
+     * Dark for every attack but one, and that one is why this is an option at
+     * all: the lava breath prints its headline inside its own jet, and light
+     * type with a dark rim needs a ground darker than itself to sit on. Over a
+     * wall of fire there isn't one — the shout came out as grey embossing on
+     * orange. So that beat inverts, dark letters with a hot rim, and the lever
+     * lives here rather than as a special case in the caller.
+     */
+    this.callout.style.stroke = {
+      color: o.stroke === undefined ? 0x180a1e : o.stroke,
+      width: this.calloutStroke || 5,
+      join: "round",
+    };
     this.callout.alpha = 0;
     fitFont(this.callout, this.calloutWidth || 320, this.calloutSize || 28);
     // Modest overshoot: a long headline popping in at 1.6x spills off a 375pt
@@ -1104,10 +1150,41 @@ export class Hud extends Container {
     label.scale.set(0.4);
     this.numbers.addChild(label);
 
+    /**
+     * How high it climbs — and never up into the callout.
+     *
+     * The row's numbers rise seventy to a hundred points off the cards, and the
+     * shout sits over the boss column in landscape and on the board's seam in
+     * portrait. On a short screen those two bands are the same band, which is
+     * how "-870" came to be printed across the middle of "LAVA BREATH!".
+     *
+     * The travel is shortened rather than the shout moved: the callout's line is
+     * argued for at length in resize() and is the safe one at every height,
+     * while a number that stops sixty points up instead of ninety is a number
+     * nobody notices stopping. Only while the shout is actually up, so an
+     * uncontested number still gets its full throw.
+     */
+    const rise = 70 + Math.random() * 30;
+    let from = y;
+    let top = y - rise;
+    if (this.callout.alpha > 0.05) {
+      // Measured off the drawn text, not off calloutSize: the shout is fitted to
+      // its box and scaled on the way in, so that constant is a ceiling on the
+      // type rather than the height of it.
+      const guard = this.callout.y + this.callout.height * 0.6;
+      // Both ends, because the start is half the problem: `strikeHeroes` lifts
+      // every other number by two fifths of a card to keep six of them from
+      // stacking, and two fifths of a card up from the row is already inside the
+      // shout. Pushed down to clear it, and stopped there on the way up — with
+      // enough left between the two that the number still visibly travels.
+      from = Math.max(y, guard + 20);
+      top = Math.max(from - rise, guard);
+    }
+    label.y = from;
     tween(label.scale, { x: 1, y: 1 }, 0.22, { ease: Ease.backOut });
     tween(label, { alpha: 0 }, 0.3, { delay: 0.5 });
     // Destroy on the longest tween, never before one that is still writing.
-    tween(label, { y: y - 70 - Math.random() * 30 }, 0.85, {
+    tween(label, { y: top }, 0.85, {
       ease: Ease.quadOut,
     }).then(() => label.destroy());
   }
@@ -1135,9 +1212,9 @@ export class Hud extends Container {
    * Null too when the span is barely wider than the band: a highlight with
    * nowhere to travel is a flashing rectangle.
    */
-  sweep(cfg, span, band) {
+  sweep(cfg, span, band, t = this.t) {
     if (span < band * 1.5) return null;
-    const p = ((this.t + cfg.phase) % cfg.period) / cfg.sweep;
+    const p = ((t + cfg.phase) % cfg.period) / cfg.sweep;
     if (p > 1) return null;
     return {
       x: p * (span - band),
@@ -1240,7 +1317,9 @@ export class Hud extends Container {
     const { x, y, w, h } = this.doomRect();
     const left = Math.max(0, Math.min(1, this.doomLeft / this.doomTotal));
     const band = h * DOOM_SHEEN.band;
-    const s = this.sweep(DOOM_SHEEN, w * left, band);
+    // On the strip's own clock, so a held fuse is a still strip rather than a
+    // frozen number with a highlight still running across it.
+    const s = this.sweep(DOOM_SHEEN, w * left, band, this.doomT);
 
     this.doomSheen.visible = !!s;
     if (!s) return;
@@ -1252,6 +1331,10 @@ export class Hud extends Container {
 
   update(dt) {
     this.t += dt;
+    // Held for an ultimate. Not a `return`: the rest of the HUD goes on living
+    // through a cast, and a chrome that froze solid for two and a half seconds
+    // would read as a hang rather than as a stopped clock.
+    if (!this.doomHeld) this.doomT += dt;
     if (this.banner.visible) {
       const p = 1 + Math.sin(this.t * 4.2) * 0.045;
       this.banner.scale.set(p);
@@ -1265,10 +1348,10 @@ export class Hud extends Container {
     // The clock only twitches inside the panic window. A permanently pulsing
     // number up in the chrome is noise the player learns to stop seeing.
     if (this.doomPanic()) {
-      this.doomLabel.scale.set(1 + Math.abs(Math.sin(this.t * 6.5)) * 0.12);
+      this.doomLabel.scale.set(1 + Math.abs(Math.sin(this.doomT * 6.5)) * 0.12);
       // The strip goes with it. Alpha on the whole Graphics rather than a redraw
       // of it — see setDoom, which will not rebuild this thing per frame.
-      this.doomBar.alpha = 0.74 + Math.abs(Math.sin(this.t * 6.5)) * 0.26;
+      this.doomBar.alpha = 0.74 + Math.abs(Math.sin(this.doomT * 6.5)) * 0.26;
     } else {
       if (this.doomLabel.scale.x !== 1) this.doomLabel.scale.set(1);
       if (this.doomBar.alpha !== 1) this.doomBar.alpha = 1;
