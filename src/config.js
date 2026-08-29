@@ -729,11 +729,17 @@ export const T = {
    * how a single demonstration turned into a gauntlet that would not take no
    * for an answer. One showing is all it owes anybody.
    *
-   * A second, against an intro that ends around two and a playable window of
-   * about nineteen and a half. Late enough not to talk over the MATCH TO
-   * ATTACK shout, early enough that hesitating is not most of the run.
+   * Zero: it is on screen from the first frame, before the player has had a
+   * moment to wonder what the grid is for. It waited a second, which sounds
+   * like nothing and is a twentieth of the whole creative — the impression
+   * that is looked at for two and scrolled past saw a still arena with no
+   * instruction in it at all, which is the one case this hint exists for.
+   * There is nothing left for it to talk over either: the MATCH TO ATTACK
+   * shout goes up on the touch, and the touch is what takes the hint away.
+   *
+   * Any number of seconds holds it back again; null turns it off outright.
    */
-  openingHint: 1.0,
+  openingHint: 0,
   /**
    * The ult lesson — the frame round a charged hero card and the hand tapping
    * it. See Director.teachUlt and Coach.playCard.

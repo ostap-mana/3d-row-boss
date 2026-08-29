@@ -1,0 +1,77 @@
+{
+  "character": {
+    "id": "b0ac32e7-5670-49b0-bb52-0d8f7b2ac80c",
+    "name": "Idle",
+    "prompt": "female arcane sorceress with dark hair in twin buns, dark violet gothic robes with red trim, glowing violet eyes, purple void magic",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "directions": 8,
+    "view": "low top-down"
+  },
+  "spritesheet": {
+    "path": "SILANTH_arcane-Idle.png",
+    "cell_size": {
+      "width": 96,
+      "height": 96
+    },
+    "sheet_size": {
+      "width": 864,
+      "height": 480
+    },
+    "columns": 9,
+    "pivot": "cell-center",
+    "rows": [
+      {
+        "row": 0,
+        "type": "rotations",
+        "frame_count": 8,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north",
+          "north-west",
+          "west",
+          "south-west"
+        ]
+      },
+      {
+        "row": 1,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SILANTH_VOID_ECLIPSE",
+        "animation_group_id": "b146a75a-3aa1-41f7-8209-ac6afec86204",
+        "direction": "south"
+      },
+      {
+        "row": 2,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SILANTH_VOID_ECLIPSE",
+        "animation_group_id": "b146a75a-3aa1-41f7-8209-ac6afec86204",
+        "direction": "east"
+      },
+      {
+        "row": 3,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SILANTH_VOID_ECLIPSE",
+        "animation_group_id": "b146a75a-3aa1-41f7-8209-ac6afec86204",
+        "direction": "north"
+      },
+      {
+        "row": 4,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SILANTH_VOID_ECLIPSE",
+        "animation_group_id": "b146a75a-3aa1-41f7-8209-ac6afec86204",
+        "direction": "west"
+      }
+    ]
+  },
+  "export_version": "1.0",
+  "export_date": "2026-08-28T20:40:05.237167+00:00"
+}

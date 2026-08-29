@@ -812,8 +812,12 @@ export const bed = {
     // param is a stutter, not a swell.
     const step = Math.round(t * 12);
     if (step === bedTension) return;
-    bedTension = step;
     const c = audioContext();
+    // No context is no bed to sweep, and asking one for its clock is how a
+    // tension call that arrives a frame after the audio was thrown away turns
+    // a swell into a thrown exception on the ticker.
+    if (!c) return;
+    bedTension = step;
     const at = c.currentTime;
     bedNodes.cut.frequency.setTargetAtTime(240 + t * 900, at, 0.6);
     bedNodes.gain.gain.setTargetAtTime(AUDIO.bedLevel * (1 + t * 1.4), at, 0.6);
@@ -823,6 +827,7 @@ export const bed = {
     samples.room.stop();
     if (!bedNodes) return;
     const c = audioContext();
+    if (!c) return;
     bedNodes.gain.gain.setTargetAtTime(0.0001, c.currentTime, 0.5);
   },
 };

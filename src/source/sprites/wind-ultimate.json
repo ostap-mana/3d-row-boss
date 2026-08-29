@@ -1,0 +1,45 @@
+{
+  "character": {
+    "id": "50bc6617-47ba-477f-9677-04fba24d9732",
+    "name": "Idle",
+    "prompt": "male wind warrior with long white hair, blue chevron war paint on his face, dark teal and steel armour, glowing blue eyes, swirling wind",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "directions": 8,
+    "view": "low top-down"
+  },
+  "spritesheet": {
+    "path": "TARANIS_wind-Idle.png",
+    "cell_size": {
+      "width": 68,
+      "height": 68
+    },
+    "sheet_size": {
+      "width": 544,
+      "height": 68
+    },
+    "columns": 8,
+    "pivot": "cell-center",
+    "rows": [
+      {
+        "row": 0,
+        "type": "rotations",
+        "frame_count": 8,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north",
+          "north-west",
+          "west",
+          "south-west"
+        ]
+      }
+    ]
+  },
+  "export_version": "1.0",
+  "export_date": "2026-08-28T20:40:05.704326+00:00"
+}

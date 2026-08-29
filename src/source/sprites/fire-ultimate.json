@@ -1,0 +1,77 @@
+{
+  "character": {
+    "id": "88ecdff5-4d82-4543-aec0-8e0ad7935632",
+    "name": "Idle",
+    "prompt": "male fire knight, crimson and gold plate armour, horned demon-mask helm with glowing orange eye slits, magma cracks glowing through the armour, floating embers",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "directions": 8,
+    "view": "low top-down"
+  },
+  "spritesheet": {
+    "path": "RICKLOW_fire-Idle.png",
+    "cell_size": {
+      "width": 96,
+      "height": 96
+    },
+    "sheet_size": {
+      "width": 864,
+      "height": 480
+    },
+    "columns": 9,
+    "pivot": "cell-center",
+    "rows": [
+      {
+        "row": 0,
+        "type": "rotations",
+        "frame_count": 8,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north",
+          "north-west",
+          "west",
+          "south-west"
+        ]
+      },
+      {
+        "row": 1,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "RICKLOW_MAGMA_LANCE",
+        "animation_group_id": "a21e1c8b-7195-4bd0-a1cf-e205f2cc1ce2",
+        "direction": "south"
+      },
+      {
+        "row": 2,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "RICKLOW_MAGMA_LANCE",
+        "animation_group_id": "a21e1c8b-7195-4bd0-a1cf-e205f2cc1ce2",
+        "direction": "east"
+      },
+      {
+        "row": 3,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "RICKLOW_MAGMA_LANCE",
+        "animation_group_id": "a21e1c8b-7195-4bd0-a1cf-e205f2cc1ce2",
+        "direction": "north"
+      },
+      {
+        "row": 4,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "RICKLOW_MAGMA_LANCE",
+        "animation_group_id": "a21e1c8b-7195-4bd0-a1cf-e205f2cc1ce2",
+        "direction": "west"
+      }
+    ]
+  },
+  "export_version": "1.0",
+  "export_date": "2026-08-28T20:39:58.938901+00:00"
+}

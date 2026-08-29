@@ -123,8 +123,22 @@ const ELEMENT_RATE = [0.86, 1.06, 0.94, 1.18, 1.0, 1.3];
 
 let sprite = null;
 let roomAudio = null;
-/** Buffer sources in the air, against the same budget the oscillators share. */
-let voices = 0;
+/**
+ * Audio-clock times the one-shots in the air are due to finish.
+ *
+ * The same budget the oscillators answer to and, while it was a plain count
+ * that only ever came down inside `onended`, the same bug — see the note on
+ * `live` in engine.js. It bit harder here than there. A one-shot is started
+ * with an explicit duration and left to finish on its own, which is the exact
+ * shape of source some webviews never fire `onended` for; and `play` reports a
+ * dropped voice as *handled*, so sfx.js does not fall through to its
+ * synthesized twin. A leaked budget on this side is not a thinner mix, it is a
+ * creative that goes quiet partway through the fight and stays quiet.
+ *
+ * Deadlines rather than a tally, collected on the next allocation. Every slice
+ * has a length and a rate, so when it ends is known when it starts.
+ */
+const live = [];
 
 let roomNodes = null;
 /** Quantized tension, so a per-frame call is not a per-frame ramp. */
@@ -144,10 +158,21 @@ if (AUDIO.sfxSamples) {
 // The nodes belonged to a context that is closed, and so did every `onended`
 // that was going to bring the voice count back down. Both go together.
 onAudioReset(() => {
-  voices = 0;
+  live.length = 0;
   roomNodes = null;
   roomTension = -1;
 });
+
+/** Let go of every one-shot whose time is up, whether or not it said so. */
+function reap(c) {
+  if (!live.length) return;
+  const t = c.currentTime;
+  let kept = 0;
+  for (let i = 0; i < live.length; i++) {
+    if (live[i] > t) live[kept++] = live[i];
+  }
+  live.length = kept;
+}
 
 export const samples = {
   /** Whether this file is allowed to try at all. */
@@ -179,7 +204,11 @@ export const samples = {
     // Over budget is a dropped sound, not a synthesized one: the cascade that
     // blew the cap would blow it twice as fast if every drop fell through to an
     // oscillator, and a late sound is worse than a missing one either way.
-    if (voices >= AUDIO.maxVoices) return true;
+    // Which only holds while the budget is honest about what is still
+    // playing — see `live`, and `reap`, which is what makes a blown cap a
+    // cascade's worth of silence rather than the rest of the session's.
+    reap(c);
+    if (live.length >= AUDIO.maxVoices) return true;
 
     const opts = o || {};
     const gain = c.createGain();
@@ -191,17 +220,26 @@ export const samples = {
     src.buffer = sprite.buffer;
     if (opts.rate) src.playbackRate.value = opts.rate;
     src.connect(gain);
+    const at = c.currentTime + (opts.delay || 0);
     try {
       // `duration` is measured in the buffer rather than in real time, so a cut
       // played fast is short and one played slow is long — and neither of them
       // can run past its own slice into the next one's silence.
-      src.start(c.currentTime + (opts.delay || 0), sprite.head + s.at, s.dur);
+      src.start(at, sprite.head + s.at, s.dur);
     } catch (e) {
       return false;
     }
-    voices++;
+    // Buffer seconds over the rate they are read at, which is when the cut
+    // actually stops rather than how long the slice is: a clear on the top rung
+    // of the cascade ladder plays at 2.24x and holds its slot for less than
+    // half as long as the same clear on the bottom one.
+    const until = at + s.dur / (opts.rate || 1) + 0.05;
+    live.push(until);
     src.onended = () => {
-      voices--;
+      // By value rather than by identity: two voices due at the same instant
+      // are interchangeable to a budget that only counts them.
+      const i = live.indexOf(until);
+      if (i >= 0) live.splice(i, 1);
     };
     return true;
   },

@@ -1,0 +1,77 @@
+{
+  "character": {
+    "id": "8a8c0afa-b994-4096-b544-36c6eff9394b",
+    "name": "Idle",
+    "prompt": "female storm mage with pale ice-blue hair, gold high-collar armour over dark green robes, glowing green eyes, crackling lightning arcs",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "directions": 8,
+    "view": "low top-down"
+  },
+  "spritesheet": {
+    "path": "SELISA_lightning-Idle.png",
+    "cell_size": {
+      "width": 96,
+      "height": 96
+    },
+    "sheet_size": {
+      "width": 864,
+      "height": 480
+    },
+    "columns": 9,
+    "pivot": "cell-center",
+    "rows": [
+      {
+        "row": 0,
+        "type": "rotations",
+        "frame_count": 8,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north",
+          "north-west",
+          "west",
+          "south-west"
+        ]
+      },
+      {
+        "row": 1,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SELISA_STORM_VERDICT",
+        "animation_group_id": "70778860-aa40-47d6-a9f0-feb073a606a2",
+        "direction": "south"
+      },
+      {
+        "row": 2,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SELISA_STORM_VERDICT",
+        "animation_group_id": "70778860-aa40-47d6-a9f0-feb073a606a2",
+        "direction": "east"
+      },
+      {
+        "row": 3,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SELISA_STORM_VERDICT",
+        "animation_group_id": "70778860-aa40-47d6-a9f0-feb073a606a2",
+        "direction": "north"
+      },
+      {
+        "row": 4,
+        "type": "animation",
+        "frame_count": 9,
+        "animation": "SELISA_STORM_VERDICT",
+        "animation_group_id": "70778860-aa40-47d6-a9f0-feb073a606a2",
+        "direction": "west"
+      }
+    ]
+  },
+  "export_version": "1.0",
+  "export_date": "2026-08-28T20:40:03.898982+00:00"
+}

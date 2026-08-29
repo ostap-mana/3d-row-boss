@@ -30,7 +30,20 @@
       html,
       body {
         width: 100%;
+        /*
+         * Three declarations of the same height, in the order the browsers that
+         * understand them arrived. `100%` of a fixed body resolves against the
+         * initial containing block, which on a mobile browser is the viewport
+         * with the URL bar retracted whether it is retracted or not — so on its
+         * own it puts the bottom of the page under a toolbar. `100dvh` is that
+         * same height measured honestly, and every engine since 2022 has it.
+         * A browser that has neither takes the first line and is corrected by
+         * core/viewport.js on the first frame; the fallbacks are what stops it
+         * being visibly wrong for that frame.
+         */
         height: 100%;
+        height: 100dvh;
+        height: 100svh;
         overflow: hidden;
         background: #05030a;
         touch-action: none;
@@ -40,9 +53,16 @@
         left: 0;
       }
 
+      /*
+       * Pre-script defaults only. core/viewport.js pins this box to a measured
+       * size in pixels on the first frame and on every resize after it — these
+       * are what it looks like until then, and they are written to match what
+       * the pin sets so that nothing moves when it lands.
+       */
       #pixi-container {
-        position: absolute;
-        inset: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
         width: 100%;
         height: 100%;
       }
@@ -51,6 +71,14 @@
         display: block;
         width: 100% !important;
         height: 100% !important;
+        /*
+         * The canvas is the thing under the finger, and a gesture that starts
+         * on it must never be handed to the browser as a scroll or a
+         * double-tap zoom — a swipe on the board is a move. The rule is on
+         * html and body already; it is repeated here because a canvas is a
+         * replaced element and some webviews do not inherit it onto one.
+         */
+        touch-action: none;
       }
 
       /*

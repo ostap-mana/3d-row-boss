@@ -10,6 +10,11 @@
 import { Application, Container, Graphics } from "pixi.js";
 
 import { computeLayout } from "./core/layout.js";
+import {
+  measureViewport,
+  resolutionFor,
+  watchViewport,
+} from "./core/viewport.js";
 import { setApp } from "./core/context.js";
 import { updateTweens } from "./core/tween.js";
 import { reseed } from "./core/rng.js";
@@ -17,6 +22,7 @@ import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
 import { loadCardFrames } from "./art/cardframe.js";
+import { loadCardAura } from "./art/frameaura.js";
 import { loadBoardFrame } from "./art/boardframe.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadHeroAvatars } from "./art/avatars.js";
@@ -58,12 +64,20 @@ async function boot() {
 
   const app = new Application();
 
+  // Measured before the renderer is built, so the first frame is already the
+  // right size on the right device rather than a phone-sized canvas that
+  // corrects itself once a resize event turns up. See core/viewport.js — and
+  // note there is no `resizeTo`: this file drives every resize, because Pixi's
+  // own plugin only knows how to read `window.innerWidth`, which is the number
+  // that is wrong on a phone.
+  const first = measureViewport();
+
   await app.init({
     background: "#05030a",
-    resizeTo: window,
+    width: first.w,
+    height: first.h,
     antialias: true,
-    // Capped for the sake of the iPhone SE class of device.
-    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    resolution: resolutionFor(first.w, first.h),
     autoDensity: true,
     powerPreference: "high-performance",
     // Pixi's console banner is the one thing that logs in a production build.
@@ -107,6 +121,7 @@ async function boot() {
     loadGemPopArt(),
     loadCardPlates(),
     loadCardFrames(),
+    loadCardAura(),
     loadHeroAvatars(),
     loadHintHand(),
     loadHintMarks(),
@@ -189,7 +204,18 @@ async function boot() {
     };
   }
 
-  let layout = computeLayout(app.screen.width, app.screen.height, safeInsets());
+  /**
+   * The box everything is solved in: the CSS pixels the host is pinned to.
+   *
+   * Not `app.screen`, which is the renderer's own idea of the same thing and is
+   * a hair off it whenever the pixel ratio is fractional — the buffer is rounded
+   * to whole device pixels and the screen is that rounded buffer divided by the
+   * ratio again, so a 744 point tablet at 1.76x reports 744.2. Two tenths of a
+   * point changes nothing anybody can see, but it is the renderer's rounding
+   * error and it has no business being in the composition. See core/viewport.js.
+   */
+  let view = { w: first.w, h: first.h };
+  let layout = computeLayout(view.w, view.h, safeInsets());
 
   const scene = {
     app,
@@ -208,9 +234,24 @@ async function boot() {
     shake,
   };
 
-  function relayout() {
-    app.resize();
-    layout = computeLayout(app.screen.width, app.screen.height, safeInsets());
+  /**
+   * @param {{w:number,h:number,resolution:number}} [size] the measurement to
+   *   lay out for. Omitted only by the first call below, which lays out for
+   *   whatever the renderer was built with.
+   */
+  function relayout(size) {
+    // Resolution and size in the one call, because they change together — a
+    // window dragged onto a second monitor changes the ratio without changing a
+    // single CSS pixel, and a rotation changes both — and because passing the
+    // ratio here is what keeps it to one `resolutionChange` rather than the two
+    // that setting the property separately would emit. `autoDensity` writes the
+    // canvas' CSS box back to match, which is the box viewport.js has just
+    // pinned the host to, so the two agree at every step rather than at rest.
+    if (size) {
+      app.renderer.resize(size.w, size.h, size.resolution);
+      view = { w: size.w, h: size.h };
+    }
+    layout = computeLayout(view.w, view.h, safeInsets());
     scene.layout = layout;
 
     bg.resize(layout);
@@ -237,19 +278,19 @@ async function boot() {
 
   relayout();
 
-  let resizePending = false;
-  const onResize = () => {
-    if (resizePending) return;
-    resizePending = true;
-    // Mobile browsers report stale viewport sizes during rotation, so settle
-    // on the next frame instead of trusting the first event.
-    requestAnimationFrame(() => {
-      resizePending = false;
-      relayout();
-    });
-  };
-  window.addEventListener("resize", onResize);
-  window.addEventListener("orientationchange", onResize);
+  // Every resize the device can produce, funnelled through one measurement.
+  //
+  // This was a `resize` and an `orientationchange` listener with a one-frame
+  // delay on them, which covers a desktop window being dragged and misses a
+  // URL bar retracting, a webview being resized by its host, a foldable being
+  // opened, a tablet entering split view, and the last three quarters of a
+  // rotation. The watcher fires for all of them and keeps firing until the size
+  // it is given stops changing. See core/viewport.js.
+  //
+  // It calls back once during construction, which is the call that pins the
+  // host and lays out for the settled size — so the relayout() above is only
+  // ever laying out for the size the renderer was built with.
+  watchViewport(host, relayout);
 
   /* -------------------------------------------------------------- audio */
 

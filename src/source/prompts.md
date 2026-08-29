@@ -106,6 +106,81 @@ Then: `node tools/slice-frames.mjs` (cuts the sheet on the solid border, keeps
 each glow with its own frame) → `node tools/pack-frames.mjs` (rebuilds all six
 on one grid so the card can ask by element and not care which it gets).
 
+### Card aura
+
+The light a hero card's frame wears once its ultimate is charged, and the ring
+the tap throws off — see `src/art/frameaura.js`. Two frames, packed by
+`node tools/pack-card-aura.mjs`.
+
+Neither uses the style block or the technical block above, and that is the one
+deliberate departure in this file. Both are **glows**, so they are cut by the
+premultiplied-alpha inversion in `tools/cut-glow.mjs` rather than by the flood
+in `cut-bg.mjs`, and that inversion only works on a subject flattened onto pure
+black. The style block goes too: asked for "rich and ornate ... antique gold
+inlay, teal and violet gem accents", the model returns a carved frame with
+gemstones set in it — beautiful, and a solid object where what is wanted is
+light. The first attempt at this asset was exactly that.
+
+So there is a glow technical block instead, and it is as load-bearing as the
+other one:
+
+> floating in empty black space, no floor, no reflection, no surface, no
+> perspective, orthographic straight-on view, perfectly straight vertical and
+> horizontal edges, monochrome white light, no colour, no ornament, no metal, no
+> gold, no gems, no filigree, no text, no letters, no watermark, centred,
+> symmetrical, glow only
+
+- **pure black background** — the packer reads alpha back out as `max(r,g,b)`.
+  Anything that is not the glow is alpha it cannot tell from the glow.
+- **no floor, no reflection** — one attempt came back as a neon sign standing on
+  a shiny floor. The reflection is light, so it survives the inversion, and it
+  lands in the game as a second aura under every card.
+- **no perspective, orthographic** — a rectangle drawn in perspective has two
+  edges that are not parallel, and it is being laid on a card that has four that
+  are.
+- **monochrome, no colour** — the packer throws the recovered hue away and
+  writes white, because the card tints by element. This clause is what stops the
+  model spending its detail on a colour that will not survive.
+
+Both at `aspect_ratio: "custom"`, 672x1408 — the hero card's own 0.48.
+
+**The halo** — `src/source/cards/aura-sheet.png`, seed 22946:
+
+> a hollow rectangle of pure white light on a solid black background, tall
+> vertical portrait proportions with rounded corners, a small tall rectangle
+> occupying only the middle two thirds of the picture with a wide completely
+> empty black margin on all four sides, a large soft radiant halo of light
+> blooming outward from the rim into that black margin and dying away, thin
+> light filaments, luminous mist and tiny sparks streaming outward away from the
+> rectangle into the surrounding black, the interior of the rectangle completely
+> black and completely empty, nothing touching the edges of the picture
+> **[glow technical]**
+
+"the middle two thirds" is the clause that took three tries. Without it the
+rectangle is drawn to the edges of the frame and its bloom is cropped off with
+them, which leaves a halo with nothing outside the rim — the one thing the asset
+is for. It brings a cost: this seed drew a second, much fainter rounded frame
+about 120px outside the real one. `pack-card-aura.mjs` crops inside it.
+
+**The burst** — `src/source/cards/aura-burst-sheet.png`, seed 51437:
+
+> flat 2D game VFX graphic on pure black, a tall vertical portrait rectangle
+> with rounded corners drawn as a white-hot energy rim, surrounded by a large
+> soft radiant halo of white light spreading outward from all four sides and
+> dying away into black, luminous mist, thin light filaments and tiny sparks
+> drifting outward off the edges, the interior of the rectangle completely black
+> and completely empty **[glow technical]**
+
+The same prompt without the margin clause, which is why it is the burst and not
+the halo: it came back with the rectangle nearly filling the frame and a much
+denser discharge crawling the whole border. Cropped and clipped it is no use as
+a thing that has to sit *around* a card, and it is exactly right as a thing
+thrown *off* one for four tenths of a second.
+
+Then: `node tools/pack-card-aura.mjs --proof`, which prints the two margin
+fractions `art/frameaura.js` holds and composites both over a dark card at the
+card's own proportions so the rim can be seen landing on the border.
+
 ### Gem
 
 One per element, and the colour matters more than the drawing: the element
@@ -550,3 +625,79 @@ Read `--contact` before trusting a window, and read the total the packer prints
 before committing: the bundle is about 1.72 MB, base64 costs a third on top, and
 Meta's limit is 2 MB. `CELL` and `QUALITY` in `tools/pack-spells.mjs` are the
 levers.
+
+## Hero ultimate sprites
+
+A different pipeline from everything above, and a different look: pixel art out
+of **PixelLab** through its MCP server, not flux on Replicate. Nothing here is
+painted, nothing goes through `cut-bg.mjs` or `cut-glow.mjs`, and none of the
+style or technical blocks apply — PixelLab cuts its own sprites and returns them
+already transparent on a uniform grid.
+
+    node tools/fetch-hero-ultimates.mjs     # -> src/source/sprites/<element>-ultimate.{png,json}
+    node tools/pack-hero-ultimates.mjs      # -> src/assets/sprites/<element>-ultimate.webp
+
+Two calls make a hero. `create_character` builds the sprite and its eight
+rotations, and `animate_character` plays an action over one of them; the second
+cannot run until the first has finished, and the character id is the only thing
+that ties them together. Those ids are in `CHARACTERS` in
+`tools/fetch-hero-ultimates.mjs`, which is the only place they are written down.
+
+### The characters
+
+Read off the six painted busts in `src/assets/heroes`, so the sprite and the
+portrait are recognisably the same hero — the fire one is a masked helm rather
+than a face, which is the one place this roster does not follow its own rule
+about visible faces, and the sprite has to keep it or Ricklow stops being
+Ricklow at 48 pixels.
+
+| Element | Character prompt |
+|---|---|
+| fire | male fire knight, crimson and gold plate armour, horned demon-mask helm with glowing orange eye slits, magma cracks glowing through the armour, floating embers |
+| water | female water healer with long blue hair, teal and blue plate armour with gold trim, glowing cyan eyes, flowing water aura |
+| nature | male nature paladin in gold and green armour, gold hood crown set with emerald gems, glowing green eyes, leaf motifs |
+| lightning | female storm mage with pale ice-blue hair, gold high-collar armour over dark green robes, glowing green eyes, crackling lightning arcs |
+| arcane | female arcane sorceress with dark hair in twin buns, dark violet gothic robes with red trim, glowing violet eyes, purple void magic |
+| wind | male wind warrior with long white hair, blue chevron war paint on his face, dark teal and steel armour, glowing blue eyes, swirling wind |
+
+Settings: `size: 48` — which PixelLab pads to a 68px canvas and exports in 96px
+cells — `view: "low top-down"`, `n_directions: 8`, heroic proportions, high
+detail, medium shading, single colour black outline.
+
+The 48 is load-bearing and not a taste call. v3 animation is priced on
+canvas x frames over 65536, so a 68px canvas at nine frames is 36992 and costs
+one generation per direction; ask for 64px instead and the canvas can round to
+96, which is 73728, and every direction of every hero doubles in price.
+
+### The actions
+
+`action_description` wants the movement and nothing else. Naming a weapon or a
+place gets it drawn into the frame and thrown around, so a lance ultimate is
+described as fists — the fire is the model's own read of the character, and it
+arrives anyway.
+
+| Element | Skill | Action description |
+|---|---|---|
+| fire | MAGMA LANCE | charging up power, planting feet wide, drawing both fists back then thrusting them forward in a powerful strike |
+| water | ABYSSAL TIDE | casting a spell, sweeping both arms wide and lifting them overhead in a summoning gesture |
+| nature | VERDANT WRATH | casting a spell, raising both fists overhead then slamming them down |
+| lightning | STORM VERDICT | casting a spell, raising one arm straight overhead then swinging it down hard |
+| arcane | VOID ECLIPSE | casting a spell, arms spread wide, leaning back then pushing both palms forward |
+| wind | CYCLONE EDGE | spinning fast in a full turn with both arms extended, ending in a wide battle stance |
+
+Mode `v3`, `frame_count: 8`, directions `south, north, east, west`. What comes
+back is nine frames — PixelLab keeps the rotation as frame 0 — and it reads as a
+gather and a release without being asked to: the wind-up occupies most of the
+frames and the discharge lands on the last one or two. Same shape as the spell
+sheets above, arrived at by a different route.
+
+### What it costs
+
+A trial is 40 generations. Six characters is six, and each direction of each
+ultimate is one more, so six heroes at four directions is 30 and at eight
+directions is 54 — which does not fit, and is why these are four-directional.
+Eight is only worth buying if a hero ever faces away from the player.
+
+PixelLab also runs at most **8 jobs at once** across the account, so a run of
+this is four directions at a time with a wait in between, not six heroes fired
+off together. `list_jobs` shows what is holding a slot.

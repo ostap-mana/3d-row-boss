@@ -24,11 +24,12 @@
  * REST_ALPHA in between, until whoever started it calls stop().
  *
  * Two things start it, both through Director.showLesson. The opening hint runs
- * it a second into the fight for a player who has not touched the board yet,
- * and the first touch ends that one for the whole run — see
- * Director.spendOpeningHint. The auto-hint runs the same thing, on the same
- * board, every time somebody stalls for T.hint afterwards, and every touch puts
- * it away again. The second is the reason this file is not called the tutorial:
+ * it on the creative's first frame, for a player who has not touched the board
+ * yet — cold, so the marks are already lit in that frame rather than fading up
+ * into it — and the first touch ends that one for the whole run — see
+ * Director.spendOpeningHint and T.openingHint. The auto-hint runs the same
+ * thing, on the same board, every time somebody stalls for T.hint afterwards,
+ * and every touch puts it away again. The second is the reason this file is not called the tutorial:
  * a player five moves in gets exactly the demonstration a player who has made
  * none gets, because there is only one way to say "three of these, in a line"
  * and the fight is too short to teach it twice.
@@ -53,6 +54,7 @@ import {
   hintFrameSprite,
   hintMarksReady,
 } from "../art/hintmarks.js";
+import { READY_SCALE, READY_SWING } from "../art/heroes.js";
 
 /** How long the completed run is held up before the board is put back. */
 const HOLD = 0.62;
@@ -61,6 +63,22 @@ const TRAVEL = 0.4;
 const RETURN = 0.26;
 /** The beat between one pass and the next. */
 const REST = 0.5;
+/**
+ * What the first two beats last on a cold open — the pass that is the first
+ * thing in the creative, before the touch and before the roar.
+ *
+ * Short, and short on purpose. Everywhere else those beats are 0.28 and 0.34,
+ * which is the pace of an explanation to somebody who is already watching; the
+ * opening pass is talking to somebody who has just been handed a screen and is
+ * deciding, in about a second, whether anything on it is worth a thumb. Held at
+ * the reading pace the hand did not arrive until a second and a third in, and
+ * an instruction that late has already lost the impressions it was written for.
+ *
+ * Only the two beats before the travel are cut. The swipe itself, the run
+ * lighting up and the hold on it are the lesson, and they run at full length on
+ * the first pass exactly as on the fifth.
+ */
+const COLD_BEAT = 0.14;
 /**
  * What the marks fade back to between passes rather than off.
  *
@@ -92,17 +110,36 @@ const FRAME_SPAN = 0.98;
 const ARROW_SPAN = 0.62;
 
 /**
- * How far the frame round a hero card stands off it, as a fraction of the
+ * How far the frame round a hero card stands off the card, as a fraction of the
  * card's width.
  *
  * Small, and measured off the width rather than off the height, because the
  * only thing on either side of a card is another card: the row leaves a gap of
  * about a hundredth of its own width between them — see CARD.gap in
  * core/layout.js — and a frame that reached much further would put its bracket
- * on the neighbour it is not talking about. Enough to clear the card's own
+ * on a neighbour it is not talking about. Enough to clear the card's own
  * painted border and no more.
+ *
+ * It is added to the card at its largest, not to the slot the row laid out:
+ * see CARD_READY.
  */
-const CARD_PAD = 0.07;
+const CARD_PAD = 0.04;
+
+/**
+ * What the card being framed is actually the size of.
+ *
+ * A charged card pops to READY_SCALE and then breathes READY_SWING either side
+ * of it — art/heroes.js owns both numbers and this reads them rather than
+ * guessing, because the whole job here is to draw round the card and the card
+ * is a fifth larger than the box the row gave it.
+ *
+ * Taken at the top of the swing rather than the middle. The frame is placed
+ * once and the card goes on breathing under it, so anything less would have the
+ * card growing out through its own brackets twice a second; at the peak the
+ * worst case is the other way round — a hair of daylight at the bottom of the
+ * breath, which is what a frame is supposed to have anyway.
+ */
+const CARD_READY = READY_SCALE * (1 + READY_SWING);
 
 /** Whether two cells are the same cell. */
 const same = (a, b) => a.r === b.r && a.c === b.c;
@@ -192,11 +229,17 @@ export class Coach extends Container {
    * @param {object} shape from Board.matchShape — what the swap would make
    * @param {function=} solve asked for a fresh shape when this one stops being
    *   true, and allowed to answer null when the board has nothing left to teach
+   * @param {boolean=} cold whether the *first* pass snaps up rather than fading
+   *   in and reads its opening beats at COLD_BEAT. For the opening hint, which
+   *   is on screen before anything else in the creative is. Every pass after it
+   *   runs at the ordinary pace: what is bought here is the arrival, not the
+   *   lesson, and a demonstration that stayed hurried would be a worse one.
    */
-  async play(board, hand, shape, solve) {
+  async play(board, hand, shape, solve, cold = false) {
     const id = ++this.token;
     this.visible = true;
     let live = shape;
+    let open = cold;
     while (id === this.token) {
       // Nothing is drawn over a board that is still moving. Every mark here is
       // placed from a cell position, and mid-cascade the gems are not on their
@@ -239,7 +282,8 @@ export class Coach extends Container {
       }
       live = next;
 
-      await this.lesson(id, board, hand, live);
+      await this.lesson(id, board, hand, live, open);
+      open = false;
       if (id !== this.token) return;
       await delay(REST);
     }
@@ -317,17 +361,21 @@ export class Coach extends Container {
     // round nothing is a bracket in the corner of the screen.
     if (!w || !h) return;
 
+    // The card at the top of its ready pulse, which is what is on screen —
+    // the row's own layout box is a good deal smaller. See CARD_READY.
+    const cw = w * CARD_READY;
+    const ch = h * CARD_READY;
     const pad = w * CARD_PAD;
     const box = {
-      x: card.x - w / 2 - pad,
-      y: card.y - h / 2 - pad,
-      w: w + pad * 2,
-      h: h + pad * 2,
+      x: card.x - cw / 2 - pad,
+      y: card.y - ch / 2 - pad,
+      w: cw + pad * 2,
+      h: ch + pad * 2,
       // The card's own corner, so the drawn fallback traces the card instead of
       // putting a capsule round it: a box twice as tall as it is wide, taken at
       // the stadium radius the board's marks want, comes out an oval. Same
       // fraction HeroCard.resize falls back to — see art/heroes.js.
-      r: Math.min(w, h) * 0.18,
+      r: Math.min(cw, ch) * 0.18,
     };
 
     if (this.cardAt) {
@@ -343,8 +391,12 @@ export class Coach extends Container {
     this.paint([box], null, type, color, w);
   }
 
-  /** One pass. Bails at every await if the lesson has been retired. */
-  async lesson(id, board, hand, shape) {
+  /**
+   * One pass. Bails at every await if the lesson has been retired.
+   *
+   * @param {boolean=} cold the opening pass — see play() and COLD_BEAT.
+   */
+  async lesson(id, board, hand, shape, cold = false) {
     const { from, to, run, rest } = shape;
     const type = board.typeAt(from.r, from.c);
     const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
@@ -356,14 +408,25 @@ export class Coach extends Container {
     //    REST_ALPHA on every one after it, which is why the alpha is not reset
     //    here: the marks were never all the way off.
     show({ lit: rest });
-    await tween(this, { alpha: 1 }, 0.2);
-    if (id !== this.token) return;
-    await delay(0.28);
+    if (cold) {
+      // There is nothing to fade up from. This is the first thing the creative
+      // puts on the screen, and a fade is a fifth of a second of the player
+      // looking at a board with nothing on it — which is the exact state the
+      // hint exists to get out of. The tweens are killed first for the reason
+      // stop() kills them: an alpha written under a live tween is written back
+      // over on the next frame.
+      killTweensOf(this);
+      this.alpha = 1;
+    } else {
+      await tween(this, { alpha: 1 }, 0.2);
+      if (id !== this.token) return;
+    }
+    await delay(cold ? COLD_BEAT : 0.28);
     if (id !== this.token) return;
 
     // 2. The one that completes it, and which way it goes.
     show({ lit: rest.concat([from]), from, to });
-    await delay(0.34);
+    await delay(cold ? COLD_BEAT : 0.34);
     if (id !== this.token) return;
 
     // 3. The move, hand and stone together. The hand refuses the demo outright

@@ -53,7 +53,28 @@ let ctx = null;
 let bus = null;
 let master = null;
 let noiseBuf = null;
-let voices = 0;
+/**
+ * Audio-clock times the voices currently in the air are due to finish.
+ *
+ * A count used to live here and it came down in one place only: the `onended`
+ * of the node that raised it. That is the whole of the bug it cost — a
+ * callback that never arrives is a slot that is never given back, and a budget
+ * that only ever climbs reaches its ceiling and stays there. Past it, every
+ * sound in the creative is dropped in silence for the rest of the session.
+ *
+ * And `onended` does not always arrive. A webview parked mid-cascade has
+ * nothing finishing while it is parked; some of them never fire it at all for
+ * a source started with an explicit duration, which is every recorded one-shot
+ * in samples.js. Neither is exotic — a playable is watched in an in-app
+ * browser, off screen half the time.
+ *
+ * So the deadline is kept instead of a tally. Every voice here is scheduled to
+ * stop at a time known when it starts, so a voice whose time has passed is
+ * finished whether or not anything said so, and `reap` collects it on the next
+ * allocation. `onended` is still wired up and still the fast path; it is no
+ * longer the only path, which is the point.
+ */
+const live = [];
 let muted = false;
 /** True once the context has actually reached `running` — not once we tried. */
 let opened = false;
@@ -328,7 +349,9 @@ function rebuild() {
   bus = null;
   master = null;
   noiseBuf = null;
-  voices = 0;
+  // Those voices belonged to a context that is about to be closed, and none of
+  // their `onended` callbacks are ever going to arrive.
+  live.length = 0;
   opened = false;
   watching = false;
   refusedAt = 0;
@@ -532,16 +555,41 @@ export function isMuted() {
   return muted;
 }
 
-/** Whether another voice can be spared. */
-function spare() {
-  return voices < AUDIO.maxVoices;
+/**
+ * Let go of every voice whose time is up, whether or not it said so.
+ *
+ * Linear over a list that is capped at AUDIO.maxVoices and only ever walked
+ * when a new voice is being asked for, which is the cheapest place to do it:
+ * nothing here runs on a timer, and a session that stops asking for sounds
+ * does not need its budget swept.
+ */
+function reap(c) {
+  if (!live.length) return;
+  const t = c.currentTime;
+  let kept = 0;
+  for (let i = 0; i < live.length; i++) {
+    if (live[i] > t) live[kept++] = live[i];
+  }
+  live.length = kept;
 }
 
-/** Count a source in for as long as it runs. */
-function track(node) {
-  voices++;
+/** Whether another voice can be spared, once the finished ones are collected. */
+function spare(c) {
+  reap(c);
+  return live.length < AUDIO.maxVoices;
+}
+
+/**
+ * Count a source in until `until` on the audio clock — the time it is already
+ * scheduled to stop at, so the budget can free it without being told.
+ */
+function track(node, until) {
+  live.push(until);
   node.onended = () => {
-    voices = Math.max(0, voices - 1);
+    // By value rather than by identity: two voices due at the same instant are
+    // interchangeable to a budget that only counts them.
+    const i = live.indexOf(until);
+    if (i >= 0) live.splice(i, 1);
   };
 }
 
@@ -582,7 +630,7 @@ function noiseBuffer(c) {
  */
 export function tone(o) {
   const c = context();
-  if (!c || muted || !spare()) return;
+  if (!c || muted || !spare(c)) return;
   const t0 = c.currentTime + (o.delay || 0);
   const dur = o.dur === undefined ? 0.2 : o.dur;
 
@@ -620,9 +668,10 @@ export function tone(o) {
 
   osc.connect(head);
   g.connect(o.dest || bus);
-  track(osc);
+  const until = t0 + dur + 0.05;
+  track(osc, until);
   osc.start(t0);
-  osc.stop(t0 + dur + 0.05);
+  osc.stop(until);
 }
 
 /**
@@ -633,7 +682,7 @@ export function tone(o) {
  */
 export function noise(o) {
   const c = context();
-  if (!c || muted || !spare()) return;
+  if (!c || muted || !spare(c)) return;
   const t0 = c.currentTime + (o.delay || 0);
   const dur = o.dur === undefined ? 0.18 : o.dur;
 
@@ -659,7 +708,7 @@ export function noise(o) {
   src.connect(f);
   f.connect(g);
   g.connect(o.dest || bus);
-  track(src);
+  track(src, t0 + dur + 0.05);
   // Clamped: a sound longer than the buffer would ask to start at a negative
   // offset, and that is one of the few things a real context throws on. The
   // source loops, so an offset of zero is a correct answer for any length.

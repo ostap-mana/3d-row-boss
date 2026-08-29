@@ -2136,7 +2136,7 @@ export class Director {
    * back for one who has.
    */
   armOpeningHint() {
-    if (this.openingSpent || !T.openingHint) return;
+    if (this.openingSpent || T.openingHint == null) return;
     // Already demonstrating, which is only ever the one armed before the touch
     // — every other caller gets here through a `stopIdle` that put the prop
     // away first. Re-arming over a live demo would restart it mid-sentence a
@@ -2144,6 +2144,15 @@ export class Director {
     // loop since before they touched anything.
     if (this.openingLive) return;
     const token = ++this.openingToken;
+    // No wait at all, and taken synchronously rather than through a promise
+    // that has already resolved: armIntro runs before the first frame is
+    // rendered, so the lesson placed from here is in that frame — and the
+    // first frame is the only one a playable is guaranteed to be looked at.
+    // A microtask later is a frame later, and a frame later is after it.
+    if (T.openingHint <= 0) {
+      this.pointOpeningHand();
+      return;
+    }
     delay(T.openingHint).then(() => {
       if (token !== this.openingToken || this.ended || this.openingSpent) {
         return;
@@ -2169,7 +2178,14 @@ export class Director {
   pointOpeningHand() {
     // A shade larger than the auto-hint's hand: this one is talking to
     // somebody who has not yet worked out that the board is a board.
-    this.openingLive = this.showLesson(1.15);
+    //
+    // Cold, which is the second half of T.openingHint being zero: the first
+    // pass comes up already lit and reads its two beats short, so the prop is
+    // on the glass a third of a second in rather than a second and a third.
+    // Nothing is being interrupted — there is no fight yet — and a lesson
+    // fading up over an arena the player has only just laid eyes on is a
+    // lesson that arrives after they have decided nothing is happening.
+    this.openingLive = this.showLesson(1.15, true);
   }
 
   /**
@@ -2186,9 +2202,12 @@ export class Director {
    * dropped a block on the cell it was going to point at.
    *
    * @param {number} urgency how large the hand stands — see Hand.setUrgency
+   * @param {boolean=} cold whether the first pass skips its fade and reads its
+   *   opening beats short — for the lesson that is on screen before anything
+   *   else is. See Coach.play.
    * @returns {boolean} whether anything is now being shown
    */
-  showLesson(urgency) {
+  showLesson(urgency, cold) {
     const { hand, board, coach } = this.s;
     // The ult lesson owns the prop outright while it is up — one hand, one
     // Coach, and of the two moves on offer it is teaching the more valuable.
@@ -2230,7 +2249,7 @@ export class Director {
 
     const shape = coach && board.matchShape(hint.a, hint.b);
     if (shape) {
-      coach.play(board, hand, shape, solve);
+      coach.play(board, hand, shape, solve, cold);
       return true;
     }
     // A board whose swap cannot be taken apart into a pair and a traveller
