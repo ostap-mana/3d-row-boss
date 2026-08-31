@@ -17,8 +17,10 @@
  *   3. the gem actually travels. Board.previewSwap slides the real stones on
  *      screen without touching the model, so what the player watches is the
  *      move they are being asked to make, made;
- *   4. the three light as one, inside a single frame drawn round the lot of
- *      them — this is what you were making.
+ *   4. the run lights as one, inside a single frame drawn round the whole of
+ *      it — this is what you were making. One frame per run and not one round
+ *      everything that lit: a swap can finish two runs at once, in two
+ *      elements, and each gets its own frame in its own colour.
  *
  * Then it puts everything back and does it again, holding the pair lit at
  * REST_ALPHA in between, until whoever started it calls stop().
@@ -44,6 +46,14 @@
  * art/hintmarks.js. When that art does not decode the lesson falls back to
  * drawing its own rings and dart in Graphics — same beats, same places, plainer
  * marks — because a hint that does not come up is worse than a plain one.
+ *
+ * Every mark wears the element of the thing it is drawn on: a frame takes the
+ * colour of the gem inside it, and a run's frame the colour the run is made of.
+ * Only the arrow and the hand wear the travelling stone's, and only because
+ * those two are about the stone rather than about a cell. A beat is therefore
+ * as many colours as it has gems in it, which is the point — a lit gem and the
+ * bracket round it are one statement, and a bracket that disagrees with what it
+ * encloses reads as a mark that has landed in the wrong place.
  */
 
 import { Container, Graphics } from "pixi.js";
@@ -89,6 +99,18 @@ const COLD_BEAT = 0.14;
  * is on screen continuously and the demonstration of it merely repeats.
  */
 const REST_ALPHA = 0.42;
+
+/**
+ * How long the opening demo holds on the hero card before going back to the
+ * board — see the `cardFor` half of play().
+ *
+ * Long enough for one whole pass of Hand.tapLoop and the beat after it, which
+ * is two taps: one tap reads as the hand arriving somewhere, two reads as the
+ * hand telling you to do something. Any longer and the demo spends more of its
+ * loop on the row than on the board, and the board is still the move the player
+ * has to make first.
+ */
+const CARD_BEAT = 2.2;
 
 /**
  * The frame's side, as a fraction of a cell.
@@ -144,13 +166,79 @@ const CARD_READY = READY_SCALE * (1 + READY_SWING);
 /** Whether two cells are the same cell. */
 const same = (a, b) => a.r === b.r && a.c === b.c;
 
+/**
+ * The straight runs a list of matched cells is actually made of.
+ *
+ * Board.findMatches answers with every cell in a run of three or more anywhere
+ * on the board, flattened into one list — and a single swap can light two runs
+ * at once, in two different elements: the stone going down completes a line
+ * where it lands while the stone coming up completes another where it started.
+ *
+ * The lesson used to take the bounding box of that whole list. On a double
+ * match that is one rectangle with both runs inside it, every unmatched gem
+ * between them inside it as well, drawn in whichever element happened to be
+ * travelling — a lightning frame round three lightning gems *and* three nature
+ * ones, which says the player made one six-gem yellow thing out of stones that
+ * are plainly not all yellow.
+ *
+ * So the list is put back into the runs it came from before anything is drawn:
+ * maximal same-element lines of three or more, along each axis. A plain match
+ * gives one, framed as before. A double match gives two, each framed on its own
+ * and each in its own colour. An L or a T gives its arm and its leg, which
+ * overlap at the corner they share and cover no cell that is not in the match.
+ *
+ * @param {Array<{r:number,c:number}>} cells every matched cell
+ * @param {function} typeOf the element at a cell, as the board reads *now*
+ * @returns {Array<{cells:Array,type:number}>} one entry per run
+ */
+function straightRuns(cells, typeOf) {
+  const key = (r, c) => `${r},${c}`;
+  const set = new Set(cells.map((cell) => key(cell.r, cell.c)));
+  const out = [];
+
+  [
+    [0, 1],
+    [1, 0],
+  ].forEach(([dr, dc]) => {
+    cells.forEach((cell) => {
+      const type = typeOf(cell.r, cell.c);
+      // -1 is an encased cell. The boss can drop obsidian between the hint
+      // being solved and this beat being drawn, and a run through one is no
+      // longer a run.
+      if (type < 0) return;
+      // Only ever walked from the head of a line, so each line is found once
+      // however many of its cells this loop visits.
+      if (
+        set.has(key(cell.r - dr, cell.c - dc)) &&
+        typeOf(cell.r - dr, cell.c - dc) === type
+      ) {
+        return;
+      }
+      const line = [cell];
+      for (;;) {
+        const r = cell.r + dr * line.length;
+        const c = cell.c + dc * line.length;
+        if (!set.has(key(r, c)) || typeOf(r, c) !== type) break;
+        line.push({ r, c });
+      }
+      if (line.length >= 3) out.push({ cells: line, type });
+    });
+  });
+
+  return out;
+}
+
 export class Coach extends Container {
   constructor() {
     super();
+    globalThis.__coach = this; // PROBE
 
     /** The fallback, and empty for the whole of a lesson when the art decoded. */
     this.marks = new Graphics();
-    /** The painted marks. Rebuilt when the lesson changes element — see wear(). */
+    /**
+     * The painted marks: the arrow, and a pool of frames per element. Rebuilt
+     * when the lesson changes element — see wear().
+     */
     this.kit = new Container();
     this.addChild(this.marks, this.kit);
     this.painted = null;
@@ -166,11 +254,40 @@ export class Coach extends Container {
      * the row used to be.
      */
     this.cardAt = null;
+    /**
+     * The scrim, when main.js gave us one — see useSpotlight and ui/spotlight.js.
+     *
+     * The marks say what the move is; the scrim says where on the screen it is
+     * happening, which is the one thing five outlined gems in a busy arena
+     * could never say for themselves. Optional on purpose: everything below
+     * draws the same lesson whether or not it is there, and SPOTLIGHT.on turns
+     * it off from config without a branch anywhere in here.
+     */
+    this.spot = null;
+    /**
+     * What the scrim is lit on, kept rather than passed straight through.
+     *
+     * The light is aimed once a pass and not once a beat. Every beat of the
+     * lesson draws a different set of boxes — the pair, then the pair and the
+     * traveller, then the finished run — and a hole that resized itself for
+     * each of them would be a light flickering between three shapes over a
+     * board where nothing had happened. So it is put round the whole of what
+     * the pass is going to touch and left there, and this is what a relayout
+     * re-solves it from. See spotOn and reaim.
+     */
+    this.focus = null;
+    /** Whether the lesson running is the opening one — it gets the deeper dim. */
+    this.opening = false;
 
     this.alpha = 0;
     this.visible = false;
     /** Retires a lesson in flight — every await in the loop checks it. */
     this.token = 0;
+  }
+
+  /** Hand the coach the scrim it lights its lessons with. Called once, by main. */
+  useSpotlight(spot) {
+    this.spot = spot;
   }
 
   resize() {
@@ -184,6 +301,11 @@ export class Coach extends Container {
       this.clearMarks();
       return;
     }
+    // And the light with them. It is solved from cell and card positions the
+    // same way the marks are, so the same call that puts a beat back on the new
+    // layout puts the hole it is standing in back too — otherwise the board
+    // moves out from under the scrim and the lesson ends up lit next to itself.
+    this.reaim();
     // Two lessons, so two things to put back. The row has already been laid out
     // again by the time this runs — main.js resizes it before the coach — so
     // the card is simply asked where it is now, and this is also what moves the
@@ -211,6 +333,13 @@ export class Coach extends Container {
     this.clearMarks();
     this.alpha = 0;
     this.visible = false;
+    // The marks go instantly — they are meaningless the moment the lesson they
+    // belong to is retired — and the dark lifts over a fifth of a second,
+    // because it is the whole screen and a screen that snaps back to full
+    // brightness reads as a fault rather than as a light going out.
+    this.focus = null;
+    this.opening = false;
+    if (this.spot) this.spot.hide();
   }
 
   /** Take every mark off screen without throwing the sprites away. */
@@ -218,7 +347,181 @@ export class Coach extends Container {
     this.marks.clear();
     if (!this.painted) return;
     this.painted.arrow.visible = false;
-    this.painted.frames.forEach((f) => (f.visible = false));
+    // The whole pool, not just what the last beat used: this is the door every
+    // route out of a lesson goes through, and a frame left visible behind it is
+    // a bracket sitting on a board with no hint on it.
+    this.painted.pool.forEach((list) =>
+      list.forEach((f) => (f.visible = false)),
+    );
+    this.painted.used = [];
+  }
+
+  /* ------------------------------------------------------------ the light */
+
+  /**
+   * Light a set of cells and hold the light there for the rest of the pass.
+   *
+   * @param {object} board the live Board
+   * @param {Array<{r:number,c:number}>} cells everything the pass will touch
+   * @param {number} type the element the rim wears
+   */
+  spotOn(board, cells, type) {
+    if (!this.spot) return;
+    // Deduplicated on the way in. The three lists a lesson is made of overlap
+    // by design — the pair is inside the run, and on a swap that finishes at
+    // both ends the traveller is inside it too — and a bounding box would not
+    // care either way, but this list is kept and re-solved on every relayout
+    // for as long as the pass lasts, and there is no reason to keep the same
+    // cell in it three times.
+    const seen = new Set();
+    const cell = [];
+    cells.forEach((c) => {
+      const key = `${c.r},${c.c}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      cell.push({ r: c.r, c: c.c });
+    });
+    this.focus = { board, cells: cell, type };
+    this.reaim();
+  }
+
+  /**
+   * Solve the hole's box again and hand it to the scrim.
+   *
+   * Called when the light is first aimed and again on every relayout, and it is
+   * the same work both times: the cells and the card are the thing that is
+   * remembered, and where they are on the glass is asked fresh. Nothing here
+   * caches a screen position, which is why a rotation mid-lesson lands the hole
+   * on the same gems rather than on the place those gems used to be.
+   */
+  reaim() {
+    const spot = this.spot;
+    const focus = this.focus;
+    if (!spot || !focus) return;
+
+    /**
+     * The scrim belongs to the opening guideline and to nothing after it.
+     *
+     * It is a hole cut in a sheet laid over the whole screen, and what that is
+     * worth depends entirely on whether the player has anything else to do. On
+     * the start screen they do not: no clock is running, the boss has not moved,
+     * and taking the arena down to point at one gesture is the whole reason the
+     * scrim exists. The second time it appears the player is *playing* — and
+     * then it is a pale ring drawn round part of their own board, dimming the
+     * gems they are reading in order to tell them something the frames, the
+     * arrow and the hand are already saying inside it.
+     *
+     * So it goes up once, with the lesson that has the screen to itself, and
+     * never again. Every route back here — a relayout, a new pass, the card
+     * beat, the in-play ult hint — lands on this line and puts it away. The
+     * marks themselves are untouched: the hint still draws, it just stops
+     * bringing a spotlight with it.
+     */
+    if (!this.opening) {
+      spot.hide();
+      return;
+    }
+
+    // The ult lesson. The card's own x and y are already coordinates in this
+    // container — the row sits at the world's origin — so there is no board
+    // offset to add, exactly as in drawCard.
+    if (focus.card) {
+      // Before the row's first resize a card has no size, and a hole round
+      // nothing is a bright rectangle in the corner of a dark screen.
+      const box = this.cardBox(focus.card);
+      if (!box) return;
+      /**
+       * Square, and the card's own corner deliberately thrown away on the way
+       * in.
+       *
+       * `cardBox` still carries it, because the drawn fallback frame is a ring
+       * *on* the card and a ring has to trace what it is drawn on — see stroke,
+       * which is the other caller. The light is not on the card. It is a hole in
+       * the dark with the card standing in it, and every other hole this scrim
+       * cuts is a plain rectangle for the reason written up at SPOTLIGHT.corner:
+       * a radius is a shape the light is claiming to have, and the only shape it
+       * should be claiming is *this thing, here*.
+       *
+       * The radius is left off rather than sent in as a zero, and the two are
+       * not the same thing. A radius that comes *in* is a description of the box
+       * before the pad is added, so aim() grows it by the pad to keep tracing
+       * what was asked for — which turns a zero into a corner of `pad`, or about
+       * a fifth of a cell. Only a box with no opinion gets SPOTLIGHT.corner, and
+       * that is the zero this wants.
+       */
+      spot.aim({ x: box.x, y: box.y, w: box.w, h: box.h }, this.opening);
+      return;
+    }
+
+    // And the board lesson: the bounding box of every cell in the pass, grown
+    // by the same span the frames are drawn at, so the light clears the marks
+    // instead of cutting through them.
+    const { board, cells } = focus;
+    const span = board.cell * FRAME_SPAN;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    cells.forEach((c) => {
+      const p = board.cellPos(c.r, c.c);
+      x0 = Math.min(x0, board.x + p.x);
+      y0 = Math.min(y0, board.y + p.y);
+      x1 = Math.max(x1, board.x + p.x);
+      y1 = Math.max(y1, board.y + p.y);
+    });
+    if (!Number.isFinite(x0)) return;
+
+    spot.aim(
+      {
+        x: x0 - span / 2,
+        y: y0 - span / 2,
+        w: x1 - x0 + span,
+        h: y1 - y0 + span,
+      },
+      this.opening,
+    );
+  }
+
+  /**
+   * One pass of the demo's card half: light a hero, tap it, hand the prop back.
+   *
+   * The finite cousin of playCard. That one is a lesson in its own right and
+   * loops until the director retires it; this one is a beat inside another
+   * lesson and has to give the board its prop back, so it holds for CARD_BEAT
+   * and leaves.
+   *
+   * The board's marks come off first and go back on after. Two sets of frames on
+   * screen at once would be two lessons rather than one sentence with two
+   * halves, and the point of this beat is that it is the *same* sentence: these
+   * gems, then the hero those gems charge.
+   */
+  async cardBeat(id, card, hand, type) {
+    const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
+
+    this.last = null;
+    this.clearMarks();
+    // Taken off the board before it is asked for the row. The swap beat leaves
+    // the prop wherever its last slide ended, and a hand that travelled from
+    // there to the card would read as the player dragging a gem into the row.
+    hand.stop();
+
+    this.drawCard(card, type, color);
+    if (!this.cardAt) return;
+    hand.setElement(type);
+    hand.tapLoop(this.cardAt);
+
+    await tween(this, { alpha: 1 }, 0.2);
+    if (id !== this.token) return;
+    await delay(CARD_BEAT);
+    if (id !== this.token) return;
+
+    // And back to the board. Stopped rather than left to finish its loop: the
+    // swap beat reaches for the board on its own clock, and a tap still running
+    // on the row while that happens is two hands.
+    hand.stop();
+    this.last = null;
+    this.clearMarks();
+    await tween(this, { alpha: REST_ALPHA }, 0.22);
   }
 
   /**
@@ -234,10 +537,23 @@ export class Coach extends Container {
    *   is on screen before anything else in the creative is. Every pass after it
    *   runs at the ordinary pace: what is bought here is the arrival, not the
    *   lesson, and a demonstration that stayed hurried would be a worse one.
+   * @param {function=} cardFor asked, once a swap has been demonstrated, for the
+   *   hero that swap's colour belongs to — and the director answers only while
+   *   that hero's charge bar is standing at its maximum. Answer a card and the
+   *   loop plays the second half of the demo on it — see cardBeat; answer null,
+   *   or leave this out, and the lesson is the board and nothing else. What the
+   *   condition buys is that the hand never lands on a control that would do
+   *   nothing if it were tapped, which is what it did on the start screen where
+   *   the party is dealt a tenth charged. See Director.showLesson.
    */
-  async play(board, hand, shape, solve, cold = false) {
+  async play(board, hand, shape, solve, cold = false, cardFor = null) {
     const id = ++this.token;
     this.visible = true;
+    // `cold` is only ever true for the opening lesson — see Director.showLesson
+    // — which is also the only lesson allowed to take the whole screen down.
+    // Every pass after the first runs warm and the flag stays set, because what
+    // the deeper dim is answering is who is watching, not which pass it is.
+    this.opening = !!cold;
     let live = shape;
     let open = cold;
     while (id === this.token) {
@@ -285,6 +601,17 @@ export class Coach extends Container {
       await this.lesson(id, board, hand, live, open);
       open = false;
       if (id !== this.token) return;
+
+      // The colour is read off the board rather than off the shape, for the same
+      // reason lesson() reads it: a shape is a pair of cells and a run, and
+      // which element it is made of is a question only the board can answer.
+      const type = board.typeAt(live.from.r, live.from.c);
+      const card = cardFor && cardFor(type);
+      if (card) {
+        await this.cardBeat(id, card, hand, type);
+        if (id !== this.token) return;
+      }
+
       await delay(REST);
     }
   }
@@ -315,6 +642,9 @@ export class Coach extends Container {
   async playCard(card, hand, type) {
     const id = ++this.token;
     this.visible = true;
+    // Never the opening lesson: this one only ever runs once a hero has charged,
+    // which is a good way into a fight the player is already reading.
+    this.opening = false;
     const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
 
     // The hand wears the hero's colour the way it wears a gem's on the board,
@@ -353,20 +683,39 @@ export class Coach extends Container {
    * @param {number} type the element, which picks the painted set
    * @param {number} color the element's light, which the fallback strokes with
    */
-  drawCard(card, type, color) {
-    this.last = { card, type, color };
+  /**
+   * The box a frame or a hole goes round one hero card, or null when the row
+   * has not been laid out yet.
+   *
+   * One function because two things need it and they have to agree to the pixel
+   * — the frame drawCard paints and the hole reaim cuts. They were the same
+   * arithmetic written twice.
+   *
+   * The scale is read off what the card is actually doing rather than assumed.
+   * A charged card is measured at the top of its ready pulse — CARD_READY, the
+   * peak and not the live value, so the frame holds still while the card
+   * breathes inside it.
+   *
+   * Both demos now only ever put a frame on a charged card — see the `cardFor`
+   * in Director.showLesson, and teachUlt, which fires off the charge itself — so
+   * that is the branch this takes in practice. The other one is kept because the
+   * arithmetic is wrong rather than merely unused without it: a box drawn a
+   * fifth larger than the card it is round is a bracket floating off all four
+   * sides, and something asking for a frame on a card that is not popped should
+   * get a frame on the card that is there.
+   */
+  cardBox(card) {
     const w = card.cardW || 0;
     const h = card.cardH || 0;
     // Before the row's first resize a card has no size at all, and a frame
     // round nothing is a bracket in the corner of the screen.
-    if (!w || !h) return;
+    if (!w || !h) return null;
 
-    // The card at the top of its ready pulse, which is what is on screen —
-    // the row's own layout box is a good deal smaller. See CARD_READY.
-    const cw = w * CARD_READY;
-    const ch = h * CARD_READY;
+    const k = card.ready ? CARD_READY : card.scale.x || 1;
+    const cw = w * k;
+    const ch = h * k;
     const pad = w * CARD_PAD;
-    const box = {
+    return {
       x: card.x - cw / 2 - pad,
       y: card.y - ch / 2 - pad,
       w: cw + pad * 2,
@@ -377,6 +726,13 @@ export class Coach extends Container {
       // fraction HeroCard.resize falls back to — see art/heroes.js.
       r: Math.min(cw, ch) * 0.18,
     };
+  }
+
+  drawCard(card, type, color) {
+    this.last = { card, type, color };
+    const w = card.cardW || 0;
+    const box = this.cardBox(card);
+    if (!box) return;
 
     if (this.cardAt) {
       this.cardAt.x = card.x;
@@ -384,6 +740,21 @@ export class Coach extends Container {
     } else {
       this.cardAt = { x: card.x, y: card.y };
     }
+
+    // The light on the card, and the board goes dark behind it. That is the
+    // whole argument for this lesson existing: a player three quarters of the
+    // way through a run has been looking at the board and nowhere else, and the
+    // row underneath it is the one place on screen they have never once looked.
+    //
+    // Whether the dark comes at all is `opening` — see reaim, which is where
+    // that is decided and why. In the opening demo it does, and deep: the card
+    // beat and the board beat are two halves of one sentence, and a scrim that
+    // lifted between them would flash the whole screen twice a loop. Mid-fight
+    // — Coach.playCard, off Director.teachUlt — it does not come at all. That
+    // one lands over a boss bar and a doom clock the player is reading, and the
+    // frame on the card says which card without dimming the fight to do it.
+    this.focus = { card, type };
+    this.reaim();
 
     // Measured off the card's width rather than a board cell's: it is what the
     // stroked fallback weights its line against, and a card is about three
@@ -400,8 +771,23 @@ export class Coach extends Container {
     const { from, to, run, rest } = shape;
     const type = board.typeAt(from.r, from.c);
     const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
-    // Which element it is decides which of the painted sets is worn; the light
-    // off it is what the drawn fallback strokes with. Every beat carries both.
+
+    // The light goes on before the first mark does, round everything this pass
+    // is going to touch: the pair, the stone that travels, the cell it travels
+    // to and the run the two of them make. All four at once and not a beat at a
+    // time — the hole is a light on the move, and a move is the whole of that,
+    // so it is placed once here and then holds still while the lesson happens
+    // inside it. `to` is in there on its own account: on a swap that completes
+    // its run at the far end the traveller lands outside every cell of it, and
+    // a light that stopped at the run would push the gem out of its own hole
+    // halfway through beat three.
+    this.spotOn(board, rest.concat([from, to], run), type);
+
+    // The travelling stone's element. It is what the arrow and the hand wear,
+    // because they are the two marks that are *about* the stone that moves, and
+    // it is what a mark falls back to when the gem under it has no element of
+    // its own — an encased cell. Every frame otherwise wears the gem it is
+    // drawn round; draw() reads that off the board a cell at a time.
     const show = (step) => this.draw(board, { type, color, ...step });
 
     // 1. What is already lined up. Up from nothing on the first pass and from
@@ -425,7 +811,16 @@ export class Coach extends Container {
     if (id !== this.token) return;
 
     // 2. The one that completes it, and which way it goes.
-    show({ lit: rest.concat([from]), from, to });
+    //
+    //    `from` is already in `rest` whenever the swap finishes a run at both
+    //    ends: the traveller's own cell is part of the run the *other* stone
+    //    makes when it arrives there. Adding it again stacks a second frame
+    //    exactly on the first, which is one bracket drawn twice — brighter than
+    //    every other mark on the board, for no reason a player could read.
+    const lit = rest.some((cell) => same(cell, from))
+      ? rest
+      : rest.concat([from]);
+    show({ lit, from, to });
     await delay(cold ? COLD_BEAT : 0.34);
     if (id !== this.token) return;
 
@@ -467,8 +862,20 @@ export class Coach extends Container {
       return;
     }
 
-    // 4. Three of a kind, joined up and held.
-    show({ lit: run, joined: run });
+    // 4. Three of a kind, joined up and held — one frame per run rather than
+    //    one round the lot, because a swap can finish two runs at once and two
+    //    runs are not one thing and not one colour. See straightRuns.
+    //
+    //    The board is swapped on screen and not in the model — that is the
+    //    whole of what previewSwap does — so the two travelling cells are asked
+    //    about the other way round, or every run the swap actually made would
+    //    be measured against the colours that were there before it.
+    const landed = (r, c) => {
+      if (r === from.r && c === from.c) return board.typeAt(to.r, to.c);
+      if (r === to.r && c === to.c) return board.typeAt(from.r, from.c);
+      return board.typeAt(r, c);
+    };
+    show({ lit: run, joined: straightRuns(run, landed) });
     await delay(HOLD);
     if (id !== this.token) return;
 
@@ -492,7 +899,9 @@ export class Coach extends Container {
    * @param {object} board
    * @param {object} step
    *   `lit`    cells to frame
-   *   `joined` cells to put one frame round instead of framing each
+   *   `joined` the finished runs — straightRuns entries, each of which gets one
+   *            frame round the whole of it, in its own element, instead of its
+   *            cells being framed one by one
    *   `from`/`to` point the travel arrow between these two
    *   `type`   the element, which picks the painted set
    *   `color`  the element's own light, which the fallback strokes with
@@ -507,23 +916,32 @@ export class Coach extends Container {
       return { x: board.x + p.x, y: board.y + p.y };
     };
 
-    const joined = step.joined && step.joined.length > 1 ? step.joined : null;
+    const joined = step.joined && step.joined.length ? step.joined : null;
     const inRun = (cell) =>
-      !!joined && joined.some((j) => j.r === cell.r && j.c === cell.c);
+      !!joined &&
+      joined.some((group) =>
+        group.cells.some((j) => j.r === cell.r && j.c === cell.c),
+      );
 
     const span = size * FRAME_SPAN;
     const boxes = [];
 
-    // One frame round the whole finished run, so three gems read as the one
-    // thing the player just made rather than as three things that happen to be
-    // lit. It is the same frame as a single gem wears, pulled along the run —
-    // which is what the nine-slice is for.
-    if (joined) {
+    // One frame round each finished run, so three gems read as the one thing
+    // the player just made rather than as three things that happen to be lit —
+    // and so two runs finished by the one swap read as two things and not as
+    // one box with both of them and the gems between them inside it. It is the
+    // same frame as a single gem wears, pulled along the run — which is what
+    // the nine-slice is for.
+    //
+    // Each in its own element rather than in the traveller's: a run is made of
+    // the colour it is made of, and the frame saying otherwise was the whole of
+    // what looked wrong about a double match.
+    (joined || []).forEach((group) => {
       let x0 = Infinity;
       let y0 = Infinity;
       let x1 = -Infinity;
       let y1 = -Infinity;
-      joined.forEach((cell) => {
+      group.cells.forEach((cell) => {
         const p = at(cell);
         x0 = Math.min(x0, p.x);
         y0 = Math.min(y0, p.y);
@@ -535,15 +953,42 @@ export class Coach extends Container {
         y: y0 - span / 2,
         w: x1 - x0 + span,
         h: y1 - y0 + span,
+        type: group.type,
+        color:
+          GEM_LIGHT[group.type] === undefined
+            ? step.color
+            : GEM_LIGHT[group.type],
       });
-    }
+    });
 
-    // A gem already inside the run's frame does not get one of its own: it is
+    // A gem already inside a run's frame does not get one of its own: it is
     // framed, and a second frame inside the first is two marks for one fact.
+    //
+    // Each in its own element, like the run frames and for the same reason.
+    // Every mark used to wear the one colour a beat — the travelling gem's —
+    // which is right for the arrow and right for the hand, because those *are*
+    // the stone that moves, and wrong for every frame that is not on it. A swap
+    // that finishes two runs lights the far run's gems in the traveller's
+    // colour, so three water gems sat in arcane brackets; a bracket that
+    // disagrees with the gem inside it reads as a mark drawn in the wrong place
+    // rather than as a hint about that gem.
     (step.lit || []).forEach((cell) => {
       if (inRun(cell)) return;
       const p = at(cell);
-      boxes.push({ x: p.x - span / 2, y: p.y - span / 2, w: span, h: span });
+      // typeAt is -1 for an encased cell, which has no painted set of its own.
+      // That one keeps the beat's element instead: the alternative is paint()
+      // finding a box it has no art for and standing the entire lesson down to
+      // the stroked fallback over a single gem the boss happened to bury.
+      const type = board.typeAt(cell.r, cell.c);
+      const el = type < 0 ? step.type : type;
+      boxes.push({
+        x: p.x - span / 2,
+        y: p.y - span / 2,
+        w: span,
+        h: span,
+        type: el,
+        color: GEM_LIGHT[el] === undefined ? step.color : GEM_LIGHT[el],
+      });
     });
 
     // The pointer, on the seam the stone is about to cross. Only ever placed
@@ -580,14 +1025,24 @@ export class Coach extends Container {
    * -1, quietly draw nothing, and leave the lesson miming over a bare board.
    * The stroked marks do not care what element it is.
    *
-   * @param {object[]} boxes what to frame, in this container's coordinates
+   * A box may name an element of its own — the run frames do, so a double
+   * match wears one set per colour — and every one of those has to have art
+   * too. All or nothing per beat, for the reason loadHintMarks is all or
+   * nothing: half a lesson in painted frames and half in stroked rings looks
+   * like a bug rather than like a fallback.
+   *
+   * @param {object[]} boxes what to frame, in this container's coordinates;
+   *   `type` and `color` on a box override the beat's own
    * @param {object} arrow the pointer, or null when there is nowhere to point
    * @param {number} type the element, which picks the painted set
    * @param {number} color the element's light, for the fallback
    * @param {number} size what the fallback weights its line against
    */
   paint(boxes, arrow, type, color, size) {
-    if (hintMarksReady(type)) this.wear(type, boxes, arrow);
+    const ready =
+      hintMarksReady(type) &&
+      boxes.every((box) => box.type === undefined || hintMarksReady(box.type));
+    if (ready) this.wear(type, boxes, arrow);
     else this.stroke(boxes, arrow, color, size);
   }
 
@@ -595,9 +1050,20 @@ export class Coach extends Container {
    * The painted marks: a frame on each box and the arrow on the seam.
    *
    * Sprites are kept and reused rather than rebuilt, because a lesson redraws
-   * five times a pass and loops until it is stopped. They are only rebuilt when
-   * the element changes, which happens when a new hint picks a different run —
-   * never inside one pass.
+   * five times a pass and loops until it is stopped.
+   *
+   * They are pooled per element rather than per slot. One beat now carries as
+   * many colours as it has gems in it, and which colour lands in which slot
+   * changes from beat to beat — the pair, then the pair and the traveller, then
+   * the finished runs — so a pool indexed by position would be throwing a
+   * sprite away and building another one on nearly every draw. Indexed by
+   * element it settles after the first pass and never allocates again: the beat
+   * asks for two water frames and one arcane, and gets the same three sprites
+   * it got last time round.
+   *
+   * The whole kit is still torn down when the *lesson's* element changes, which
+   * is the arrow's element and happens only when a new hint picks a different
+   * traveller.
    */
   wear(type, boxes, arrow) {
     this.marks.clear();
@@ -611,21 +1077,35 @@ export class Coach extends Container {
       this.painted = null;
       const pointer = hintArrowSprite(type);
       if (!pointer) return;
-      this.painted = { type, frames: [], arrow: pointer };
+      this.painted = { type, pool: new Map(), used: [], arrow: pointer };
       this.kit.addChild(pointer);
     }
     const kit = this.painted;
 
-    boxes.forEach((box, i) => {
-      if (!kit.frames[i]) {
-        const frame = hintFrameSprite(kit.type);
-        if (!frame) return;
-        kit.frames[i] = frame;
-        // Under the arrow, which is the one mark allowed to sit on top of
-        // anything: it is pointing at a gem that is inside a frame.
-        this.kit.addChildAt(frame, i);
+    // Last beat's frames go down before this one's go up — all of them, because
+    // this beat may want fewer, or the same number in different colours. They
+    // are only hidden; the pool keeps them.
+    kit.used.forEach((frame) => (frame.visible = false));
+    kit.used = [];
+
+    // How many of each element this beat has already placed, so two water boxes
+    // take the pool's first two water frames rather than both taking the first.
+    const taken = new Map();
+
+    boxes.forEach((box) => {
+      const el = box.type === undefined ? kit.type : box.type;
+      const n = taken.get(el) || 0;
+      taken.set(el, n + 1);
+
+      let free = kit.pool.get(el);
+      if (!free) kit.pool.set(el, (free = []));
+      if (!free[n]) {
+        const made = hintFrameSprite(el);
+        if (!made) return;
+        free[n] = made;
+        this.kit.addChild(made);
       }
-      const frame = kit.frames[i];
+      const frame = free[n];
       frame.visible = true;
       // Sized in the art's own pixels with the scale carrying the rest, so the
       // corner slices land the same size on both axes and every extra point of
@@ -636,11 +1116,13 @@ export class Coach extends Container {
       frame.setSize(box.w / k, box.h / k);
       frame.x = box.x;
       frame.y = box.y;
+      kit.used.push(frame);
     });
-    for (let i = boxes.length; i < kit.frames.length; i++) {
-      kit.frames[i].visible = false;
-    }
 
+    // Back on top of every frame placed above, which is what addChild does to a
+    // child it already has. The arrow is the one mark allowed to sit over
+    // anything: it is pointing at a gem that is inside a frame.
+    this.kit.addChild(kit.arrow);
     kit.arrow.visible = !!arrow;
     if (arrow) {
       const scale = arrow.length / kit.arrow.texture.width;
@@ -667,11 +1149,18 @@ export class Coach extends Container {
     const g = this.marks;
     const weight = Math.max(2, size * 0.042);
     const shadow = { width: weight * 1.9, color: 0x000000, alpha: 0.42 };
-    const light = { width: weight, color, alpha: 0.92 };
 
     this.clearMarks();
 
     boxes.forEach((box) => {
+      // Per box, not per beat: the run frames carry their own element, so a
+      // swap that finishes two runs strokes each in the colour it is made of
+      // here exactly as the painted marks do.
+      const light = {
+        width: weight,
+        color: box.color === undefined ? color : box.color,
+        alpha: 0.92,
+      };
       // Inset by the shadow it carries, so a ring on one cell of a lit pair
       // stops short of the ring on the other. The painted frame does not need
       // this — its brackets are open where a ring is closed, and two of them

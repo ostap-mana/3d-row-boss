@@ -2247,9 +2247,63 @@ export class Director {
       return null;
     };
 
+    /**
+     * The hero the demonstrated swap charges — but only once that hero's bar is
+     * actually full.
+     *
+     * This used to answer with whoever wore the swap's colour, charged or not,
+     * and only for the opening demo. What that put on the start screen was a
+     * hand knocking on a card reading 7 / 120 — a hand on a control that does
+     * nothing yet. A player who follows it taps, gets no ultimate, and has been
+     * taught by the creative itself that the hand is not to be trusted; a player
+     * who does not follow it has been shown a gesture with no consequence. Both
+     * are worse than saying nothing, and the second half of the sentence — match
+     * these, and *then* the hero lights up — was the half that never landed.
+     *
+     * So the gate is the charge bar and nothing else. `ready` is the flag
+     * HeroCard.addCharge sets on the frame the bar reaches its maximum, which is
+     * the same instant the card pops, says READY and the HUD shouts the hero's
+     * name; `downed` takes out a hero who filled and was then knocked over,
+     * because a hand on a corpse is the same broken promise one cell along. The
+     * hand now only ever lands on a card that will fire if it is tapped.
+     *
+     * Which also takes the `cold` gate off it. It was standing in for this test
+     * — before the fight nobody is charged, so before the fight was the only
+     * time the answer was harmless — and now that the real condition is written
+     * down, the opening demo and the in-play hint can both ask honestly. On the
+     * start screen the party is dealt at DIFFICULTY.chargeStart and this answers
+     * null every time, which is why the demo's card half is not seen there any
+     * more. It is seen the moment somebody's bar fills instead.
+     *
+     * `ultTaught` is the one thing that shuts it up for good: whoever has tapped
+     * a card has found the row, and teachUlt's whole job is done. See onCardTap,
+     * which sets it on the first tap on any card, charged or not.
+     *
+     * Two answers and not one, in that order. The colour match is the better
+     * sentence — match these, and *this* is the hero they charge — so it is
+     * asked for first. But the demo does not choose which swap the board is
+     * offering, and a run where the only charged hero is the healer while the
+     * board keeps serving up fire would say nothing at all for the whole of it.
+     * So the fallback is any charged hero: a weaker sentence, still a true one,
+     * and still the only thing on screen pointing at the row. Both answers pass
+     * the same test — the card will fire if it is tapped — which is the rule
+     * this whole function exists to keep.
+     */
+    const ready = (card) => card.ready && !card.downed;
+    const cardFor = this.ultTaught
+      ? null
+      : (type) => {
+          const cards = this.s.heroRow.cards;
+          return (
+            cards.find((card) => card.hero.element === type && ready(card)) ||
+            cards.find(ready) ||
+            null
+          );
+        };
+
     const shape = coach && board.matchShape(hint.a, hint.b);
     if (shape) {
-      coach.play(board, hand, shape, solve, cold);
+      coach.play(board, hand, shape, solve, cold, cardFor);
       return true;
     }
     // A board whose swap cannot be taken apart into a pair and a traveller

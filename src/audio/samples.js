@@ -43,6 +43,7 @@ import { AUDIO } from "../config.js";
 import { audioBus, audioContext, onAudioOpen, onAudioReset } from "./engine.js";
 import { loadAudio } from "./decode.js";
 import spriteUrl from "../assets/audio/sfx.mp3";
+import outcomeUrl from "../assets/audio/outcome.mp3";
 import roomUrl from "../assets/audio/room.mp3";
 
 /** Floor for every exponential ramp — the curve cannot reach or pass zero. */
@@ -59,6 +60,36 @@ const MIN = 0.0001;
  * had when it was synthesized, so the palette balances the way it was tuned to;
  * `AUDIO.sfxSampleLevel` scales the lot. The comment on each line is the sound
  * it was lifted from, which is the only way back to the original.
+ *
+ * `bank` says which file a cut is measured into, and only the two endings carry
+ * one. They are the last sound the player hears and they were the two weakest
+ * things in here — a menu tab for a win and a back button for a loss, borrowed
+ * because they were already in the sprite — so they were re-cut from the game's
+ * own victory stinger and its own braam, and re-cut assets do not fit in a file
+ * whose thirty-three offsets were fixed the day it was encoded. They live in
+ * outcome.mp3, built by tools/pack-outcome.mjs, which is also the only place
+ * the argument for a second file is written down. Everything else about them is
+ * unchanged: same table, same levels, same fallback when the decode fails.
+ *
+ * The two `*Vo` slices are the game's narrator saying which ending it was, and
+ * they are separate cuts rather than part of the stingers so the gap between
+ * the hit and the word is a number in sfx.js instead of a decision frozen into
+ * an encode. Both fall back to nothing rather than to an oscillator — see
+ * `outcomeVoice` in sfx.js for why a missing voice is silence and a missing
+ * stinger is not.
+ *
+ * They are the two loudest gains in this table, and the pair is not level with
+ * itself: 0.32 against 0.36. Every cut in both files is peak-normalized, so a
+ * gain here is a peak and what the ear weighs is the RMS underneath it — and
+ * these two sit over different stingers. `victory` is a musical hit with 14 dB
+ * of crest and the word clears it by 1.5 dB at 0.32; `defeat` is a sustained
+ * braam with 12, dense enough that the same 0.32 puts the word 0.2 dB *under*
+ * it and the ear loses the one sound in the mix that carries meaning. 0.36 is
+ * the gain that lands "Defeat" a decibel over its own stinger instead — close
+ * enough to the win's 1.5 that the two endings weigh the same, and measured
+ * rather than guessed. The bus compressor (-16 dB, 9:1, see engine.js) takes
+ * the sum of either pair down about 10 dB, which is the ducking that makes a
+ * voice read on top of a mix rather than beside it; neither pair clips.
  */
 const SLICES = {
   /* --------------------------------------------------------------- board */
@@ -93,8 +124,11 @@ const SLICES = {
   /* ------------------------------------------------------ clock and card */
   doomWarn: { at: 24.57, dur: 1, gain: 0.18 }, // ui_click_braam
   doomCast: { at: 25.69, dur: 1.8, gain: 0.26 }, // SMN_MGC_3
-  victory: { at: 27.61, dur: 2.4, gain: 0.22 }, // ui_click_battle_horn
-  defeat: { at: 30.13, dur: 1.3, gain: 0.2 }, // ui_click_back_2
+  victory: { bank: "outcome", at: 0, dur: 3.0, gain: 0.28 }, // DEMO_victory
+  defeat: { bank: "outcome", at: 3.12, dur: 2.6, gain: 0.22 }, // ui_click_braam
+  /* The narrator, over the two stingers above — see the note under `bank`. */
+  victoryVo: { bank: "outcome", at: 5.84, dur: 1.2, gain: 0.32 }, // "Victory!"
+  defeatVo: { bank: "outcome", at: 7.16, dur: 1.0, gain: 0.36 }, // "Defeat"
   banner: { at: 31.55, dur: 0.32, gain: 0.1 }, // ui_expand_in
   endcard: { at: 31.99, dur: 1.6, gain: 0.16 }, // SMN_TITLE
   cta: { at: 33.71, dur: 0.12, gain: 0.12 }, // ui_click_main
@@ -122,6 +156,8 @@ const RATE = [1.0, 1.12, 1.26, 1.5, 1.68, 2.0, 2.24];
 const ELEMENT_RATE = [0.86, 1.06, 0.94, 1.18, 1.0, 1.3];
 
 let sprite = null;
+/** The two endings, in a file of their own — see `bank` in SLICES. */
+let outcome = null;
 let roomAudio = null;
 /**
  * Audio-clock times the one-shots in the air are due to finish.
@@ -147,6 +183,12 @@ let roomTension = -1;
 if (AUDIO.sfxSamples) {
   loadAudio(spriteUrl).then((got) => {
     sprite = got;
+  });
+  // Its own decode, and a failed one costs exactly the two endings: `play`
+  // reports a missing bank the way it reports a missing sprite, and sfx.js
+  // falls through to the arpeggios it has always had behind them.
+  loadAudio(outcomeUrl).then((got) => {
+    outcome = got;
   });
   if (AUDIO.bed) {
     loadAudio(roomUrl).then((got) => {
@@ -197,7 +239,12 @@ export const samples = {
    */
   play(name, o) {
     const s = SLICES[name];
-    if (!AUDIO.sfxSamples || !s || !sprite) return false;
+    if (!AUDIO.sfxSamples || !s) return false;
+    // Which file this cut was measured into. A bank that has not decoded is
+    // the same answer as a sprite that has not: not handled, so the caller
+    // synthesizes it.
+    const bank = s.bank === "outcome" ? outcome : sprite;
+    if (!bank) return false;
     const c = audioContext();
     const out = audioBus();
     if (!c || !out) return false;
@@ -217,7 +264,7 @@ export const samples = {
     gain.connect(out);
 
     const src = c.createBufferSource();
-    src.buffer = sprite.buffer;
+    src.buffer = bank.buffer;
     if (opts.rate) src.playbackRate.value = opts.rate;
     src.connect(gain);
     const at = c.currentTime + (opts.delay || 0);
@@ -225,7 +272,7 @@ export const samples = {
       // `duration` is measured in the buffer rather than in real time, so a cut
       // played fast is short and one played slow is long — and neither of them
       // can run past its own slice into the next one's silence.
-      src.start(at, sprite.head + s.at, s.dur);
+      src.start(at, bank.head + s.at, s.dur);
     } catch (e) {
       return false;
     }

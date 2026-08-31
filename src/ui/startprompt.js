@@ -119,4 +119,19 @@ export class StartPrompt extends Container {
       this.visible = false;
     });
   }
+
+  /**
+   * Never shown at all — the rematch, where the caption has nothing to ask for.
+   *
+   * A second run is built by constructing the whole cast again (see main.js
+   * restart), and a freshly built prompt is a visible one. This is not the same
+   * as `dismiss`: dismiss is the caption answering a touch and it fades, and a
+   * fade here would flash CLICK TO START over the first frame of a fight the
+   * player has already started.
+   */
+  hide() {
+    this.gone = true;
+    this.visible = false;
+    this.alpha = 0;
+  }
 }

@@ -87,6 +87,7 @@ const CELL_WASH = 0xe5ce8a;
 export class Board extends Container {
   constructor() {
     super();
+    globalThis.__board = this; // PROBE
 
     /** Painted frame, or null when the art failed to decode. */
     this.plate = boardFrameSprite();

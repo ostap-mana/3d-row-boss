@@ -26,8 +26,12 @@ import {
 } from "../config.js";
 import { drawGemShape, gemTexture } from "./gems.js";
 import { cardPlate } from "./plates.js";
-import { cardFrameSprite, cardFrameRadius, fitCardFrame } from "./cardframe.js";
-import { cardAura, cardBurst, fitCardAura } from "./frameaura.js";
+import {
+  cardFrameSprite,
+  cardFrameRadius,
+  cardFrameClip,
+  fitCardFrame,
+} from "./cardframe.js";
 import {
   barTroughTexture,
   manaPaintTexture,
@@ -61,33 +65,6 @@ const DOWN_TINT = 0x6a6270;
  * selling.
  */
 const HEAD_BIAS = 0.34;
-
-/**
- * How lit the painted frame is at rest, against fully lit when the hero is
- * charged. The card already grows, glows and changes its caption when an
- * ultimate is ready; this is the edge joining in rather than announcing it.
- */
-const FRAME_REST = 0.82;
-
-/**
- * The frame's aura: what it stands at once the ultimate is charged, how far it
- * breathes either side of that, and what the tap that spends it throws off.
- *
- * AURA_READY is the peak of the breath rather than its middle — setReady fades
- * in to it and then hands the alpha to the pulse in update(), which swings
- * between 0.30 and 0.82. A halo that never dimmed would be chrome; one
- * that goes out is a light being switched off and on. What it does is breathe.
- *
- * BURST_GROW is a ring in the card's own shape leaving the frame, and it is
- * deliberately bigger than the halo ever gets: the halo is a state and the burst
- * is an event, and the event is allowed to spill over the cards either side
- * because it is gone in BURST_TIME. Past about 1.3 it stops reading as light
- * coming off this card and starts reading as a rectangle drawn round the row.
- */
-const AURA_READY = 0.82;
-const AURA_SWING = 0.26;
-const BURST_GROW = 1.26;
-const BURST_TIME = 0.42;
 
 /**
  * The wash the card's readouts sit on, and how far up the card it runs.
@@ -128,8 +105,17 @@ const FOOT_BAND = 0.46;
  * and at pip size a backing plate and a rim read as two more circles drawn round
  * a circle. What the player is being pointed at is the thing they are matching,
  * so the card shows them exactly that and no ornament of its own.
+ *
+ *   k, min, max  the pip's box, taken off the card's short side and then held
+ *                between the two so it stays a pip on a tall card and stays
+ *                legible on a small one.
+ *   gap          how far in from the inside of the frame it sits, as a share of
+ *                that same short side. Wide, and deliberately: this is the one
+ *                number that decides whether the card's top left corner reads
+ *                as a corner or as a gem wedged into an arc, and the old 0.05
+ *                was the latter.
  */
-const SIGIL = { k: 0.32, min: 13, max: 30, gap: 0.05 };
+const SIGIL = { k: 0.32, min: 13, max: 30, gap: 0.085 };
 
 /** element -> drawn-shape fallback, baked at most once each */
 const sigils = {};
@@ -833,10 +819,26 @@ export class HeroCard extends Container {
     this.addChild(this.bg);
 
     /**
-     * Painted plate, over the drawn background and under the art: the busts are
+     * The hero, edge to edge.
+     *
+     * Cover-fitted in resize() and clipped to the frame's own rounded rectangle,
+     * so the art fills the tile rather than sitting in it: a portrait a third of
+     * the card wide read as a placeholder next to the painted plate.
+     */
+    this.art = new Container();
+    this.addChild(this.art);
+
+    /**
+     * Painted plate, over the drawn background and under the bust: the busts are
      * cut-outs, so the plate is what shows through wherever the hero does not
      * cover the tile. Null when the art failed to decode, which is why every
      * reference to it is guarded.
+     *
+     * Inside `art` so that it is clipped with the bust rather than beside it.
+     * The plate is a square sprite laid over the whole card and two of the three
+     * are opaque to their own corners, so unclipped it put four square dark
+     * nubs outside the border's four rounded ones — the card sticking out past
+     * its own frame, on every hero wearing the blue plate or the violet.
      */
     const plate = cardPlate(hero.element);
     this.plate = null;
@@ -844,18 +846,8 @@ export class HeroCard extends Container {
       this.plate = new Sprite(plate.texture);
       this.plate.anchor.set(0.5);
       this.plate.tint = plate.tint;
-      this.addChild(this.plate);
+      this.art.addChild(this.plate);
     }
-
-    /**
-     * The hero, edge to edge.
-     *
-     * Cover-fitted in resize() and clipped to the card's own corner radius, so
-     * the art fills the tile rather than sitting in it: a portrait a third of
-     * the card wide read as a placeholder next to the painted plate.
-     */
-    this.art = new Container();
-    this.addChild(this.art);
 
     this.portrait = new Sprite(heroCardArt(index));
     this.portrait.anchor.set(0.5);
@@ -891,53 +883,12 @@ export class HeroCard extends Container {
     this.addChild(this.burn);
 
     /**
-     * The frame's own aura, and the ring it throws when the ultimate is spent —
-     * see art/frameaura.js, which is the whole of what either one is.
-     *
-     * Under the frame art rather than over it: the border is a hairline and the
-     * halo is a bloom ten points deep, and a glow laid on top of the line would
-     * put the softest thing on the card over the crispest. Most of what the aura
-     * does happens outside the card anyway, where it has nothing above it.
-     *
-     * The halo wears the element's gem colour and the burst its pale light, and
-     * that is the difference between a state and an event: an additive pastel is
-     * very nearly white, so the ring that leaves the frame on the tap reads as a
-     * flash rather than as more of the colour that was already standing there.
-     *
-     * Each carries its own margins as well as its own picture, because the two
-     * files are cropped differently and either one can fall back to the canvas
-     * bake, whose margins are neither — see cardAura, which hands the pair over
-     * with the texture rather than leaving the card to guess.
-     */
-    this.auraArt = cardAura();
-    this.frameAura = new Sprite(this.auraArt.texture);
-    this.frameAura.anchor.set(0.5);
-    this.frameAura.blendMode = "add";
-    this.frameAura.tint = GEM_COLORS[hero.element];
-    this.frameAura.alpha = 0;
-    this.addChild(this.frameAura);
-
-    this.burstArt = cardBurst();
-    this.auraBurst = new Sprite(this.burstArt.texture);
-    this.auraBurst.anchor.set(0.5);
-    this.auraBurst.blendMode = "add";
-    this.auraBurst.tint = GEM_LIGHT[hero.element];
-    this.auraBurst.alpha = 0;
-    this.addChild(this.auraBurst);
-
-    /** How far the ring has travelled off the frame, 1 being still on it. */
-    this.burstDriver = { v: 1 };
-
-    /**
      * The painted frame in the hero's own colour — see art/cardframe.js. Above
-     * the art and the ready glow, because it is the card's edge: the aura washes
+     * the art and the strike flash, because it is the card's edge: those wash
      * over the portrait, not over the border that holds it.
      */
     this.frameArt = cardFrameSprite(hero.element);
-    if (this.frameArt) {
-      this.frameArt.alpha = FRAME_REST;
-      this.addChild(this.frameArt);
-    }
+    if (this.frameArt) this.addChild(this.frameArt);
 
     // Still here with the art in place: it draws the charge rule, and the
     // rounded stroke it used to draw for the whole card is the fallback for a
@@ -1003,6 +954,31 @@ export class HeroCard extends Container {
 
     this.t = 0;
     this.pulseT = 0;
+
+    /**
+     * A hero can be dealt already charged — see DIFFICULTY.chargeStart.
+     *
+     * `ready` is otherwise only ever set by addCharge crossing the line, and
+     * everything that goes with it is set by setReady on the same frame: the
+     * caption swaps to READY, the card stands taller and starts breathing. A
+     * card dealt at the top had the full bar and none of that — a hero the
+     * director agreed was spendable, drawn as an ordinary card, which is what
+     * left the opening demo with nothing it was willing to point at.
+     *
+     * The same state is put on here, minus the two things setReady does that
+     * only make sense as *events*: the charge sound, which would fire into a
+     * page the player has not touched yet and which the audio unlock would
+     * swallow anyway, and the pop, which is a card *arriving* at full rather
+     * than one that started there. The frame and the charge rule are not drawn
+     * here either — resize() draws both, and a card has no size until it runs.
+     */
+    this.ready = this.charge >= 1;
+    if (this.ready) {
+      this.readyLabel.alpha = 1;
+      this.label.alpha = 0;
+      this.pulsing = true;
+      this.scale.set(READY_SCALE);
+    }
   }
 
   resize(w, h) {
@@ -1011,9 +987,15 @@ export class HeroCard extends Container {
     this.hitArea = new Rectangle(-w / 2, -h / 2, w, h);
 
     const el = this.hero.element;
-    // The card's corner is the frame's corner: the portrait, the plate and the
-    // border all have to be the same rounded rectangle or the corners show it.
+    // The card's corner is the frame's corner: the fill, the portrait, the plate
+    // and the border are all one rounded rectangle or the corners show it. `r`
+    // rounds the fill and `clip` is where the art stops, and they are now the
+    // same rectangle to the pixel — see cardFrameClip, which is where the two
+    // were reconciled and why they had to be.
     const r = this.frameArt ? cardFrameRadius(h) : Math.min(w, h) * 0.18;
+    const clip = this.frameArt
+      ? cardFrameClip(w, h)
+      : { x: -w / 2, y: -h / 2, w, h, r };
 
     if (this.frameArt) fitCardFrame(this.frameArt, w, h);
 
@@ -1062,27 +1044,13 @@ export class HeroCard extends Container {
     this.footScrim.y = h / 2;
 
     this.artMask.clear();
-    this.artMask.roundRect(-w / 2, -h / 2, w, h, r);
+    this.artMask.roundRect(clip.x, clip.y, clip.w, clip.h, clip.r);
     this.artMask.fill({ color: 0xffffff });
 
     this.aura.setSize(w * 1.9, h * 1.9);
     this.burn.setSize(w * 2.1, h * 2.1);
 
-    // The aura is laid on the card's box, not sized to a multiple of it: it is
-    // the frame lighting up, so it is fitted the way the frame is, and the file
-    // carries its own margin round that box — see art/frameaura.js.
-    fitCardAura(this.frameAura, this.auraArt, w, h);
-    // The ring goes back to the border wherever it had got to. A burst is four
-    // tenths of a second long and the driver behind it is still counting; sizing
-    // it off the card it grew from would leave it expanding to a box that no
-    // longer exists. Nothing is lost — the tap it belongs to is already over.
-    killTweensOf(this.burstDriver);
-    this.burstDriver.v = 1;
-    this.sizeBurst(1);
-    this.auraBurst.alpha = 0;
-
-    // Off the short side, so the pip is the same size on a card held either way,
-    // and inset far enough to clear the frame's border rather than straddle it.
+    // Off the short side, so the pip is the same size on a card held either way.
     // The gem carries the board's own padding inside its texture, so the circle
     // that lands on the card is a little smaller than the box asked for here.
     const sig = Math.max(
@@ -1090,9 +1058,21 @@ export class HeroCard extends Container {
       Math.min(Math.min(w, h) * SIGIL.k, SIGIL.max),
     );
     this.sigil.setSize(sig, sig);
-    const inset = sig / 2 + Math.max(1.5, Math.min(w, h) * SIGIL.gap);
-    this.sigil.x = -w / 2 + inset;
-    this.sigil.y = -h / 2 + inset;
+
+    // Sat in from the inside of the border rather than in from the card's box,
+    // and by a gap wide enough that the corner is allowed to be a corner.
+    //
+    // Both halves of that are the same complaint. The pip was laid out against
+    // `-w / 2`, which is the *outer* edge of the frame, so the line and its
+    // radius were spent out of the gem's own clearance and the arc had a roundel
+    // sitting in it. Measured off `clip` — the rounded rectangle the border
+    // draws round, see cardFrameClip — the gap is the gap whatever the frame is
+    // doing at that size, and the widened SIGIL.gap is what makes it read as
+    // one: the top left corner is now frame and card, with the gem beginning
+    // after both.
+    const pad = Math.max(2.5, Math.min(w, h) * SIGIL.gap);
+    this.sigil.x = clip.x + sig / 2 + pad;
+    this.sigil.y = clip.y + sig / 2 + pad;
 
     // Sat on the stack rather than placed at a fraction of the card: the name
     // is the top of the block, so it moves with whatever is under it. Solved up
@@ -1230,23 +1210,14 @@ export class HeroCard extends Container {
     // The charge's fallback colour brightens with `ready`, so it is redrawn from
     // here as well as from its own tween.
     this.drawCharge();
-    if (this.frameArt) {
-      killTweensOf(this.frameArt);
-      tween(this.frameArt, { alpha: on ? 1 : FRAME_REST }, on ? 0.22 : 0.3);
-    }
     tween(this.readyLabel, { alpha: on ? 1 : 0 }, 0.2);
     tween(this.label, { alpha: on ? 0 : 1 }, 0.2);
-    // The halo arrives with the wash and leaves with it, and it is killed before
-    // either move: a card can be charged, spent and charged again inside a
-    // couple of seconds, and two tweens on one alpha are written in the order
-    // they were added — see Hand.stop, which is where that bit us first.
-    killTweensOf(this.frameAura);
+    // A charged card carries no light of its own. It says READY, it stands
+    // taller and it breathes on its own scale — the halo off the border, the
+    // ring the tap threw and the wash over the portrait are all gone, and what
+    // is left is read against the arena instead of through a bloom.
     if (on) {
       sfx.charged(this.hero.element);
-      this.aura.alpha = 0;
-      tween(this.aura, { alpha: 0.55 }, 0.3);
-      this.frameAura.alpha = 0;
-      tween(this.frameAura, { alpha: AURA_READY }, 0.3);
       // Pop first, then hand the scale over to the idle pulse in update().
       tween(this.scale, { x: READY_SCALE, y: READY_SCALE }, 0.32, {
         ease: Ease.backOut,
@@ -1258,9 +1229,7 @@ export class HeroCard extends Container {
       });
     } else {
       this.pulsing = false;
-      tween(this.aura, { alpha: 0 }, 0.3);
       tween(this.scale, { x: 1, y: 1 }, 0.25);
-      tween(this.frameAura, { alpha: 0 }, 0.3);
     }
   }
 
@@ -1339,56 +1308,8 @@ export class HeroCard extends Container {
     tween(this.aura, { alpha: 0 }, lead ? 0.4 : 0.3);
   }
 
-  /**
-   * The ultimate goes off: the frame throws its aura.
-   *
-   * One ring, in the card's own shape, expanding out of the border and gone
-   * before the cut-in has finished arriving — and the standing halo is pushed to
-   * full on the same frame rather than tweened there. Nothing about an
-   * activation is a fade in: the light the player has been watching go round and
-   * round flashes, and `spend` takes it down behind the ring a beat later.
-   *
-   * The growth runs through a driver of its own — see sizeBurst for why it is a
-   * size and not a `scale` — and the sprite is anchored in the middle, so the
-   * ring grows about the card's own origin, the same one `pivot` lunges from and
-   * the ready pulse scales on. It leaves the frame square rather than sliding
-   * off one corner of it.
-   */
-  flare() {
-    killTweensOf(this.auraBurst);
-    killTweensOf(this.burstDriver);
-    this.auraBurst.alpha = 0.95;
-    this.burstDriver.v = 1;
-    this.sizeBurst(1);
-    tween(this.burstDriver, { v: BURST_GROW }, BURST_TIME, {
-      ease: Ease.quadOut,
-      onUpdate: () => {
-        if (this.destroyed) return;
-        this.sizeBurst(this.burstDriver.v);
-      },
-    });
-    tween(this.auraBurst, { alpha: 0 }, BURST_TIME);
-
-    killTweensOf(this.frameAura);
-    this.frameAura.alpha = 1;
-  }
-
-  /**
-   * Put the ring `grow` of the way off the frame.
-   *
-   * A size and not a scale, and that is Pixi's rule rather than a preference: a
-   * Sprite's width *is* its scale, so a sprite fitted to the card and then given
-   * a scale would have the fit thrown away — and one given a scale and then
-   * re-fitted on the next resize would snap back to the border mid-flight.
-   */
-  sizeBurst(grow) {
-    if (!this.cardW) return;
-    fitCardAura(this.auraBurst, this.burstArt, this.cardW, this.cardH, grow);
-  }
-
-  /** Spent: throw the aura, drain the bar and drop back to a normal card. */
+  /** Spent: drain the bar and drop back to a normal card. */
   async spend() {
-    this.flare();
     this.charge = 0;
     this.driveCharge(0, 0.5);
     this.setReady(false);
@@ -1513,17 +1434,11 @@ export class HeroCard extends Container {
     if (!this.pulsing) return;
     this.pulseT += dt;
     const beat = Math.sin(this.pulseT * 6.5);
+    // Scale is the whole of the beat now. The card used to breathe in light
+    // as well — a wash over the portrait and a halo off the border — and both
+    // are gone: six cards blooming under the board was the brightest thing on a
+    // screen whose subject is the boss.
     this.scale.set(READY_SCALE * (1 + beat * READY_SWING));
-    this.aura.alpha = 0.42 + beat * 0.18;
-    // On the same beat as the aura, and shallower: the border is the card's
-    // edge, and an edge that swings as hard as the glow reads as flicker.
-    if (this.frameArt) this.frameArt.alpha = 0.92 + beat * 0.08;
-    // The halo takes the deepest swing of the three, and that is the division of
-    // labour: the border holds still enough to stay an edge, the wash inside
-    // holds still enough to leave the portrait readable, and the light *outside*
-    // the card — which is over the arena and over nothing that has to be read —
-    // is the part allowed to actually move.
-    this.frameAura.alpha = AURA_READY - AURA_SWING + beat * AURA_SWING;
   }
 }
 

@@ -1,35 +1,48 @@
 /**
- * Cut the thin card outlines apart, key their backdrop out, and pack the six the
- * hero cards wear.
+ * Key the card outline off its backdrop and pack the one the hero cards wear.
  *
- *   node tools/pack-outline-frames.mjs          # -> src/assets/cards/outline-<colour>.webp
- *   node tools/pack-outline-frames.mjs --png    # keep the intermediate PNGs too
- *   node tools/pack-outline-frames.mjs --proof  # composite all six over a dark card
+ *   node tools/pack-outline-frames.mjs          # -> src/assets/cards/outline.webp
+ *   node tools/pack-outline-frames.mjs --png    # keep the intermediate PNG too
+ *   node tools/pack-outline-frames.mjs --proof  # composite it in all six colours
  *
  * The source is `src/source/cards/outline-sheet.png`: six rounded rectangles in a
  * row — red, blue, green, gold, purple, grey, which is the roster's colour order
- * — drawn as a thin line about four pixels thick with a small radius. It is a
+ * — drawn as a thin line about three pixels thick with a small radius. It is a
  * flat PNG with no alpha channel at all, so the "empty" middle of every frame is
  * a painted dark navy, and so is the sheet around them. Handed to a Sprite it
  * would arrive as six dark tiles that cover the portrait they are meant to
  * enclose.
  *
  * So the backdrop is keyed rather than cropped. Every pixel gets the alpha its
- * distance from the sheet's own background colour implies, on a ramp between two
- * thresholds, and the ones on the ramp then have that background divided back
- * out of their colour. Two thresholds and not one because the line is
- * antialiased: a hard cut leaves a stair on every corner, and at the size a card
- * is drawn the corner is most of what anyone sees of a frame. The backdrop is
- * measured off the sheet, not assumed — it is the most common colour in it, and
- * the sheet has two dark tones (inside a frame is not quite the tone outside it),
- * which is why the low threshold sits well above the difference between them.
+ * distance from the sheet's own background colour implies, and the colour is
+ * then thrown away: what is written is white at that alpha, and the card tints
+ * it with the element's own GEM_COLORS at runtime.
  *
- * All six are then packed to one identical size. They arrive within about 5% of
- * each other — the leftmost carries a little more bleed than the rest — and a
- * card that sized itself off the file would draw one of the six a twentieth
- * heavier than its neighbours in the same row. Normalising costs each frame up
- * to that 5% of squash, which is nothing on a line three pixels wide, and buys
- * one set of nine-slice constants for art/cardframe.js.
+ * Both of those are the fix for what the six baked files did to a row of cards,
+ * and both are worth spelling out, because the sheet looks fine and the cards
+ * did not.
+ *
+ * The colour is thrown away for the reason tools/pack-card-aura.mjs throws its
+ * own away: the six element colours live in GEM_COLORS and nowhere else. What
+ * came off this sheet was a *seventh* opinion and a muddy one — the keyed red
+ * averaged rgb(147,68,59) against FIRE's own rgb(255,90,31), the gold came out
+ * rgb(169,141,71) against LIGHTNING's rgb(255,210,46), and wind's frame was a
+ * neutral grey next to a pale aqua gem. Every card in the row wore a border that
+ * disagreed with the sigil in its own corner. White under a tint is what puts
+ * the six colours back under the one list that owns them.
+ *
+ * And one rectangle is packed rather than all six. They are the same drawing six
+ * times, and the differences between them are all defects: measured as coverage
+ * rather than as pixels — see `profile`, which is the measurement that settles
+ * this — the six lines run from 2.02 to 3.12 source pixels, and the worst of
+ * them, the grey, is 2.29 down its sides and 1.44 across its top and bottom.
+ * That is a border that visibly gives out at the ends, and it was Taranis's.
+ * Six files meant six weights in one row; one file means the row is one row.
+ *
+ * Which one is picked is a measurement and not a taste: the frame whose line
+ * holds the most even weight all the way round, which is the gold. It is also
+ * the closest of the six to the card's own aspect, which is worth nothing to a
+ * nine-slice and is a pleasant coincidence.
  *
  * The border thickness and corner radius are measured on the packed result and
  * printed, because those two numbers are the ones cardframe.js holds: they decide
@@ -49,21 +62,35 @@ import { statSync } from "node:fs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "src/source/cards/outline-sheet.png");
 const OUT_DIR = join(ROOT, "src/assets/cards");
+const OUT = join(OUT_DIR, "outline");
 
 /** Left to right on the sheet, which is the roster's own colour order. */
 const NAMES = ["red", "cyan", "green", "orange", "purple", "grey"];
 
 /**
- * The keying ramp, as max-channel distance from the sheet's background.
+ * Where the keying ramp starts, as max-channel distance from the backdrop.
  *
- * LOW is set well clear of the gap between the sheet's two dark tones — the
- * panel around a frame is about 16 lighter than the middle of one — so neither
- * survives as a haze. HIGH is far under the line's own distance, which is over
- * 100 for every one of the six, so nothing that is actually the frame comes out
- * anything but opaque.
+ * Set well clear of the gap between the sheet's two dark tones — the panel
+ * around a frame is about 16 lighter than the middle of one — so neither
+ * survives as a haze.
+ *
+ * Where it *ends* is measured per frame rather than fixed, and that is the
+ * second half of why the packed frames came out dark. A fixed ceiling low enough
+ * to make the dimmest of the six solid — the purple line is only 112 away from
+ * the backdrop, the gold is 182 — calls every pixel over it fully opaque,
+ * including the half-covered ones along both edges of a line three pixels wide.
+ * Two of those three pixels are then stored as opaque navy-blended colour, which
+ * is a dark line with a dark fringe rather than a bright line with a soft one.
+ * Ramped to the line's own distance instead, coverage comes back as coverage.
  */
 const KEY_LOW = 28;
-const KEY_HIGH = 70;
+
+/**
+ * Which distance counts as the line itself, as a quantile of the lit pixels in
+ * one frame. Not the maximum: a single hot pixel off the render would set the
+ * ceiling for the whole frame and dim everything under it.
+ */
+const LINE_Q = 0.98;
 
 /** Alpha at or over this counts as the line when measuring it. */
 const SOLID = 0.6;
@@ -74,26 +101,74 @@ const ALPHA_FLOOR = 10;
 /** Columns with fewer lit pixels than this are noise between frames, not a frame. */
 const MIN_RUN = 4;
 
+/** Distance at which a column counts as holding a line, when splitting the sheet. */
+const RUN_LEVEL = 70;
+
 /**
- * The height every frame is packed to, and the clear margin around it.
- *
- * Height only, and each frame keeps its own width. The six rectangles on the
- * sheet are all 328 pixels tall to the pixel but run from 153 to 167 wide, and
- * forcing them to one width is what put six different line weights in one row:
- * the wide ones get squashed 9% harder than the narrow ones, and the line is
- * squashed with them. Scaled by height alone every frame takes the same factor,
- * so every line lands at the same weight — and the width is the one dimension a
- * nine-slice does not care about, because the flat middle of the top and bottom
- * runs is stretched to whatever the card asks for anyway.
+ * The height the frame is packed to, and the clear margin around it.
  *
  * 264 because a card is at most about 117 points tall on the biggest screen this
  * creative runs on, at a renderer clamped to resolution 2 — sharp where it is
  * looked at, and not a byte past it. The margin is two transparent pixels so the
  * reduction has somewhere to put the line's antialiasing instead of smearing it
  * against the edge of the texture.
+ *
+ * Width is whatever the chosen rectangle's own aspect asks for. It is the one
+ * dimension a nine-slice does not care about: the flat middle of the top and
+ * bottom runs is stretched to whatever the card asks for anyway.
  */
 const BOX_H = 264;
 const PAD = 2;
+
+/**
+ * How much fatter the packed line is drawn than the sheet drew it, in source
+ * pixels across both of its edges.
+ *
+ * The sheet's line is a hairline — a shade over three source pixels, which is
+ * two device pixels by the time a card is 117 points tall on a screen at
+ * resolution 2 — and two pixels of a colour is an edge that states where a card
+ * stops without ever reading as a frame around one. Six of them in a row read as
+ * six tiles with a rule drawn round them.
+ *
+ * So the line is fattened here rather than scaled up there. The alternative was
+ * to lay the same art on the card at a larger scale, and that is the thing this
+ * pipeline exists to avoid: a hairline asked for at 1.4x its own size is an
+ * upsample, and the crisp edge the keying was careful to preserve comes back
+ * soft on exactly the pixels that show it. Grown before the reduction, the extra
+ * weight is real coverage in the file, and the frame is drawn at its own size
+ * the way it always was.
+ *
+ * Two things set it, and the corners set it first. A rounded corner drawn in a
+ * hairline is almost entirely its own antialiasing: at 1.2 the packed art held
+ * 0.97 alpha down a straight run and only 0.82 through the arc, so the border
+ * stayed shut along its sides and came open at all four corners, with the hero's
+ * own square corner showing through the curve. Measured off a real render
+ * against the element's own GEM_COLORS, the worst corner pixel sat 90 units off
+ * that colour at 1.2 and 35 at 2.8. Anything under about 2.8 is a border with
+ * holes in it, whatever weight is wanted.
+ *
+ * Weight sets the rest of it, and weight moves in steps rather than smoothly,
+ * because frameScale rounds the line onto whole device pixels — see
+ * art/cardframe.js. On the card this creative draws at its largest, 2.8 and 3.6
+ * both come out five device pixels and look identical; 4.4 and 5.2 both come out
+ * six. So the choice inside a step is which value lands the art nearest its own
+ * scale: 5.2 packs a 6.11 pixel line that is drawn at k 0.98, near enough one to
+ * one that nothing is resampled, where 4.4's 5.58 would be stretched 7% to reach
+ * the same six pixels. Pick the step first, then the value that sits in the
+ * middle of it.
+ *
+ * Whatever this is set to, re-run this tool and copy the four numbers it prints
+ * into art/cardframe.js. They were allowed to drift apart once — the constant
+ * there said 2.46 against art that measured 4.44 — and every number that file
+ * computes went wrong with them.
+ */
+const GROW = 5.2;
+
+/** Directions sampled around the disc when fattening. See fatten. */
+const GROW_STEPS = 24;
+
+/** What --proof tints the frame with: GEM_COLORS from src/config.js. */
+const GEM_COLORS = [0xff5a1f, 0x2fa8ff, 0x3fd16a, 0xffd22e, 0xa855f7, 0x8ceee2];
 
 /* ------------------------------------------------------------------- ffmpeg */
 
@@ -188,40 +263,13 @@ const away = (px, i, bg) =>
     Math.abs(px[i + 2] - bg[2]),
   );
 
-/**
- * Key the backdrop out: alpha from distance, colour decontaminated.
- *
- * The division is what keeps the line its own colour rather than a version of
- * itself mixed with navy. A pixel that is 40% line and 60% backdrop is stored as
- * the line at 40% alpha, so whatever the card puts behind it shows through the
- * other 60% instead of a painted approximation of the sheet.
- */
-function key(px, w, h, bg) {
-  const out = Buffer.alloc(w * h * 4);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = at(w, x, y);
-      const d = away(px, i, bg);
-      const a = Math.max(0, Math.min(1, (d - KEY_LOW) / (KEY_HIGH - KEY_LOW)));
-      const o = at(w, x, y);
-      if (a <= 0) continue;
-      for (let c = 0; c < 3; c++) {
-        const straight = (px[i + c] - bg[c] * (1 - a)) / a;
-        out[o + c] = clamp8(straight);
-      }
-      out[o + 3] = clamp8(a * 255);
-    }
-  }
-  return out;
-}
-
-/** Runs of columns that hold the line, one per frame on the sheet. */
-function columnRuns(px, w, h) {
+/** Runs of columns that hold a line, one per frame on the sheet. */
+function columnRuns(px, w, h, bg) {
   const runs = [];
   let start = -1;
   for (let x = 0; x < w; x++) {
     let n = 0;
-    for (let y = 0; y < h; y++) if (px[at(w, x, y) + 3] > SOLID * 255) n++;
+    for (let y = 0; y < h; y++) if (away(px, at(w, x, y), bg) > RUN_LEVEL) n++;
     if (n >= MIN_RUN) {
       if (start < 0) start = x;
     } else if (start >= 0) {
@@ -233,18 +281,117 @@ function columnRuns(px, w, h) {
   return runs;
 }
 
+/** How far from the backdrop this frame's own line stands. See LINE_Q. */
+function lineLevel(px, w, h, bg, x0, x1) {
+  const lit = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const d = away(px, at(w, x, y), bg);
+      if (d > KEY_LOW) lit.push(d);
+    }
+  }
+  lit.sort((a, b) => a - b);
+  return lit[Math.floor(lit.length * LINE_Q)] || KEY_LOW + 1;
+}
+
+/**
+ * Key one frame's columns out of the sheet as straight white-on-alpha.
+ *
+ * The whole sheet's width is kept so the boxing below can go on addressing
+ * pixels in the sheet's own coordinates; everything outside `x0..x1` is left
+ * transparent.
+ */
+function key(px, w, h, bg, x0, x1, level) {
+  const out = Buffer.alloc(w * h * 4);
+  const span = Math.max(1, level - KEY_LOW);
+  for (let y = 0; y < h; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const i = at(w, x, y);
+      const a = Math.max(0, Math.min(1, (away(px, i, bg) - KEY_LOW) / span));
+      if (a <= 0) continue;
+      out[i] = 255;
+      out[i + 1] = 255;
+      out[i + 2] = 255;
+      out[i + 3] = clamp8(a * 255);
+    }
+  }
+  return out;
+}
+
+/**
+ * Grow the keyed line outward by half of GROW on every side.
+ *
+ * A dilation and not a blur, and on the alpha channel alone: every pixel takes
+ * the strongest alpha found on a disc of that radius around it, sampled
+ * bilinearly so the radius can be a fraction of a pixel. On a straight run that
+ * slides each of the line's two edges out by the radius and leaves the ramp
+ * between them exactly as steep as it was — the line gets thicker, not softer,
+ * which is the whole difference between this and asking the card to draw it
+ * bigger. On a corner it walks the arc outward and keeps it an arc.
+ *
+ * Read from `px` and written to a copy, because a dilation that reads its own
+ * output smears along whichever axis it happens to run in.
+ *
+ * The span comes back widened by the reach, since a line grown outward now
+ * stands a pixel further out than the column run that found it. Handing the old
+ * span to lineBox would clip the new outer edge off the left and right of the
+ * frame and pack a border that is fatter on two sides than on the other two —
+ * the exact defect this packer picks its master to avoid.
+ */
+function fatten(px, w, h, x0, x1) {
+  const r = GROW / 2;
+  if (r <= 0) return { px, x0, x1 };
+
+  const reach = Math.ceil(r);
+  const lo = Math.max(0, x0 - reach);
+  const hi = Math.min(w - 1, x1 + reach);
+  const out = Buffer.from(px);
+
+  /** Alpha at a fractional point, bilinear, zero off the sheet. */
+  const alpha = (fx, fy) => {
+    const ix = Math.floor(fx);
+    const iy = Math.floor(fy);
+    const tx = fx - ix;
+    const ty = fy - iy;
+    let acc = 0;
+    for (let dy = 0; dy <= 1; dy++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        const sx = ix + dx;
+        const sy = iy + dy;
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+        acc += px[at(w, sx, sy) + 3] * (dx ? tx : 1 - tx) * (dy ? ty : 1 - ty);
+      }
+    }
+    return acc;
+  };
+
+  for (let y = 0; y < h; y++) {
+    for (let x = lo; x <= hi; x++) {
+      const i = at(w, x, y);
+      let a = px[i + 3];
+      for (let s = 0; s < GROW_STEPS; s++) {
+        const t = (s / GROW_STEPS) * Math.PI * 2;
+        const v = alpha(x + Math.cos(t) * r, y + Math.sin(t) * r);
+        if (v > a) a = v;
+      }
+      if (a <= 0) continue;
+      out[i] = 255;
+      out[i + 1] = 255;
+      out[i + 2] = 255;
+      out[i + 3] = clamp8(a);
+    }
+  }
+  return { px: out, x0: lo, x1: hi };
+}
+
 /**
  * The line's own outer rectangle inside `x0..x1` — pixels that are the line,
  * not the haze around it.
  *
- * Solid rather than any-alpha, and that distinction is the whole difference
- * between six frames that match and six that do not. Some of these six carry a
- * soft glow outside the line: the leftmost is 9% wider that way than its
- * neighbours. Boxed on any-alpha, that glow is measured as part of the frame, so
- * normalising the box scales that frame's line down by 9% against the others —
- * six lines at five different weights in one row, which is exactly what it looked
- * like. Boxed on the line itself, every frame arrives as its own outer rectangle
- * and they all come out of the resample at the same weight.
+ * Solid rather than any-alpha. Some of these six carry a soft glow outside the
+ * line: the leftmost is 9% wider that way. Boxed on any-alpha, that glow is
+ * measured as part of the frame and the line is scaled down against it; boxed on
+ * the line itself, the box is the rectangle the card has to lay on its own edge.
  */
 function lineBox(px, w, h, x0, x1) {
   let y0 = h;
@@ -337,33 +484,60 @@ const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
 /* ------------------------------------------------------------------ measure */
 
-/** Thickness of the line at the middle of each edge, in packed pixels. */
-function thickness(px, w, h) {
-  const solid = (x, y) => px[at(w, x, y) + 3] > SOLID * 255;
-  const ymid = Math.round(h / 2);
-  const xmid = Math.round(w / 2);
+/**
+ * The line's weight all the way round, as coverage rather than as pixels.
+ *
+ * Coverage — the alpha down a 16 pixel slice through the line, summed — is the
+ * measurement that made the difference between these six legible. Counted as
+ * solid pixels they are three of them each and indistinguishable; summed as
+ * coverage the grey's top and bottom are 1.44 against its own sides' 2.29 and
+ * the gold's 2.95 against 3.20, which is the difference between a border that
+ * gives out at the ends and one that does not.
+ *
+ * Returned with the spread as well as the mean, because the spread is what picks
+ * the master: what a row of six cards needs is not the heaviest line, it is the
+ * one that is the same weight on all four of its sides.
+ */
+const REACH = 16;
 
-  // Walk in to the line first rather than assuming it starts at PAD: the outer
-  // row of a keyed, resampled edge is often a shade under solid, and a measure
-  // that starts on it comes back zero.
-  let x = 0;
-  while (x < w && !solid(x, ymid)) x++;
-  let left = 0;
-  while (x + left < w && solid(x + left, ymid)) left++;
+function profile(px, w, h, box) {
+  const alpha = (x, y) => px[at(w, x, y) + 3] / 255;
+  const inset = (n) => Math.round(n * 0.12);
+  const runs = [];
 
-  let y = 0;
-  while (y < h && !solid(xmid, y)) y++;
-  let top = 0;
-  while (y + top < h && solid(xmid, y + top)) top++;
+  for (let y = box.y0 + inset(box.h); y < box.y0 + box.h - inset(box.h); y++) {
+    let left = 0;
+    let right = 0;
+    for (let i = 0; i < REACH; i++) {
+      left += alpha(box.x0 + i, y);
+      right += alpha(box.x0 + box.w - 1 - i, y);
+    }
+    runs.push(left, right);
+  }
+  for (let x = box.x0 + inset(box.w); x < box.x0 + box.w - inset(box.w); x++) {
+    let top = 0;
+    let bottom = 0;
+    for (let i = 0; i < REACH; i++) {
+      top += alpha(x, box.y0 + i);
+      bottom += alpha(x, box.y0 + box.h - 1 - i);
+    }
+    runs.push(top, bottom);
+  }
 
-  return { left, top };
+  const mean = runs.reduce((a, b) => a + b, 0) / runs.length;
+  const sd = Math.sqrt(
+    runs.reduce((a, b) => a + (b - mean) ** 2, 0) / runs.length,
+  );
+  return { mean, sd };
 }
 
 /**
  * The corner radius, as the horizontal run the arc takes to flatten out.
  *
  * Read off the art rather than assumed: it is the one number a nine-slice cannot
- * fudge. Cut inside the arc and every corner is stretched into an ellipse.
+ * fudge, and the card clips its own portrait to it — see cardFrameRadius. Cut
+ * inside the arc and every corner is stretched into an ellipse; clip outside it
+ * and the portrait pokes through its own border.
  */
 function cornerRadius(px, w, h) {
   const solid = (x, y) => px[at(w, x, y) + 3] > SOLID * 255;
@@ -391,8 +565,7 @@ function cornerRadius(px, w, h) {
  *
  * The sheet is a flat render with a little noise in it, and a ramp that starts at
  * KEY_LOW turns that noise into a field of 1s and 2s across the whole middle of
- * every frame. Invisible, and it costs more to compress than the line does: the
- * six files come down by about a third with it gone.
+ * the frame. Invisible, and it costs more to compress than the line does.
  */
 function denoise(px, floor) {
   for (let i = 3; i < px.length; i += 4) {
@@ -416,58 +589,84 @@ const bg = backdrop(sheet, info.w, info.h);
 console.log(
   `in   ${rel(SOURCE)}  ${info.w}x${info.h}  ${kb(statSync(SOURCE).size)}`,
 );
-console.log(
-  `     backdrop rgb(${bg.join(",")}), keyed on a ${KEY_LOW}..${KEY_HIGH} ramp`,
-);
+console.log(`     backdrop rgb(${bg.join(",")}), ramp from ${KEY_LOW}`);
 
-const keyed = key(sheet, info.w, info.h, bg);
-const runs = columnRuns(keyed, info.w, info.h);
-console.log(`     ${runs.length} frames on the sheet`);
+const runs = columnRuns(sheet, info.w, info.h, bg);
 if (runs.length !== NAMES.length) {
   throw new Error(`expected ${NAMES.length} frames, found ${runs.length}`);
 }
 
-const packed = [];
-runs.forEach(([x0, x1], i) => {
-  const box = lineBox(keyed, info.w, info.h, x0, x1);
+/**
+ * Pack all six, measure all six, keep one. The five that lose cost a second of
+ * work and are the only reason the one that wins is a choice rather than a
+ * guess — and the table they print is the record of it.
+ */
+const cut = runs.map(([x0, x1], i) => {
+  const level = lineLevel(sheet, info.w, info.h, bg, x0, x1);
+  const keyed = fatten(
+    key(sheet, info.w, info.h, bg, x0, x1, level),
+    info.w,
+    info.h,
+    x0,
+    x1,
+  );
+  const box = lineBox(keyed.px, info.w, info.h, keyed.x0, keyed.x1);
   const scale = (BOX_H - PAD * 2) / box.h;
   const aw = Math.round(box.w * scale);
   const ah = BOX_H - PAD * 2;
   const cw = aw + PAD * 2;
-  const art = resample(crop(keyed, info.w, box), box.w, box.h, aw, ah);
+  const art = resample(crop(keyed.px, info.w, box), box.w, box.h, aw, ah);
   const out = denoise(onCanvas(art, aw, ah, cw, BOX_H), ALPHA_FLOOR);
-  const t = thickness(out, cw, BOX_H);
-  const corner = cornerRadius(out, cw, BOX_H);
-  const name = NAMES[i];
-  const file = join(OUT_DIR, `outline-${name}`);
-
-  if (flags.has("--png")) encode(out, cw, BOX_H, `${file}.png`);
-  encode(out, cw, BOX_H, `${file}.webp`, LOSSLESS);
-  packed.push({ name, out, t, corner, w: cw });
-
-  console.log(
-    `out  ${rel(file)}.webp  ${cw}x${BOX_H}` +
-      `  ${kb(statSync(`${file}.webp`).size)}` +
-      `  line ${t.left}x${t.top}  radius ${corner}` +
-      `  (from ${box.w}x${box.h} at ${box.x0},${box.y0}, 1:${(1 / scale).toFixed(2)})`,
-  );
+  const line = profile(out, cw, BOX_H, {
+    x0: PAD,
+    y0: PAD,
+    w: aw,
+    h: BOX_H - PAD * 2,
+  });
+  return {
+    name: NAMES[i],
+    out,
+    w: cw,
+    level,
+    line,
+    radius: cornerRadius(out, cw, BOX_H),
+    aspect: box.w / box.h,
+  };
 });
 
-const line = Math.max(...packed.map((p) => Math.max(p.t.left, p.t.top)));
-const corner = Math.max(...packed.map((p) => p.corner));
+for (const f of cut) {
+  console.log(
+    `     ${f.name.padEnd(7)} line ${f.level.toString().padStart(3)} off the backdrop` +
+      `  weight ${f.line.mean.toFixed(2)}px  spread ${f.line.sd.toFixed(3)}` +
+      `  radius ${f.radius}  ${f.w}x${BOX_H}`,
+  );
+}
+
+// The evenest line in the set. See the header: the spread is the defect that
+// shows on a card, and the mean is not.
+const master = cut.reduce((a, b) => (b.line.sd < a.line.sd ? b : a));
+
+if (flags.has("--png")) encode(master.out, master.w, BOX_H, `${OUT}.png`);
+encode(master.out, master.w, BOX_H, `${OUT}.webp`, LOSSLESS);
+
 console.log(
-  `\n     for art/cardframe.js:  BOX_H ${BOX_H}  MARGIN ${PAD}` +
-    `  BORDER ${line}  RADIUS ${corner}  CORNER ${corner + line + PAD + 1}`,
+  `\nout  ${rel(OUT)}.webp  ${master.w}x${BOX_H}  ${kb(statSync(`${OUT}.webp`).size)}` +
+    `  <- the ${master.name}, evenest of the six`,
+);
+console.log(
+  `\n     for art/cardframe.js:  BOX_H ${BOX_H - PAD * 2}  MARGIN ${PAD}` +
+    `  BORDER ${master.line.mean.toFixed(2)}  RADIUS ${master.radius}`,
 );
 
 /**
- * All six over a dark tile, at the size a card actually draws them. This is the
- * only check that matters: a line keyed a shade too hard survives every
- * measurement above and still reads as a dotted edge on a phone.
+ * The packed frame in all six colours over a dark tile, at the size a card
+ * actually draws it. This is the only check that matters: a line keyed a shade
+ * too hard survives every measurement above and still reads as a dotted edge on
+ * a phone, and a white master that is right is right in six colours at once.
  */
 if (flags.has("--proof")) {
   const gap = 8;
-  const W = packed.reduce((n, p) => n + p.w + gap, gap);
+  const W = (master.w + gap) * NAMES.length + gap;
   const H = BOX_H + gap * 2;
   const proof = Buffer.alloc(W * H * 4);
   for (let i = 0; i < W * H; i++) {
@@ -476,20 +675,28 @@ if (flags.has("--proof")) {
     proof[i * 4 + 2] = 40;
     proof[i * 4 + 3] = 255;
   }
+  // HeroCard's own `bg` fill, so the proof is a card and not a line on a page.
+  const CARD = [0x12, 0x0b, 0x1e];
   let ox = gap;
-  packed.forEach((p) => {
+  GEM_COLORS.forEach((tint) => {
+    const rgb = [(tint >> 16) & 255, (tint >> 8) & 255, tint & 255];
+    for (let y = PAD; y < BOX_H - PAD; y++) {
+      for (let x = PAD; x < master.w - PAD; x++) {
+        const d = at(W, ox + x, gap + y);
+        for (let c = 0; c < 3; c++) proof[d + c] = CARD[c];
+      }
+    }
     for (let y = 0; y < BOX_H; y++) {
-      for (let x = 0; x < p.w; x++) {
-        const s = at(p.w, x, y);
-        const a = p.out[s + 3] / 255;
+      for (let x = 0; x < master.w; x++) {
+        const a = master.out[at(master.w, x, y) + 3] / 255;
         if (a === 0) continue;
         const d = at(W, ox + x, gap + y);
         for (let c = 0; c < 3; c++) {
-          proof[d + c] = clamp8(p.out[s + c] * a + proof[d + c] * (1 - a));
+          proof[d + c] = clamp8(rgb[c] * a + proof[d + c] * (1 - a));
         }
       }
     }
-    ox += p.w + gap;
+    ox += master.w + gap;
   });
   const file = join(OUT_DIR, "outline-proof.png");
   encode(proof, W, H, file);

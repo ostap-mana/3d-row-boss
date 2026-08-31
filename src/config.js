@@ -235,7 +235,27 @@ export const DIFFICULTY = {
    * is not difficulty, it is a coin flip with the feature switched off.
    */
   chargePerGem: 0.2,
-  chargeStart: 0.16,
+  /**
+   * What the healer's bar is dealt at — and it is dealt full.
+   *
+   * A stake and not a rate: it moves where Arissa's first ultimate lands and
+   * nothing else, because chargePerGem above is what the rest of the fight runs
+   * on. Full, so that the creative can show the ultimate at all.
+   *
+   * The opening demo points at a hero only once that hero's bar is actually
+   * full — see Director.showLesson, which is where the rule and the reasons for
+   * it are written down. Dealt at the old 0.16 nobody is ever full on the start
+   * screen, so the demo had a board half and no card half, and the one mechanic
+   * that separates this game from every other match-three in the feed was never
+   * demonstrated before the player had to decide whether to keep watching.
+   *
+   * What it costs the fight is Arissa's first tide arriving free rather than
+   * two triples in. On a thirty second clock against a boss whose whole threat
+   * is the doom timer, that is a head start and not a broken fight — and it is
+   * the healer, so the head start is survival rather than damage. Put it back to
+   * 0.16 and the balance is exactly what it was; the demo goes quiet with it.
+   */
+  chargeStart: 1,
 
   /**
    * The same, for the four heroes who are not the healer.
@@ -878,6 +898,140 @@ export const T = {
   moveCost: 2.8,
 };
 
+/* --------------------------------------------------------------- spotlight */
+
+/**
+ * The scrim behind the lesson: the screen goes dark everywhere except the
+ * cells the hand is pointing at.
+ *
+ * The creative already taught the move — the frames, the arrow, the stone that
+ * travels, the hand that drags it (see ui/coach.js and ui/hand.js). What none
+ * of that could do is say *where to look*. A first-timer meeting a five by five
+ * board, a golem, a doom clock and six hero cards inside one second has four
+ * competing bright things on screen and a pair of outlined gems somewhere among
+ * them; the marks were correct and nobody found them.
+ *
+ * So the rest of the screen is taken away for as long as the lesson is up. A
+ * hole is cut over the pair being taught, everything outside it is dimmed, and
+ * the one lit thing left is the thing the hand is on. See ui/spotlight.js.
+ *
+ * `on: false` turns it off outright and the lesson goes back to what it was.
+ *
+ * ## The dark stays, the ring does not
+ *
+ * What the argument above does not account for is the *shape* it was drawn in.
+ * The hole was cornered at half its own height, which makes a stadium: on a run
+ * of three cells that is a pill, on one cell a circle, and either of them laid
+ * over a grid of round gems reads as a bubble sitting on the board rather than
+ * as light falling on it. Round it was struck a rim in the lesson's colour, and
+ * on a board that is already mostly dark that pale arc was the loudest thing on
+ * screen — a line belonging to nothing, cutting across the gems it was pointing
+ * at. Moved onto a hero card for the demo's second half, it did the same to the
+ * row.
+ *
+ * So the dim stays and both of those are gone: no rim at all, and the hole
+ * cornered at `corner` below, which is a soft-edged rounded rectangle around
+ * the cells being taught. What the player sees is the rest of the screen
+ * falling away, which is the whole of what this was for.
+ */
+export const SPOTLIGHT = {
+  on: true,
+  /**
+   * How dark the world goes outside the hole, for the opening lesson — the one
+   * that runs before the creative has been touched.
+   *
+   * Deep, because at that moment there is nothing to be looked at except the
+   * lesson: no clock is running, the boss has not moved, and every point of
+   * attention the scrim takes away from the arena it hands to the one gesture
+   * the player has to make. Not opaque — the fight stays legible through it,
+   * which is the whole reason the arena is on screen in the first frame at all.
+   */
+  dim: 0.72,
+  /**
+   * And the same scrim during the fight, for the auto-hint that turns up when
+   * somebody stalls mid-run.
+   *
+   * Much lighter, and that is not timidity. By then the player is reading the
+   * boss's health, the doom clock and their own party as well as the board, and
+   * a hint that blacks all three out to point at two gems is not helping them
+   * play — it is interrupting them. Enough to pull the eye, not enough to hide
+   * the fight it is a hint about.
+   */
+  dimInPlay: 0.42,
+  /*
+   * Unreachable as it stands, and kept rather than deleted.
+   *
+   * The scrim is now the opening lesson's alone — see Coach.reaim, which puts it
+   * away for every hint after that one — so nothing asks for the shallow dim any
+   * more. The number is left here, and the code path under it in ui/spotlight.js
+   * with it, because the thing that changed is one `if` in the coach: bringing
+   * the in-play scrim back is deleting that guard, and it should find its own
+   * depth still written down when it does.
+   */
+  /** The colour the screen is taken down to — the same night the app clears to. */
+  color: 0x05030a,
+  /**
+   * Clearance between the cells being taught and the edge of the hole, as a
+   * fraction of a board cell.
+   *
+   * A hole cut exactly on the gems reads as a rectangle somebody drew on the
+   * board. A little air round them reads as a light on them.
+   */
+  pad: 0.22,
+  /**
+   * How far the edge of the hole is smeared out, in cells, and in how many
+   * steps.
+   *
+   * One step, which is to say no smear at all: the light is one rectangle with
+   * an edge on it.
+   *
+   * This stood at four, on the argument that a hard edge on a scrim reads as a
+   * cut-out and the bands would composite into a curve nobody could see the
+   * seams of. On the screen they were plainly four: four rounded rectangles
+   * nested inside one another round a single hero card, each a visibly
+   * different shade, which is not a falloff — it is four lights arguing about
+   * where the one light ends. The whole point of the scrim is that there is
+   * exactly one place for the eye to go, and a border made of four concentric
+   * outlines is four more things to look at than the card inside it.
+   *
+   * `feather` is left at its span because it costs nothing and is what a
+   * smoother falloff would be measured in: raising `featherSteps` well past
+   * four — twenty or so — is the other way out of the banding, where the seams
+   * go below what the eye resolves instead of the edge going hard. One is the
+   * cheaper answer and the one that reads as a light on a card, so it is the one
+   * that is set.
+   */
+  feather: 0.55,
+  featherSteps: 1,
+  /**
+   * The hole's corner, in cells. Zero: the light is a plain rectangle.
+   *
+   * A fixed radius and not a fraction of the box, which is what stopped it
+   * being a stadium — cornered at half its own height, a run of three cells
+   * came out a pill and a single gem a circle. At a fifth of a cell it was a
+   * rounded rectangle instead, and rounded was still wrong: the board is a
+   * grid, the cells being taught are a rectangle of it, and a corner radius on
+   * the light is a shape the board does not have. Square, the hole reads as
+   * *these cells* and nothing else.
+   *
+   * And it is now every hole's corner, the hero card's included. The card hands
+   * in a radius of its own — it has one, and the light used to trace it — but
+   * what that bought was the one shape on screen the argument above rejects
+   * everywhere else, wrapped round the one thing the lesson is pointing at. A
+   * light is square here whatever it is lighting. See Coach.reaim, which is
+   * where the card's own corner is dropped on the way to the scrim, and
+   * Coach.cardBox, which still carries it for the drawn fallback frame.
+   *
+   * Dropped, and not sent in as a zero: a radius that arrives is grown by `pad`
+   * on its way through Spotlight.aim, so a zero handed in comes out a fifth of a
+   * cell. This number is the one that is reached by saying nothing.
+   */
+  corner: 0,
+  /** How long the scrim takes to arrive, and to move when the lesson re-aims. */
+  fade: 0.28,
+  travel: 0.34,
+};
+
 /* ------------------------------------------------------------------- audio */
 
 /**
@@ -1123,6 +1277,20 @@ export const COPY = {
    * the game.
    */
   cta: "PLAY NOW",
+  /**
+   * The second button on the defeat card, and the only surface in the whole
+   * creative that does not point at the store.
+   *
+   * It exists because a wipe is the one ending a player can disagree with. The
+   * card's own argument — see the `defeatTitle` note below — is that nothing on
+   * it discusses the result; this does not discuss it either, it just offers the
+   * fight back. Somebody who wants another thirty seconds is somebody still
+   * playing, and a card that answers "no, install it" to that has spent the one
+   * moment the player was asking for the game rather than being sold it.
+   *
+   * Only on a loss. A win has nothing to try again.
+   */
+  retry: "RETRY",
   lava: "LAVA SPREADS!",
   lavaHint: "BREAK IT",
   ultClear: "BOARD CLEARED!",

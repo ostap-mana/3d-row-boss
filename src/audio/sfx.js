@@ -633,8 +633,36 @@ export function doomCast() {
   });
 }
 
+/**
+ * How long after a stinger the narrator says which ending it was.
+ *
+ * The victory cut opens a fifth of a second before its hit — see pack-outcome —
+ * so 0.45 puts the word a quarter-second *behind* the impact, riding the
+ * sustain rather than fighting the transient. The braam has its weight at the
+ * front instead, and 0.4 clears it by about the same margin.
+ *
+ * Both are the same gesture the banner makes: the director calls the stinger
+ * and then awaits `hud.shout`, which takes 0.9 s to put the word on screen, so
+ * a voice at 0.4 lands with the text rather than ahead of it.
+ */
+const VO_DELAY = { victory: 0.45, defeat: 0.4 };
+
+/**
+ * The narrator, or nothing.
+ *
+ * The only sound in the palette with no synthesized twin, and deliberately: the
+ * rest of this file exists so a webview that will not decode an MP3 still gets
+ * a full mix, but there is no oscillator that says "victory". A missing voice
+ * is a stinger on its own, which is what the creative shipped with and is still
+ * a complete ending — so this returns silently and the caller does not care.
+ */
+function outcomeVoice(which) {
+  samples.play(`${which}Vo`, { delay: VO_DELAY[which] });
+}
+
 /** The boss falls: a major arpeggio with a bell on top. */
 export function victory() {
+  outcomeVoice("victory");
   if (samples.play("victory")) return;
   [523.3, 659.3, 784.0, 1046.5].forEach((f, i) => {
     tone({
@@ -657,6 +685,7 @@ export function victory() {
 
 /** The party falls: the same shape, minor and going the other way. */
 export function defeat() {
+  outcomeVoice("defeat");
   if (samples.play("defeat")) return;
   [523.3, 466.2, 392.0, 311.1].forEach((f, i) => {
     tone({
@@ -793,10 +822,19 @@ export const bed = {
     // onAudioOpen hook, which can land before this does, and without the first
     // half of this test the synthesized bed would start underneath it.
     if (samples.room.playing() || samples.room.start()) return;
-    if (!AUDIO.bed || bedNodes) return;
+    if (!AUDIO.bed) return;
     const c = audioContext();
     const out = audioBus();
     if (!c || !out) return;
+    // Second start, on a rematch: `stop` below never tore the graph down, it
+    // faded the gain out, so the nodes are still here and still running and the
+    // only thing missing is the level. Returning early on `bedNodes` — which is
+    // what this did — left a second fight with no room tone at all on every
+    // device that fell back to the synthesized bed.
+    if (bedNodes) {
+      bedNodes.gain.gain.setTargetAtTime(AUDIO.bedLevel, c.currentTime, 1.2);
+      return;
+    }
     bedNodes = buildBed(c, out);
     bedNodes.gain.gain.setTargetAtTime(AUDIO.bedLevel, c.currentTime, 1.2);
   },

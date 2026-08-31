@@ -21,8 +21,7 @@ import { reseed } from "./core/rng.js";
 import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
-import { loadCardFrames } from "./art/cardframe.js";
-import { loadCardAura } from "./art/frameaura.js";
+import { loadCardFrame } from "./art/cardframe.js";
 import { loadBoardFrame } from "./art/boardframe.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadHeroAvatars } from "./art/avatars.js";
@@ -41,6 +40,7 @@ import { Director } from "./game/director.js";
 import { Hud } from "./ui/hud.js";
 import { Hand } from "./ui/hand.js";
 import { Coach } from "./ui/coach.js";
+import { Spotlight } from "./ui/spotlight.js";
 import { EndCard } from "./ui/endcard.js";
 import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
@@ -120,8 +120,7 @@ async function boot() {
     loadSpellArt(),
     loadGemPopArt(),
     loadCardPlates(),
-    loadCardFrames(),
-    loadCardAura(),
+    loadCardFrame(),
     loadHeroAvatars(),
     loadHintHand(),
     loadHintMarks(),
@@ -140,46 +139,129 @@ async function boot() {
   const overlay = new Container();
   app.stage.addChild(world, overlay);
 
-  const bg = new Background();
-  const bossLayer = new Container();
-  const boss = new Boss();
-  bossLayer.addChild(boss);
-
   // Clip the boss at the lava line so it genuinely climbs out of the pool.
+  // Outlives every rebuild — it is a shape, not a piece of the fight.
   const lavaMask = new Graphics();
-  bossLayer.mask = lavaMask;
-
-  const board = new Board();
-  const vfx = new Vfx();
-  const hud = new Hud((source) => ctaClick(source));
-  const hand = new Hand();
-  // Above the gems it draws on — and above the hero row as well, because the
-  // ult lesson puts its frame round a card. Below the hand that points at both.
-  const coach = new Coach();
-  const cutin = new CutIn();
-  const endcard = new EndCard((source) => ctaClick(source));
-  // The one line the creative shows before it is touched, over the fight rather
-  // than in front of it — see ui/startprompt.js, and firstTouch below for what
-  // actually takes the touch.
-  const prompt = new StartPrompt();
 
   let director = null;
-  const heroRow = new HeroRow((index) => {
-    if (director) director.onCardTap(index);
-  });
 
-  world.addChild(
-    bg,
-    lavaMask,
-    bossLayer,
-    board,
-    heroRow,
-    coach,
-    vfx,
-    hud,
-    hand,
-  );
-  overlay.addChild(cutin, endcard, prompt);
+  /**
+   * The cast of the fight, and the one handle everything in this file holds it
+   * by.
+   *
+   * It used to be a dozen consts up here and a `scene` object built out of them
+   * further down. The object is now the only copy: `relayout` and the ticker
+   * read the board and the boss and the hud through it rather than through
+   * bindings of their own, which is what lets `restart` throw the whole cast
+   * away and build a second one without a single stale reference left pointing
+   * at the first. The object's identity never changes, so the director's
+   * `this.s` and the `__SIEGE__` handle both stay good across a rebuild.
+   */
+  const scene = { app, layout: null, shake };
+
+  /**
+   * Build the fight — every time it is played.
+   *
+   * Called once at boot and once per RETRY. Nothing here is reset: the whole
+   * cast is constructed from scratch, which is the only way to be sure the
+   * second run is a second run rather than the first one with its numbers
+   * pushed back. Boss health, hero health, ult charge, the doom clock, the
+   * lesson's one-way doors, the obsidian on the board — all of it is state
+   * spread across ten objects, and there is no reset() in the world that is
+   * easier to keep honest than `new`.
+   *
+   * The old cast is removed rather than destroyed. Whatever the finished run
+   * left in flight — a tween, an awaited delay, a promise nobody resolved —
+   * lands on an orphan that is no longer drawn and no longer ticked, which is
+   * silent. Destroying them instead would hand those same landings a corpse to
+   * write to; the tween engine drops tweens on destroyed targets (see
+   * core/tween.js) but the async chains in the director have no such guard.
+   */
+  function buildScene() {
+    // Before the removal: a mask is an effect held by the thing it masks, and
+    // leaving the old layer holding this one while the new layer takes it is
+    // how a mask ends up belonging to a container nobody renders.
+    if (scene.bossLayer) scene.bossLayer.mask = null;
+    world.removeChildren();
+    overlay.removeChildren();
+
+    const bg = new Background();
+    const bossLayer = new Container();
+    const boss = new Boss();
+    bossLayer.addChild(boss);
+    bossLayer.mask = lavaMask;
+
+    const board = new Board();
+    const vfx = new Vfx();
+    const hud = new Hud((source) => ctaClick(source));
+    const hand = new Hand();
+    // Above the gems it draws on — and above the hero row as well, because the
+    // ult lesson puts its frame round a card. Below the hand that points at both.
+    const coach = new Coach();
+    // The dark the lesson is lit against — see ui/spotlight.js. Handed to the
+    // coach rather than driven from here: the coach is what knows which cells a
+    // pass is about, and it re-solves them every time the board moves under it.
+    const spotlight = new Spotlight();
+    coach.useSpotlight(spotlight);
+    const cutin = new CutIn();
+    // Two ways off this card: the store, and back into the fight. The second is
+    // only offered on a wipe — see ui/endcard.js — and it is the only tap in the
+    // creative that does not lead to a store page.
+    const endcard = new EndCard(
+      (source) => ctaClick(source),
+      () => restart(),
+    );
+    // The one line the creative shows before it is touched, over the fight rather
+    // than in front of it — see ui/startprompt.js, and firstTouch below for what
+    // actually takes the touch.
+    const prompt = new StartPrompt();
+
+    const heroRow = new HeroRow((index) => {
+      if (director) director.onCardTap(index);
+    });
+
+    // The scrim goes over the whole composition and the lesson goes over the
+    // scrim. That order is the point of it: what dims is the arena, the board,
+    // the party AND the chrome — the boss bar and the doom clock are as much of
+    // what a first-timer is trying to read at once as the gems are — while the
+    // marks, the prop and the cells they are about stay at full brightness. Put
+    // it under the hud instead and the brightest thing on a dimmed screen is the
+    // one surface the lesson is not talking about.
+    //
+    // Inside `world`, not the overlay, so it shakes with the board it is holed
+    // over. See ui/spotlight.js.
+    world.addChild(
+      bg,
+      lavaMask,
+      bossLayer,
+      board,
+      heroRow,
+      vfx,
+      hud,
+      spotlight,
+      coach,
+      hand,
+    );
+    overlay.addChild(cutin, endcard, prompt);
+
+    Object.assign(scene, {
+      bg,
+      bossLayer,
+      boss,
+      board,
+      coach,
+      heroRow,
+      hud,
+      hand,
+      spotlight,
+      vfx,
+      cutin,
+      endcard,
+      prompt,
+    });
+  }
+
+  buildScene();
 
   /* ------------------------------------------------------------ layout */
 
@@ -217,23 +299,6 @@ async function boot() {
   let view = { w: first.w, h: first.h };
   let layout = computeLayout(view.w, view.h, safeInsets());
 
-  const scene = {
-    app,
-    layout,
-    bg,
-    boss,
-    board,
-    coach,
-    heroRow,
-    hud,
-    hand,
-    vfx,
-    cutin,
-    endcard,
-    prompt,
-    shake,
-  };
-
   /**
    * @param {{w:number,h:number,resolution:number}} [size] the measurement to
    *   lay out for. Omitted only by the first call below, which lays out for
@@ -254,17 +319,23 @@ async function boot() {
     layout = computeLayout(view.w, view.h, safeInsets());
     scene.layout = layout;
 
-    bg.resize(layout);
-    boss.resize(layout);
-    board.resize(layout);
-    heroRow.resize(layout);
-    hud.resize(layout);
-    hand.resize(layout);
-    coach.resize(layout);
-    vfx.resize(layout);
-    cutin.resize(layout);
-    endcard.resize(layout);
-    prompt.resize(layout);
+    // Through `scene` and not through bindings of its own: the cast is rebuilt
+    // on a RETRY and this has to lay out whichever one is currently on stage.
+    scene.bg.resize(layout);
+    scene.boss.resize(layout);
+    scene.board.resize(layout);
+    scene.heroRow.resize(layout);
+    scene.hud.resize(layout);
+    scene.hand.resize(layout);
+    // Before the coach, which re-aims the hole off its own cells on the way
+    // through — see Coach.resize — and needs the scrim already measured for the
+    // screen it is going to be cut into.
+    scene.spotlight.resize(layout);
+    scene.coach.resize(layout);
+    scene.vfx.resize(layout);
+    scene.cutin.resize(layout);
+    scene.endcard.resize(layout);
+    scene.prompt.resize(layout);
 
     lavaMask.clear();
     lavaMask.rect(
@@ -405,15 +476,61 @@ async function boot() {
     updateTweens(dt);
     // The doom clock runs on wall time, so the director needs the frame too.
     if (director) director.update(dt);
-    bg.update(dt);
-    boss.update(dt);
-    board.updateLocks(dt);
-    heroRow.update(dt);
-    hud.update(dt);
-    endcard.update(dt);
-    prompt.update(dt);
+    // Read off `scene` rather than off consts, so a rebuilt cast is the one
+    // being ticked and the run before it stops moving the moment it is replaced.
+    scene.bg.update(dt);
+    scene.boss.update(dt);
+    scene.board.updateLocks(dt);
+    scene.heroRow.update(dt);
+    scene.hud.update(dt);
+    scene.spotlight.update(dt);
+    scene.endcard.update(dt);
+    scene.prompt.update(dt);
     updateShake(dt);
   });
+
+  /* ----------------------------------------------------------- the rematch */
+
+  /**
+   * RETRY, from the defeat card — a whole new fight, in place.
+   *
+   * A reload would be the short way to write this and it is the wrong one. The
+   * creative ships as a single inlined HTML file (see vite-plugin-singlefile),
+   * and half the networks it runs on hand that file to a webview by writing it
+   * into a frame rather than by giving the frame a URL. `location.reload()` in
+   * one of those reloads whatever the frame was *navigated* to, which is
+   * nothing, and the retry button becomes a button that blanks the ad. So the
+   * scene is rebuilt instead: same document, same renderer, same decoded
+   * bitmaps, new everything else. See buildScene.
+   *
+   * The run starts immediately rather than behind the caption. The rule the
+   * start prompt exists for is that the creative must not play itself, and the
+   * tap on RETRY is exactly the gesture that rule asks for — making somebody
+   * who just asked for another fight ask a second time is a gate, not a policy.
+   * The caption buildScene puts back is hidden rather than dismissed — see
+   * StartPrompt.hide, and note that a fade there would flash it over the roar.
+   *
+   * The sound comes back with it: `finish` stopped the lava bed and crossed the
+   * music over to the lobby cut for the card, and both belong to the card that
+   * is now gone.
+   */
+  function restart() {
+    // A new board for a new run. The Board constructor deals its grid out of
+    // the RNG, so this has to land before buildScene and not after it.
+    reseed();
+    buildScene();
+    // A freshly built caption is a visible one, and this run does not want it.
+    scene.prompt.hide();
+    relayout();
+
+    bed.start();
+    music.start();
+
+    director = new Director(scene);
+    scene.director = director;
+    director.armIntro();
+    director.run();
+  }
 
   /* --------------------------------------------------------------- run */
 
@@ -444,7 +561,7 @@ async function boot() {
   // it is the stricter of the two, and the thirty second clock now starts
   // on the same gesture the player starts the fight with.
   firstTouch().then(() => {
-    prompt.dismiss();
+    scene.prompt.dismiss();
     director.run();
   });
 }

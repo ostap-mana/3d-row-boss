@@ -58,6 +58,27 @@ const RIPPLE_AT = 74;
 /** How far the hand shrinks under a press, as a fraction of its own size. */
 const PRESS = 0.86;
 
+/**
+ * The dark rim carried under the hand, and what it is for.
+ *
+ * The prop is a neon *outline* in the colour of the gem it is pointing at — see
+ * art/hinthand.js, which packs one per element for exactly that reason. Which
+ * means the one board it is guaranteed to be unreadable on is the board it is
+ * always on: a green hand laid over the three green gems it is demonstrating is
+ * a bright line on a bright line, and what the player sees is a smear where the
+ * move was supposed to be.
+ *
+ * So the same art goes down twice: once in black a little fatter, then the neon
+ * over it. Because both copies are the same alpha mask, the black is only ever
+ * *behind the line* — a rim, not a silhouette, and nothing of the gems under the
+ * open middle of the hand is covered that was not covered before.
+ *
+ * 1.12 is a rim about a pixel and a half at the size the prop is drawn, which is
+ * the width the neon itself is: enough to read as an edge on the hand's own
+ * colour, not enough to read as a second hand.
+ */
+const SHADE = { grow: 1.12, alpha: 0.58 };
+
 let drawnTex = null;
 function drawnTexture() {
   if (drawnTex) return drawnTex;
@@ -107,7 +128,18 @@ export class Hand extends Container {
     this.aspect = art.aspect;
     this.size = art.size;
 
-    this.sprite = new Sprite(painted || drawnTexture());
+    const texture = painted || drawnTexture();
+
+    // Under the hand and sharing its texture, so the two can never disagree
+    // about what shape they are — see SHADE. Added first, which is the whole of
+    // what makes it a backing rather than a stain over the top.
+    this.shade = new Sprite(texture);
+    this.shade.anchor.set(art.tip.x, art.tip.y);
+    this.shade.tint = 0x000000;
+    this.shade.alpha = SHADE.alpha;
+    this.addChild(this.shade);
+
+    this.sprite = new Sprite(texture);
     // Anchor on the fingertip so the hand points at the exact cell.
     this.sprite.anchor.set(art.tip.x, art.tip.y);
     this.addChild(this.sprite);
@@ -145,7 +177,9 @@ export class Hand extends Container {
   applySize() {
     const s = this.baseSize * this.urgency;
     killTweensOf(this.sprite);
+    killTweensOf(this.shade);
     this.sprite.setSize(s, s * this.aspect);
+    this.shade.setSize(s * SHADE.grow, s * this.aspect * SHADE.grow);
   }
 
   setUrgency(level) {
@@ -178,9 +212,29 @@ export class Hand extends Container {
    *
    * @param {number} type one of config.js's six, or -1 for none
    */
-  setElement(type) {
-    const tex = hintHandTexture(type);
-    if (tex) this.sprite.texture = tex;
+  setElement() {
+    // The neutral hand, whatever colour was asked for.
+    //
+    // The prop used to wear the element it was pointing at — art/hinthand.js
+    // packs one per element and still does — and on this board that is the one
+    // colour it must not be. The hand is *on* the gems it is demonstrating, so
+    // a green hand over three green gems is a bright line laid on a bright line
+    // of the same hue: at the size the prop is drawn it stops reading as a hand
+    // at all and reads as a smear where the move was supposed to be. The pale
+    // one separates from all six, which is the whole job of a pointer.
+    //
+    // Nothing is lost by dropping the colour. Which element the lesson is about
+    // is already said three other ways in the same frame — the frames round the
+    // pair, the arrow between them and the light the scrim cuts, all six-coloured
+    // — and none of those sit on top of the gems they are naming.
+    //
+    // The argument is kept rather than removed: every caller has an element to
+    // hand and the six textures are still packed, so putting the colour back is
+    // this line and nothing else.
+    const tex = hintHandTexture();
+    if (!tex) return;
+    this.sprite.texture = tex;
+    this.shade.texture = tex;
   }
 
   /**
@@ -403,6 +457,17 @@ export class Hand extends Container {
     tween(this.ripple, { alpha: 0 }, 0.4);
 
     killTweensOf(this.sprite);
+    killTweensOf(this.shade);
+    // Both on the same clock. Awaited on the hand rather than on the pair: they
+    // are given the same duration, so the rim lands with the line it is under.
+    tween(
+      this.shade,
+      {
+        width: s * PRESS * SHADE.grow,
+        height: s * this.aspect * PRESS * SHADE.grow,
+      },
+      0.1,
+    );
     await tween(
       this.sprite,
       { width: s * PRESS, height: s * this.aspect * PRESS },
@@ -414,6 +479,13 @@ export class Hand extends Container {
   async release() {
     const s = this.baseSize * this.urgency;
     killTweensOf(this.sprite);
+    killTweensOf(this.shade);
+    tween(
+      this.shade,
+      { width: s * SHADE.grow, height: s * this.aspect * SHADE.grow },
+      0.14,
+      { ease: Ease.backOut },
+    );
     await tween(this.sprite, { width: s, height: s * this.aspect }, 0.14, {
       ease: Ease.backOut,
     });

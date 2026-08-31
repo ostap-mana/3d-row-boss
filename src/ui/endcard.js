@@ -40,13 +40,20 @@ import {
   PLAY_LABEL_STROKE,
   PLAY_RIM,
   badgeSprites,
+  bannerHeight,
+  bannerSprite,
+  fitBanner,
   fitKeyArt,
   fitLogo,
   fitPlayPlate,
+  fitRetryPlate,
   keyArtSprite,
   logoSprite,
   playHeight,
   playPlateSprite,
+  retryPlateSprite,
+  DEFEAT_ART,
+  VICTORY_ART,
 } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import { tween, delay, killTweensOf, Ease } from "../core/tween.js";
@@ -92,13 +99,138 @@ const SIDE_SCRIM = [
 /** Gap between store badges, as a fraction of the row's height. */
 const BADGE_GAP = 0.28;
 
+/**
+ * The retry button, measured off the PLAY NOW plate it sits under.
+ *
+ * The same width as the plate, which is what `1` means here — the two read as a
+ * pair of buttons in one column rather than as a button and a smaller
+ * afterthought under it.
+ *
+ * It was 0.64 for as long as this was a *drawn* pill, and the reasoning was
+ * sound then: a dark capsule at the plate's own width beside a painted gem
+ * lockup is not a second button, it is the first one with a shadow. What changed
+ * is that RETRY is a painted plate now, in its own blue frame — see RETRY_ART in
+ * art/brand.js. Two paintings at two different widths is the pair looking like
+ * one of them was resized by accident, and shrinking a bevelled frame to
+ * two-thirds is also the fastest way to make it look cheap next to the one that
+ * was not shrunk.
+ *
+ * Still measured off the plate rather than off the screen, and that half of the
+ * old reasoning is untouched: it keeps the two locked to each other on every
+ * shape the card is solved for, where a fraction of the card width would drift
+ * apart between a phone and a tablet held sideways.
+ *
+ * RETRY_H only reaches the drawn fallback now. A painted plate takes its height
+ * from its own aspect — see fitRetry, which is where the two paths part.
+ */
+const RETRY_W = 1;
+const RETRY_H = 0.56;
+
+/**
+ * The retry button's own colours — drawn, not painted.
+ *
+ * Every other surface on this card is a bitmap out of the packer, and this one
+ * deliberately is not: a second painted plate would read as a second offer.
+ * A dark pill in the plate's own gold takes the shape of a button without taking
+ * the plate's presence, which is the difference between a button beside the CTA
+ * and a button competing with it. See PLAY_RIM, which it borrows so the two
+ * belong to the same card.
+ */
+const RETRY_FILL = 0x1a0c2c;
+const RETRY_LABEL = 0xffe6a8;
+
+/**
+ * How much of the card's width the outcome banner takes, and the most of the
+ * picture's hole it is allowed to fill.
+ *
+ * 0.82 rather than the full width because the banner's own art already carries
+ * mist and petals out past the plaque, and a bitmap run edge to edge puts that
+ * mist off the side of the screen — which reads as a banner that did not fit
+ * rather than as light coming off one.
+ *
+ * The cap is what makes it safe on a phone held sideways. There the hole the
+ * stack leaves is wide and shallow, and 82% of a landscape width is a banner
+ * deeper than the hole is: it would cover the painting, the golem and the whole
+ * reason the card has a picture on it. Capped at four tenths of the hole, the
+ * banner announces the result and the end card still sells the game underneath
+ * it.
+ *
+ * Both share the pair. The two paintings are different shapes — see VICTORY_ART
+ * and DEFEAT_ART — but the hole they go in is the same hole, and a defeat plaque
+ * given a width of its own would be the only thing on the card that moves when
+ * the result changes.
+ */
+const BANNER_WIDTH = 0.82;
+const BANNER_MAX_ROOM = 0.5;
+
+/**
+ * How much of the room either side of the banner's centre it may actually use.
+ *
+ * The banner is centred on `clear.x`, and held sideways that is 78% of the way
+ * across the card — the picture's own side of the split, not the middle of the
+ * screen. So the widest a *centred* box can be there is twice the gap to the
+ * nearer edge, and 0.82 of the card's width is nearly double that: the banner
+ * would hang a third of itself off the right of the screen. This is the share of
+ * that true available width it takes, leaving a hair of margin so the mist in the
+ * art has somewhere to end.
+ */
+const BANNER_FILL = 0.94;
+
+/**
+ * The banner's box when it is a rung of the column rather than a stamp on the
+ * picture — which held sideways is now the only thing it is. See stackLandscape.
+ *
+ * Two numbers because the art has one aspect and the card has two constraints,
+ * and either one can be the binding one. BANNER_COL is the share of the column
+ * it may span; BANNER_COL_ROOM caps the height at a share of the stage, and on
+ * every landscape shape this creative runs on the cap is what actually decides,
+ * because a banner 90% of a half-width column wide is a third of the screen
+ * deep.
+ *
+ * 0.26 is set against the wordmark under it rather than against the screen: it
+ * lands the plaque a little narrower than INVOKERS is wide, which is the order
+ * the card is selling in — the result is what just happened, the game is what is
+ * being sold, and the game's name stays the widest thing on the card.
+ */
+const BANNER_COL = 0.9;
+const BANNER_COL_ROOM = 0.3;
+
+/**
+ * The banner's cap on the one card that has a fifth rung in the column: the
+ * defeat card, which carries the retry button under its plate.
+ *
+ * A phone held sideways is the tightest box the creative is solved in — 375
+ * points of height on the reference device — and the landscape column was
+ * already spending nearly all of it on four rungs. Adding a button to it
+ * overflows: the block is centred, so an overflow is not a scroll, it is a
+ * banner clipped at the top of the screen and a store row clipped at the bottom.
+ *
+ * The banner pays for it because the banner is the rung with the slack. It is
+ * the only one sized by a share of the stage rather than by its own content, and
+ * a DEFEAT plaque at a fifth of the height is still the biggest thing in the
+ * column and still lands as a stamp. The wordmark, the plate and the badges have
+ * no give: two of them are the pitch and the third is the button.
+ *
+ * Only the landscape column needs this. Upright, the retry button is measured up
+ * from the bottom of the screen with the rest of the CTA block, and what it
+ * takes comes out of the picture's hole — which has it to give.
+ */
+const BANNER_COL_ROOM_RETRY = 0.2;
+
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export class EndCard extends Container {
-  constructor(onCta) {
+  /**
+   * @param {(source: string) => void} onCta where every tap on this card goes.
+   * @param {() => void} [onRetry] play it again — see `retry` below. Optional,
+   *   and the button is not built into the card when it is missing: a RETRY that
+   *   does nothing is worse than no RETRY at all.
+   */
+  constructor(onCta, onRetry) {
     super();
     this.visible = false;
     this.onCta = onCta;
+    this.onRetry = onRetry || null;
 
     this.bg = new Sprite(gradientTexture("endcard", BACKDROP));
     this.addChild(this.bg);
@@ -138,6 +270,41 @@ export class EndCard extends Container {
       s.visible = !!this.art;
       this.addChild(s);
     });
+
+    /**
+     * The outcome banner — VICTORY on a win, DEFEAT on a wipe.
+     *
+     * On the second plane, and that is the whole placement decision. It goes in
+     * above the painting and the two washes over it, so it is read against a
+     * darkened backdrop rather than against whatever the key art happens to have
+     * behind it, and *under* everything the card is selling with — the wordmark,
+     * the promise, the plate, the badges — all of which are added after it and
+     * therefore draw over it.
+     *
+     * It is also placed off the stack rather than in it: `placeBanner` lays it
+     * in `clear`, the hole the stack leaves for the picture, so it can never
+     * collide with a rung. That is what lets a banner this big go on a card whose
+     * layout was solved without it — see stackPortrait, which is intricate and
+     * which this does not touch.
+     *
+     * Absent only if the bitmap never decoded. Which of the two paintings goes
+     * in is not known here — the card is built long before the fight ends — so
+     * the box is made now, at the depth it has to be at, and `show` fills it
+     * once there is a result to fill it with.
+     *
+     * A Container around the bitmap, and not the bitmap itself, because the
+     * intro stamps it in on `scale`. In Pixi a Sprite's width *is* its scale, so
+     * a sprite fitted by `setSize` and then given a scale has the fit thrown
+     * away — and one given a scale and then re-fitted on the next rotation snaps
+     * to full size mid-flourish. The wrapper separates the two: `placeBanner`
+     * sizes the art inside it, the intro scales the box around it, and neither
+     * can undo the other.
+     */
+    this.bannerArt = null;
+    this.banner = new Container();
+    this.banner.alpha = 0;
+    this.banner.visible = false;
+    this.addChild(this.banner);
 
     /* ------------------------------------------------------------- headline */
 
@@ -236,6 +403,62 @@ export class EndCard extends Container {
     this.button.addChild(this.buttonText);
     this.addChild(this.button);
 
+    /* --------------------------------------------------------------- retry */
+
+    /**
+     * RETRY, and only ever on a wipe.
+     *
+     * Under the plate rather than over it, and under it on both layouts: the
+     * order on this card is the pitch first and the rematch second, and a
+     * button above the CTA is the first thing a thumb reaches on a phone.
+     *
+     * Built here and hidden, the way the outcome line and the promise are —
+     * `show` is the first moment the result is known, and the stack reads
+     * `visible` to decide whether there is a rung there at all. See fitLine,
+     * which is the same rule for the two Texts.
+     *
+     * It is also the one hole in the card's whole-screen tap target. Every other
+     * pixel of this screen is a store click — see the listener at the end of the
+     * constructor — and this button stops the event so a tap asking for another
+     * fight is not answered with the App Store. That hole is the cost of the
+     * feature and it is deliberately the smallest one that can still be hit: a
+     * pill under the plate, not a strip across the card.
+     */
+    this.retry = new Container();
+    this.retryBg = new Graphics();
+    this.retry.addChild(this.retryBg);
+
+    /**
+     * The painted plate, when it decoded — see art/brand.js.
+     *
+     * Added over the drawn pill and under the type, which is the same order the
+     * CTA button above uses and for the same reason: exactly one of the two is
+     * ever drawn, and which one is decided once in fitRetry rather than checked
+     * everywhere. With the painting there the pill is left empty and the word is
+     * already in the art; without it, the pill and the word are the button.
+     */
+    this.retryArt = retryPlateSprite();
+    if (this.retryArt) this.retry.addChild(this.retryArt);
+    this.retryText = new Text({
+      text: COPY.retry,
+      style: {
+        fontFamily: FONT,
+        fontSize: 20,
+        fontWeight: "900",
+        fill: RETRY_LABEL,
+        letterSpacing: 2.4,
+        stroke: { color: 0x140720, width: 3, join: "round" },
+      },
+    });
+    this.retryText.anchor.set(0.5);
+    // Painted plates carry their own word. The Text stays built either way so
+    // that a device which could not decode the bitmap still has a button with
+    // RETRY on it — see COPY.retry, which exists for exactly that reader.
+    this.retryText.visible = !this.retryArt;
+    this.retry.addChild(this.retryText);
+    this.retry.visible = false;
+    this.addChild(this.retry);
+
     this.badges = new Container();
     this.badgeRow = badgeSprites();
     this.badgeRow.forEach((badge) => {
@@ -296,6 +519,77 @@ export class EndCard extends Container {
       fitFont(this.buttonText, bw * 0.7, Math.max(15, bh * 0.42));
     }
     return bh;
+  }
+
+  /**
+   * Size the retry button off the CTA plate's box and report the box it took.
+   *
+   * Off the plate and not off the screen — see RETRY_W. Which means `fitPlay`
+   * has to have run first, on both layouts, and it has: portrait solves the CTA
+   * before anything above it, and landscape measures every rung before it places
+   * any of them.
+   *
+   * @returns {{w: number, h: number}}
+   */
+  fitRetry(bw, bh) {
+    const w = bw * RETRY_W;
+    this.retryBg.clear();
+
+    // Painted, the height is the art's and not the card's. RETRY_H is the drawn
+    // pill's own proportion — a flat capsule — and the plate is a chunkier
+    // lockup at 3.11; asked for the pill's box it would come out squashed by
+    // about a quarter, and a painted bevel squashed off-aspect is the one thing
+    // on this card that reads as a mistake rather than as a style. So width is
+    // what the card decides and height is what the art answers, which is how
+    // every other piece of brand art on this screen is sized.
+    if (this.retryArt) {
+      const h = fitRetryPlate(this.retryArt, w);
+      return { w, h };
+    }
+
+    const h = bh * RETRY_H;
+    this.drawRetry(w, h);
+    fitFont(this.retryText, w * 0.72, Math.max(12, h * 0.4));
+    return { w, h };
+  }
+
+  /**
+   * The pill itself: the card's own backdrop colour, rimmed in the plate's gold.
+   *
+   * A fill and not a hollow outline. The card behind it is a painting, and an
+   * outline over a painting is a word with a lit golem showing through the
+   * middle of it — legible on the shot it was designed against and nowhere else.
+   */
+  drawRetry(w, h) {
+    const g = this.retryBg;
+    g.clear();
+    const r = h * 0.42;
+    g.roundRect(-w / 2, -h / 2, w, h, r);
+    g.fill({ color: RETRY_FILL, alpha: 0.86 });
+    g.roundRect(-w / 2, -h / 2, w, h, r);
+    g.stroke({ width: Math.max(1.5, h * 0.06), color: PLAY_RIM, alpha: 0.9 });
+  }
+
+  /**
+   * Sit the retry button at `x, y` and give it the one listener on this card
+   * that does not lead to a store.
+   *
+   * `stopPropagation` for the same reason the badges have it and for a much
+   * louder one: the container behind this is a full-screen CTA, so without it
+   * every tap on RETRY would open the store *and* restart the fight.
+   */
+  placeRetry(x, y, w, h) {
+    this.retry.position.set(x, y);
+    this.retry.hitArea = new Rectangle(-w / 2, -h / 2, w, h);
+    this.retry.eventMode = "static";
+    this.retry.cursor = "pointer";
+    this.retry.removeAllListeners();
+    this.retry.on("pointertap", (e) => {
+      e.stopPropagation();
+      if (!this.onRetry) return;
+      sfx.select();
+      this.onRetry();
+    });
   }
 
   /**
@@ -382,6 +676,74 @@ export class EndCard extends Container {
     this.glow.position.set(this.focus.x, this.focus.y);
   }
 
+  /**
+   * Size the banner into a box and hand back the height it took.
+   *
+   * Split out of placeBanner because the column needs the height *before* it
+   * knows where anything goes — the block is centred as one thing, so every
+   * rung is measured first and placed second. See stackLandscape, and fitPlay
+   * and fitBrand, which are the same shape of function for the same reason.
+   *
+   * Width first and height as the cap, which is the same order placeBanner
+   * uses: width is the one dimension a card of any shape can offer a painted
+   * bitmap, and the cap is what stops the plaque from eating the column.
+   */
+  sizeBanner(maxW, maxH) {
+    if (!this.bannerArt) return 0;
+    let bw = maxW;
+    let bh = bannerHeight(this.defeat, bw);
+    if (maxH > 0 && bh > maxH) {
+      bh = maxH;
+      // Back to a width through the aspect of whichever painting is up — the
+      // two are not the same shape.
+      const art = this.defeat ? DEFEAT_ART : VICTORY_ART;
+      bw = (bh * art.w) / art.h;
+    }
+    fitBanner(this.bannerArt, this.defeat, bw);
+    return bh;
+  }
+
+  /**
+   * Lay the banner in the hole the stack left for the picture.
+   *
+   * Width first, because the banner is a painted bitmap at a fixed aspect and
+   * width is the one dimension a card of any shape can offer it — the height
+   * follows, the way every other piece of brand art on this card works.
+   *
+   * Then clamped by the height of `clear`, which is what stops it from covering
+   * the picture it is supposed to sit in front of: on a phone held sideways the
+   * hole is wide and shallow, and a banner sized purely by width would fill it
+   * top to bottom and there would be no end card left behind the win.
+   *
+   * Placed against the *top* of the hole rather than its middle. The painting's
+   * own subject sits low and central, and the banner is an announcement over it,
+   * not a label across it.
+   */
+  placeBanner(clear) {
+    if (!this.bannerArt) return;
+    const { w } = this.layout;
+
+    const room = Math.max(0, clear.bottom - clear.top);
+    // The widest centred box that fits either side of where it is centred — see
+    // BANNER_FILL. Portrait this is the whole card and the fraction below wins;
+    // landscape it is the picture's own column and this wins.
+    const reach = 2 * Math.min(clear.x, w - clear.x) * BANNER_FILL;
+    let bw = Math.min(w * BANNER_WIDTH, reach);
+    let bh = bannerHeight(this.defeat, bw);
+    const cap = room * BANNER_MAX_ROOM;
+    if (bh > cap && cap > 0) {
+      bh = cap;
+      // Back to a width through the aspect of whichever painting is up: the two
+      // are not the same shape, and the cap is the one place a height is the
+      // number that was decided.
+      const art = this.defeat ? DEFEAT_ART : VICTORY_ART;
+      bw = (bh * art.w) / art.h;
+    }
+
+    fitBanner(this.bannerArt, this.defeat, bw);
+    this.banner.position.set(clear.x, clear.top + bh * 0.5 + room * 0.04);
+  }
+
   /* ---------------------------------------------------------------- layout */
 
   resize(layout) {
@@ -443,7 +805,27 @@ export class EndCard extends Container {
 
     const bw = Math.min(w * 0.82, 430 * ui);
     const bh = this.fitPlay(bw);
-    const buttonY = badgeY - badge.h / 2 - Math.max(10, h * 0.024) - bh / 2;
+
+    /**
+     * The retry button goes between the plate and the store row, and it is
+     * measured up from the badges the same way everything else down here is —
+     * the bottom of this column is the one edge that must not move.
+     *
+     * `ctaBottom` is where the plate's underside lands: straight above the
+     * badges on a win, above the retry pill on a wipe. Written as one running
+     * number rather than as two branches so the CTA is placed by one line
+     * whichever card is up.
+     */
+    let ctaBottom = badgeY - badge.h / 2 - Math.max(10, h * 0.024);
+    if (this.retry.visible) {
+      const r = this.fitRetry(bw, bh);
+      const ry = ctaBottom - r.h / 2;
+      this.placeRetry(s.cx, ry, r.w, r.h);
+      // Tighter than the gap under the badges: the plate and the pill are one
+      // pair of buttons, and the store row is a separate thing under them.
+      ctaBottom = ry - r.h / 2 - Math.max(8, h * 0.018);
+    }
+    const buttonY = ctaBottom - bh / 2;
     this.placeButton(s.cx, buttonY, bw, bh);
 
     const outSize = this.fitLine(
@@ -487,6 +869,7 @@ export class EndCard extends Container {
     };
     this.placeArt(clear, 0);
     this.aimBackdrop(clear);
+    this.placeBanner(clear);
   }
 
   /**
@@ -524,6 +907,13 @@ export class EndCard extends Container {
       colW * 0.9,
       clamp(h * 0.05, 9, 18 * ui),
     );
+    // Measured here with the rest of the column and placed below as a rung of
+    // it — one more optional rung, on exactly the terms the other two are on.
+    const retry = this.retry.visible ? this.fitRetry(bw, bh) : null;
+    const bannerH = this.sizeBanner(
+      Math.min(colW * BANNER_COL, 520 * ui),
+      h * (retry ? BANNER_COL_ROOM_RETRY : BANNER_COL_ROOM),
+    );
 
     /**
      * The rungs that are actually on the card, in order, each with the gap it
@@ -537,6 +927,32 @@ export class EndCard extends Container {
      * gap the column reserved and never used.
      */
     const rungs = [];
+    /**
+     * The banner, at the top of the column — over the wordmark rather than over
+     * the picture.
+     *
+     * It is a rung here and a free-standing stamp in portrait, and that is the
+     * shape of the two layouts rather than an inconsistency. Upright, the column
+     * is the whole width and the picture's hole is a wide band under it with
+     * nothing else in it, so the banner has that band to itself. Held sideways
+     * there is no such band: the picture is a *column* beside the pitch, filled
+     * top to bottom with the phone and the four figures bursting out of it, and
+     * a plaque laid across the middle of that covered the one thing the card has
+     * a picture for.
+     *
+     * A rung and not a hand-placed sprite above the block, because the block is
+     * centred on the screen as one thing. Measured in with the rest of it, the
+     * column re-centres around the banner and the banner can never land on the
+     * wordmark — which a free y coordinate at the top of the stage would do on
+     * the first short window it met.
+     */
+    if (bannerH > 0) {
+      rungs.push({
+        h: bannerH,
+        gap: 0.5,
+        place: (y) => this.banner.position.set(cx, y + bannerH / 2),
+      });
+    }
     if (outSize) {
       rungs.push({
         h: outSize,
@@ -558,9 +974,18 @@ export class EndCard extends Container {
     }
     rungs.push({
       h: bh,
-      gap: 0.9,
+      // Half the usual gap when the pill is under it: the two are one pair of
+      // buttons, and the full 0.9 belongs between that pair and the store row.
+      gap: retry ? 0.45 : 0.9,
       place: (y) => this.placeButton(cx, y + bh / 2, bw, bh),
     });
+    if (retry) {
+      rungs.push({
+        h: retry.h,
+        gap: 0.9,
+        place: (y) => this.placeRetry(cx, y + retry.h / 2, retry.w, retry.h),
+      });
+    }
     rungs.push({
       h: badge.h,
       gap: 0,
@@ -640,12 +1065,23 @@ export class EndCard extends Container {
     this.introducing = false;
     killTweensOf(this);
     this.alpha = 1;
-    [this.outcome, this.brand, this.sub, this.button, this.badges].forEach(
-      (el) => {
-        killTweensOf(el);
-        el.alpha = 1;
-      },
-    );
+    [
+      this.outcome,
+      this.brand,
+      this.sub,
+      this.button,
+      this.retry,
+      this.badges,
+    ].forEach((el) => {
+      killTweensOf(el);
+      el.alpha = 1;
+    });
+    if (this.bannerArt) {
+      killTweensOf(this.banner);
+      killTweensOf(this.banner.scale);
+      this.banner.alpha = this.banner.visible ? 1 : 0;
+      this.banner.scale.set(this.bannerScale || 1);
+    }
     if (this.art) {
       killTweensOf(this.art.scale);
       this.art.scale.set(this.artScale);
@@ -710,9 +1146,32 @@ export class EndCard extends Container {
      * measures its own font, so every rung under it would be spaced around a gap
      * with nothing in it. See fitLine.
      */
+    // The banner is the one exception to the paragraph above: the card says
+    // nothing about the result in *type*, and it now says it in paint — either
+    // way, because there are two paintings. Built here rather than in the
+    // constructor because this is the first moment the result is known, and
+    // added to a box that was put at the right depth back then; `show` runs once
+    // per session, so the sprite is made once.
+    if (!this.bannerArt) {
+      this.bannerArt = bannerSprite(this.defeat);
+      if (this.bannerArt) this.banner.addChild(this.bannerArt);
+    }
+    this.banner.visible = !!this.bannerArt;
     // The one thing the card still colours off the result, and it is a wash
     // behind the painting rather than a sentence about it.
     this.glow.tint = this.defeat ? 0xff4a2a : GEM_COLORS[HEALER];
+    /**
+     * The other thing the result decides, and the only one that is a control.
+     *
+     * A wipe gets the fight back; a win has nothing to try again, and putting
+     * RETRY on a victory card would be asking somebody who just beat the boss
+     * whether they would like to beat it again instead of installing the game.
+     *
+     * `onRetry` in the test as well, because there are hosts this card is built
+     * for that have no run to restart — see the constructor. Set before the
+     * resize below, which is where the stack reads it.
+     */
+    this.retry.visible = this.defeat && !!this.onRetry;
     // Re-solve the stack: every line here is fitted to the screen width, and
     // the defeat copy is a different length from the victory copy.
     if (this.layout) this.resize(this.layout);
@@ -720,10 +1179,18 @@ export class EndCard extends Container {
     this.visible = true;
     this.alpha = 0;
 
-    const els = [this.outcome, this.brand, this.sub, this.button, this.badges];
+    const els = [
+      this.outcome,
+      this.brand,
+      this.sub,
+      this.button,
+      this.retry,
+      this.badges,
+    ];
     els.forEach((el) => {
       el.alpha = 0;
     });
+    this.banner.alpha = 0;
 
     // Every await below is followed by the same question, because a rotation
     // anywhere in here hands the whole card to settle() and there is nothing
@@ -743,6 +1210,30 @@ export class EndCard extends Container {
 
     await tween(this, { alpha: 1 }, 0.3);
     if (!this.introducing) return;
+
+    /**
+     * The banner lands before anything else on the card, and it lands hard.
+     *
+     * Everything below this arrives on a fade and a short slide, because
+     * everything below this is the pitch and a pitch that bangs in is a pitch
+     * nobody trusts. The banner is not the pitch — it is the verdict on the
+     * fight the player just had, and it is the only thing on the card that has
+     * earned a stamp. So it comes in over-size and settles, which is the one
+     * gesture the rest of the card never makes. A wipe is stamped as hard as a
+     * win: the player who lost knows they lost, and a card that says it quietly
+     * only looks like it is embarrassed about the game it is selling.
+     *
+     * `scale` and not `position`: it is centred in the picture's hole, and there
+     * is no direction it could slide from without crossing a rung of the stack.
+     */
+    if (this.banner.visible) {
+      this.bannerScale = 1;
+      this.banner.scale.set(1.16);
+      tween(this.banner, { alpha: 1 }, 0.2);
+      tween(this.banner.scale, { x: 1, y: 1 }, 0.5, { ease: Ease.backOut });
+      await delay(0.14);
+      if (!this.introducing) return;
+    }
 
     if (this.outcome.visible) {
       const oy = this.outcome.y;
@@ -769,6 +1260,22 @@ export class EndCard extends Container {
     tween(this.button, { alpha: 1 }, 0.25);
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
     if (!this.introducing) return;
+
+    /**
+     * The rematch after the pitch, and on a shorter slide than the plate got.
+     *
+     * Order is the argument here as much as size is. The plate lands first and
+     * lands hardest, then this arrives under it — so the card offers the game
+     * and then offers the fight, rather than putting the two up together and
+     * letting the player pick which one the screen was about.
+     */
+    if (this.retry.visible) {
+      const ry = this.retry.y;
+      this.retry.y = ry + 22;
+      tween(this.retry, { alpha: 1 }, 0.25);
+      await tween(this.retry, { y: ry }, 0.32, { ease: Ease.backOut });
+      if (!this.introducing) return;
+    }
 
     // The badges last, and quietly: they are the reassurance under the CTA, not
     // a second thing competing with it for the tap.
