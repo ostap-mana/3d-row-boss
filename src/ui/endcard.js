@@ -46,12 +46,12 @@ import {
   fitKeyArt,
   fitLogo,
   fitPlayPlate,
-  fitRetryPlate,
+  fitRetryLine,
   keyArtSprite,
   logoSprite,
   playHeight,
   playPlateSprite,
-  retryPlateSprite,
+  retryLineSprite,
   DEFEAT_ART,
   VICTORY_ART,
 } from "../art/brand.js";
@@ -100,30 +100,30 @@ const SIDE_SCRIM = [
 const BADGE_GAP = 0.28;
 
 /**
- * The retry button, measured off the PLAY NOW plate it sits under.
+ * The RETRY divider, measured off the store row it now sits under.
  *
- * The same width as the plate, which is what `1` means here — the two read as a
- * pair of buttons in one column rather than as a button and a smaller
- * afterthought under it.
+ * Off the badges and not off the PLAY NOW plate, because it is no longer a
+ * second button in the plate's column — it is a rule drawn under the bottom of
+ * the card, and the bottom of the card is the store row. See RETRY_LINE_ART.
+ * Measuring it against the row keeps the rule and the badges locked to each
+ * other on every shape the card is solved for; a fraction of the card width
+ * would drift apart between a phone and a tablet held sideways.
  *
- * It was 0.64 for as long as this was a *drawn* pill, and the reasoning was
- * sound then: a dark capsule at the plate's own width beside a painted gem
- * lockup is not a second button, it is the first one with a shadow. What changed
- * is that RETRY is a painted plate now, in its own blue frame — see RETRY_ART in
- * art/brand.js. Two paintings at two different widths is the pair looking like
- * one of them was resized by accident, and shrinking a bevelled frame to
- * two-thirds is also the fastest way to make it look cheap next to the one that
- * was not shrunk.
+ * A hair wider than the row rather than flush with it, which is what 1.12 buys.
+ * A rule that stops exactly where the badges stop reads as an underline on the
+ * third badge; carried a little past both ends it reads as the line the card
+ * finishes on. It is clamped to the column either way, so on a screen where the
+ * row is already at its cap the rule simply matches it.
  *
- * Still measured off the plate rather than off the screen, and that half of the
- * old reasoning is untouched: it keeps the two locked to each other on every
- * shape the card is solved for, where a fraction of the card width would drift
- * apart between a phone and a tablet held sideways.
- *
- * RETRY_H only reaches the drawn fallback now. A painted plate takes its height
- * from its own aspect — see fitRetry, which is where the two paths part.
+ * RETRY_PILL_W and RETRY_H only reach the drawn fallback, which is still a
+ * capsule measured off the plate — two thirds of it, as it was before there was
+ * any art here at all: a dark pill at the plate's own width beside a painted gem
+ * lockup is not a second button, it is the first one with a shadow. The painted
+ * path takes its height from its own aspect instead. See fitRetry, which is
+ * where the two part.
  */
-const RETRY_W = 1;
+const RETRY_W = 1.12;
+const RETRY_PILL_W = 0.64;
 const RETRY_H = 0.56;
 
 /**
@@ -408,9 +408,17 @@ export class EndCard extends Container {
     /**
      * RETRY, and only ever on a wipe.
      *
-     * Under the plate rather than over it, and under it on both layouts: the
-     * order on this card is the pitch first and the rematch second, and a
-     * button above the CTA is the first thing a thumb reaches on a phone.
+     * At the very bottom of the card on both layouts — under the store row,
+     * which is itself under the plate. The order on this card is the pitch
+     * first and the rematch last, and a control above the CTA is the first thing
+     * a thumb reaches on a phone.
+     *
+     * It sat directly under the plate for as long as it was a plate itself, and
+     * moving it below the badges is the same decision as changing the art: a
+     * button in the CTA's own column is part of the offer, and a rule ruled
+     * across the foot of the card is the way out of it. Nothing above it moves
+     * — the stack is still solved from the bottom edge, and this is now the rung
+     * that edge holds. See stackPortrait.
      *
      * Built here and hidden, the way the outcome line and the promise are —
      * `show` is the first moment the result is known, and the stack reads
@@ -419,25 +427,25 @@ export class EndCard extends Container {
      *
      * It is also the one hole in the card's whole-screen tap target. Every other
      * pixel of this screen is a store click — see the listener at the end of the
-     * constructor — and this button stops the event so a tap asking for another
-     * fight is not answered with the App Store. That hole is the cost of the
-     * feature and it is deliberately the smallest one that can still be hit: a
-     * pill under the plate, not a strip across the card.
+     * constructor — and this stops the event so a tap asking for another fight
+     * is not answered with the App Store. That hole is the cost of the feature,
+     * and putting it at the foot of the card is what keeps it cheap: it is the
+     * one band of this screen a thumb reaching for the pitch never crosses.
      */
     this.retry = new Container();
     this.retryBg = new Graphics();
     this.retry.addChild(this.retryBg);
 
     /**
-     * The painted plate, when it decoded — see art/brand.js.
+     * The painted divider, when it decoded — see art/brand.js.
      *
      * Added over the drawn pill and under the type, which is the same order the
      * CTA button above uses and for the same reason: exactly one of the two is
      * ever drawn, and which one is decided once in fitRetry rather than checked
-     * everywhere. With the painting there the pill is left empty and the word is
+     * everywhere. With the ornament there the pill is left empty and the word is
      * already in the art; without it, the pill and the word are the button.
      */
-    this.retryArt = retryPlateSprite();
+    this.retryArt = retryLineSprite();
     if (this.retryArt) this.retry.addChild(this.retryArt);
     this.retryText = new Text({
       text: COPY.retry,
@@ -522,35 +530,37 @@ export class EndCard extends Container {
   }
 
   /**
-   * Size the retry button off the CTA plate's box and report the box it took.
+   * Size the retry control and report the box it took.
    *
-   * Off the plate and not off the screen — see RETRY_W. Which means `fitPlay`
-   * has to have run first, on both layouts, and it has: portrait solves the CTA
-   * before anything above it, and landscape measures every rung before it places
-   * any of them.
+   * Two widths in, because the two paths are measured off two different things
+   * and always were: `w` is what the painted rule spans — the store row's width
+   * carried a little past both ends, see RETRY_W — and `bw`/`bh` are the CTA
+   * plate's box, which is all the drawn pill has ever been sized against. Both
+   * callers have both numbers by the time they get here: portrait lays the
+   * badges and the plate out before it solves the foot of the column, and
+   * landscape measures every rung before it places any of them.
    *
    * @returns {{w: number, h: number}}
    */
-  fitRetry(bw, bh) {
-    const w = bw * RETRY_W;
+  fitRetry(w, bw, bh) {
     this.retryBg.clear();
 
     // Painted, the height is the art's and not the card's. RETRY_H is the drawn
-    // pill's own proportion — a flat capsule — and the plate is a chunkier
-    // lockup at 3.11; asked for the pill's box it would come out squashed by
-    // about a quarter, and a painted bevel squashed off-aspect is the one thing
-    // on this card that reads as a mistake rather than as a style. So width is
-    // what the card decides and height is what the art answers, which is how
-    // every other piece of brand art on this screen is sized.
+    // pill's own proportion — a flat capsule at about 3:1 — and the ornament is
+    // a rule at 9.57; asked for the pill's box it would come out three times
+    // too deep, with the gems at each end stretched into eggs. So width is what
+    // the card decides and height is what the art answers, which is how every
+    // other piece of brand art on this screen is sized.
     if (this.retryArt) {
-      const h = fitRetryPlate(this.retryArt, w);
+      const h = fitRetryLine(this.retryArt, w);
       return { w, h };
     }
 
-    const h = bh * RETRY_H;
-    this.drawRetry(w, h);
-    fitFont(this.retryText, w * 0.72, Math.max(12, h * 0.4));
-    return { w, h };
+    const pw = bw * RETRY_PILL_W;
+    const ph = bh * RETRY_H;
+    this.drawRetry(pw, ph);
+    fitFont(this.retryText, pw * 0.72, Math.max(12, ph * 0.4));
+    return { w: pw, h: ph };
   }
 
   /**
@@ -577,10 +587,19 @@ export class EndCard extends Container {
    * `stopPropagation` for the same reason the badges have it and for a much
    * louder one: the container behind this is a full-screen CTA, so without it
    * every tap on RETRY would open the store *and* restart the fight.
+   *
+   * The target is deeper than the art, and that is the price of drawing this as
+   * a rule. The ornament is about a tenth as tall as it is wide — on a phone it
+   * stands eight or nine points deep — and a strip that thin is a control only a
+   * mouse can hit. So the box is grown around it to a thumb's worth of height,
+   * centred on the rule, and never narrower than the 44 points a touch target
+   * has to be. It stays inside the card's bottom margin: this is the last rung,
+   * and the padding it takes comes out of the gap under the store row.
    */
   placeRetry(x, y, w, h) {
+    const hitH = Math.max(h * 1.3, 44);
     this.retry.position.set(x, y);
-    this.retry.hitArea = new Rectangle(-w / 2, -h / 2, w, h);
+    this.retry.hitArea = new Rectangle(-w / 2, -hitH / 2, w, hitH);
     this.retry.eventMode = "static";
     this.retry.cursor = "pointer";
     this.retry.removeAllListeners();
@@ -800,32 +819,35 @@ export class EndCard extends Container {
     const pad = h * 0.045;
 
     const badge = this.layoutBadges(Math.min(w * 0.94, 520 * ui), 34 * ui);
-    const badgeY = s.bottom - pad - badge.h / 2;
-    this.badges.position.set(s.cx, badgeY);
-
     const bw = Math.min(w * 0.82, 430 * ui);
     const bh = this.fitPlay(bw);
 
     /**
-     * The retry button goes between the plate and the store row, and it is
-     * measured up from the badges the same way everything else down here is —
-     * the bottom of this column is the one edge that must not move.
+     * The foot of the column, solved upward from the bottom edge.
      *
-     * `ctaBottom` is where the plate's underside lands: straight above the
-     * badges on a win, above the retry pill on a wipe. Written as one running
-     * number rather than as two branches so the CTA is placed by one line
-     * whichever card is up.
+     * `foot` is the running underside: the bottom margin on a win, and on a
+     * wipe the underside of the RETRY rule, which is the rung that now holds
+     * that edge. Written as one running number rather than as two branches so
+     * the badges and the CTA above them are each placed by one line whichever
+     * card is up — the bottom of this column is the one edge that must not move,
+     * and everything down here is measured up from it.
+     *
+     * The rule is clamped to the same width the store row was allowed, so on a
+     * narrow phone where the badges are already spanning the card the two come
+     * out flush instead of the rule hanging off the sides.
      */
-    let ctaBottom = badgeY - badge.h / 2 - Math.max(10, h * 0.024);
+    let foot = s.bottom - pad;
     if (this.retry.visible) {
-      const r = this.fitRetry(bw, bh);
-      const ry = ctaBottom - r.h / 2;
+      const r = this.fitRetry(Math.min(badge.w * RETRY_W, w * 0.94), bw, bh);
+      const ry = foot - r.h / 2;
       this.placeRetry(s.cx, ry, r.w, r.h);
-      // Tighter than the gap under the badges: the plate and the pill are one
-      // pair of buttons, and the store row is a separate thing under them.
-      ctaBottom = ry - r.h / 2 - Math.max(8, h * 0.018);
+      foot = ry - r.h / 2 - Math.max(12, h * 0.03);
     }
-    const buttonY = ctaBottom - bh / 2;
+
+    const badgeY = foot - badge.h / 2;
+    this.badges.position.set(s.cx, badgeY);
+
+    const buttonY = badgeY - badge.h / 2 - Math.max(10, h * 0.024) - bh / 2;
     this.placeButton(s.cx, buttonY, bw, bh);
 
     const outSize = this.fitLine(
@@ -909,7 +931,10 @@ export class EndCard extends Container {
     );
     // Measured here with the rest of the column and placed below as a rung of
     // it — one more optional rung, on exactly the terms the other two are on.
-    const retry = this.retry.visible ? this.fitRetry(bw, bh) : null;
+    // Off the badge row's width, clamped to the column, exactly as upright.
+    const retry = this.retry.visible
+      ? this.fitRetry(Math.min(badge.w * RETRY_W, colW * 0.94), bw, bh)
+      : null;
     const bannerH = this.sizeBanner(
       Math.min(colW * BANNER_COL, 520 * ui),
       h * (retry ? BANNER_COL_ROOM_RETRY : BANNER_COL_ROOM),
@@ -974,23 +999,23 @@ export class EndCard extends Container {
     }
     rungs.push({
       h: bh,
-      // Half the usual gap when the pill is under it: the two are one pair of
-      // buttons, and the full 0.9 belongs between that pair and the store row.
-      gap: retry ? 0.45 : 0.9,
+      gap: 0.9,
       place: (y) => this.placeButton(cx, y + bh / 2, bw, bh),
+    });
+    rungs.push({
+      h: badge.h,
+      // A full gap under the row when the rule follows it, so the rule reads as
+      // the line the card finishes on rather than as an underline on the badges.
+      gap: retry ? 0.9 : 0,
+      place: (y) => this.badges.position.set(cx, y + badge.h / 2),
     });
     if (retry) {
       rungs.push({
         h: retry.h,
-        gap: 0.9,
+        gap: 0,
         place: (y) => this.placeRetry(cx, y + retry.h / 2, retry.w, retry.h),
       });
     }
-    rungs.push({
-      h: badge.h,
-      gap: 0,
-      place: (y) => this.badges.position.set(cx, y + badge.h / 2),
-    });
 
     // Every rung's height, plus every gap except the one under the last.
     const total = rungs.reduce(
@@ -1125,9 +1150,23 @@ export class EndCard extends Container {
    * painting, the plate and the badges do not: the pitch is the same pitch
    * whether the golem died or the party did.
    */
-  async show(outcome) {
+  /**
+   * @param {"victory"|"defeat"} outcome
+   * @param {boolean} [stamped] the verdict has already been announced, on the
+   *   screen before this one — see ui/outcome.js. The banner is then left off
+   *   the card entirely and so is the sound of it arriving: a second stamp is
+   *   the creative telling the player something they have just spent five
+   *   seconds reading, and the card has a pitch to make instead.
+   *
+   *   The stack closes up behind it on its own. Upright the banner was never a
+   *   rung — `placeBanner` lays it in the hole the picture is aimed into and
+   *   returns on a card with no banner art — and held sideways `sizeBanner`
+   *   gives back nothing, so the rung is simply not in the column. See
+   *   stackLandscape.
+   */
+  async show(outcome, stamped) {
     this.defeat = outcome === "defeat";
-    sfx.endcard(this.defeat);
+    if (!stamped) sfx.endcard(this.defeat);
 
     /**
      * Neither the outcome line nor the promise under the wordmark is set here
@@ -1152,7 +1191,7 @@ export class EndCard extends Container {
     // constructor because this is the first moment the result is known, and
     // added to a box that was put at the right depth back then; `show` runs once
     // per session, so the sprite is made once.
-    if (!this.bannerArt) {
+    if (!this.bannerArt && !stamped) {
       this.bannerArt = bannerSprite(this.defeat);
       if (this.bannerArt) this.banner.addChild(this.bannerArt);
     }
@@ -1261,28 +1300,33 @@ export class EndCard extends Container {
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
     if (!this.introducing) return;
 
-    /**
-     * The rematch after the pitch, and on a shorter slide than the plate got.
-     *
-     * Order is the argument here as much as size is. The plate lands first and
-     * lands hardest, then this arrives under it — so the card offers the game
-     * and then offers the fight, rather than putting the two up together and
-     * letting the player pick which one the screen was about.
-     */
-    if (this.retry.visible) {
-      const ry = this.retry.y;
-      this.retry.y = ry + 22;
-      tween(this.retry, { alpha: 1 }, 0.25);
-      await tween(this.retry, { y: ry }, 0.32, { ease: Ease.backOut });
-      if (!this.introducing) return;
-    }
-
-    // The badges last, and quietly: they are the reassurance under the CTA, not
-    // a second thing competing with it for the tap.
+    // The badges after the CTA, and quietly: they are the reassurance under it,
+    // not a second thing competing with it for the tap.
     const gy = this.badges.y;
     this.badges.y = gy + 14;
     tween(this.badges, { alpha: 1 }, 0.3);
     await tween(this.badges, { y: gy }, 0.34, { ease: Ease.cubicOut });
+    if (!this.introducing) return;
+
+    /**
+     * The rematch last of all, and on the quietest arrival on the card.
+     *
+     * Order is the argument here as much as size is. The plate lands first and
+     * lands hardest, the store row settles under it, and only then does the way
+     * out draw itself in — so the card offers the game and then, at the bottom,
+     * mentions the fight, rather than putting the two up together and letting
+     * the player pick which one the screen was about.
+     *
+     * A fade with barely any slide under it, which is what a rule can do and a
+     * button cannot: it is eight points deep, so a 22-point drop on it is not an
+     * entrance, it is a line that fell over. See placeRetry.
+     */
+    if (this.retry.visible) {
+      const ry = this.retry.y;
+      this.retry.y = ry + 8;
+      tween(this.retry, { alpha: 1 }, 0.3);
+      await tween(this.retry, { y: ry }, 0.34, { ease: Ease.cubicOut });
+    }
     this.introducing = false;
   }
 

@@ -7,7 +7,7 @@
  * fitted to it — and hands the player to the store.
  */
 
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite } from "pixi.js";
 
 import { computeLayout } from "./core/layout.js";
 import {
@@ -24,6 +24,7 @@ import { loadCardPlates } from "./art/plates.js";
 import { loadCardFrame } from "./art/cardframe.js";
 import { loadBoardFrame } from "./art/boardframe.js";
 import { loadBrandArt } from "./art/brand.js";
+import { loadOutcomeUi } from "./art/outcomeui.js";
 import { loadHeroAvatars } from "./art/avatars.js";
 import { loadHintHand } from "./art/hinthand.js";
 import { loadHintMarks } from "./art/hintmarks.js";
@@ -42,6 +43,7 @@ import { Hand } from "./ui/hand.js";
 import { Coach } from "./ui/coach.js";
 import { Spotlight } from "./ui/spotlight.js";
 import { EndCard } from "./ui/endcard.js";
+import { FREEZE_STEPS, OutcomeScreen } from "./ui/outcome.js";
 import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
@@ -114,6 +116,12 @@ async function boot() {
     loadGemArt(),
     loadBoardFrame(),
     loadBrandArt(),
+    // The title band and the hairline the outcome card is framed with — the
+    // game's own two sprites, see art/outcomeui.js. Decoded here rather than
+    // when the fight ends because the card is built with the scene below and
+    // reads both as it goes up, and because a verdict that arrives a frame after
+    // the screen it belongs on is a verdict nobody sees land.
+    loadOutcomeUi(),
     loadBossArt(),
     loadBossCrest(),
     loadFireArt(),
@@ -204,6 +212,18 @@ async function boot() {
     const spotlight = new Spotlight();
     coach.useSpotlight(spotlight);
     const cutin = new CutIn();
+    /**
+     * The fight's own verdict, and the screen the run ends on.
+     *
+     * Ahead of the end card in every sense: it is shown first — see
+     * Director.finish — and it is added under it here, so the card's own fade-in
+     * crosses over the top of it rather than cutting to it. See ui/outcome.js.
+     *
+     * All it is given is a way to photograph the fight, because that is all it
+     * needs: it has no buttons on it, and leaving it is what its `show`
+     * resolving means. A loss gets its rematch from the end card a beat later.
+     */
+    const outcome = new OutcomeScreen(freezeFight);
     // Two ways off this card: the store, and back into the fight. The second is
     // only offered on a wipe — see ui/endcard.js — and it is the only tap in the
     // creative that does not lead to a store page.
@@ -242,7 +262,7 @@ async function boot() {
       coach,
       hand,
     );
-    overlay.addChild(cutin, endcard, prompt);
+    overlay.addChild(cutin, outcome, endcard, prompt);
 
     Object.assign(scene, {
       bg,
@@ -256,6 +276,7 @@ async function boot() {
       spotlight,
       vfx,
       cutin,
+      outcome,
       endcard,
       prompt,
     });
@@ -334,6 +355,7 @@ async function boot() {
     scene.coach.resize(layout);
     scene.vfx.resize(layout);
     scene.cutin.resize(layout);
+    scene.outcome.resize(layout);
     scene.endcard.resize(layout);
     scene.prompt.resize(layout);
 
@@ -389,6 +411,116 @@ async function boot() {
   document.addEventListener("visibilitychange", () =>
     audioSleep(document.hidden),
   );
+
+  /* -------------------------------------------------------------- freeze */
+
+  /**
+   * A photograph of the fight, as it stands this instant.
+   *
+   * The outcome card is the frozen frame, blurred, with one word over it — see
+   * ui/outcome.js — and this is the frozen frame. It lives here because it is
+   * the only thing in the creative that needs both the renderer and the world
+   * container, and both belong to this file.
+   *
+   * Halved FREEZE_STEPS times rather than taken at full size, and that is how
+   * the blur is done: a forty-nine pixel wide still drawn back across a phone is
+   * a gaussian blur that costs four one-off textures and no shader passes at
+   * all. See the note in ui/outcome.js on why there is no BlurFilter here.
+   *
+   * `world` and not `app.stage`, *and* the overlay taken off screen for the one
+   * call: the overlay is where the card itself lives, along with the cut-in and
+   * the start prompt, and a photograph with any of those in it is a photograph
+   * of the wrong thing. Naming `world` as the target ought to be enough on its
+   * own and measurably is not — a still taken during an ultimate came back with
+   * the cut-in's frame across it — so the overlay is hidden rather than trusted
+   * to be excluded. It goes back on the same synchronous line, so nothing is
+   * ever drawn without it.
+   *
+   * Never throws. A renderer that will not hand over a render texture — an
+   * ancient webview, a context that was lost a frame ago — gets a card with no
+   * still behind it, which is the scrim and the band, and still says what
+   * happened.
+   *
+   * @returns {import("pixi.js").Texture|null}
+   */
+  function freezeFight() {
+    const made = [];
+    const shown = overlay.visible;
+    try {
+      // The photograph itself, at the size it was taken.
+      overlay.visible = false;
+      let texture = app.renderer.generateTexture({
+        target: world,
+        frame: new Rectangle(0, 0, view.w, view.h),
+        // One device pixel per CSS pixel, and the same on every pass below.
+        // Left to the renderer's own resolution the still would come out twice
+        // as big on a retina phone as on a cheap one, and the blur — which is
+        // nothing but how far this is upscaled again — would be half as strong
+        // on the device with the sharper screen. Pinned, every phone gets the
+        // same picture.
+        resolution: 1,
+        antialias: false,
+        textureSourceOptions: { scaleMode: "linear" },
+      });
+      overlay.visible = shown;
+      made.push(texture);
+
+      // And then halved, FREEZE_STEPS times. Each pass draws the level above it
+      // at half size, so every pixel of the result is the average of four of the
+      // one before — a box pyramid, which is what makes this a blur rather than
+      // a badly resampled screenshot. See FREEZE_STEPS.
+      let w = view.w;
+      let h = view.h;
+      for (let i = 0; i < FREEZE_STEPS; i++) {
+        w = Math.max(2, Math.round(w / 2));
+        h = Math.max(2, Math.round(h / 2));
+
+        /**
+         * The scaled sprite goes in a container, and the container is what gets
+         * photographed. That indirection is the whole of this loop working.
+         *
+         * A Sprite's own transform is not part of its local bounds, so a sprite
+         * scaled to half size still measures a full texture, and generating from
+         * it either re-renders it at full size or — with an explicit half-size
+         * `frame` — crops the top-left quarter and throws the rest away. Three
+         * passes of that is not a blur, it is a zoom: the first attempt at this
+         * came back as the boss's corner badge stretched across the screen.
+         *
+         * A container's local bounds *do* include its children's transforms, so
+         * this measures exactly w by h and needs no frame at all.
+         */
+        const holder = new Container();
+        const step = new Sprite(texture);
+        step.setSize(w, h);
+        holder.addChild(step);
+
+        const next = app.renderer.generateTexture({
+          target: holder,
+          resolution: 1,
+          antialias: false,
+          textureSourceOptions: { scaleMode: "linear" },
+        });
+        holder.destroy({ children: true });
+        made.push(next);
+        texture = next;
+      }
+
+      // Every level but the last is scaffolding: the card holds one texture and
+      // the other three are render targets nobody will read again.
+      made.slice(0, -1).forEach((t) => t.destroy(true));
+      return texture;
+    } catch {
+      overlay.visible = shown;
+      made.forEach((t) => {
+        try {
+          t.destroy(true);
+        } catch {
+          /* a texture that failed to build has nothing to free */
+        }
+      });
+      return null;
+    }
+  }
 
   /* ------------------------------------------------------------- shake */
 
@@ -484,6 +616,7 @@ async function boot() {
     scene.heroRow.update(dt);
     scene.hud.update(dt);
     scene.spotlight.update(dt);
+    scene.outcome.update(dt);
     scene.endcard.update(dt);
     scene.prompt.update(dt);
     updateShake(dt);

@@ -877,8 +877,28 @@ export const T = {
    * difficulty, because it is the one opponent that never misses.
    */
   hardCap: 30.0,
-  /** beat after the boss dies before the end card */
+  /** beat after the boss dies before the outcome screen */
   victoryHold: 1.4,
+  /**
+   * How long the outcome screen holds itself up before moving on, in seconds.
+   *
+   * Measured from the moment its last control lands rather than from the moment
+   * it arrives — see OutcomeScreen.show — so it is five seconds of a screen
+   * standing still, not five seconds of one assembling itself.
+   *
+   * It exists for the impressions nobody touches, which is a large share of
+   * them. A card with no way off it but a tap is a creative that ends on the
+   * verdict rather than at the store, and the whole point of giving the verdict
+   * a card of its own was to earn the one that follows it, not to replace it.
+   *
+   * Under three, because there is one word on it. The card used to be a
+   * scoreboard and this number used to be five; with the statistics, the party
+   * row and the two buttons gone there is nothing left to read, and a screen
+   * held past the moment it has been understood is a screen the player is
+   * waiting out. Long enough to land the flash, the stamp and the line asking
+   * for a tap, and not a beat longer.
+   */
+  outcomeHold: 2.8,
   /**
    * Time held back for the death animation and victory shout. The autoplay
    * pace guard treats this as untouchable so a hands-off viewer still sees the
@@ -1291,6 +1311,36 @@ export const COPY = {
    * Only on a loss. A win has nothing to try again.
    */
   retry: "RETRY",
+
+  /* ----------------------------------------------------- the outcome card */
+
+  /**
+   * The verdict, on the card that is only the verdict — see ui/outcome.js.
+   *
+   * Its own two keys rather than `victory` and `defeat` above, and the split is
+   * not tidiness. Those two are *shouts*: fired over the arena while the fight is
+   * still resolving, and `defeat` says PARTY WIPED because that is what the
+   * player just watched happen to six cards. The card is not narrating a moment,
+   * it is naming a result, and the word for that result is DEFEAT. One key doing
+   * both jobs would have to pick one, and every argument for either is an
+   * argument against the other.
+   *
+   * These are drawn as type rather than as art, the way the game draws them: the
+   * band they sit in is the painted part and the word inside it is localised
+   * text. See art/outcomeui.js.
+   */
+  outcomeVictory: "VICTORY",
+  outcomeDefeat: "DEFEAT",
+  /**
+   * The one instruction the card carries, and the whole of its interface.
+   *
+   * TAP and not CLICK, and not PLAY: PLAY is the store button on every other
+   * surface in the creative — see `cta` — and a card where it means "go on"
+   * against a card where it means "install" teaches the player to distrust the
+   * one control the whole thing is selling.
+   */
+  tapContinue: "TAP TO CONTINUE",
+
   lava: "LAVA SPREADS!",
   lavaHint: "BREAK IT",
   ultClear: "BOARD CLEARED!",

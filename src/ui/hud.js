@@ -846,9 +846,9 @@ export class Hud extends Container {
   /**
    * Where the doom strip sits, drawn or not.
    *
-   * Two callers: the draw below, and the banner, which shares this corner of
-   * the screen and has to clear the strip whether the clock is running yet or
-   * not. One formula, so the two cannot drift apart.
+   * Two callers: the draw below, and the banner, which now sits centred
+   * directly under this strip and has to clear it whether the clock is running
+   * yet or not. One formula, so the two cannot drift apart.
    */
   doomRect() {
     const { x, y, w, h } = this.barRect;

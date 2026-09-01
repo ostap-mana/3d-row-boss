@@ -641,9 +641,14 @@ export function doomCast() {
  * sustain rather than fighting the transient. The braam has its weight at the
  * front instead, and 0.4 clears it by about the same margin.
  *
- * Both are the same gesture the banner makes: the director calls the stinger
- * and then awaits `hud.shout`, which takes 0.9 s to put the word on screen, so
- * a voice at 0.4 lands with the text rather than ahead of it.
+ * Both were first set against `hud.shout`, which took 0.9 s to put the word on
+ * screen, and both survived the move to the outcome card unchanged — see the
+ * `at` argument below. The card stands its word up in 0.18 s rather than 0.9,
+ * so the same numbers now land the voice a little under four tenths *after* the
+ * word instead of half a second before it. That is the same side of the hit the
+ * pair was tuned for: the point was never where the voice falls relative to the
+ * text, it was that it clears its own stinger's transient, and 0.45 over a cut
+ * whose weight arrives at 0.176 still does.
  */
 const VO_DELAY = { victory: 0.45, defeat: 0.4 };
 
@@ -656,21 +661,31 @@ const VO_DELAY = { victory: 0.45, defeat: 0.4 };
  * is a stinger on its own, which is what the creative shipped with and is still
  * a complete ending — so this returns silently and the caller does not care.
  */
-function outcomeVoice(which) {
-  samples.play(`${which}Vo`, { delay: VO_DELAY[which] });
+function outcomeVoice(which, at) {
+  samples.play(`${which}Vo`, { delay: VO_DELAY[which] + at });
 }
 
-/** The boss falls: a major arpeggio with a bell on top. */
-export function victory() {
-  outcomeVoice("victory");
-  if (samples.play("victory")) return;
+/**
+ * The boss falls: a major arpeggio with a bell on top.
+ *
+ * `at` slides the whole ending — stinger, narrator and the synthesized twin —
+ * forward by that many seconds, scheduled on the audio clock rather than the
+ * game's. It exists because the two endings do not hit at the same distance
+ * from the instant they are started: measured in outcome.mp3, past the 0.153 s
+ * head `findHead` already takes off, this cut reaches half its power at 0.176
+ * and the braam at 0.116. The card's word crosses readable at 0.18, so a win
+ * asks for nothing and a loss asks for the difference. See ui/outcome.js.
+ */
+export function victory(at = 0) {
+  outcomeVoice("victory", at);
+  if (samples.play("victory", { delay: at })) return;
   [523.3, 659.3, 784.0, 1046.5].forEach((f, i) => {
     tone({
       freq: f,
       dur: 0.7,
       gain: 0.16,
       type: "triangle",
-      delay: i * 0.11,
+      delay: at + i * 0.11,
       cut: 6000,
     });
     tone({
@@ -678,26 +693,33 @@ export function victory() {
       dur: 0.5,
       gain: 0.06,
       type: "sine",
-      delay: i * 0.11,
+      delay: at + i * 0.11,
     });
   });
 }
 
 /** The party falls: the same shape, minor and going the other way. */
-export function defeat() {
-  outcomeVoice("defeat");
-  if (samples.play("defeat")) return;
+export function defeat(at = 0) {
+  outcomeVoice("defeat", at);
+  if (samples.play("defeat", { delay: at })) return;
   [523.3, 466.2, 392.0, 311.1].forEach((f, i) => {
     tone({
       freq: f,
       dur: 0.8,
       gain: 0.15,
       type: "triangle",
-      delay: i * 0.14,
+      delay: at + i * 0.14,
       cut: 2200,
     });
   });
-  tone({ freq: 82, to: 55, dur: 1.2, gain: 0.16, type: "sine", delay: 0.2 });
+  tone({
+    freq: 82,
+    to: 55,
+    dur: 1.2,
+    gain: 0.16,
+    type: "sine",
+    delay: at + 0.2,
+  });
 }
 
 /** The install banner sliding in. */

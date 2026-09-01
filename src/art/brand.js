@@ -25,12 +25,10 @@ import { canvasTexture } from "./textures.js";
 import keyArtUrl from "../assets/brand/key-art.webp";
 import logoUrl from "../assets/brand/logo-invokers.webp";
 import playUrl from "../assets/brand/play-now.webp";
-import retryUrl from "../assets/brand/retry.webp";
+import retryLineUrl from "../assets/brand/retry-line.webp";
 import appStoreUrl from "../assets/brand/badge-app-store.webp";
 import googlePlayUrl from "../assets/brand/badge-google-play.webp";
 import pcMacUrl from "../assets/brand/badge-pc-mac.webp";
-import victoryUrl from "../assets/brand/victory.webp";
-import defeatUrl from "../assets/brand/defeat.webp";
 
 /** Natural size of the packed art, and so the only aspect each may be drawn at. */
 export const LOGO_ART = { w: 558, h: 131 };
@@ -39,36 +37,43 @@ export const PLAY_ART = { w: 640, h: 164 };
 export const KEY_ART = { w: 1500, h: 1246 };
 
 /**
- * The RETRY plate, packed by tools/pack-retry.mjs.
+ * The RETRY divider, packed by tools/pack-retry-line.mjs.
  *
- * The defeat card's second button — a blue gem plate in the same chromed frame
- * the PLAY NOW plate wears, with RETRY cut into it in the same bevelled type.
- * It is here rather than beside the banners because it is furniture and not a
- * verdict: it is a control the card carries, the way the plate above it is.
+ * The defeat card's way out, and deliberately not a second plate. A chromed
+ * hairline with a violet gem finial off each end, breaking in the middle around
+ * a crest gem and the word RETRY under a circular-arrow glyph — the same
+ * divider vocabulary the outcome screen is built from, with a label in the
+ * break instead of a plain notch. See art/outcomeui.js.
  *
- * Its own aspect and not the plate's. At 3.11 it is chunkier than PLAY NOW's
- * 3.90 — a shorter word in a frame of the same weight — so the two cannot share
- * a constant, and the card sizes this by width and takes the height it gets.
- * See EndCard.fitRetry.
+ * It replaced a blue gem plate that wore the PLAY NOW plate's own frame, and
+ * the shape is the argument: two lit gem lockups stacked in one column is the
+ * card making two offers at the same volume, and this card has exactly one
+ * offer. A rule under the store row says "or" without asking for the tap. The
+ * plate is still on disk and tools/pack-retry.mjs still makes it; nothing
+ * imports it, so it is not bytes in the bundle.
+ *
+ * At 9.57 it is a rule and not a button, which is why the card cannot measure it
+ * off the PLAY NOW plate the way it measured the old one — see EndCard.fitRetry
+ * and RETRY_W.
  */
-export const RETRY_ART = { w: 640, h: 206 };
+export const RETRY_LINE_ART = { w: 1024, h: 107 };
 
 /**
- * The two outcome banners, packed by tools/pack-victory.mjs and
- * tools/pack-defeat.mjs.
+ * The two outcome banners — out of the build, and kept only as measurements.
  *
- * Not marketing furniture like the four above them — they are the one thing on
- * the end card that says what just happened, and exactly one of the two ever
- * appears. They live here anyway because they are the same kind of object: a
- * painted bitmap with an aspect that is not ours to change, fitted by width and
- * asked for its own height. See EndCard.placeBanner, which lays whichever one
- * won in the hole the stack leaves for the picture rather than as a rung of the
- * stack.
+ * `victory.webp` and `defeat.webp` are still on disk and tools/pack-victory.mjs
+ * and tools/pack-defeat.mjs still make them, but nothing imports them any more,
+ * so they are not bytes in the bundle. The screen they were for is gone: the
+ * verdict is now the game's own title band with a word in it over a frozen still
+ * of the fight — see ui/outcome.js — and the end card that follows has said
+ * nothing about the result since. That is 170 kB of WebP, and about 227 kB of
+ * base64 inside the one inlined file, off the deliverable.
  *
- * Two constants and not one, because the two paintings are not the same shape:
- * VICTORY is a crowned plaque at 2.00 and DEFEAT is a spiked one at 2.63, and a
- * shared aspect would squash whichever of them lost the argument. Both are
- * transcripts of what their own packer printed.
+ * The constants stay because they are a transcript of what the packers printed,
+ * and because `bannerSprite` below still answers the end card's question — with
+ * null, now and always, which is an answer that card has always been written
+ * for. See EndCard.show and its `stamped` argument, which is the only way it is
+ * ever called.
  */
 export const VICTORY_ART = { w: 1024, h: 513 };
 export const DEFEAT_ART = { w: 1024, h: 390 };
@@ -121,7 +126,7 @@ export const PLAY_LABEL_STROKE = 0x3d0511;
 let keyArtTexture = null;
 let logoTexture = null;
 let playTexture = null;
-let retryTexture = null;
+let retryLineTexture = null;
 let victoryTexture = null;
 let defeatTexture = null;
 const badgeTextures = {};
@@ -147,16 +152,6 @@ async function decode(url) {
  */
 export async function loadBrandArt() {
   await Promise.all([
-    decode(victoryUrl)
-      .then((t) => {
-        victoryTexture = t;
-      })
-      .catch(() => {}),
-    decode(defeatUrl)
-      .then((t) => {
-        defeatTexture = t;
-      })
-      .catch(() => {}),
     decode(keyArtUrl)
       .then((t) => {
         keyArtTexture = t;
@@ -172,9 +167,9 @@ export async function loadBrandArt() {
         playTexture = t;
       })
       .catch(() => {}),
-    decode(retryUrl)
+    decode(retryLineUrl)
       .then((t) => {
-        retryTexture = t;
+        retryLineTexture = t;
       })
       .catch(() => {}),
     ...BADGES.map((b) =>
@@ -188,13 +183,12 @@ export async function loadBrandArt() {
 }
 
 /**
- * One outcome banner, centred on its own origin, or null if it never decoded.
+ * One outcome banner — null, always. See the note on VICTORY_ART above.
  *
- * Taken by outcome rather than exposed as two functions, so that the end card
- * asks for "the banner for this result" and there is one place — here — that
- * knows which painting that is. The card is written to take null for an answer
- * either way, which is also what a device that decoded one and not the other
- * gets.
+ * Kept rather than deleted because the end card's own answer to null is already
+ * written and already correct: no banner art means no banner, upright and held
+ * sideways both. Removing the function would mean editing that solve instead,
+ * which is a change to a working layout for no gain.
  */
 export function bannerSprite(defeated) {
   return sprite(defeated ? defeatTexture : victoryTexture);
@@ -229,14 +223,14 @@ export function playPlateSprite() {
 }
 
 /**
- * The RETRY plate, centred on its own origin, or null if it never decoded.
+ * The RETRY divider, centred on its own origin, or null if it never decoded.
  *
- * Null is a real answer and the end card is written for it: with no painting the
- * button falls back to the drawn pill and the word in type, which is plainer and
- * is still a button that restarts the fight. See EndCard.fitRetry.
+ * Null is a real answer and the end card is written for it: with no ornament the
+ * control falls back to the drawn pill and the word in type, which is plainer
+ * and is still a button that restarts the fight. See EndCard.fitRetry.
  */
-export function retryPlateSprite() {
-  return sprite(retryTexture);
+export function retryLineSprite() {
+  return sprite(retryLineTexture);
 }
 
 /**
@@ -285,14 +279,14 @@ export function fitPlayPlate(s, w) {
   return h;
 }
 
-/** What the RETRY plate stands to at width `w`. The only height it may take. */
-export function retryHeight(w) {
-  return (w * RETRY_ART.h) / RETRY_ART.w;
+/** What the RETRY divider stands to at width `w`. The only height it may take. */
+export function retryLineHeight(w) {
+  return (w * RETRY_LINE_ART.h) / RETRY_LINE_ART.w;
 }
 
-/** Size the RETRY plate to `w`, at its own aspect. */
-export function fitRetryPlate(s, w) {
-  const h = retryHeight(w);
+/** Size the RETRY divider to `w`, at its own aspect. */
+export function fitRetryLine(s, w) {
+  const h = retryLineHeight(w);
   s.setSize(w, h);
   return h;
 }

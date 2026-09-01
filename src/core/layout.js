@@ -185,14 +185,18 @@ const BANNER_BREATH = 1.045;
  * what actually gets drawn cannot drift — which is the whole reason this plate
  * stopped being the HUD's own business.
  *
- * `stacked` is why the two orientations get different shapes rather than one
- * shape at two scales. Upright the lockup is an overlay in the corner above the
- * golem: height there is free and width is not, so the wordmark goes over the
- * plate. Sideways the CTA is a bought band across the top and the board yields
- * the height for it — every point the lockup grows downwards is a point off the
- * grid — so the wordmark goes beside the plate instead and the band stays one
- * plate tall. Stacking it in both would have cost a landscape board a ninth of
- * its size to say the same thing.
+ * `stacked` is the shape, and nothing uses it any more — both orientations now
+ * ask for the wide one. It stays because the wide shape is a choice with a
+ * reason behind it and the reason is worth keeping next to the code that acts
+ * on it, not because a caller might want the other.
+ *
+ * Both layouts now give the CTA a band of its own across the top, and in a band
+ * every point the lockup grows downwards is a point off the board. So the
+ * wordmark goes beside the plate and the band stays one plate tall. Upright it
+ * used to be stacked, because it used to be an overlay hung in the top corner —
+ * height was free there and width was not. It is not an overlay any more: it is
+ * centred under the health bar, and stacked it stood two plates deep in the
+ * middle of the screen with the golem's rider looking out from behind it.
  *
  * @param {boolean} stacked wordmark over the plate, rather than left of it
  * @returns {{w:number,h:number,stacked:boolean,plateW:number,plateH:number,
@@ -256,15 +260,20 @@ const STAGE = {
  * do about it is not put the CTA underneath it.
  *
  * And it is the CTA and only the CTA that this pushes down. The lockup is the
- * one thing on the fight screen a player taps on purpose, in both orientations
- * it is right-aligned at the top, and a tap that lands on a close button instead
- * of on PLAY NOW is the whole creative wasted. The boss name and the doom clock
- * are up there too and are left where they are: they are read rather than
- * touched, and buying them the same clearance would cost the board fifty points
- * on every phone to protect type a close button overlaps for the last seconds of
- * a thirty second fight.
+ * one thing on the fight screen a player taps on purpose, and a tap that lands
+ * on a close button instead of on PLAY NOW is the whole creative wasted. The
+ * boss name and the doom clock are up there too and are left where they are:
+ * they are read rather than touched, and buying them the same clearance would
+ * cost the board fifty points on every phone to protect type a close button
+ * overlaps for the last seconds of a thirty second fight.
  *
- * Zero it to put the lockup back at the foot of the chrome.
+ * Landscape only, now. Upright the lockup is centred under the health bar —
+ * see portraitLayout — and a centred band cannot collide with a corner, so
+ * there is nothing there for this to buy. That is the second thing centring it
+ * paid for: on a short phone the keepout was pushing the CTA down into the
+ * golem's face to dodge a button that was never going to reach it.
+ *
+ * Zero it to put the landscape lockup back at the foot of the chrome.
  */
 const CLOSE_KEEPOUT = 52;
 
@@ -434,13 +443,49 @@ function portraitLayout(w, h, ui, safe, keepout) {
   const band = cardBand(safe.left + gut, chromeW, 6, h * CARD.tall.portrait);
   const row = { y: h - safe.bottom - band.h * (1 + CARD.foot) };
 
+  /* -------------------------------------------------------------- the CTA */
+
+  /**
+   * The lockup gets a band of its own under the health bar, centred, and the
+   * boss starts below it. This is the one region on this screen that is bought
+   * rather than found — the same deal landscape has always had, for the same
+   * reason, and now for a second one.
+   *
+   * It used to hang in the top right corner over the golem's sky, stacked, and
+   * "over the sky" was the part that was wrong. There is no sky up there: the
+   * boss is fitted to his band by height on every phone in the matrix and his
+   * crown reaches the top of it, so the corner the lockup was hung in was the
+   * corner the rider on his shoulders rides in. Centring it without buying the
+   * height simply moves that collision to the middle, where it is worse — the
+   * wordmark lands across the rider's face instead of beside it. So the band is
+   * bought, the golem starts underneath it, and the two stop fighting.
+   *
+   * Centred on the chrome and not on the screen, because the thing it is centred
+   * *under* is the health bar and the bar is inset by the gutter. On a phone with
+   * symmetric insets the two are the same number; on one with a cutout down a
+   * side they are not, and the lockup that lines up with the bar is the one that
+   * looks placed.
+   *
+   * What it costs is the board, and only where the board was the term that lost.
+   * Above about 375 points of width the grid is width-bound and pays nothing:
+   * the height comes out of the golem, who has it — he goes from about a third
+   * of the screen to a little under. Below that the boss is already on his floor
+   * and the board yields instead, a tenth of its size on a 360x640. That is the
+   * same order the landscape band costs and it buys the same thing: the one
+   * surface in this creative that is being sold, placed where it is read rather
+   * than tucked in a corner behind a close button.
+   */
+  const plate = bannerBox(ui, false);
+  const bannerY = chromeBottom + 3 * ui + plate.h / 2;
+  const bandBottom = bannerY + plate.h / 2 + pad * 0.6;
+
   /* ------------------------------------------------------- board and boss */
 
   // The board is the hero of the screen and it is the whole width of it. `size`
   // is the grid itself: with the frame gone the box and the play field are the
   // same square, so every point of the width is gem.
   //
-  // What is left between the top chrome and the row, the board and the boss
+  // What is left between the CTA band and the row, the board and the boss
   // share — and the share is solved rather than split. The boss is owed BOSS_MIN
   // and his floor may sit BOSS_OVERLAP of the board's height inside it, so
   //
@@ -448,9 +493,9 @@ function portraitLayout(w, h, ui, safe, keepout) {
   //   boardY                  =  row.y - pad * 0.8 - size
   //
   // and the size that satisfies both is the one below. The board takes the whole
-  // width on every phone from a 360 up; on the shortest of them it lands a point
-  // or two short, which the field's own bleed covers.
-  const bossTop = chromeBottom + pad * 0.6;
+  // width from about a 375 point phone up; under that the band above is what it
+  // is short by, which is the trade that band is written to make.
+  const bossTop = bandBottom;
   const room =
     (row.y - pad * 0.8 - bossTop - h * BOSS_MIN) / (1 - BOSS_OVERLAP);
   // The width or the share, whichever runs out first — and nothing else. There
@@ -469,18 +514,6 @@ function portraitLayout(w, h, ui, safe, keepout) {
   const bossH = bossFloor - bossTop;
   const bossScale = Math.min((w * 0.92) / BOSS_ART.w, bossH / BOSS_ART.h);
 
-  // Under the doom strip at the chrome's right edge, which in portrait is the
-  // screen's right edge less the gutter. Nothing is reserved for it: the board
-  // in portrait starts a long way below the chrome — it is the boss's band that
-  // is up here — and the plate has never had to be fitted in against anything.
-  //
-  // The one thing it is fitted in against is the container's close button. See
-  // CLOSE_KEEPOUT: on a tall phone the chrome clears that corner already and
-  // this is the line the lockup was on anyway; on a short one it drops a few
-  // points into the sky over the golem, where there is nothing to collide with.
-  const plate = bannerBox(ui, true);
-  const bannerTop = Math.max(chromeBottom + 3 * ui, keepout);
-
   return {
     w,
     h,
@@ -490,8 +523,8 @@ function portraitLayout(w, h, ui, safe, keepout) {
     board: { x: boardX, y: boardY, size, cell },
     banner: {
       ...plate,
-      x: safe.left + gut + chromeW - plate.w / 2,
-      y: bannerTop + plate.h / 2,
+      x: safe.left + gut + chromeW / 2,
+      y: bannerY,
     },
     boss: {
       x: w / 2,

@@ -2076,7 +2076,10 @@ export class Director {
     await dying;
     if (this.ended) return;
 
-    sfx.victory();
+    // No stinger on the shout. The horn belongs to the outcome card, which is
+    // where the player stops and where the same word is stamped a second time —
+    // see ui/outcome.js. Fired here as well it announced the win twice, and the
+    // first of the two was under a callout that is already on its way out.
     await hud.shout(COPY.victory, 0.9, { fill: 0xffe066, from: 2.4 });
     await delay(T.victoryHold - 0.9);
   }
@@ -2102,7 +2105,8 @@ export class Director {
     await boss.roar();
     if (this.ended) return;
 
-    sfx.defeat();
+    // Silent here for the same reason the win is — see above. The braam is the
+    // card's, and the roar just above is what this beat sounds like.
     await hud.shout(COPY.defeat, 0.9, { fill: 0xff5a3a, from: 2.4 });
     await delay(0.5);
   }
@@ -2653,27 +2657,62 @@ export class Director {
     this.idleHint = null;
   }
 
-  /* -------------------------------------------------------------- end card */
+  /* --------------------------------------------------- the two last screens */
 
+  /**
+   * The verdict, then the store — in that order, and both from here.
+   *
+   * This used to be one screen. The fight ended, the music crossed over, and the
+   * end card came up with a plaque stamped into the hole in the key art. What
+   * that spent was the one beat the player had actually earned: the moment they
+   * beat a boss, or a boss beat them, went by inside an advert.
+   *
+   * So there are two screens now. The outcome screen says what happened and
+   * shows what the player did — see ui/outcome.js — and the end card that
+   * follows it does what an end card is for, with the plaque left off because
+   * the screen before it has already stamped one. Neither is new *content*: the
+   * plaque, the party and the button were all in the bundle already; what is new
+   * is that the verdict is no longer competing with the pitch for the same
+   * screen.
+   *
+   * The rematch is the one path that stops here. RETRY on the outcome screen
+   * rebuilds the whole cast on the spot — see main.js `restart` — so this run's
+   * last act is to not show a card over the top of a fight that has already
+   * started again.
+   */
   async finish() {
     if (this.ended) return;
     this.ended = true;
     this.stopIdle();
     // The room goes out with the fight — a drone under a store button is a
     // drone nobody asked for. The music does not go out with it: it crosses to
-    // the game's lobby theme under the card, which is the one piece of sound on
-    // that screen that is also the thing being sold. See music.endcard, and
-    // AUDIO.musicEndcard for placements that want the card quiet.
+    // the game's lobby theme under both screens, which is the one piece of sound
+    // on them that is also the thing being sold. See music.endcard, and
+    // AUDIO.musicEndcard for placements that want the ending quiet.
     sfx.bed.stop();
     music.endcard();
     this.doomArmed = false;
     this.s.hud.hideDoom();
     this.s.board.lockInput();
     this.s.hud.hideShout();
+    // A beat before the photograph, and it is not a flourish: `hideShout` fades
+    // the callout over 0.15s and the card's still is taken the instant `show` is
+    // called, so without this the frozen frame has a half-transparent MATCH 3 TO
+    // ATTACK welded across it. Measured against that fade, with a frame to
+    // spare. It also reads as the breath between the last swing and the verdict.
+    await delay(0.18);
     // Cut off by the hard cap with the boss still standing: that is a loss, and
     // calling it anything else would be the old lie in a new place.
-    await this.s.endcard.show(
-      this.outcome || (this.bossHp <= 0 ? "victory" : "defeat"),
-    );
+    const outcome = this.outcome || (this.bossHp <= 0 ? "victory" : "defeat");
+
+    // The verdict, over a frozen still of the fight that just ended. It takes a
+    // tap or about three seconds, and there is no way off it but forward — see
+    // ui/outcome.js, which has no buttons on it at all.
+    await this.s.outcome.show(outcome);
+
+    // `true`: the verdict has been stamped once already, and a card that stamps
+    // it a second time is the creative telling the player something they read
+    // three seconds ago. See EndCard.show.
+    await this.s.endcard.show(outcome, true);
   }
 }
