@@ -52,9 +52,6 @@ const PAINTED = {
   size: { k: 1.45, min: 58, max: 140 },
 };
 
-/** Hand width the ripple was drawn at, so it scales with the prop. */
-const RIPPLE_AT = 74;
-
 /** How far the hand shrinks under a press, as a fraction of its own size. */
 const PRESS = 0.86;
 
@@ -115,12 +112,6 @@ export class Hand extends Container {
   constructor() {
     super();
 
-    this.ripple = new Graphics();
-    this.ripple.circle(0, 0, 26);
-    this.ripple.stroke({ width: 5, color: 0xffffff, alpha: 0.9 });
-    this.ripple.alpha = 0;
-    this.addChild(this.ripple);
-
     // The painting when it decoded, the drawn hand when it did not. The drawn
     // one is only built in that case: it costs a render texture to bake.
     const painted = hintHandTexture();
@@ -166,13 +157,6 @@ export class Hand extends Container {
    * width and height, and a resize landing between the two used to set the size
    * underneath a tween that went on interpolating towards the old one — the
    * hand snapped to the new board and then crawled back to the size of the old.
-   *
-   * The ripple is not sized here any more, and the line that did it was dead
-   * anyway: the ring only exists while it is expanding, and the press it
-   * expands under overwrote this scale a frame later — which is how it went on
-   * reading the urgency twice, once inside `s` and once beside it, without the
-   * squared number ever reaching the screen. Sizing it is press()'s job now,
-   * and it is done there off the same `s`, so RIPPLE_AT means what it says.
    */
   applySize() {
     const s = this.baseSize * this.urgency;
@@ -255,9 +239,6 @@ export class Hand extends Container {
     this.held = 0;
     killTweensOf(this);
     killTweensOf(this.sprite);
-    killTweensOf(this.ripple);
-    killTweensOf(this.ripple.scale);
-    this.ripple.alpha = 0;
     tween(this, { alpha: 0 }, 0.18).then(() => {
       // The token, not the alpha: a touch arriving mid-fade has already put the
       // hand back at alpha 1 through grab(), and reading the alpha here would
@@ -284,8 +265,6 @@ export class Hand extends Container {
     const id = ++this.token;
     killTweensOf(this);
     killTweensOf(this.sprite);
-    killTweensOf(this.ripple);
-    killTweensOf(this.ripple.scale);
 
     this.held = id;
     this.visible = true;
@@ -429,33 +408,26 @@ export class Hand extends Container {
   }
 
   /**
-   * The finger goes down: the hand dips, and a ring goes out under it.
+   * The finger goes down: the hand dips.
    *
-   * Both halves are measured off the prop's own size rather than off numbers,
-   * and neither is relative to where the sprite happens to be standing.
+   * Measured off the prop's own size rather than off a number, and not relative
+   * to where the sprite happens to be standing.
    *
-   * The ring used to expand from 0.4 to 1.5 flat, which is a 10px circle
-   * growing to a 39px one whatever the board underneath was — RIPPLE_AT, the
-   * radius the circle was drawn against, went unread because applySize set the
-   * scale and the next press overwrote it. On a tall phone the hand is 140
-   * wide and the ring it put down was a third of its fingertip.
+   * A white ring used to go out under the hand on every press, expanding and
+   * fading over the same 0.4s. It is gone. What it was drawn over is the thing
+   * the tap is *about* — a hero card's portrait, three gems in a run — and a
+   * disc of white light thrown across that twice a second hid the subject to
+   * announce the pointer. The hand already reads as a tap: it dips, and it has
+   * a dark rim under it so it reads whatever it is over. See SHADE.
    *
    * The dip used to be taken as a fraction of the current scale, so two presses
    * without a release between them compounded — the hand shrank 14% and then
-   * another 14% of that, and only a release could put it back. Both of these
+   * another 14% of that, and only a release could put it back. Both halves
    * write width and height on the same object now, so killing one kills the
    * other and they cannot interleave.
    */
   async press() {
     const s = this.baseSize * this.urgency;
-    const ring = s / RIPPLE_AT;
-    killTweensOf(this.ripple);
-    killTweensOf(this.ripple.scale);
-    this.ripple.alpha = 0.9;
-    this.ripple.scale.set(ring * 0.4);
-    tween(this.ripple.scale, { x: ring * 1.5, y: ring * 1.5 }, 0.4);
-    tween(this.ripple, { alpha: 0 }, 0.4);
-
     killTweensOf(this.sprite);
     killTweensOf(this.shade);
     // Both on the same clock. Awaited on the hand rather than on the pair: they

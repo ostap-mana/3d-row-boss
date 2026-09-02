@@ -22,6 +22,7 @@ import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
 import { loadCardFrame } from "./art/cardframe.js";
+import { loadUltBorders } from "./art/ultborder.js";
 import { loadBoardFrame } from "./art/boardframe.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadOutcomeUi } from "./art/outcomeui.js";
@@ -129,6 +130,10 @@ async function boot() {
     loadGemPopArt(),
     loadCardPlates(),
     loadCardFrame(),
+    // The animated border a charged card wears. Here rather than lazily on the
+    // first hero to fill, because that hero fills mid-fight: six sheets decoding
+    // while the board is cascading is a hitch on the one beat that has to land.
+    loadUltBorders(),
     loadHeroAvatars(),
     loadHintHand(),
     loadHintMarks(),

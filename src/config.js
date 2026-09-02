@@ -994,10 +994,28 @@ export const SPOTLIGHT = {
    * Clearance between the cells being taught and the edge of the hole, as a
    * fraction of a board cell.
    *
-   * A hole cut exactly on the gems reads as a rectangle somebody drew on the
-   * board. A little air round them reads as a light on them.
+   * None. The box the board lesson hands in is already the *frames* it is about
+   * to draw — Coach.reaim grows the bounding box of the taught cells by
+   * FRAME_SPAN, half a cell each way — so a hole cut on it stops exactly where
+   * the brackets stop, and the light has the shape of the marks in it and no
+   * other. There is still air between the light and the gems themselves, and it
+   * is the air the frames were given: a disc is 0.86 of a cell inside a frame of
+   * FRAME_SPAN, which is a hair over it.
+   *
+   * This stood at 0.22, on the argument that a hole cut exactly on the gems
+   * reads as a rectangle somebody drew on the board while a little air round
+   * them reads as a light on them. What that missed is what the air is measured
+   * against. A fifth of a cell on every side of a two-by-three run is a lit
+   * margin about a third the size of the thing inside it, most of it over gems
+   * the lesson is *not* teaching — so the rectangle it was trying not to draw
+   * got drawn anyway, just bigger, and with four unrelated gems half in it. Cut
+   * on the marks, the lit shape is the taught cells and the eye has nothing
+   * else in the light to account for.
+   *
+   * Only the board lesson reads this now: the hero card brings a clearance of
+   * its own, because a card is not a cell — see CARD_HOLE_PAD in ui/coach.js.
    */
-  pad: 0.22,
+  pad: 0,
   /**
    * How far the edge of the hole is smeared out, in cells, and in how many
    * steps.
@@ -1407,6 +1425,25 @@ export const FONT =
  */
 export const FONT_TITLE =
   '"Hitzone Med", "Hitzone", "Elan ITC Pro", Georgia, "Times New Roman", serif';
+
+/**
+ * The verdict's face: the one word on the outcome card, and nowhere else.
+ *
+ * VICTORY and DEFEAT ask for Elan ITC Pro ahead of Hitzone rather than behind
+ * it — the only two words in this creative that do. That card is a held frame
+ * with a single word laid across it, which is the one place in the game where a
+ * serif's modelling is large enough to read as drawing rather than as noise,
+ * and the one place a face that is not the game's own interface type cannot be
+ * mistaken for a label.
+ *
+ * Elan is licensed and has no bytes in this repo, so until a cut is dropped into
+ * assets/fonts/ this list resolves to its second name and the card draws in
+ * Hitzone Med exactly as it did before — the fallback is the previous design,
+ * not a degraded one. See ui/fonts.js, which loads whatever is on disk, and
+ * assets/fonts/README-elan.md for what to buy and how to name it.
+ */
+export const FONT_OUTCOME =
+  '"Elan ITC Pro", "Hitzone Med", "Hitzone", Georgia, "Times New Roman", serif';
 
 /* ------------------------------------------------------------------ heroes */
 

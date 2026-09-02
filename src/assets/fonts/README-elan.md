@@ -1,11 +1,13 @@
 # Elan ITC Pro — drop the licensed file here
 
 `Elan ITC Pro` is wired into [`src/ui/fonts.js`](../../ui/fonts.js) and loads as
-soon as a file for it exists — but it no longer heads the family lists in
-[`src/config.js`](../../config.js). Hitzone does, taken from the Invokers Titan
-Legacy build; see [README-hitzone.md](README-hitzone.md). A licensed Elan cut
-dropped in here is loaded and then never asked for until `FONT` and `FONT_TITLE`
-are re-ordered to name it first, which is the only edit needed.
+soon as a file for it exists. It heads exactly one family list in
+[`src/config.js`](../../config.js) — `FONT_OUTCOME`, the VICTORY/DEFEAT word on
+the outcome card — so a licensed cut dropped in here draws that word as soon as
+it lands, with no further edit. `FONT` and `FONT_TITLE`, the UI and the titles,
+still head with Hitzone out of the Invokers Titan Legacy build; see
+[README-hitzone.md](README-hitzone.md). Re-ordering those two to name Elan first
+is what would give it the rest of the creative.
 
 It is **not** in this repo and cannot be: ITC Elan is Monotype's, sold per
 licence, and unlike Oswald and Cinzel — both SIL OFL, licences beside them —

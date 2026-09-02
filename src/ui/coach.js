@@ -115,11 +115,27 @@ const CARD_BEAT = 2.2;
 /**
  * The frame's side, as a fraction of a cell.
  *
- * Just under one, so a frame reaches the edges of the cell it is on and the two
- * on a lit pair meet without touching. The gem inside it is 0.86 of a cell, so
- * the brackets clear the disc by a comfortable margin on all four sides.
+ * Measured off the gem and not off the cell: GemView.resize fits every disc to
+ * 0.86 of a cell — see art/gems.js — and this is that plus a hair, so the
+ * brackets sit on the corners of the gem's own square rather than out on the
+ * corners of the cell's.
+ *
+ * It stood at 0.98, which is the cell. The frame is four corner brackets and a
+ * gem is a circle, so a box drawn on the cell put each bracket about an eighth
+ * of a cell diagonally off the disc it was pointing at — four marks floating in
+ * the gaps between four gems, nearer the neighbours than the thing they were
+ * bracketing. Pulled in to the disc they read as a frame *on* that gem.
+ *
+ * There is no crowding to pay for it. The brackets are corners and the gem is
+ * round: at 0.88 the corner of the box is 0.62 of a cell from the middle and the
+ * disc's edge is 0.43, so the mark still clears the art by a fifth of a cell on
+ * the diagonal — it is only the flat runs of the box, where nothing is drawn,
+ * that came in. Two frames on adjacent cells are further apart than they were.
+ *
+ * The board's hole in the scrim is grown by this too — see reaim — so the light
+ * follows the marks in rather than being left standing around them.
  */
-const FRAME_SPAN = 0.98;
+const FRAME_SPAN = 0.88;
 
 /**
  * The arrow's length, as a fraction of a cell.
@@ -135,17 +151,82 @@ const ARROW_SPAN = 0.62;
  * How far the frame round a hero card stands off the card, as a fraction of the
  * card's width.
  *
- * Small, and measured off the width rather than off the height, because the
- * only thing on either side of a card is another card: the row leaves a gap of
- * about a hundredth of its own width between them — see CARD.gap in
- * core/layout.js — and a frame that reached much further would put its bracket
- * on a neighbour it is not talking about. Enough to clear the card's own
- * painted border and no more.
+ * None: the box is the card. Both things drawn off it — the brackets in wear()
+ * and the hole in the scrim, see CARD_HOLE_PAD — land on the card's own painted
+ * border rather than outside it, so the lit rectangle in the dark has exactly
+ * the card's outline and the marks sit on its edge.
  *
- * It is added to the card at its largest, not to the slot the row laid out:
- * see CARD_READY.
+ * It stood at 0.04, on the argument that a frame wants to clear what it is
+ * framing. Against a scrim it does not: the brackets and the dark's edge are
+ * the same box, so every point of standoff is a point of *lit background*
+ * around the card — a bright margin with nothing in it, which the eye reads as
+ * part of the thing being pointed at and which is the one thing a hole cut to
+ * one card is trying not to say. On the row it was also the widest a frame
+ * could go before landing on a neighbour: the gap between two cards is about a
+ * hundredth of the row's width — CARD.gap in core/layout.js — and a card pops
+ * to CARD_READY inside it.
+ *
+ * The box is still the card at its largest and not the slot the row laid out —
+ * see CARD_READY — so what is left is a couple of points of daylight at the
+ * bottom of the breath and nothing at the top of it.
  */
-const CARD_PAD = 0.04;
+const CARD_PAD = 0;
+
+/**
+ * And how far the *hole in the scrim* stands off the same card, as a fraction
+ * of the card's width, on top of the CARD_PAD the box already carries.
+ *
+ * Zero, and zero is a real answer: the light is cut on cardBox itself, which is
+ * the very box the painted brackets are laid on — so the dark stops exactly
+ * where the lesson's own mark stops and the lit rectangle has the card's
+ * outline and no other.
+ *
+ * It is measured off the card at all — rather than left to Spotlight.aim's own
+ * clearance — because that one is SPOTLIGHT.pad of a *board cell*, and a cell
+ * is wider than a card: the board is five columns of the screen and the row is
+ * six cards of it. What a card got by saying nothing was about a quarter of its
+ * own width of dark-free air on every side, which on screen is a lit rectangle
+ * standing well clear of the card with the neighbours it is not pointing at
+ * half inside it. The eye read the rectangle before it read the card.
+ *
+ * What flush costs, and it is worth knowing which way it is paid: the charged
+ * card's aura blooms outside its own border — see art/frameaura.js — so the
+ * scrim's edge now crosses the outer half of that glow and takes it down with
+ * everything else. That is the trade a hole cut to the element's size makes.
+ * The card still reads: the bloom's bright half is inside the border, and the
+ * brackets are on the edge the dark now starts at. Give it air again by raising
+ * this — 0.06 or so clears the visible glow — not by putting the cell-measured
+ * default back.
+ */
+const CARD_HOLE_PAD = 0;
+
+/**
+ * Where in the card's breath the box round it is measured, as a fraction of the
+ * swing: 1 is the top of it, 0 the middle.
+ *
+ * This is the last slack there is. With CARD_PAD and CARD_HOLE_PAD both at zero
+ * the box *is* the card, and the only thing still standing between the light
+ * and the card's edge is that the card does not hold one size — it pulses. The
+ * box is placed once and cannot pulse with it, so it has to be taken at some
+ * one point of the swing, and where that point is decides which way the error
+ * falls:
+ *
+ *   at the top      the light is never inside the card, and there is up to a
+ *                   swing's worth of lit background under it at the bottom of
+ *                   the breath. This is the safe end and is where it stood.
+ *   at the middle   the light is flush on average, and the card's own rim
+ *                   crosses out into the dark at the top of the breath — the
+ *                   scrim is drawn over the hero row, so what that costs is the
+ *                   outer edge of the card dimming for the moment it is out
+ *                   there, twice a second.
+ *
+ * At this it is nearer the middle than the top: most of the daylight is gone
+ * and what the card puts out through the light at its very largest is a couple
+ * of points of its own border, briefly, at the peak of a sine. Raise it back
+ * towards 1 if that rim ever reads as flickering; the sliver comes back with
+ * it, and no value here gets both.
+ */
+const CARD_BREATH = 0.4;
 
 /**
  * What the card being framed is actually the size of.
@@ -154,14 +235,8 @@ const CARD_PAD = 0.04;
  * of it — art/heroes.js owns both numbers and this reads them rather than
  * guessing, because the whole job here is to draw round the card and the card
  * is a fifth larger than the box the row gave it.
- *
- * Taken at the top of the swing rather than the middle. The frame is placed
- * once and the card goes on breathing under it, so anything less would have the
- * card growing out through its own brackets twice a second; at the peak the
- * worst case is the other way round — a hair of daylight at the bottom of the
- * breath, which is what a frame is supposed to have anyway.
  */
-const CARD_READY = READY_SCALE * (1 + READY_SWING);
+const CARD_READY = READY_SCALE * (1 + CARD_BREATH * READY_SWING);
 
 /** Whether two cells are the same cell. */
 const same = (a, b) => a.r === b.r && a.c === b.c;
@@ -449,7 +524,19 @@ export class Coach extends Container {
        * a fifth of a cell. Only a box with no opinion gets SPOTLIGHT.corner, and
        * that is the zero this wants.
        */
-      spot.aim({ x: box.x, y: box.y, w: box.w, h: box.h }, this.opening);
+      spot.aim(
+        {
+          x: box.x,
+          y: box.y,
+          w: box.w,
+          h: box.h,
+          // The clearance comes from the card too, for the reason written up at
+          // CARD_HOLE_PAD: the scrim's own is a fraction of a board cell, and a
+          // card is not a board cell.
+          pad: (focus.card.cardW || 0) * CARD_HOLE_PAD,
+        },
+        this.opening,
+      );
       return;
     }
 

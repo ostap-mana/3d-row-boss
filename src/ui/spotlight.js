@@ -91,17 +91,34 @@ export class Spotlight extends Container {
    * own hue; that rim is gone — see SPOTLIGHT — and what is left is a hole in
    * the dark, which is the same hole whatever is being taught through it.
    *
-   * @param {{x:number,y:number,w:number,h:number,r?:number}} box what to light,
-   *   in this container's coordinates. `r` is the corner it wants; a box that
-   *   does not ask gets SPOTLIGHT.corner.
+   * @param {{x:number,y:number,w:number,h:number,r?:number,pad?:number}} box
+   *   what to light, in this container's coordinates. `r` is the corner it
+   *   wants; a box that does not ask gets SPOTLIGHT.corner. `pad` is the
+   *   clearance it wants, in the same coordinates; a box that does not ask gets
+   *   SPOTLIGHT.pad of a board cell.
    * @param {boolean=} deep the opening lesson, which gets the deeper dim. See
    *   SPOTLIGHT.dim against SPOTLIGHT.dimInPlay for why there are two.
    */
   aim(box, deep) {
     if (!SPOTLIGHT.on) return;
 
+    /**
+     * The clearance, and why a caller is allowed to bring its own.
+     *
+     * The default is measured in board cells because almost everything this
+     * light is ever put on *is* board cells, and air round a gem is only ever
+     * legible against the size of a gem. A hero card is the one thing lit here
+     * that the board did not lay out, and it is smaller than a cell — the board
+     * is five columns of the screen's width and the row is six cards of it — so
+     * a cell's worth of air round a card comes out at about a quarter of a card
+     * on every side. That is not a light on a card any more; it is a lit
+     * rectangle with a card somewhere inside it, reaching over the gap towards
+     * the neighbours it is not talking about. So a caller lighting something
+     * that is not a cell hands in a clearance measured off that thing instead —
+     * see CARD_HOLE_PAD in ui/coach.js.
+     */
     const cell = this.layout ? this.layout.board.cell : CELL;
-    const pad = cell * SPOTLIGHT.pad;
+    const pad = box.pad === undefined ? cell * SPOTLIGHT.pad : box.pad;
     const want = {
       x: box.x - pad,
       y: box.y - pad,

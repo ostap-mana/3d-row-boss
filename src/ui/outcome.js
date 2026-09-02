@@ -48,7 +48,7 @@
  */
 
 import { Container, Graphics, Rectangle, Sprite, Text } from "pixi.js";
-import { COPY, FONT, FONT_TITLE, T } from "../config.js";
+import { COPY, FONT, FONT_OUTCOME, T } from "../config.js";
 import {
   PLATE_FILL,
   PLATE_GOLD,
@@ -248,15 +248,16 @@ export class OutcomeScreen extends Container {
     /**
      * The word.
      *
-     * White, and set in the face the game sets its own titles in — see
-     * FONT_TITLE, which is Hitzone Med, the cut the build keeps for a name being
-     * announced. Not gold: the band under it is gold, and gold on gold is a word
-     * that has to be looked for.
+     * White, and the only text in the creative with a face of its own — see
+     * FONT_OUTCOME, which asks for Elan ITC Pro first and falls through to
+     * Hitzone Med, the cut the build keeps for a name being announced, for as
+     * long as no licensed Elan is on disk. Not gold: the band under it is gold,
+     * and gold on gold is a word that has to be looked for.
      */
     this.word = new Text({
       text: COPY.outcomeVictory,
       style: {
-        fontFamily: FONT_TITLE,
+        fontFamily: FONT_OUTCOME,
         fontSize: 46,
         fontWeight: "900",
         fill: 0xffffff,

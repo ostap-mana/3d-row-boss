@@ -96,7 +96,7 @@ const QUALITY = 80;
 /**
  * Which flipbook plays which effect, and what colour it is baked in.
  *
- * The five element colours are `GEM_COLORS` from src/config.js — the gem the
+ * The six element colours are `GEM_COLORS` from src/config.js — the gem the
  * hero charges off is the light his ultimate arrives in, and that was already
  * true of the beam these replace. The boss's three are its own: they are lit by
  * the thing swinging rather than by an element.
@@ -109,34 +109,48 @@ const QUALITY = 80;
  */
 const JOBS = [
   {
+    /*
+     * The six mages, one flipbook each, and the order below is the gem order.
+     *
+     * `flame` leads because Ricklow leads the board, and it is the one id here
+     * that does not match its element's name: `fire` is taken by the painted
+     * comet in art/fire.js, which sits on a different grid and keeps its own
+     * module. See the note on that job for what changes when this one is packed.
+     */
+    id: "flame",
+    src: "T_FX_Flipbook_fire_4_1_5x4.png",
+    color: 0xff5a1f,
+    what: "embers gathering into a churning ball of fire that collapses — twenty frames, the longest arc in the library",
+  },
+  {
     id: "water",
-    src: "T_FX_Liquid_1_1_3x3.png",
+    src: "T_FX_Fire_17_1_3x3.png",
     color: 0x2fa8ff,
-    what: "a bead that swells and bursts into droplets",
+    what: "a bead that swells into a hollow crown and breaks into spray — the library's liquid set is all small blobs, and this one is a splash the moment it is blue",
   },
   {
     id: "nature",
-    src: "T_FX_Liquid_7_2_3x3.png",
+    src: "T_FX_Smoke_17_1_4x4.png",
     color: 0x3fd16a,
-    what: "a thicker splat, which reads as sap rather than water once it is green",
+    what: "a spike that blooms into a heavy cluster and tears open — a bursting canopy in green, and nothing like water's ring",
   },
   {
     id: "lightning",
-    src: "T_FX_Electricity_1_1_4x4_A.png",
+    src: "T_FX_Electricity_2_1_4x4.png",
     color: 0xffd22e,
-    what: "a crackling web that closes and shatters",
+    what: "a coil of arc light that winds tight, snaps open and scatters — glow-cored rather than the hard-edged web that was here before",
   },
   {
     id: "arcane",
-    src: "T_FX_Electricity_9_1_4x4.png",
+    src: "T_FX_Glow_Flash_17_1_4x2.png",
     color: 0xa855f7,
-    what: "a single jagged bolt, tighter than the web and better alone in violet",
+    what: "a crown of spikes that drives out and burns back — the only burst in the library that peaks exactly on the landing frame",
   },
   {
     id: "wind",
-    src: "T_FX_Smoke_15_1_4x4.png",
+    src: "T_FX_Smoke_18_1_3x3.png",
     color: 0x8ceee2,
-    what: "a puff blooming and shearing apart",
+    what: "a curl that opens into a rolling vortex and tears — a cyclone instead of the puff, which the boss's shock ring already covers",
   },
   {
     id: "breath",

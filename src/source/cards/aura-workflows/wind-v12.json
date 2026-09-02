@@ -1,0 +1,114 @@
+{
+ "1": {
+  "class_type": "UnetLoaderGGUF",
+  "inputs": {
+   "unet_name": "Wan2.2-TI2V-5B-Q5_K_M.gguf"
+  }
+ },
+ "2": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+   "type": "wan"
+  }
+ },
+ "3": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "wan2.2_vae.safetensors"
+  }
+ },
+ "4": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "one vortex of pale teal air bursting upward into blades of wind, then dispersing into nothing, painted 3D mobile-RPG game art, semi-realistic, rich and ornate, high contrast against a dark ground, no flat cartoon shading, seen side on, filling the frame from the bottom edge upward, rooted along the bottom edge of the frame, one single burst: it erupts upward off the bottom edge, peaks, then falls back and dissipates completely into black by the end, clearly separated strands with deep black between them, white-hot at the peak, fast violent motion, pure black background, nothing else in the shot, locked-off static camera, no camera movement, no zoom, no pan, no parallax, no text, no letters, no numbers, no watermark, no logo"
+  }
+ },
+ "5": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "text, letters, numbers, watermark, logo, signature, person, face, character, creature, hands, animal, scenery, landscape, horizon, room, floor, table, sky, candle, torch, frame, border, rectangle, circle, ring, card, window, white background, grey background, gradient background, camera movement, zoom, pan, dolly, shaking, blurry, low contrast, washed out, dim, static, still, frozen, motionless, empty, sparse, mostly black, vignette, dark corners, black corners, one bright side, one dark side, gradient falloff, spotlight, focal point, subject, centred composition, depth of field, bokeh, out of focus"
+  }
+ },
+ "7": {
+  "class_type": "Wan22ImageToVideoLatent",
+  "inputs": {
+   "vae": [
+    "3",
+    0
+   ],
+   "width": 384,
+   "height": 736,
+   "length": 25,
+   "batch_size": 1
+  }
+ },
+ "8": {
+  "class_type": "ModelSamplingSD3",
+  "inputs": {
+   "model": [
+    "1",
+    0
+   ],
+   "shift": 8
+  }
+ },
+ "9": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "8",
+    0
+   ],
+   "positive": [
+    "4",
+    0
+   ],
+   "negative": [
+    "5",
+    0
+   ],
+   "latent_image": [
+    "7",
+    0
+   ],
+   "seed": 719739057,
+   "steps": 30,
+   "cfg": 6.5,
+   "sampler_name": "uni_pc",
+   "scheduler": "simple",
+   "denoise": 1
+  }
+ },
+ "10": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "9",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ]
+  }
+ },
+ "11": {
+  "class_type": "SaveImage",
+  "inputs": {
+   "images": [
+    "10",
+    0
+   ],
+   "filename_prefix": "aura/wind-v12/f"
+  }
+ }
+}

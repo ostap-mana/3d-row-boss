@@ -1978,7 +1978,12 @@ export class Director {
     // finish first — a pause between the tap and the payoff, in the one place
     // in the fight where the player has just been promised something loud.
     const spending = card.spend();
-    await delay(0.1);
+    // The card's own animation gets its moment before the cut takes the screen,
+    // and how long that is is the card's to say: a hero whose element has a
+    // burst sheet has an arc to show and the cut lands on its peak, everybody
+    // else keeps the tenth of a second this always waited. See
+    // HeroCard.flareLead and ULT in art/heroes.js.
+    await delay(card.flareLead());
     await cutin.play(index);
     if (this.ended) return;
 
@@ -2020,10 +2025,11 @@ export class Director {
       y: layout.board.y + layout.board.size * 0.2,
     };
 
-    // One call for all six. `vfx.spell` sends Ricklow to the painted fireball
-    // and every other mage to their own sheet, and anyone whose sheet has not
-    // been packed yet gets `beam` — which is what all five of them threw before
-    // the sheets existed, tuned exactly as it was.
+    // One call for all six. `vfx.spell` looks every mage up by element and
+    // plays their own sheet, and anyone whose sheet has not been packed yet
+    // falls back — Ricklow to the painted fireball, everybody else to `beam`,
+    // which is what all six of them threw before the sheets existed, tuned
+    // exactly as it was.
     //
     // This used to branch on `element === "fire"`, comparing a hero's element
     // against a string when every element in config.js is an index. It was

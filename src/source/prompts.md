@@ -574,6 +574,12 @@ its three swings are `swing` and `lunge` offsets rather than drawn frames.
 So each of these lands as art plus code: a range table and a `play(state)` on
 the boss, and on the hero side the frame machinery that card has never had.
 
+Half of that machinery now exists, on a different sprite. The animated ultimate
+border added a flipbook to `HeroCard` — twelve frames cut off one sheet, stepped
+in `update`, ping-ponged at 7 fps; see `src/art/ultborder.js` and `ULT` in
+`art/heroes.js`. It is the border and not the bust, so a hero animation is still
+art plus code, but the code is now a pattern in the file rather than a first.
+
 ### What a sheet costs
 
 Worth knowing before generating six of them. The six stills are 8–12 kB each,

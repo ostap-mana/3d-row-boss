@@ -369,21 +369,27 @@ export class Vfx extends Container {
   /**
    * Any mage's ultimate, painted, with one call for all six.
    *
-   * Ricklow goes to `fireball` — his is the sheet that was cut off a still, on
-   * its own grid, and it stays on its own path. The other five are looked up in
-   * `art/spells.js` by element, and an element whose sheet has not been packed
-   * yet falls back to `beam`, which is the one every one of them threw before
-   * any of this existed.
+   * All six are looked up in `art/spells.js` by element now, Ricklow included:
+   * his `flame` is a build flipbook on the same grid as the other five, so it
+   * plays down the same path rather than out of its own module.
+   *
+   * The fallbacks are what is left of the old arrangement, and there are two of
+   * them because Ricklow has something better than a beam to fall back to. If
+   * `flame` never decoded he goes to `fireball` — the painted comet, its own
+   * grid, its own lead angle, exactly as it was — and everyone else goes to
+   * `beam`, which is what all six threw before any of this art existed.
    *
    * `opts.beam` is what that fallback is given, so the caller can keep the beam
    * tuned the way it always was without knowing whether art exists today.
    */
   async spell(element, from, to, color, opts) {
     const o = opts || {};
-    if (element === FIRE) return this.fireball(from, to, color, o);
 
     const frames = spellFrames(SPELL_BY_ELEMENT[element]);
-    if (!frames) return this.beam(from, to, color, { ...o, ...(o.beam || {}) });
+    if (!frames) {
+      if (element === FIRE) return this.fireball(from, to, color, o);
+      return this.beam(from, to, color, { ...o, ...(o.beam || {}) });
+    }
 
     return this.paintedBolt(
       {

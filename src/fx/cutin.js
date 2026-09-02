@@ -17,7 +17,7 @@
  * lit, and the streaks are a burst around it rather than a gradient over it.
  */
 
-import { Container, Graphics, Sprite, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import {
   FONT,
   FONT_TITLE,
@@ -29,6 +29,7 @@ import {
 } from "../config.js";
 import { heroPortrait } from "../art/heroes.js";
 import { glowTexture } from "../art/textures.js";
+import { fitUltBorder, ultBurst, ultBurstTexture } from "../art/ultborder.js";
 import { lerpColor } from "../core/color.js";
 import { tween, delay, killTweensOf, Ease } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -129,6 +130,50 @@ function hazeAlpha(element) {
 }
 
 /**
+ * The gate: the element's own burst sheet, hung round the medallion.
+ *
+ * It is the third place the same frames are played and the first that is
+ * not a card. The row's card wears the loop while the ultimate can be spent and
+ * throws the burst on the tap — see ULT and `flareUlt` in art/heroes.js — and
+ * the cut-in is what the tap hands the screen over to. Standing the portrait
+ * inside the same water it just threw is what ties the two halves of the beat
+ * together: without it the cut-in is a face in a dark room, and the loudest
+ * animation in the build has been and gone in the six tenths of a second before
+ * the screen it was building up to.
+ *
+ * ## The box, and why it is not the sheet's own
+ *
+ * A sheet is packed to a card: 304 by 608, an aspect of 0.5. The medallion is a
+ * circle, and a rectangle half as wide as it is tall drawn round a circle is
+ * either narrower than the face — the vertical runs crossing it — or, sized to
+ * clear the face, a card two thirds of the stage tall with the type underneath
+ * it. Neither is a composition; both were tried.
+ *
+ * So the gate is measured off the medallion instead, in diameters, and the art
+ * takes the aspect it is given. `w` clears the arcs, which stand a ninth of the
+ * radius outside the roundel, with air left over and both vertical runs still on
+ * screen — the medallion sits at four tenths of the stage's width in portrait,
+ * not in the middle, so the left run is the one with nowhere to go. `h` is the
+ * most the sheet can be stretched towards its own aspect before the bottom edge
+ * reaches the name plate.
+ *
+ * ## The three beats
+ *
+ * `land` and `hold` are where the burst has got to at the end of the cut-in's
+ * entry and of its hold. Twelve frames of a build, a white-hot peak and a settle
+ * over an arc that is already a slam, a creep and a punch: the gate is asked to
+ * hit its peak on the frame the medallion lands, to drift across the hot frames
+ * while the medallion creeps in, and to spend the settle being thrown through
+ * the camera with everything else. See `gateTo`, which is all three.
+ */
+const GATE = {
+  w: 1.24,
+  h: 1.62,
+  land: 0.52,
+  hold: 0.78,
+};
+
+/**
  * Deterministic scatter.
  *
  * Math.random would re-roll the whole burst on every resize — and resize runs on
@@ -188,6 +233,32 @@ export class CutIn extends Container {
     this.bust = new Container();
     this.addChild(this.bust);
 
+    /**
+     * The gate, first into the medallion so everything else is drawn over it.
+     *
+     * Under the collar rather than over the rings, and that is the whole of the
+     * decision: the frames are glow on black and go on with `add`, so over the
+     * top they would put light into the face — and a portrait lifted by a
+     * white-hot peak is the pasted-avatar look the collar and the rings exist to
+     * take away. Underneath, the opaque disc keeps the face exactly as painted
+     * and the gate is only ever what stands around it.
+     *
+     * In the medallion rather than beside it because the punch throws the
+     * medallion: `bust` is scaled, recoiled, thrown through the camera and faded
+     * out, and a gate that was a sibling would have to be given its own copy of
+     * all four. See `play`, and `reset`, which puts one object back.
+     */
+    this.gate = new Sprite(Texture.EMPTY);
+    this.gate.anchor.set(0.5);
+    this.gate.blendMode = "add";
+    this.gate.visible = false;
+    this.bust.addChild(this.gate);
+
+    /** Which sheet is on the gate, or null for a hero with none. */
+    this.gateArt = null;
+    /** How far through that sheet the gate is — see `gateTo`. */
+    this.gateDriver = { v: 0 };
+
     this.collar = new Graphics();
     this.bust.addChild(this.collar);
 
@@ -246,6 +317,30 @@ export class CutIn extends Container {
 
     /** Bumped per play, so a cleanup landing late cannot hide the next one. */
     this.playId = 0;
+
+    // The healer's, like every other thing above that is pointed at a hero: this
+    // is whose cut-in it is until a player taps a different card. Safe here
+    // rather than in the first resize because main.js has already awaited
+    // loadUltBorders by the time a CutIn is built.
+    this.setGate(HEROES[this.index].element);
+  }
+
+  /**
+   * Point the gate at one element's burst sheet, or at nothing.
+   *
+   * Sheets that carry the card's own line only. `ultBurst` will hand over any
+   * geometry and the hero row wears all of them, but the halo shape is a
+   * hairline inside a bloom nearly
+   * three times a card's own margin — laid on a box measured off a medallion it
+   * is a soft rectangle washing over the portrait rather than a border round it.
+   * An element on that shape keeps the cut-in it always had, which is the same
+   * fallback every element without a sheet at all is on.
+   */
+  setGate(element) {
+    const art = ultBurst(element);
+    this.gateArt = art && art.shape !== "halo" ? art : null;
+    this.gate.visible = !!this.gateArt;
+    if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
   }
 
   /**
@@ -270,6 +365,7 @@ export class CutIn extends Container {
     this.name.text = hero.name;
     this.skill.text = hero.skill;
     this.skill.style.fill = GEM_LIGHT[hero.element];
+    this.setGate(hero.element);
     if (this.layout) this.resize(this.layout);
   }
 
@@ -395,6 +491,14 @@ export class CutIn extends Container {
         cap: "round",
       });
     }
+
+    // The gate round all of it, measured in diameters rather than in the sheet's
+    // own aspect — see GATE, which is where the two numbers are argued. Through
+    // fitUltBorder like every other place a sheet is laid on a box, because the
+    // box is the card's line and the sprite is that plus however far this shape
+    // reaches outside it.
+    if (this.gateArt)
+      fitUltBorder(this.gate, this.gateArt, size * GATE.w, size * GATE.h);
 
     this.glow.setSize(size * 2.2, size * 2.2);
     this.glow.x = this.bust.x;
@@ -577,6 +681,7 @@ export class CutIn extends Container {
     killTweensOf(this.glow.scale);
     killTweensOf(this.bust);
     killTweensOf(this.bust.scale);
+    killTweensOf(this.gateDriver);
     killTweensOf(this.plate);
     killTweensOf(this.name);
     killTweensOf(this.skill);
@@ -592,12 +697,34 @@ export class CutIn extends Container {
     this.bust.alpha = 1;
     this.bust.x = this.bustHome;
     this.bust.scale.set(this.bustScale.x, this.bustScale.y);
+    this.gateDriver.v = 0;
+    if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
     this.plate.alpha = 1;
     this.plate.x = 0;
     this.name.alpha = 1;
     this.name.x = this.textHome;
     this.skill.alpha = 1;
     this.skill.x = this.textHome;
+  }
+
+  /**
+   * Step the gate to `v` of the way through its burst, over `dur`.
+   *
+   * A tween on one number with the texture written out of its onUpdate, exactly
+   * as HeroCard.flareUlt drives the same sheet on the card, and for the same
+   * reason: a sheet is not something a frame counter can keep in step
+   * with an arc that is three beats of different lengths, and the driver is the
+   * one thing both ends of a beat can be read off. Resolves immediately for a
+   * hero with no sheet, so play() can await it in line with everything else.
+   */
+  gateTo(v, dur, ease) {
+    if (!this.gateArt) return Promise.resolve();
+    return tween(this.gateDriver, { v }, dur, {
+      ease,
+      onUpdate: () => {
+        this.gate.texture = ultBurstTexture(this.gateArt, this.gateDriver.v);
+      },
+    });
   }
 
   /**
@@ -652,6 +779,10 @@ export class CutIn extends Container {
       tween(this.plate, { x: 0 }, 0.28, { ease: Ease.expoOut }),
       tween(this.name, { x: textHome }, 0.34, { ease: Ease.expoOut }),
       tween(this.skill, { x: textHome }, 0.4, { ease: Ease.expoOut }),
+      // Linear, alone among these: the build is in the frames the sheet was
+      // packed with, and an ease over the top of it is a second opinion about
+      // where the peak is. Same argument ULT.burst makes on the card.
+      this.gateTo(GATE.land, 0.32, Ease.linear),
     ]);
     if (this.playId !== token) return;
 
@@ -661,6 +792,10 @@ export class CutIn extends Container {
     tween(this.bust.scale, { x: bs.x * 1.05, y: bs.y * 1.05 }, 0.4, {
       ease: Ease.quadOut,
     });
+    // Across the hold and the recoil both, so the gate is still moving into the
+    // frame the punch throws it out on rather than sitting on one for a beat and
+    // a half. Roughly the seven frames a second the sheet was timed to.
+    this.gateTo(GATE.hold, 0.43, Ease.linear);
     await delay(0.34);
     if (this.playId !== token) return;
 
@@ -683,6 +818,11 @@ export class CutIn extends Container {
     });
     tween(this.bust, { x: homeX + w * 0.06 }, 0.26, { ease: Ease.quadIn });
     tween(this.bust, { alpha: 0 }, 0.16, { delay: 0.1 });
+    // The settle, spent being thrown through the camera. The last frames of the
+    // sheet are the light going out of the border, which on the card is the
+    // whole tail of the tap and here is a thing nobody has time to look at —
+    // which is the point: it leaves with the medallion instead of before it.
+    this.gateTo(1, 0.26, Ease.linear);
     tween(this.glow.scale, { x: gs.x * 1.8, y: gs.y * 1.8 }, 0.24, {
       ease: Ease.quadIn,
     });

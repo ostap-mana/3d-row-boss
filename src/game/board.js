@@ -387,13 +387,31 @@ export class Board extends Container {
 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        const inset = cell * 0.06;
+        /**
+         * The tile is the gem's footprint, not the cell's.
+         *
+         * It sat at 0.06, which is to say 0.88 of a cell — and 0.88 of a cell
+         * is also where the lesson's corner brackets are now drawn, see
+         * FRAME_SPAN in ui/coach.js. Two different things at the same size on
+         * the same square do not read as a frame round a gem; they read as one
+         * thick muddled edge, with the brackets apparently clamped to the
+         * corners of the tile rather than to the corners of anything on it.
+         *
+         * A gem is 0.86 of a cell — GemView.resize, art/gems.js — so this is a
+         * little inside it: what is left of the tile once the disc is over it is
+         * the four corners it shows past a circle, which is all the checker ever
+         * needed to divide the cells. The brackets now stand a clear tenth of a
+         * cell outside it and have the gem to themselves.
+         */
+        const inset = cell * 0.1;
         g.roundRect(
           this.originX + c * cell + inset,
           this.originY + r * cell + inset,
           cell - inset * 2,
           cell - inset * 2,
-          cell * 0.2,
+          // Pulled in with the box, so the tile keeps the corner it had rather
+          // than turning into a lozenge at the smaller span.
+          cell * 0.18,
         );
         g.fill(
           this.plate

@@ -24,9 +24,11 @@
  * full faces carry Cyrillic as well; where they came from and how they were cut
  * is in README-hitzone.md, next to the files.
  *
- * Elan ITC Pro is still wired below and still has no bytes here. It now sits
- * behind Hitzone in both family lists rather than in front of them, so dropping
- * a licensed cut in changes nothing until those lists are re-ordered.
+ * Elan ITC Pro is still wired below and still has no bytes here. It sits behind
+ * Hitzone in the two general family lists, but heads a third: FONT_OUTCOME, the
+ * VICTORY/DEFEAT word on the outcome card. A licensed cut dropped into this
+ * folder is therefore drawn on that card the moment it lands, and nowhere else
+ * until FONT and FONT_TITLE are re-ordered too.
  *
  * Never rejects. A device that cannot decode a WOFF2 keeps the system stack
  * that is still the tail of every family list in config.js, and the layout is
@@ -52,10 +54,10 @@ import hitzoneMedUrl from "../assets/fonts/hitzone-500.woff2";
  *     src/assets/fonts/elan-bold-italic.woff2   ->  700 italic
  *
  * — any subset of those, and numeric names like `elan-700.woff2` are read the
- * same way. It will not draw anything on its own any more: Hitzone heads both
- * family lists in config.js now, so a licensed cut dropped in here is loaded and
- * then never asked for until those lists are re-ordered to put Elan first. The
- * loading half of the contract is kept so that re-ordering is the only step.
+ * same way. One list in config.js asks for it first — FONT_OUTCOME, the single
+ * word on the outcome card — so a cut dropped in here draws that word as soon as
+ * it lands, with no further edit. FONT and FONT_TITLE still head with Hitzone,
+ * and re-ordering them is what would hand it the rest of the creative.
  *
  * A glob rather than an `import`: an import of a file that is not on disk fails
  * the build, and this build has to keep working with no Elan in it. `.otf` and
