@@ -1053,19 +1053,26 @@ export class Director {
   /* ----------------------------------------------------------- the clock */
 
   /**
-   * Stop the fight's clocks.
+   * Stop the fight's clocks — unless DIFFICULTY.ultCostsTime says a cast is
+   * supposed to cost the player seconds, which it now does.
    *
-   * An ultimate is the one stretch of the fight the player is not playing: the
-   * board is locked, the cut-in owns the screen and there is no swap to be
-   * found for two and a half seconds. A clock that kept counting through that
-   * billed them for watching the thing they had just spent a full bar to earn
-   * — the ultimate quietly cost a tenth of the cataclysm's fuse and left the
+   * The argument this was built on, kept because it is the argument for turning
+   * the flag back off: an ultimate is the one stretch of the fight the player is
+   * not playing. The board is locked, the cut-in owns the screen and there is no
+   * swap to be found for two and a half seconds. A clock that keeps counting
+   * through that bills them for watching the thing they just spent a full bar to
+   * earn — the cast quietly costs a tenth of the cataclysm's fuse and leaves the
    * boss hitting harder afterwards for having been cast at all.
    *
-   * So the fuse and the rage ramp are held, not just the damage. Nested holds
-   * are ignored rather than counted: one cast can only stop the clock once.
+   * That is all still true. It is now the intended cost rather than a side
+   * effect: a skill is meant to be a decision with a price on it, and the price
+   * is the clock. See DIFFICULTY.ultCostsTime for what it does to the fight.
+   *
+   * Nested holds are ignored rather than counted: one cast can only stop the
+   * clock once.
    */
   holdClock() {
+    if (DIFFICULTY.ultCostsTime) return;
     if (this.clockHoldAt) return;
     this.clockHoldAt = now();
     // Stopping the count is not the same as looking stopped. The strip's sheen
@@ -1086,9 +1093,15 @@ export class Director {
   /**
    * Wall time the fight is allowed to charge the player for.
    *
-   * The game clock minus every second spent inside an ultimate, including the
-   * one currently running, so a reading taken mid-cast is the same reading it
-   * would give on either side of it.
+   * The game clock minus every second the clock was held for, including a hold
+   * currently running, so a reading taken mid-cast is the same reading it would
+   * give on either side of it.
+   *
+   * With DIFFICULTY.ultCostsTime on — which is the shipped setting — nothing is
+   * ever held, so this is simply now() and every reader of it charges for the
+   * seconds a cut-in takes. The subtraction stays because the flag is meant to
+   * be switchable, and because it is the only thing standing between a paused
+   * clock and a fight that thinks it was paused.
    */
   elapsed() {
     const holding = this.clockHoldAt ? now() - this.clockHoldAt : 0;

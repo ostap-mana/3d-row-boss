@@ -320,47 +320,130 @@ export const DIFFICULTY = {
    * still do all the grinding and `resist` still sets the clock. What collapses
    * is only the ultimate's late value:
    *
-   *     bite    boss 100%    boss ~55%    boss ~12%    boss ~0%
-   *     1.0        41%          32%          16%          12%
-   *     1.4        41%          29%          11%           8%
-   *     1.8        41%          26%           8%           5%
-   *     2.2        41%          24%           5%           3%
-   *     a match    38%          30%          15%          11%
+   *     bite    boss 100%   boss 25%   boss 10%   boss 5%   boss 0%
+   *     1.6        41%         28%        8.8%      7.4%      6.0%
+   *     2.0        41%         25%        6.0%      4.8%      3.7%
+   *     2.4        41%         23%        4.1%      3.1%      2.3%
+   *     2.9        41%         20%        2.5%      2.5%      2.5%
+   *     3.2        41%         18%        1.9%      1.9%      1.9%
+   *     a match    38%         30%         14%       14%       14%
    *
-   * 1.6 is the setting: an ultimate opens as the biggest number in the fight at
-   * 41% of the boss's bar, is worth 28% through medium, and ends up worth 6% of
-   * it. Twelve seconds earlier the same cast was worth seven times as much.
+   * 2.9 is the setting, and it is solved rather than picked: the brief is "under
+   * ten percent of boss health an ultimate should take about 2.5% of the bar,
+   * not four". `resist` is 0.38 there, and 0.41 x 0.38^bite = 0.025 gives
+   * bite = 2.92.
    *
-   * 1.4 measures identically on every win rate and gives 8% rather than 6%.
-   * 1.6 is chosen because "clearly under ten" reads as a margin rather than a
-   * boundary, and the two are otherwise indistinguishable in play.
+   * So an ultimate opens as the biggest number in the fight at 41% of the bar,
+   * is worth 20% through medium, and is worth 2.5% once the boss is inside its
+   * last tenth — a sixteenth of what the same cast was worth twenty seconds
+   * earlier. It stays at 2.5% rather than sliding further because `resist` is
+   * flat across that last tenth; see the p: 0.9 keyframe in curve.steps, which
+   * exists for exactly this.
    *
-   * TWO CONSEQUENCES, both real, both consequences of the brief rather than of
-   * this number, and neither hidden:
+   * Note what this does to the middle of the fight, because it is a side effect
+   * rather than a request: the exponent bends the whole curve, so a cast in the
+   * medium zone came down from 28% to 20% along with everything else. That is
+   * consistent with every version of this brief — the cards weaken as the boss
+   * dies — but it was not separately asked for, and `resist` at p: 0.6/0.75 is
+   * the lever if medium should be handed some of it back.
    *
-   * First, past about 1.4 an ultimate is worth less than a good match in the
-   * last quarter, so the cards stop being the correct answer to the wall and
-   * become the correct thing to have spent *before* it. The ending is a grind
-   * nothing rescues. What keeps a late cast from being an outright mistake is
-   * everything an ultimate does that is not damage: it clears its whole colour
-   * off the board, and the healer's clears every obsidian block, on a board
-   * carrying eleven of them.
+   * WHAT THIS DOES TO THE PLAY, which turned out to be better than it first
+   * measured, and the wrong reading is worth recording next to the right one.
    *
-   * Second, and this is the one to weigh if the creative underperforms: a
-   * cut-in costs about two seconds of T.hardCap, and an ultimate worth 6% of
-   * the bar does not buy two seconds back. So in the last quarter the
-   * time-optimal play is not to cast at all — which is an odd thing for an ad
-   * whose job is to sell the ultimates. Measured, a simulated strong player
-   * casting freely in the endgame wins 83% of runs where an ordinary one
-   * casting less wins 87%, and that inversion is this effect. Lowering this
-   * number does not fix it (every setting from 1.4 to 1.8 measures the same);
-   * the fix, if it is wanted, is a shallower last quarter — `resist` at
-   * p: 0.88 and p: 1.0 in curve.steps.
+   * Past about 1.4 an ultimate is worth less than a good match in the last
+   * quarter, so the cards stop being the answer to the wall and become the
+   * thing worth having spent *before* it. A cut-in also costs about two seconds
+   * of T.hardCap, and a cast worth 6% of the bar does not buy two seconds back.
+   * Put together that reads like a trap: the time-optimal endgame play is not to
+   * cast at all, which is an odd thing to build into an ad whose job is to sell
+   * the ultimates.
+   *
+   * It is not a trap, it is a decision, and the difference shows up the moment
+   * the simulation is allowed to play it properly. Two strategies, same table,
+   * 2000 runs each — greedy casts whenever a bar fills, front-loading holds the
+   * damage casts out of the last quarter and keeps the healer's:
+   *
+   *                greedy      front-loading
+   *     weak         26%            4%
+   *     ordinary     87%           35%
+   *     strong       83%          100%
+   *
+   * So there is no inversion and skill is not punished: a strong player who
+   * front-loads goes from 83% to a clean 100%, and the 83% was the simulated
+   * player casting badly rather than the table punishing them. What the numbers
+   * actually describe is a real strategic fork that cuts differently by skill.
+   * A player who can find five-cell steps has enough board damage to grind the
+   * last quarter and should bank the cards early; a player who cannot needs
+   * those casts in the endgame and is right to spend them there even at 6% a
+   * time, which is why greedy is far better for the ordinary and weak brackets.
+   * An endgame where the best play depends on how good you are is the most this
+   * mode has ever asked of anybody.
+   *
+   * An earlier revision of this note called the 83% a flaw and pointed at
+   * `resist` at p: 0.88 and p: 1.0 as the fix. That was wrong and those numbers
+   * should not be touched for this reason — the measurement was of a strategy,
+   * not of the table.
+   *
+   * What keeps a late cast from being an outright mistake even so is everything
+   * an ultimate does that is not damage: it clears its whole colour off the
+   * board, and the healer's clears every obsidian block, on a board carrying
+   * eleven of them.
    *
    * Set 1 and an ultimate is resisted exactly like a match, which is where this
    * started before any of it was asked for.
    */
-  ultHideBite: 1.6,
+  ultHideBite: 2.9,
+  /**
+   * Whether the fight's clocks keep running while a skill's cut-in is on
+   * screen. On: casting costs the player real seconds.
+   *
+   * Everything the fight bills by time goes through Director.elapsed — the
+   * cataclysm's fuse, the boss's rage ramp, and the clock floor under
+   * Director.pressure — and with this on, all three keep counting through the
+   * two and a half seconds a cut-in owns the screen for. T.hardCap always
+   * charged for them; now the rest of the mode agrees with it.
+   *
+   * This reverses a deliberate earlier decision, and the decision it reverses
+   * was not wrong on its own terms — Director.holdClock still carries the
+   * argument. A cut-in is the one stretch of the run the player is not playing:
+   * the board is locked and there is no swap to find. Charging for it means the
+   * one move that costs a full charge bar also hands the boss a tenth of its
+   * fuse and leaves it hitting harder afterwards for having been cast at all.
+   *
+   * It is switched on because that is the point. A skill should be a decision
+   * with a price, and in a thirty second creative the only currency anybody has
+   * is the clock. Free casts made "should I spend this now" a question with one
+   * answer.
+   *
+   * What it costs, measured over 2000 runs a bracket: about a point of win rate
+   * (an ordinary player 84% to 83%, a strong one 86% to 85%) and a wipe rate
+   * appearing where there was none — 2% for an expert, 6% for an ordinary
+   * player front-loading.
+   *
+   * That is much less than it sounds like it should be, and the reason is worth
+   * knowing before anybody tunes against this flag: T.hardCap was never held.
+   * The thirty second deadline runs on wall time and always charged for every
+   * cut-in, so the seconds a cast costs the *run* were being billed all along.
+   * What was exempt was only the three things routed through Director.elapsed —
+   * the cataclysm's fuse, the boss's rage ramp, and the clock floor under
+   * Director.pressure — and of those, rage is capped at 1.18 and the floor
+   * almost never binds. So the fight arithmetic barely moves.
+   *
+   * The change that actually matters is the one on screen. The doom strip used
+   * to freeze for the duration of a cut-in (Director.holdClock called
+   * hud.holdDoom); now it keeps counting down behind the cast, in view, which
+   * is what "time should be spent" looks like to somebody holding the phone.
+   * The new wipes are the cataclysm arriving in runs where it previously ran out
+   * of fight first.
+   *
+   * It also sharpens the strategic fork documented under ultHideBite: a late
+   * cast costs seconds *and* lands for 6% of the bar, so banking skills for
+   * before the wall gets better and spending them at it gets worse.
+   *
+   * Set false and the clocks stop for a cut-in again, which is the kinder build
+   * and the one every note written before this flag existed describes.
+   */
+  ultCostsTime: true,
 
   /**
    * THE DIFFICULTY CURVE — the staircase the whole fight is hung on.
@@ -454,10 +537,38 @@ export const DIFFICULTY = {
    * that no single armour number can make a late ultimate worth 5% and still
    * leave the boss killable inside T.hardCap.
    *
-   * Simulated over 2000 runs per skill level: 26% of weak runs won, 87% of
-   * ordinary ones at 28.4 seconds, 83% of strong ones at 27.7. Losing runs
-   * leave the boss on about 2% of its bar — the near miss this format is built
-   * on rather than a wall.
+   * Simulated over 2000 runs per bracket, and measured twice over because the
+   * endgame has two sensible strategies — `greedy` casts a skill the moment its
+   * bar fills, `front-load` banks the damage skills for before the wall and
+   * keeps only the healer's for after it:
+   *
+   *                  greedy                front-load
+   *     weak        9% @ 29.2s             4% @ 27.7s
+   *     ordinary   52% @ 28.0s            35% @ 26.1s
+   *     strong     50% @ 27.9s  (27% wipe) 99% @ 27.7s
+   *     expert     95% @ 27.5s            99% @ 27.0s
+   *
+   * Three things to read off that, and the second is the one to argue about.
+   *
+   * Every cell lands between 26 and 29 seconds, which is the "won near the 28th
+   * second however you play" this was tuned to. Holding the fast end of that is
+   * what DIFFICULTY.pace's tighter grip is for, not difficulty.
+   *
+   * An ordinary player now wins about half their runs, down from 83% before the
+   * last quarter got its final set of teeth (ultHideBite 1.6 -> 2.9, so a late
+   * ultimate went from 6% of the bar to 2.5%). That is the requested number
+   * doing exactly what it says and it is a real cost: half the sessions end on
+   * a boss with a sliver left. Whether that is the right trade for a playable
+   * ad is a judgement about the creative rather than about the fight, and the
+   * lever is `ultHideBite` — 2.4 gives 4% and takes an ordinary player back to
+   * roughly 70%.
+   *
+   * And the endgame strategy question is now settled rather than open: casting
+   * a damage skill under 10% boss health costs two seconds of T.hardCap to
+   * remove 2.5% of a bar a five-cell match removes 14% of. It is simply wrong,
+   * which is why greedy strong players wipe on 27% of runs and front-loading
+   * ones win 99%. The healer is the exception and stays worth casting late —
+   * hers clears every obsidian block, on a board holding twelve.
    *
    * The kill landing at 28 of the thirty seconds is deliberate, and it is why
    * `pace` below went from a 26 second schedule to 28: the run is supposed to
@@ -465,14 +576,9 @@ export const DIFFICULTY = {
    * T.finaleReserve does not constrain this — it holds only the *autoplay*
    * back from starting a move it cannot finish, so a human plays to T.hardCap.
    *
-   * Those numbers are lower than the revision before this one (36/92/100 at
+   * Those win rates are lower than the revision before this one (36/92/100 at
    * 27.0s) and the difference is entirely the last quarter getting the
-   * requested teeth. Two things in them are worth a decision rather than a
-   * shrug: an ordinary run now times out 13% of the time, and a strong player
-   * measures *below* an ordinary one. The second is explained under
-   * ultHideBite — it is the cut-in's two seconds no longer paying for
-   * themselves in the endgame — and the lever for both is `resist` at p: 0.88
-   * and p: 1.0 in curve.steps.
+   * requested teeth.
    *
    * One correction to an earlier revision of these notes, which claimed
    * 92/100/100 win rates: the sim was counting a kill landing after T.hardCap
@@ -636,7 +742,7 @@ export const DIFFICULTY = {
        * "Hard even with ultimates" is the standard this was written against,
        * and it is met twice over here. A five-cell step takes 15% off the bar
        * where it took 38% at full health — and through DIFFICULTY.ultHideBite
-       * an ultimate takes 8%, down from the 41% it was worth while the boss was
+       * an ultimate takes 3%, down from the 41% it was worth while the boss was
        * whole. Nothing the player owns is a solution to this zone any more; it
        * is a grind, and it is meant to be.
        */
@@ -644,26 +750,46 @@ export const DIFFICULTY = {
       /**
        * The killing stretch.
        *
-       * 0.30 is well under the 0.5 the old `armor` table called its floor, and
+       * The killing blow, at the same hide the keyframe above set.
+       *
+       * 0.38 is well under the 0.5 the old `armor` table called its floor, and
        * that floor was lifted deliberately rather than forgotten. Its argument
        * was that a player who earned the kill should never watch their damage
        * stop mattering — a real failure mode, and this is close enough to it to
-       * be worth writing down plainly: a five-cell step takes 11% off the bar
-       * here where it took 38% at full health, and an ultimate takes 5%. The
-       * bar visibly crawls. That is the requested behaviour and not a bug, and
-       * it was asked for three times in those words.
+       * be worth writing down plainly: a five-cell step takes 14% off the bar
+       * here where it took 38% at full health, and an ultimate takes 2.5%. The
+       * bar visibly crawls. That is the requested behaviour and not a bug; it
+       * was asked for four times, the last time with the number in it.
        *
-       * What it costs: the last quarter of the bar now takes 0.56 bars of
-       * damage to remove — more than the entire easy half of the fight — which
-       * is why an ordinary run now finishes at about 28 seconds of the thirty
-       * instead of 27.
+       * What it costs: the last quarter of the bar takes 0.53 bars of damage to
+       * remove — more than the entire easy half of the fight — which is why an
+       * ordinary run finishes at about 28 seconds of the thirty rather than 27.
        *
        * If it ever reads as cheating rather than as a wall, this number and
-       * `p: 0.88` above are the two to raise, in that order, and
-       * `ultHideBite` is the third. The rest of the curve does not move
-       * with them.
+       * `p: 0.88` above are the two to raise, in that order, and `ultHideBite`
+       * is the third. The rest of the curve does not move with them.
        */
-      { p: 1.0, attack: 3.4, resist: 0.3, obsidian: 9, hold: 12 },
+      /**
+       * BOSS AT TEN PERCENT — and `resist` goes flat from here to the kill.
+       *
+       * The flat stretch is the whole point of this keyframe and it is there to
+       * hold one number still: below a tenth of health an ultimate is supposed
+       * to land for about 2.5% of the bar. With `resist` sliding on to 0.30 it
+       * would have carried on down to 1.2% by the killing blow, which is past
+       * "a couple of percent" and into "why did I press that".
+       *
+       * The boss's temper keeps climbing through it — `attack` still runs 2.9
+       * to 3.4 — so the last tenth is not a plateau in difficulty. It is a
+       * plateau in exactly one thing: how much a hit is worth.
+       *
+       * It also hands the board a little back, and that is the honest cost of
+       * flattening here: a five-cell step lands for 14% across the last tenth
+       * where a sliding hide would have taken it to 11%. The bar needs 1.34
+       * bars of damage now against 1.37, which is about half a second off the
+       * fight.
+       */
+      { p: 0.9, attack: 2.9, resist: 0.38, obsidian: 8, hold: 12 },
+      { p: 1.0, attack: 3.4, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
@@ -820,15 +946,37 @@ export const DIFFICULTY = {
    * cap leaves the guard still biting when the deadline collects — which turns
    * every good run into a timeout.
    *
-   * `bite` 2 is the mildest setting that holds the line; 1 lets a strong player
-   * back to 21 seconds and above 2.5 buys almost nothing for a bar that visibly
-   * stops moving. `floor` 0.18 is the least that ever lands.
+   * `bite` 3 and `floor` 0.12, up from 2 and 0.18, and the reason is a
+   * requirement the old pair could not hold: the win has to land near 28
+   * seconds for *everybody*, however well they play and however they spend
+   * their skills.
+   *
+   * At 2 and 0.18 it did not. The guard only grips a player who is ahead of the
+   * line and it never grips them completely, so a simulated expert — every swap
+   * a five-cell step, cascades half the time, skills banked for the easy half
+   * where `resist` is 1.0 and there is no armour at all to slow them — emptied
+   * the bar in 20.8 seconds and watched a third of the creative play out over a
+   * dead boss. The easy half is exactly what made it possible: it was asked for
+   * as free damage, and free damage is what an expert converts fastest.
+   *
+   * At 3 and 0.12 the same player finishes at 27.3. Every bracket and both
+   * strategies now land between 26 and 29 seconds — see the table under
+   * DIFFICULTY.curve.
+   *
+   * Do not read the tighter grip as "more difficulty": it is the opposite of a
+   * difficulty knob. The guard is what stops skill from *shortening* the
+   * creative, and every second it holds back is a second the player spends in a
+   * zone the curve has something to say in. What it costs is the bar moving
+   * visibly slower under a very good player's best move, which is the failure
+   * mode to watch — the note above is about why the floor exists at all, and
+   * 0.12 is now the least that ever lands rather than 0.18. Below about 0.08
+   * the bar starts reading as stuck rather than as guarded.
    */
   pace: {
     enabled: true,
     seconds: 28,
-    bite: 2,
-    floor: 0.18,
+    bite: 3,
+    floor: 0.12,
   },
 
   /**
