@@ -753,6 +753,89 @@ export function endcard(defeated) {
   noise({ type: "highpass", freq: 2000, to: 7000, dur: 0.6, gain: 0.05 });
 }
 
+/**
+ * The ladder the end card's rungs climb, as playback rates.
+ *
+ * Same idea as the cascade's RATE and a much shorter reach: five steps over a
+ * major sixth, so the card assembling reads as one mechanism cycling rather
+ * than as the same click five times. It tops out because the cut being moved is
+ * a UI click a tenth of a second long, and past about 1.5 a click is a tick.
+ */
+const CARD_STEP = [1.0, 1.09, 1.19, 1.3, 1.42];
+
+/**
+ * One rung of the end card arriving.
+ *
+ * The card used to land in silence. `sfx.endcard` below is the title sting it
+ * came up on, and that is gated off now for every card the outcome screen has
+ * already stamped — which is every card the director builds — so the whole
+ * assembly, wordmark to badges, made no sound at all.
+ *
+ * What goes back is not the sting. A sting is one event and this is five: the
+ * wordmark, the line under it, the plate, the store row and the way out, each
+ * landing on its own beat. So each one gets a *click* — the sample is the
+ * game's own UI click, moved a step up the ladder per rung — and what five of
+ * them in a row sound like is an action being cycled: a mechanism loading a
+ * round per part, ending on the plate.
+ *
+ * `heavy` is the plate's, and it is the one rung that is not a click but a
+ * clack. It is the thing the whole card is built around and the only part of it
+ * that can be tapped, so it lands with a body under the click and everything
+ * else lands lighter than it.
+ *
+ * @param {number} step which rung, from the top of the card down
+ * @param {boolean} [heavy] the plate, which lands harder than the rest
+ */
+export function endcardStep(step, heavy) {
+  const rate = CARD_STEP[Math.max(0, Math.min(CARD_STEP.length - 1, step | 0))];
+  if (samples.play("select", { rate, gain: heavy ? 1.5 : 0.85 })) {
+    // The plate's body, under the click rather than instead of it: the sprite
+    // has no heavy click in it, and one cut played twice is a stutter.
+    if (heavy) {
+      tone({
+        freq: 190,
+        to: 120,
+        dur: 0.12,
+        gain: 0.1,
+        type: "triangle",
+        cut: 900,
+      });
+    }
+    return;
+  }
+
+  // The synthesized ratchet: a sprung click over a small wooden body. Square
+  // through a low cut is what makes it mechanical rather than musical — this is
+  // the one sound on the card that is a *part moving*, and nothing about it
+  // should sit on the ladder the board is tuned to.
+  noise({
+    type: "highpass",
+    freq: 3200,
+    to: 1600,
+    dur: 0.045,
+    gain: (heavy ? 0.07 : 0.045) * 1,
+    q: 0.8,
+  });
+  tone({
+    freq: 330 * rate,
+    to: 200 * rate,
+    dur: 0.06,
+    gain: heavy ? 0.1 : 0.06,
+    type: "square",
+    cut: 2400,
+  });
+  if (heavy) {
+    tone({
+      freq: 170,
+      to: 110,
+      dur: 0.14,
+      gain: 0.11,
+      type: "triangle",
+      cut: 800,
+    });
+  }
+}
+
 /** The tap that leaves for the store. */
 export function cta() {
   if (samples.play("cta")) return;

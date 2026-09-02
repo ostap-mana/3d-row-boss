@@ -1,35 +1,49 @@
 /**
- * Cut the six neon hint hands off the second contact sheet.
+ * Cut the six neon hint hands off the hand-pose sheet.
  *
  *   node tools/pack-neon-hand.mjs      # -> src/assets/hint/hand-*.webp
  *
- * The source is `src/source/hint/hand-sheet.png` — a 1254 square of hint-hand art
- * in the same neon-on-black language as the marks sheet, laid out as six labelled
- * sections. Only the first is wanted: `10.1 ОСНОВНІ ІКОНКИ`, six hands with the
- * index finger up, one per element colour.
+ * The source is `src/source/hand/image.png` — 1536x1024 of hint-hand art in
+ * the same neon-on-black language as the marks sheet, laid out as four rows of
+ * six. The rows are poses and the columns are the element colours: finger up
+ * with the thumb out, the same finger up straight-on, a fist pointing right, and
+ * one pointing down. The columns run wind, arcane, water, fire, nature,
+ * lightning, left to right, which is nobody's canonical order — so a column's
+ * element is read off its colour rather than its position, the way
+ * tools/pack-hint-marks.mjs reads its own.
  *
- * All six are cut, one per element, because the hand was the last thing in the
- * lesson still speaking in one colour while the frame round the gem and the
- * arrow off it already wore the element's — see tools/pack-hint-marks.mjs for
- * those twelve. This file used to cut only the pale hand in the first column, on
- * the reading that the hand is the player's and not an element's, which the
- * sheet's own sections 10.3 and 10.6 support: they draw it pale beside icons of
- * every colour. But the lesson only ever points at one gem at a time, and
- * wearing that gem's colour is what ties the hand to what it is about instead
- * of leaving it a prop that happens to be nearby.
+ * Only the first row is cut. It is the pose the prop has always had — finger up,
+ * thumb out, cuff running off the bottom — so the hand ui/hand.js drives is the
+ * hand it was driving before, redrawn, and none of the demo it plays has to be
+ * rethought around a new gesture. The other three rows are on the sheet for a
+ * lesson that points sideways or down and does not exist yet; when it does, they
+ * are three more bands of this same cut.
  *
- * A column's element is read off its colour rather than its position, the way
- * pack-hint-marks reads its own: the six are drawn wind, arcane, water, fire,
- * nature, lightning, left to right, which is nobody's canonical order and not
- * one worth writing down twice. The pale first column classifies as WIND — it is
- * the same pale cyan the wind gem is painted in — so wind's hand is the hand the
- * prop already shipped with, and art/hinthand.js hands that one back as the
- * neutral hand for a cell with no element at all.
+ * Six hands are cut rather than one because the frame round the gem and the
+ * arrow off it already come in six (see tools/pack-hint-marks.mjs), so the set
+ * is there for a hand that wears the element it is pointing at. ui/hand.js wears
+ * all six, one per lesson, and carries a dark rim under the line so a green hand
+ * still reads on green gems.
+ *
+ * This sheet has been the one cut twice, either side of `hand-v2.png` — a redraw
+ * of the same four poses in the same six colours in a much narrower line, a long
+ * straight finger on a thin palm, which is no longer on disk. Nothing this file
+ * reads about a sheet changed across either swap and every number it measures
+ * off one did: 94 pixels of hand across and 1.81 times its own width tall going
+ * one way, and about 160 across and 1.38 coming back. That is a different prop
+ * on the board and not a redraw of the same one, which is why the swap moves
+ * ui/hand.js's numbers too and not only this file's output.
+ *
+ * Both replaced `src/source/hint/hand-sheet.png`, the labelled sheet whose
+ * section 10.1 held the six before either of them; it is still on disk, and the
+ * git history of this file still holds the cut that read its sections. Before
+ * the neon came a painted leather gauntlet, still cut by tools/pack-hand.mjs off
+ * its own source.
  *
  * Keying is the marks sheet's, for the same reason: no alpha channel, neon over
- * black, so the brightest channel is the intensity and dividing it back out
- * recovers the colour that was multiplied by it. See tools/pack-hint-marks.mjs,
- * where the same `key` is explained at length.
+ * a near-black backdrop, so the brightest channel is the intensity and dividing
+ * it back out recovers the colour that was multiplied by it. See
+ * tools/pack-hint-marks.mjs, where the same `key` is explained at length.
  *
  * What is different here is that the crop has to carry a measurement out with
  * it. ui/hand.js anchors the sprite on the fingertip, because a hand pointing at
@@ -41,13 +55,15 @@
  * is a different number on every colour.
  *
  * And with six hands it has to come out as *one* measurement. They were drawn by
- * hand, so their crops run 105 to 113 across and their tips sit anywhere from
- * 0.017 to 0.047 down — six sprites with six anchors would mean ui/hand.js
- * re-anchoring and re-sizing every time the element changed, off differences the
- * game has no way to mean anything by. So each hand is composed onto a common
- * canvas at whatever offset puts its own tip on a common point: one aspect, one
- * anchor, and swapping the texture is the whole of changing colour. The canvas
- * is the tightest one that fits all six that way.
+ * hand, so their crops run 154 to 163 across and 211 to 227 down, and their tips
+ * sit anywhere from nothing to eight pixels below the top of their own glow —
+ * six sprites with six anchors would mean ui/hand.js re-anchoring and re-sizing
+ * every time the element changed, off differences the game has no way to mean
+ * anything by. So
+ * each hand is composed onto a common canvas at whatever offset puts its own tip
+ * on a common point: one aspect, one anchor, and swapping the texture is the
+ * whole of changing colour. The canvas is the tightest one that fits all six
+ * that way.
  *
  * The numbers it prints are HAND_ART and HAND_TIP in src/art/hinthand.js.
  *
@@ -60,21 +76,34 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/hint/hand-sheet.png");
+const SOURCE = join(ROOT, "src/source/hand/image.png");
 const OUT_DIR = join(ROOT, "src/assets/hint");
 
-/** The sheet is square and this is its side. */
-const SHEET = 1254;
+/** The sheet, in pixels: four pose rows by six colour columns. */
+const SHEET = { w: 1536, h: 1024 };
 
 /**
- * Section 10.1's row, as fractions of the sheet's height.
+ * The first pose row, as fractions of the sheet's height.
  *
- * It starts below the section's own label and ends before 10.2's, with enough
- * clearance either side for the hands' glow and none for the text — a caption
- * keyed in with the art would be picked up as a shape, and this one sits
- * directly above the hands that are wanted.
+ * Wide of the hands on both sides and clear of the second row, which starts at
+ * 0.293. The band is a window to search and not a crop: the glow reaches
+ * further above the fingertip on some colours than on others, so a window
+ * tighter than the gap between the rows would take a halo off one hand and not
+ * off the next and put the six on canvases that no longer agree. There is no
+ * text on this sheet to keep out of, which is what lets the window be that
+ * loose — the MIN_AREA guard below is what decides what counts as a hand.
+ *
+ * It has to be checked against the sheet and not carried over from the last
+ * one, and the failure when it is not is quiet. The window that fitted the
+ * previous draw opened at 0.05, which is ten pixels *inside* the top of this
+ * row: the six shapes came out the right count, the right colours and plausibly
+ * the right size, and every one of them had its fingertip sliced off flat and
+ * its anchor sitting on the cut. The tell is HAND_TIP printing y = 0, meaning
+ * the topmost solid row of the drawn line and the topmost row of its own glow
+ * came out the same row — which no glow does. Row 1 of this sheet runs 41 to
+ * 267 of 1024 and the window is eight to ten rows clear of it on both sides.
  */
-const BAND = [0.055, 0.18];
+const BAND = [0.03, 0.285];
 
 /** Six hands in the row, one per element. */
 const COLUMNS = 6;
@@ -96,11 +125,18 @@ const ELEMENTS = [
 /**
  * The smallest thing that can be a hand.
  *
- * Well over any letter of the label above and well under the hands themselves,
- * which run to between five and eight thousand pixels. It is the guard that
- * makes the band's top edge a matter of clearance rather than of precision.
+ * Well under the hands themselves, which key out to between twelve and eighteen
+ * thousand pixels on this sheet, and well over any speck the keying lifts off
+ * the backdrop. It is the guard that makes the band's edges a matter of
+ * clearance rather than of precision.
+ *
+ * It came down from 2000 for `hand-v2.png`, whose line was thin enough that the
+ * smallest hand on it drew barely twice what the floor asked. This sheet has
+ * room for either number — its lightest hand clears 1200 ten times over — so it
+ * is left where the narrower draw needed it, and there is nothing on either
+ * sheet in between the two.
  */
-const MIN_AREA = 2000;
+const MIN_AREA = 1200;
 
 /** Alpha at or above which a pixel is the drawn line and not its glow. */
 const SOLID = 150;
@@ -111,10 +147,17 @@ const FLOOR = 22;
 /**
  * Packed at twice the size it is cut at.
  *
- * A hand is 110 pixels across on the sheet and ui/hand.js asks for up to 140
- * points of it, which is 420 device pixels on a phone at three to the point.
+ * A hand is about 160 pixels across on this sheet and ui/hand.js asks for up to
+ * 140 points of it, which is 420 device pixels on a phone at three to the point.
  * The upscale has to happen somewhere and lanczos here beats the bilinear the
- * GPU would do at draw time.
+ * GPU would do at draw time, so it is worth doing; but two is enough to clear
+ * that 420 and three only buys headroom nothing asks for, at more than twice
+ * the bytes — the six webps come out around 200kB at two and 450kB at three.
+ *
+ * It was three for one draw of this sheet, the narrow one, where a hand was 94
+ * pixels across and two would have left the prop being blown up past its own
+ * pixels on the widest phone. Two is what served every wider draw before it,
+ * and this one is wider again.
  */
 const UPSCALE = 2;
 
@@ -179,19 +222,19 @@ function key(rgb, w, h) {
   return out;
 }
 
-const alphaAt = (px, x, y) => px[(y * SHEET + x) * 4 + 3];
+const alphaAt = (px, x, y) => px[(y * SHEET.w + x) * 4 + 3];
 
 /** Every run of touching pixels in a band, left to right. Gap-tolerant by 3px. */
 function shapes(px, y0, y1) {
   const h = y1 - y0 + 1;
-  const seen = new Uint8Array(SHEET * h);
+  const seen = new Uint8Array(SHEET.w * h);
   const found = [];
   const lit = (x, y) => alphaAt(px, x, y0 + y) > 0;
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < SHEET; x++) {
-      if (seen[y * SHEET + x] || !lit(x, y)) continue;
+    for (let x = 0; x < SHEET.w; x++) {
+      if (seen[y * SHEET.w + x] || !lit(x, y)) continue;
       const stack = [[x, y]];
-      seen[y * SHEET + x] = 1;
+      seen[y * SHEET.w + x] = 1;
       let x0 = x;
       let x1 = x;
       let ya = y;
@@ -208,9 +251,9 @@ function shapes(px, y0, y1) {
           for (let dx = -3; dx <= 3; dx++) {
             const nx = cx + dx;
             const ny = cy + dy;
-            if (nx < 0 || ny < 0 || nx >= SHEET || ny >= h) continue;
-            if (seen[ny * SHEET + nx] || !lit(nx, ny)) continue;
-            seen[ny * SHEET + nx] = 1;
+            if (nx < 0 || ny < 0 || nx >= SHEET.w || ny >= h) continue;
+            if (seen[ny * SHEET.w + nx] || !lit(nx, ny)) continue;
+            seen[ny * SHEET.w + nx] = 1;
             stack.push([nx, ny]);
           }
         }
@@ -228,7 +271,7 @@ function hue(px, box) {
   const bright = [];
   for (let y = box.y; y < box.y + box.h; y++) {
     for (let x = box.x; x < box.x + box.w; x++) {
-      const i = (y * SHEET + x) * 4;
+      const i = (y * SHEET.w + x) * 4;
       if (px[i + 3] < 120) continue;
       bright.push([px[i + 3], px[i], px[i + 1], px[i + 2]]);
     }
@@ -287,8 +330,8 @@ function fingertip(px, box) {
 
 /* -------------------------------------------------------------------- main */
 
-const px = key(decode(SOURCE), SHEET, SHEET);
-const band = BAND.map((f) => Math.round(f * SHEET));
+const px = key(decode(SOURCE), SHEET.w, SHEET.h);
+const band = BAND.map((f) => Math.round(f * SHEET.h));
 const found = shapes(px, band[0], band[1]);
 if (found.length !== COLUMNS) {
   throw new Error(
@@ -335,7 +378,7 @@ for (const el of ELEMENTS) {
   const out = Buffer.alloc(W * H * 4);
   for (let y = 0; y < box.h; y++) {
     for (let x = 0; x < box.w; x++) {
-      const s = ((box.y + y) * SHEET + box.x + x) * 4;
+      const s = ((box.y + y) * SHEET.w + box.x + x) * 4;
       px.copy(out, ((dy + y) * W + dx + x) * 4, s, s + 4);
     }
   }

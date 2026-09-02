@@ -10,7 +10,7 @@
  * driving. See grab/dragTo/letGo, which the board's pointer handlers feed
  * through the director.
  *
- * The hand it shows is the neon outline off the hint-hand sheet — see
+ * The hand it shows is the neon outline off the hand-pose sheet — see
  * art/hinthand.js, which also holds the fingertip the sprite is anchored on. It
  * comes in all six element colours and setElement decides which is worn, so the
  * hand matches the gem it has hold of the way the frame and the arrow around it
@@ -35,10 +35,25 @@ import { HAND_ASPECT, HAND_TIP, hintHandTexture } from "../art/hinthand.js";
  * palm, a thumb and a cuff around it, so the same box would spend most of itself
  * on everything except the pointing.
  *
- * 1.45 survived the swap from the gauntlet to the neon hand because the sheet
- * agrees with it. Section 10.6 of the hint-hand sheet stands the hand beside an
- * element icon at about 1.7 times its diameter, and a gem is 0.86 of a cell —
- * which puts the artist's own composition at 1.47 cells of hand.
+ * 1.45 came off the old hint-hand sheet, which had composed the hand for us:
+ * its section 10.6 stood the hand beside an element icon at about 1.7 times its
+ * diameter, and a gem is 0.86 of a cell, which put the artist's own composition
+ * at 1.47 cells of hand. It has fitted every squat draw of the prop since — the
+ * gauntlet at 1.13 times its own width, the neon redraws at 1.38 and, on the
+ * sheet the art comes off now, 1.38 again — because on a hand that wide 1.45
+ * cells of width is also a sane height.
+ *
+ * It went to 1.10 for one draw and came back, and what that swap worked out is
+ * the thing to keep. That hand was a long straight finger on a narrow palm
+ * standing 1.81 times its own width, so holding the width would have hung two
+ * and a half cells of hand off the fingertip on a board five cells tall; 1.10 is
+ * what holds the *height* instead, and 1.45 times 1.38 and 1.10 times 1.81 both
+ * come out a hair under two cells of reach down the board. So height is the
+ * number that carries across a redraw which changes the hand's proportions, and
+ * the width to write here is whichever one gives that height back. min and max
+ * move with it — they went to 0.76 of these for the narrow hand and back — so
+ * the reach holds at both ends of the clamp, on the widest screen the prop is on
+ * and on the narrowest.
  */
 const DRAWN = {
   aspect: 1.55,
@@ -54,6 +69,61 @@ const PAINTED = {
 
 /** How far the hand shrinks under a press, as a fraction of its own size. */
 const PRESS = 0.86;
+
+/**
+ * How the prop gets to the cell it is about to point at.
+ *
+ * It used not to get there at all. reach() and both loops wrote x and y
+ * outright and faded the hand up where it landed, so the prop never moved onto
+ * the frame it was pointing at — it appeared on it, dead still, and the only
+ * thing that said it had arrived was the fade. On a lesson that plays the same
+ * swap over and over, that reads as a hand blinking in and out of the board
+ * rather than one hand demonstrating a move.
+ *
+ * So every arrival is a travel now. A hand already on the screen goes from
+ * wherever it is. One coming back from nothing starts `entry` off the target —
+ * below and to the right, the side its own wrist and cuff are on, so it comes in
+ * from off the board the way a real hand does and not out of the middle of it —
+ * and fades up over the first `fade` of the way, so it is solid well before it
+ * lands.
+ *
+ * `arc` and `rise` are what make it a hand and not a sprite on a path. The prop
+ * lifts off the glass on the way over — up the screen, and a little larger for
+ * being nearer — and settles back onto it as it arrives, which is the gesture
+ * press() and release() already play at either end of a drag. The lift is a
+ * fraction of the distance travelled so a hop between neighbours barely leaves
+ * the board, and it is capped in units of the hand's own width so a move across
+ * the whole board does not throw the prop off the top of it.
+ *
+ * Only the *approach* bows. The drag itself — swipeLoop's travel, and the
+ * slideTo the lesson runs against previewSwap — stays flat and stays pressed,
+ * because a finger carrying a stone from one cell to the next is a finger on the
+ * glass, and lifting it there would be the hand letting go of the gem it is
+ * supposed to be moving.
+ */
+const APPROACH = {
+  /** Seconds of travel: `min` for a hop, up to `max` once it is `span` away. */
+  min: 0.24,
+  max: 0.42,
+  /**
+   * The distance, in points, that earns the whole of `max`.
+   *
+   * A couple of cells. The board is five cells of about 130 points, so a swap
+   * between neighbours travels well under this and gets a quick hop, and
+   * anything reaching across the board gets the full glide.
+   */
+  span: 320,
+  /** Where a hand arriving from nothing starts, in its own drawn size. */
+  entry: { x: 0.5, y: 0.7 },
+  /** How much of that travel is spent fading up. */
+  fade: 0.55,
+  /** The lift at the top of the arc: this much of the distance travelled... */
+  arc: 0.16,
+  /** ...and never more than this much of the hand's own width. */
+  ceiling: 0.4,
+  /** How much bigger the hand is drawn at the top of the arc. */
+  rise: 1.07,
+};
 
 /**
  * The dark rim carried under the hand, and what it is for.
@@ -159,11 +229,96 @@ export class Hand extends Container {
    * hand snapped to the new board and then crawled back to the size of the old.
    */
   applySize() {
-    const s = this.baseSize * this.urgency;
     killTweensOf(this.sprite);
     killTweensOf(this.shade);
+    this.drawAt(1);
+  }
+
+  /**
+   * Write the prop's size, at a multiple of the one the layout asks for.
+   *
+   * Split out of applySize because approach() drives it per frame off the arc
+   * and must not kill the tweens it is being driven from. Every writer of the
+   * hand's size goes through here, so the rim and the line can only ever be the
+   * same size as each other.
+   */
+  drawAt(scale) {
+    const s = this.baseSize * this.urgency * scale;
     this.sprite.setSize(s, s * this.aspect);
     this.shade.setSize(s * SHADE.grow, s * this.aspect * SHADE.grow);
+  }
+
+  /**
+   * Travel to the point the prop is about to point at, and arrive on it.
+   *
+   * One position tween, with the arc and the rise written from its onUpdate
+   * rather than tweened beside it. That is deliberate: the engine hands the
+   * callback the progress of the tween it belongs to (see core/tween.js), so the
+   * bow and the size cannot drift out of step with the travel they are a bow and
+   * a rise *of*, and a stop() landing mid-flight ends all three by ending one.
+   * It is also safe to write x and y from there — the tween re-derives both from
+   * the values it captured when it was made, every frame, so an offset laid on
+   * top of them is not carried into the next frame and cannot accumulate.
+   *
+   * @param {number} id the caller's token
+   * @param {boolean=} fresh start off the target even if the prop is already on
+   *   the screen somewhere — see tapLoop, which needs it
+   * @returns {Promise<boolean>} whether the prop is still the caller's
+   */
+  async approach(id, x, y, fresh = false) {
+    // Whatever was driving the prop is not driving it any more, and this is the
+    // gesture that says so. It also takes out a fade left in flight by a stop()
+    // in the same tick: that tween writes alpha *after* one started later does,
+    // so a hand told to go somewhere while it was leaving used to travel there
+    // invisibly. Killed tweens still resolve, and stop()'s continuation checks
+    // the token the caller has already bumped, so nothing hides the prop behind
+    // this.
+    killTweensOf(this);
+
+    const entering = fresh || this.alpha <= 0;
+    const s = this.baseSize * this.urgency;
+    if (entering) {
+      this.x = x + s * APPROACH.entry.x;
+      this.y = y + s * this.aspect * APPROACH.entry.y;
+      this.alpha = 0;
+    }
+
+    const span = Math.hypot(x - this.x, y - this.y);
+    if (span < 1) {
+      // Already standing on it. An eased tween over no distance is a frame of
+      // stall and nothing to look at.
+      this.x = x;
+      this.y = y;
+      this.drawAt(1);
+      if (entering) await tween(this, { alpha: 1 }, APPROACH.min);
+      return id === this.token;
+    }
+
+    const dur =
+      APPROACH.min +
+      (APPROACH.max - APPROACH.min) * Math.min(1, span / APPROACH.span);
+    const lift = Math.min(span * APPROACH.arc, s * APPROACH.ceiling);
+
+    if (entering) tween(this, { alpha: 1 }, dur * APPROACH.fade);
+
+    // Decelerating into the frame when it is arriving from off the board, eased
+    // at both ends when it is already on the board and crossing it: the first is
+    // a hand coming to rest on something, the second a hand leaving one place
+    // for another.
+    await tween(this, { x, y }, dur, {
+      ease: entering ? Ease.cubicOut : Ease.cubicInOut,
+      onUpdate: (e, t) => {
+        // Zero at both ends, so the prop lands on the exact point asked for and
+        // at the exact size the layout asks for, whatever the arc did in
+        // between. Off linear time rather than the eased position, so the lift
+        // is symmetric about the middle of the flight and not about the middle
+        // of the distance.
+        const bow = Math.sin(Math.PI * t);
+        this.y -= lift * bow;
+        this.drawAt(1 + (APPROACH.rise - 1) * bow);
+      },
+    });
+    return id === this.token;
   }
 
   setUrgency(level) {
@@ -196,26 +351,21 @@ export class Hand extends Container {
    *
    * @param {number} type one of config.js's six, or -1 for none
    */
-  setElement() {
-    // The neutral hand, whatever colour was asked for.
+  setElement(type) {
+    // The hand of the element the lesson is about, and the dark rim under it is
+    // what keeps that readable. The prop is a neon line laid over the gems it is
+    // demonstrating, so a green hand on three green gems is a bright line on a
+    // bright line of the same hue with nothing between them — SHADE is the thing
+    // between them, and it is drawn for this case and no other.
     //
-    // The prop used to wear the element it was pointing at — art/hinthand.js
-    // packs one per element and still does — and on this board that is the one
-    // colour it must not be. The hand is *on* the gems it is demonstrating, so
-    // a green hand over three green gems is a bright line laid on a bright line
-    // of the same hue: at the size the prop is drawn it stops reading as a hand
-    // at all and reads as a smear where the move was supposed to be. The pale
-    // one separates from all six, which is the whole job of a pointer.
-    //
-    // Nothing is lost by dropping the colour. Which element the lesson is about
-    // is already said three other ways in the same frame — the frames round the
-    // pair, the arrow between them and the light the scrim cuts, all six-coloured
-    // — and none of those sit on top of the gems they are naming.
-    //
-    // The argument is kept rather than removed: every caller has an element to
-    // hand and the six textures are still packed, so putting the colour back is
-    // this line and nothing else.
-    const tex = hintHandTexture();
+    // This spent a while pinned to the neutral hand for that reason: the pale
+    // one separates from all six, and which element the lesson is about is
+    // already said by the frames round the pair, the arrow between them and the
+    // light the scrim cuts. The colour is back because a hand that names the
+    // element it has hold of is worth the contrast it costs. If it ever reads as
+    // a smear again, dropping the argument on the line below is the whole of
+    // taking it away.
+    const tex = hintHandTexture(type);
     if (!tex) return;
     this.sprite.texture = tex;
     this.shade.texture = tex;
@@ -302,14 +452,12 @@ export class Hand extends Container {
     const id = ++this.token;
     this.visible = true;
     this.run(id, async () => {
-      this.x = from.x;
-      this.y = from.y;
-      this.alpha = 0;
       // Checked between beats, not only between passes. stop() kills whatever
       // tween is in flight, which resolves it early — a body that read that as
       // "landed" carried straight on into the next second of gesture, sliding a
       // hand across a board that had already been given back to the player.
-      if (!(await this.beat(id, tween(this, { alpha: 1 }, 0.18)))) return;
+      // approach() answers the same question as beat() for the same reason.
+      if (!(await this.approach(id, from.x, from.y))) return;
       if (!(await this.beat(id, this.press()))) return;
       const travel = tween(this, { x: to.x, y: to.y }, 0.42, {
         ease: Ease.cubicInOut,
@@ -343,12 +491,11 @@ export class Hand extends Container {
     if (this.held) return 0;
     const id = ++this.token;
     this.visible = true;
-    this.x = x;
-    this.y = y;
-    this.alpha = 0;
     this.applySize();
-    await tween(this, { alpha: 1 }, 0.18);
-    if (id !== this.token) return 0;
+    // The travel onto the cell, rather than an appearance on it. See APPROACH:
+    // a hand still on the board crosses it, one arriving from nothing comes in
+    // off the frame, and either way it is moving when the player first sees it.
+    if (!(await this.approach(id, x, y))) return 0;
     await this.press();
     return id === this.token ? id : 0;
   }
@@ -375,10 +522,13 @@ export class Hand extends Container {
     const id = ++this.token;
     this.visible = true;
     this.run(id, async () => {
-      this.x = at.x;
-      this.y = at.y;
-      this.alpha = 0;
-      if (!(await this.beat(id, tween(this, { alpha: 1 }, 0.18)))) return;
+      // Always in off the target, never across from wherever the prop was: the
+      // tap lesson is played on the hero row, and ui/coach.js's cardBeat takes
+      // the hand off the board in the same tick it asks for this precisely so
+      // that it does not travel there from a gem — a hand crossing that gap
+      // reads as the player dragging a stone into the row. Which is a thing the
+      // prop must not appear to do, and the reason approach() takes the flag.
+      if (!(await this.approach(id, at.x, at.y, true))) return;
       if (!(await this.beat(id, this.press()))) return;
       if (!(await this.beat(id, delay(0.12)))) return;
       if (!(await this.beat(id, this.release()))) return;

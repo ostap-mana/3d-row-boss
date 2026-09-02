@@ -7,14 +7,40 @@
  * so the portrait, the name, the skill and every colour on screen are swapped
  * by setHero() before the slam.
  *
- * And it is a cut now rather than a tint. The frame it used to hand over was a
+ * And it is a cut rather than a tint. The frame it used to hand over was a
  * translucent sticker on the gameplay: the fight went 82% dark, which still left
- * the hero row reading its own names and numbers, the board showing five columns
- * of saturated gem and the coach shouting through the middle of it — and then
- * the speed lines were drawn over the top at a width and a flatness that lifted
- * all of it back and smeared the screen with tan bands. Everything below is
- * aimed at that one fault: the fight goes away, the lockup is the only thing
- * lit, and the streaks are a burst around it rather than a gradient over it.
+ * the hero row reading its own names and numbers and the board showing five
+ * columns of saturated gem. The fight goes away entirely now, the lockup is the
+ * only thing lit, and what fills the dark is a burst around the hero rather than
+ * a gradient over the board.
+ *
+ * ## What the frame is made of, and why it is made of that
+ *
+ * The composition is a **card**, and that is the whole of the redesign. This
+ * used to stand a roundel — a circular crop of the hero's face, about a third of
+ * the stage — inside the burst sheet that art/ultborder.js packs, and that sheet
+ * is a *card border*: a tall rectangle of white-hot rim and bloom, drawn for the
+ * tile in the hero row. Hung round a circle it framed nothing. What the player
+ * actually saw was an empty glowing rectangle with a small avatar pasted over
+ * the middle of it — a picture frame with no picture in it.
+ *
+ * So the thing inside the border is the thing the border was drawn for: the
+ * hero's own card art, edge to edge, at the sheet's own aspect. The bust is a
+ * painting of a face and shoulders (see art/avatars.js) and it fills the panel
+ * the way it fills the tile in the row. The burst sheet then reads as what it
+ * is — the card the player just tapped, blazing — and the cut-in becomes the
+ * same object the tap was on, thrown at the camera at ten times the size.
+ *
+ * Around it:
+ *
+ *   - **rays**, converging on the panel. Concentrated lines are the oldest
+ *     device in this genre and they do one job: point at the subject. The set
+ *     before them was 76 *parallel* streaks leaning across the whole window,
+ *     which point at nothing and read as scratches on the film.
+ *   - **an impact ring** thrown off the panel on the frame it lands, because a
+ *     slam with no shockwave is a slide.
+ *   - **the lockup**: a kicker, the name, the skill, on a banner sheared to the
+ *     same lean as everything else in the frame.
  */
 
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
@@ -28,6 +54,7 @@ import {
   HEALER,
 } from "../config.js";
 import { heroPortrait } from "../art/heroes.js";
+import { heroBust } from "../art/avatars.js";
 import { glowTexture } from "../art/textures.js";
 import { fitUltBorder, ultBurst, ultBurstTexture } from "../art/ultborder.js";
 import { lerpColor } from "../core/color.js";
@@ -39,59 +66,100 @@ import * as sfx from "../audio/sfx.js";
  *
  * It was 0.82. Eighteen percent of a lit board is not a backdrop, it is a second
  * composition competing with the first — and the one thing a cut-in has to do is
- * be the only thing on screen. At 0.965 what is left of the fight is a suggestion
- * of where it was, which is all this frame wants from it: the haze below is what
- * keeps the darkness from reading as a black rectangle.
- *
- * The haze has to be kept honest for the same reason. It blends additively over
- * everything, the fight included, so every point of it hands some of the board
- * back — at a quarter it was legibly un-dimming the hero row and the coach's
- * shout through the middle of the frame. It is a breath of the element in the
- * dark, and that is all it is allowed to be.
+ * be the only thing on screen. It went from 0.965 to 0.982 with the rays: an
+ * additive burst does not brighten what is under it, it lights the air *around*
+ * it, so every streak crossing the board silhouetted the gem glyphs still
+ * reading through at three and a half percent and the bottom of the frame came
+ * out a lit grid. What is left now is a suggestion of where the fight was, which
+ * is all this frame wants from it — the haze below is what keeps the darkness
+ * from reading as a black rectangle.
  */
-const DIM = 0.965;
+const DIM = 0.982;
 const DIM_COLOR = 0x04030a;
 
 /**
- * The speed-line burst.
+ * The lean every straight edge in the frame shares.
  *
- * Rewritten from the wide bands it was. The old set drew 32 shards at up to 3%
- * of the window's width, flat, unblended, and at the same alpha the whole way
- * across — which over a dark frame is not motion, it is a broken gradient, and
- * it was the ugliest thing in the shot. These are many, mostly hair-thin,
- * additive, and weighted so the streaks pile up at the frame's edges and fall to
- * nothing across the middle third where the medallion and the type live. That
- * falloff is the whole difference between a burst and a smear: an anime cut-in
- * is clean where you are meant to look.
+ * Horizontal travel over a shape's own height, as a fraction of it. The banner
+ * is sheared by it, the panel is tilted to match it and the type block is set
+ * against it, which is what makes the composition read as one diagonal rather
+ * than as three objects at three angles.
  */
-const LINES = {
-  count: 76,
-  /** Horizontal travel over a shard's own height, as a fraction of it. */
-  lean: 0.36,
-  /** Thinnest and thickest shard, as a fraction of the window's width. */
-  thin: 0.0013,
-  thick: 0.009,
+const LEAN = 0.34;
+
+/**
+ * The panel: the hero's card, at the size a cut-in wants it.
+ *
+ * `aspect` is the burst sheet's own — 304 by 608, a card — and the bust art is
+ * 160 by 328, near enough the same that cover-fitting it is barely a crop. Both
+ * of those are facts about files on disk, and the whole point of this number is
+ * that the panel agrees with them: a box of any other shape puts a rectangular
+ * border round something that is not that rectangle, which is the fault this
+ * replaced.
+ *
+ * `tall` is the share of the stage's height the panel stands, and it is bound by
+ * the width as well — in portrait the stage is half as wide as it is tall, and a
+ * panel sized off the height alone runs out over both edges.
+ *
+ * `tilt` is small on purpose. Enough that the panel is a thing thrown into the
+ * frame rather than a dialog box centred in it; not so much that the type has to
+ * lean with it or the burst border starts reading as crooked.
+ */
+const PANEL = {
+  aspect: 0.5,
+  tall: { portrait: 0.44, landscape: 0.72 },
+  wide: { portrait: 0.52, landscape: 0.3 },
+  tilt: -0.052,
+  corner: 0.075,
+};
+
+/**
+ * The rays: concentrated lines, converging on the panel.
+ *
+ * Each one is a wedge with its point at `inner` — just outside the panel, so
+ * nothing is drawn over the face — and its base out past the corner of the
+ * window. Alpha climbs with the radius, so the frame's edges are loud and the
+ * air around the hero is clean, which is the difference between a burst and a
+ * wash.
+ *
+ * The angles are jittered by nearly a whole slot. Evenly spaced rays are a
+ * sunburst — a wheel, a thing at rest — and what is wanted is the irregular
+ * shatter an ink drawing gets from being drawn by hand.
+ */
+const RAYS = {
+  count: 96,
+  /** Where the points sit, in panel heights from the panel's own centre. */
+  inner: 0.62,
   /**
-   * Alpha at the frame's edge, and how fast it dies inward.
+   * Widest and narrowest a ray is at the frame's edge, in radians, and how
+   * hard the roll between them leans on the narrow end.
    *
-   * Both are quieter than they want to be. Additive streaks are cheap to make
-   * bright and the temptation is to let them carry the frame, but they are
-   * lighting a dark room, not filling it: at 0.34 and a soft falloff the burst
-   * added up to an olive cast over the whole shot, which is a colour nobody
-   * chose. The steep exponent is what buys the clean middle third.
+   * `taper` is the exponent, and it is the number that decides whether this
+   * reads as speed or as a pinwheel. At 1.9 a third of the rays came out fat
+   * and the frame was a wheel of solid blue wedges with the hero at the hub;
+   * cubed, the fat ones are a handful of accents among ninety hairlines, which
+   * is what an inked burst actually looks like.
    */
-  peak: 0.22,
-  falloff: 2.5,
-  /** Floor, so the middle is quiet rather than empty. */
-  base: 0.008,
+  fat: 0.021,
+  thin: 0.0012,
+  taper: 3.2,
+  /** Alpha at the outer edge, before the per-ray roll. */
+  peak: 0.34,
+  /** How hard alpha falls from the outer edge inwards. */
+  falloff: 1.7,
   /**
-   * How far a shard may wander from its slot, in slots.
+   * How much of a ray's length carries its full alpha, from the outer end in.
    *
-   * Evenly spaced streaks read as a pattern — a hatch, a moiré, anything but
-   * speed. Over a slot and a half of drift they clump and gap, which is what a
-   * burst does.
+   * Each one is drawn twice: a long dim wedge from the point to the edge, and a
+   * bright one over its last `hot` of that. Two polys is a gradient, and a
+   * gradient along the ray is what keeps the air around the hero clean while
+   * the frame's edges stay loud.
    */
-  drift: 1.5,
+  hot: 0.45,
+  /** How far a ray may wander from its slot, in slots. */
+  drift: 0.9,
+  /** Share of them struck in white rather than in the element's colour. */
+  white: 0.12,
 };
 
 /**
@@ -101,11 +169,9 @@ const LINES = {
  * additive layer's alpha is not what it looks like: at one flat value the six
  * elements came out as six different frames, because lightning's yellow carries
  * near twice the light of fire's orange and almost three times arcane's purple.
- * SELISA's cut-in went olive while RICKLOW's stayed deep — same code, same
- * number, and one of them looking like a mistake. Spend the same light instead
- * and all six read alike.
+ * Spend the same light instead and all six read alike.
  */
-const HAZE_LIFT = 0.045;
+const HAZE_LIFT = 0.07;
 
 /**
  * What colour the haze is, given an element.
@@ -130,48 +196,15 @@ function hazeAlpha(element) {
 }
 
 /**
- * The gate: the element's own burst sheet, hung round the medallion.
+ * Where the burst sheet has got to at the end of each beat.
  *
- * It is the third place the same frames are played and the first that is
- * not a card. The row's card wears the loop while the ultimate can be spent and
- * throws the burst on the tap — see ULT and `flareUlt` in art/heroes.js — and
- * the cut-in is what the tap hands the screen over to. Standing the portrait
- * inside the same water it just threw is what ties the two halves of the beat
- * together: without it the cut-in is a face in a dark room, and the loudest
- * animation in the build has been and gone in the six tenths of a second before
- * the screen it was building up to.
- *
- * ## The box, and why it is not the sheet's own
- *
- * A sheet is packed to a card: 304 by 608, an aspect of 0.5. The medallion is a
- * circle, and a rectangle half as wide as it is tall drawn round a circle is
- * either narrower than the face — the vertical runs crossing it — or, sized to
- * clear the face, a card two thirds of the stage tall with the type underneath
- * it. Neither is a composition; both were tried.
- *
- * So the gate is measured off the medallion instead, in diameters, and the art
- * takes the aspect it is given. `w` clears the arcs, which stand a ninth of the
- * radius outside the roundel, with air left over and both vertical runs still on
- * screen — the medallion sits at four tenths of the stage's width in portrait,
- * not in the middle, so the left run is the one with nowhere to go. `h` is the
- * most the sheet can be stretched towards its own aspect before the bottom edge
- * reaches the name plate.
- *
- * ## The three beats
- *
- * `land` and `hold` are where the burst has got to at the end of the cut-in's
- * entry and of its hold. Twelve frames of a build, a white-hot peak and a settle
- * over an arc that is already a slam, a creep and a punch: the gate is asked to
- * hit its peak on the frame the medallion lands, to drift across the hot frames
- * while the medallion creeps in, and to spend the settle being thrown through
- * the camera with everything else. See `gateTo`, which is all three.
+ * Twelve frames of a build, a white-hot peak and a settle, over an arc that is
+ * already a slam, a creep and a punch: the border is asked to hit its peak on
+ * the frame the panel lands, to drift across the hot frames while the panel
+ * creeps in, and to spend the settle being thrown through the camera with
+ * everything else. See `gateTo`, which is all three.
  */
-const GATE = {
-  w: 1.24,
-  h: 1.62,
-  land: 0.52,
-  hold: 0.78,
-};
+const GATE = { land: 0.52, hold: 0.78 };
 
 /**
  * Deterministic scatter.
@@ -191,14 +224,14 @@ export class CutIn extends Container {
     super();
     this.visible = false;
 
-    /** Whose cut-in this currently is. the healer until somebody taps another card. */
+    /** Whose cut-in this currently is. The healer until somebody taps a card. */
     this.index = HEALER;
 
     this.dim = new Graphics();
     this.addChild(this.dim);
 
     // The colour in the hole. A frame dimmed this far needs something under the
-    // streaks or it is a black rectangle with a face on it — this is the element
+    // rays or it is a black rectangle with a face on it — this is the element
     // bleeding into the dark, and it is what lets DIM be as high as it is.
     this.haze = new Sprite(glowTexture());
     this.haze.anchor.set(0.5);
@@ -209,10 +242,20 @@ export class CutIn extends Container {
     /** What the haze rests at for the hero it is currently pointed at. */
     this.hazeRest = hazeAlpha(HEROES[HEALER].element);
 
-    this.lines = new Graphics();
-    this.lines.blendMode = "add";
-    this.addChild(this.lines);
+    /**
+     * The rays, in their own container so they can be spun and thrown.
+     *
+     * The Graphics inside is drawn around its own origin and the container is
+     * moved to the panel's centre, which is what lets `rotation` and `scale`
+     * mean "about the focal point" without a matrix anywhere.
+     */
+    this.rayHub = new Container();
+    this.rays = new Graphics();
+    this.rays.blendMode = "add";
+    this.rayHub.addChild(this.rays);
+    this.addChild(this.rayHub);
 
+    /** The bloom the panel stands in. */
     this.glow = new Sprite(glowTexture());
     this.glow.anchor.set(0.5);
     this.glow.blendMode = "add";
@@ -220,33 +263,24 @@ export class CutIn extends Container {
     this.addChild(this.glow);
 
     /**
-     * The medallion: the roundel and everything drawn around it, as one object.
+     * The panel: the card and everything drawn on it, as one object.
      *
-     * A container rather than a bare sprite, because the portrait is not a bare
-     * portrait any more. The roundel arrives as a circle with a dark hairline on
-     * it — see art/avatars.js — and a circle with a hairline dropped onto a lit
-     * frame reads as a pasted avatar. The collar, the rings and the arcs are what
-     * make it a medallion, and they have to travel with it: the whole thing is
-     * thrown through the camera on the punch, so it is the container that moves
-     * and everything inside it that stays put.
+     * A container because the whole thing is thrown through the camera on the
+     * punch — it is the container that moves and rotates, and everything inside
+     * it stays on its own mark. See `play`, and `reset`, which puts one object
+     * back rather than six.
      */
     this.bust = new Container();
     this.addChild(this.bust);
 
     /**
-     * The gate, first into the medallion so everything else is drawn over it.
+     * The burst border, first into the panel so the art is drawn over it.
      *
-     * Under the collar rather than over the rings, and that is the whole of the
-     * decision: the frames are glow on black and go on with `add`, so over the
-     * top they would put light into the face — and a portrait lifted by a
-     * white-hot peak is the pasted-avatar look the collar and the rings exist to
-     * take away. Underneath, the opaque disc keeps the face exactly as painted
-     * and the gate is only ever what stands around it.
-     *
-     * In the medallion rather than beside it because the punch throws the
-     * medallion: `bust` is scaled, recoiled, thrown through the camera and faded
-     * out, and a gate that was a sibling would have to be given its own copy of
-     * all four. See `play`, and `reset`, which puts one object back.
+     * The sheet is glow on black and goes on with `add`, so over the top it
+     * would put light into the face. Underneath, the panel's own plate keeps the
+     * painting exactly as painted and the border is only ever what stands around
+     * it — which, the panel being the shape the sheet was packed for, is a rim
+     * on the card's own edge with its bloom hanging outside.
      */
     this.gate = new Sprite(Texture.EMPTY);
     this.gate.anchor.set(0.5);
@@ -254,23 +288,50 @@ export class CutIn extends Container {
     this.gate.visible = false;
     this.bust.addChild(this.gate);
 
-    /** Which sheet is on the gate, or null for a hero with none. */
+    /** Which sheet is on the border, or null for a hero with none. */
     this.gateArt = null;
-    /** How far through that sheet the gate is — see `gateTo`. */
+    /** How far through that sheet it is — see `gateTo`. */
     this.gateDriver = { v: 0 };
 
-    this.collar = new Graphics();
-    this.bust.addChild(this.collar);
+    /** The dark tile the art is laid on, and the edge it is cut to. */
+    this.plateBack = new Graphics();
+    this.bust.addChild(this.plateBack);
 
-    this.portrait = new Sprite(heroPortrait(HEALER));
-    this.portrait.anchor.set(0.5);
-    this.bust.addChild(this.portrait);
+    this.art = new Sprite(heroBust(HEROES[HEALER].element) || Texture.EMPTY);
+    this.art.anchor.set(0.5);
+    this.bust.addChild(this.art);
 
-    this.rings = new Graphics();
-    this.bust.addChild(this.rings);
+    // The art is a rectangle and the panel has round corners, so the painting is
+    // clipped to the panel rather than trusted to end where the tile does.
+    this.artMask = new Graphics();
+    this.bust.addChild(this.artMask);
+    this.art.mask = this.artMask;
+
+    /** The scrim, the rim and the corner ticks, over the art. */
+    this.plateFront = new Graphics();
+    this.bust.addChild(this.plateFront);
+
+    /** The shockwave the landing throws off. */
+    this.ring = new Graphics();
+    this.ring.blendMode = "add";
+    this.ring.alpha = 0;
+    this.addChild(this.ring);
 
     this.plate = new Graphics();
     this.addChild(this.plate);
+
+    this.kicker = new Text({
+      text: "ULTIMATE",
+      style: {
+        fontFamily: FONT,
+        fontSize: 16,
+        fontWeight: "800",
+        fill: GEM_LIGHT[HEROES[HEALER].element],
+        letterSpacing: 6,
+      },
+    });
+    this.kicker.anchor.set(0, 0.5);
+    this.addChild(this.kicker);
 
     this.name = new Text({
       text: HEROES[HEALER].name,
@@ -307,13 +368,14 @@ export class CutIn extends Container {
     this.layout = null;
 
     // Where every moving part rests, captured in resize() rather than read off
-    // the object at the top of play(). The exit throws the medallion and the
-    // lockup off their marks, so a play() that took the current position for
-    // home would walk them further off screen on every ultimate after the first.
+    // the object at the top of play(). The exit throws the panel and the lockup
+    // off their marks, so a play() that took the current position for home would
+    // walk them further off screen on every ultimate after the first.
     this.bustHome = 0;
     this.textHome = 0;
     this.bustScale = { x: 1, y: 1 };
     this.glowScale = { x: 1, y: 1 };
+    this.ringHome = 1;
 
     /** Bumped per play, so a cleanup landing late cannot hide the next one. */
     this.playId = 0;
@@ -326,15 +388,20 @@ export class CutIn extends Container {
   }
 
   /**
-   * Point the gate at one element's burst sheet, or at nothing.
+   * Point the border at one element's burst sheet, or at nothing.
    *
-   * Sheets that carry the card's own line only. `ultBurst` will hand over any
-   * geometry and the hero row wears all of them, but the halo shape is a
-   * hairline inside a bloom nearly
-   * three times a card's own margin — laid on a box measured off a medallion it
-   * is a soft rectangle washing over the portrait rather than a border round it.
-   * An element on that shape keeps the cut-in it always had, which is the same
-   * fallback every element without a sheet at all is on.
+   * Every shape but the halo, and the halo is refused for what it *is* rather
+   * than for the box it is put on. The other sheets draw a line on the card's
+   * own edge with their bloom outside it, so `fitUltBorder` lands them on the
+   * panel exactly and the card blazes. The halo draws a ring — on a rectangle
+   * twice as tall as it is wide that is an oval hung off the corners, floating
+   * clear of the art on the long sides and cropped by the frame on the short
+   * ones, which is what wind's cut-in came out as the one time this was let
+   * through.
+   *
+   * A hero with no sheet is not left bare: the panel's own rim and the bloom
+   * behind it are drawn in resize() for every hero, and they are the whole of
+   * the border for that one.
    */
   setGate(element) {
     const art = ultBurst(element);
@@ -347,8 +414,8 @@ export class CutIn extends Container {
    * Point the whole cut-in at one hero.
    *
    * Everything colour-carrying is rebuilt here rather than in the constructor,
-   * including the speed lines, the rings and the name plate — those are drawn in
-   * resize(), so this re-runs it once the hero has changed.
+   * including the rays, the panel and the banner — those are drawn in resize(),
+   * so this re-runs it once the hero has changed.
    */
   setHero(index) {
     const hero = HEROES[index];
@@ -358,13 +425,17 @@ export class CutIn extends Container {
     this.index = index;
     if (!changed) return;
 
-    this.portrait.texture = heroPortrait(index);
+    // The bust for the panel, and the roundel only for a hero whose card art
+    // never decoded — art/avatars.js hands back null for that, and a cut-in with
+    // no face in it is worse than one with the small round one.
+    this.art.texture = heroBust(hero.element) || heroPortrait(index);
     this.glow.tint = GEM_COLORS[hero.element];
     this.haze.tint = hazeTint(hero.element);
     this.hazeRest = hazeAlpha(hero.element);
     this.name.text = hero.name;
     this.skill.text = hero.skill;
     this.skill.style.fill = GEM_LIGHT[hero.element];
+    this.kicker.style.fill = GEM_LIGHT[hero.element];
     this.setGate(hero.element);
     if (this.layout) this.resize(this.layout);
   }
@@ -372,7 +443,9 @@ export class CutIn extends Container {
   resize(layout) {
     this.layout = layout;
     const { w, h } = layout;
+    const s = layout.stage;
     const el = HEROES[this.index].element;
+    const tall = layout.portrait;
 
     this.dim.clear();
     this.dim.rect(0, 0, w, h);
@@ -385,134 +458,214 @@ export class CutIn extends Container {
     this.wash.rect(0, 0, w, h);
     this.wash.fill({ color: GEM_LIGHT[el] });
 
-    /* --------------------------------------------------------- the burst */
+    /* --------------------------------------------------------- the panel */
 
-    // A shard's alpha is judged at its own mid-height, because that is where it
-    // passes the thing it must not cross: the medallion and the type both sit on
-    // the composition's middle band.
-    const cx = w * 0.5;
-    const travel = h * 1.4 * LINES.lean;
-    const span = w + travel * 2;
+    // Bound by the height and by the width both. In landscape the height runs
+    // out first and in portrait the width does, and a panel sized off one of
+    // them alone is off the top of one screen or over both edges of the other.
+    const ph = Math.min(
+      s.h * (tall ? PANEL.tall.portrait : PANEL.tall.landscape),
+      (s.w * (tall ? PANEL.wide.portrait : PANEL.wide.landscape)) /
+        PANEL.aspect,
+    );
+    const pw = ph * PANEL.aspect;
+    const rad = pw * PANEL.corner;
 
-    this.lines.clear();
-    for (let i = 0; i < LINES.count; i++) {
-      const x = -travel + span * ((i + jitter(i) * LINES.drift) / LINES.count);
-      const wdt =
-        w * (LINES.thin + (LINES.thick - LINES.thin) * jitter(i + 31) ** 2.4);
-      const d = Math.min(1, Math.abs(x - travel * 0.5 - cx) / (w * 0.5));
-      // A few white ones among the element's own, and only out where the burst
-      // is already bright: a white hair through the middle of a coloured frame
-      // is a scratch on the film.
-      const white = jitter(i + 53) > 0.8 && d > 0.45;
-      const alpha =
-        (white ? 0.4 : LINES.peak) * d ** LINES.falloff + LINES.base;
+    this.bust.rotation = PANEL.tilt;
+    // Centred in portrait and left of centre in landscape, because the type is
+    // underneath it in one and beside it in the other: a card held off-centre
+    // with nothing in the space it left is a composition with a hole in it.
+    this.bust.x = s.x + s.w * (tall ? 0.47 : 0.26);
+    this.bust.y = s.y + s.h * (tall ? 0.36 : 0.47);
 
-      this.lines.poly([
-        x,
-        -h * 0.2,
-        x + wdt,
-        -h * 0.2,
-        x - travel,
-        h * 1.2,
-        x - travel - wdt,
-        h * 1.2,
-      ]);
-      this.lines.fill({
-        color: white
-          ? 0xffffff
-          : lerpColor(GEM_COLORS[el], GEM_LIGHT[el], jitter(i + 11) * 0.55),
-        alpha,
+    // The tile under the painting, a shade off black in the element's own dark.
+    // It is what a hero whose art never decoded is left standing on, and what
+    // the corner radius is actually cut out of.
+    this.plateBack.clear();
+    this.plateBack.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
+    this.plateBack.fill({ color: lerpColor(0x05040c, GEM_DARK[el], 0.35) });
+
+    // Cover-fit, biased up. The bust is a head and shoulders and the panel is
+    // very nearly its own aspect, so this is a crop of a few points either way —
+    // the bias is what makes those points come off the chest rather than off the
+    // top of the head.
+    const tex = this.art.texture;
+    const fit = Math.max(pw / tex.width, ph / tex.height);
+    this.art.setSize(tex.width * fit, tex.height * fit);
+    this.art.x = 0;
+    this.art.y = (ph - tex.height * fit) * 0.28;
+
+    this.artMask.clear();
+    this.artMask.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
+    this.artMask.fill({ color: 0xffffff });
+
+    this.plateFront.clear();
+
+    // The foot. The painting runs to the bottom edge of the panel and stops
+    // dead there, which on a card is hidden under the readouts and here is a
+    // straight cut across a pair of shoulders. Four bands of the element's dark,
+    // deepening downwards, are a gradient for four polys and no texture to bake.
+    for (let i = 0; i < 4; i++) {
+      const t = i / 4;
+      const y = -ph / 2 + ph * (0.62 + t * 0.38);
+      this.plateFront.rect(-pw / 2, y, pw, ph * 0.1 + 1);
+      this.plateFront.fill({
+        color: lerpColor(GEM_DARK[el], 0x03020a, 0.55),
+        alpha: 0.16 + t * 0.3,
       });
     }
 
-    // The dim, the haze and the burst above are the window's — they are what
-    // makes the rest of the screen go away. Everything from here down is the
-    // lockup itself, and it is sized and placed on the stage, so on a desktop
-    // the medallion comes in at the size it was drawn at over the middle of the
-    // arena rather than filling a monitor.
-    const s = layout.stage;
-
-    // Bigger than the window on purpose: the falloff is most of a radial's area,
-    // and what this is for is a colour cast behind the lockup rather than a
-    // visible blob anywhere in the frame. Centred on the medallion, so what
-    // little of it can be read is a hero standing in their own light.
-    this.haze.setSize(w * 1.35, h * 1.6);
-
-    /* ----------------------------------------------------- the medallion */
-
-    // A shade off what it was, and bound by the width in portrait rather than by
-    // the height. The old diameter put the circle's bottom edge through the hero
-    // row it is drawn over — a portrait resting on six cards — and on a 375 the
-    // rings ran off the left edge of the screen, because the diameter is the
-    // roundel's and the collar, the rim and the arcs are all drawn outside it —
-    // about a ninth of the radius past its edge. The narrower fit and the mark
-    // further in are for them rather than for the picture.
-    const size = Math.min(
-      s.h * (layout.portrait ? 0.42 : 0.47),
-      s.w * (layout.portrait ? 0.62 : 0.66),
+    // And the rim on the card's own line: dark first so the panel holds its edge
+    // wherever a ray runs behind it, the element over that, and a hairline of
+    // the light inside both.
+    this.plateFront.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
+    this.plateFront.stroke({
+      width: Math.max(2, pw * 0.035),
+      color: 0x07050e,
+      alpha: 0.9,
+      alignment: 1,
+    });
+    this.plateFront.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
+    this.plateFront.stroke({
+      width: Math.max(1.5, pw * 0.018),
+      color: GEM_COLORS[el],
+      alignment: 0.5,
+    });
+    this.plateFront.roundRect(
+      -pw / 2 + pw * 0.03,
+      -ph / 2 + pw * 0.03,
+      pw - pw * 0.06,
+      ph - pw * 0.06,
+      rad * 0.7,
     );
-    const r = size / 2;
-    this.portrait.setSize(size, size);
-    this.bust.x = s.x + s.w * (layout.portrait ? 0.4 : 0.27);
-    this.bust.y = s.y + s.h * (layout.portrait ? 0.42 : 0.44);
+    this.plateFront.stroke({
+      width: Math.max(1, pw * 0.008),
+      color: GEM_LIGHT[el],
+      alpha: 0.5,
+    });
 
-    // The dark collar under the roundel. Wider than the art, so the medallion
-    // has an edge of its own wherever a streak runs behind it.
-    this.collar.clear();
-    this.collar.circle(0, 0, r * 1.075);
-    this.collar.fill({ color: lerpColor(GEM_DARK[el], 0x000000, 0.55) });
-
-    // Rings, outside in: a dark rim that holds the edge against a bright streak,
-    // the element's own band, and a hairline just inside the art to lift the face
-    // off it. Then two arcs — the one piece of pure ornament in here, and what
-    // stops the whole thing reading as a circle with a stroke on it.
-    this.rings.clear();
-    this.rings.circle(0, 0, r * 1.055);
-    this.rings.stroke({ width: r * 0.06, color: 0x07050e, alpha: 0.92 });
-    this.rings.circle(0, 0, r * 1.015);
-    this.rings.stroke({ width: r * 0.032, color: GEM_COLORS[el] });
-    this.rings.circle(0, 0, r * 0.976);
-    this.rings.stroke({ width: r * 0.013, color: GEM_LIGHT[el], alpha: 0.75 });
-
-    // The arcs. moveTo first, and it is not optional: an arc picks up wherever
-    // the path was left, so without it the two of them are joined to the last
-    // circle by a chord straight across the hero's face.
-    const arcR = r * 1.115;
-    for (const [a0, a1] of [
-      [-2.16, -1.16],
-      [1.16, 2.16],
+    // Corner ticks: the one piece of pure ornament in here. Two short runs at
+    // opposite corners, which is what stops the panel reading as a rounded
+    // rectangle with a stroke on it.
+    const tick = pw * 0.26;
+    const inset = pw * 0.09;
+    for (const [sx, sy] of [
+      [-1, -1],
+      [1, 1],
     ]) {
-      this.rings.moveTo(Math.cos(a0) * arcR, Math.sin(a0) * arcR);
-      this.rings.arc(0, 0, arcR, a0, a1);
-      this.rings.stroke({
-        width: r * 0.042,
+      const x = sx * (pw / 2 - inset);
+      const y = sy * (ph / 2 - inset);
+      this.plateFront.moveTo(x - sx * 0, y);
+      this.plateFront.lineTo(x, y - sy * tick);
+      this.plateFront.moveTo(x, y);
+      this.plateFront.lineTo(x - sx * tick, y);
+      this.plateFront.stroke({
+        width: Math.max(2, pw * 0.022),
         color: GEM_LIGHT[el],
-        alpha: 0.8,
+        alpha: 0.85,
         cap: "round",
       });
     }
 
-    // The gate round all of it, measured in diameters rather than in the sheet's
-    // own aspect — see GATE, which is where the two numbers are argued. Through
-    // fitUltBorder like every other place a sheet is laid on a box, because the
-    // box is the card's line and the sprite is that plus however far this shape
-    // reaches outside it.
-    if (this.gateArt)
-      fitUltBorder(this.gate, this.gateArt, size * GATE.w, size * GATE.h);
+    // The burst border, on the card's own line. `fitUltBorder` grows the sprite
+    // by whatever margin the sheet was packed with, so the rim lands on the edge
+    // and the bloom hangs outside it — the same call the hero row makes, on the
+    // same shape, which is the whole reason this reads as that card.
+    if (this.gateArt) fitUltBorder(this.gate, this.gateArt, pw, ph);
 
-    this.glow.setSize(size * 2.2, size * 2.2);
+    this.glow.setSize(pw * 3.4, ph * 1.9);
     this.glow.x = this.bust.x;
     this.glow.y = this.bust.y;
     this.haze.x = this.bust.x;
     this.haze.y = this.bust.y;
+    // Bigger than the window on purpose: the falloff is most of a radial's area,
+    // and what this is for is a colour cast behind the lockup rather than a
+    // visible blob anywhere in the frame.
+    this.haze.setSize(w * 1.45, h * 1.7);
+
+    /* ---------------------------------------------------------- the rays */
+
+    // Everything past the far corner of the window from the focal point, so no
+    // ray ends inside the frame whatever shape the window is.
+    const reach =
+      Math.hypot(
+        Math.max(this.bust.x, w - this.bust.x),
+        Math.max(this.bust.y, h - this.bust.y),
+      ) * 1.05;
+    const r0 = ph * RAYS.inner;
+
+    this.rayHub.x = this.bust.x;
+    this.rayHub.y = this.bust.y;
+    this.rays.clear();
+    for (let i = 0; i < RAYS.count; i++) {
+      const a =
+        ((i + jitter(i) * RAYS.drift) / RAYS.count) * Math.PI * 2 + PANEL.tilt;
+      const white = jitter(i + 53) < RAYS.white;
+      // The white ones are struck thin whatever the roll says. They are the
+      // brightest thing in the burst and a fat one is not a highlight, it is a
+      // grey slab lying across the corner of the frame.
+      const hw = Math.min(
+        RAYS.thin + (RAYS.fat - RAYS.thin) * jitter(i + 17) ** RAYS.taper,
+        white ? RAYS.fat * 0.16 : RAYS.fat,
+      );
+      const alpha =
+        (white ? RAYS.peak * 1.5 : RAYS.peak) *
+        (0.35 + jitter(i + 91) * 0.65) ** RAYS.falloff;
+      const color = white
+        ? 0xffffff
+        : lerpColor(GEM_COLORS[el], GEM_LIGHT[el], jitter(i + 11) * 0.6);
+
+      /**
+       * One wedge, from `t0` of the way out to the frame's edge.
+       *
+       * The inner end is a point rather than a stub — a wedge that starts wide
+       * is a slice of pie, and what is wanted is a line that arrives — so the
+       * half-width is scaled by how far along the ray the end sits.
+       */
+      const wedge = (t0, k) => {
+        const rin = r0 + (reach - r0) * t0;
+        const win = hw * (0.06 + t0 * 0.94);
+        this.rays.poly([
+          Math.cos(a - win) * rin,
+          Math.sin(a - win) * rin,
+          Math.cos(a + win) * rin,
+          Math.sin(a + win) * rin,
+          Math.cos(a + hw) * reach,
+          Math.sin(a + hw) * reach,
+          Math.cos(a - hw) * reach,
+          Math.sin(a - hw) * reach,
+        ]);
+        this.rays.fill({ color, alpha: alpha * k });
+      };
+
+      wedge(0, 0.45);
+      wedge(1 - RAYS.hot, 0.75);
+    }
+
+    // The shockwave, drawn once at rest size and thrown by scale.
+    this.ringHome = ph * 0.5;
+    this.ring.clear();
+    this.ring.circle(0, 0, this.ringHome);
+    this.ring.stroke({
+      width: Math.max(2, ph * 0.012),
+      color: GEM_LIGHT[el],
+      alpha: 0.9,
+    });
+    this.ring.circle(0, 0, this.ringHome * 0.92);
+    this.ring.stroke({ width: Math.max(1, ph * 0.005), color: 0xffffff });
+    this.ring.x = this.bust.x;
+    this.ring.y = this.bust.y;
 
     /* ---------------------------------------------------------- the type */
 
-    const fs = Math.max(22, Math.min(s.w * 0.105, 54 * layout.ui));
+    const fs = Math.max(
+      22,
+      Math.min(s.w * (tall ? 0.13 : 0.105), 54 * layout.ui),
+    );
     this.name.style.fontSize = fs;
     this.name.style.letterSpacing = fs * 0.085;
-    // The banner is not what makes the type readable: the burst runs behind it
-    // on the way in and the wash comes up under it on the way out. Both are
+    // The banner is not what makes the type readable: the rays run behind it on
+    // the way in and the wash comes up under it on the way out. Both are
     // answered here rather than by hoping the plate stays put.
     this.name.style.stroke = {
       color: 0x0a0512,
@@ -540,65 +693,82 @@ export class CutIn extends Container {
       distance: 0,
       angle: 0,
     };
+    this.kicker.style.fontSize = fs * 0.26;
+    this.kicker.style.letterSpacing = fs * 0.17;
 
-    const textX = s.x + s.w * (layout.portrait ? 0.15 : 0.5);
+    // Far enough in that the banner's sheared bottom-left corner and the accent
+    // bar on it both clear the edge: the plate leans left as it goes down, so a
+    // block set flush to the margin bleeds its own head off the screen.
+    const textX = s.x + s.w * (tall ? 0.15 : 0.47);
+    const midY = s.y + s.h * (tall ? 0.74 : 0.47);
+    this.kicker.x = textX;
+    this.kicker.y = midY - fs * 0.78;
     this.name.x = textX;
-    this.name.y = s.y + s.h * (layout.portrait ? 0.72 : 0.44);
+    this.name.y = midY;
     this.skill.x = textX;
-    this.skill.y = this.name.y + fs * 0.74;
+    this.skill.y = midY + fs * 0.62;
 
-    // The marks play() throws everything off, and puts everything back on.
+    /*
+     * The marks play() throws everything off, and puts everything back on.
+     *
+     * The panel's rest scale is *asserted* here rather than read off the panel,
+     * and that is a bug fix rather than a tidy-up. resize() runs on a hero
+     * change, setHero() runs at the top of play(), and play() starts before the
+     * last one has finished putting itself away — so reading the live scale
+     * captured whatever the previous punch was in the middle of. 1.5 became the
+     * new rest, the next punch took it to 1.5 again from there, and by the
+     * fourth ultimate in a row the card was twice the height of the screen with
+     * the hero's face bled off all four edges. Nothing in this function scales
+     * the panel — its size is the geometry drawn above — so the rest scale is
+     * one, always, and saying so is what makes it true.
+     *
+     * The glow needs no such help: setSize() above rewrites its scale outright
+     * from the texture, so what is captured is already the rest value however
+     * the last punch left it.
+     */
+    this.bust.scale.set(1, 1);
     this.bustHome = this.bust.x;
     this.textHome = textX;
-    this.bustScale = { x: this.bust.scale.x, y: this.bust.scale.y };
+    this.bustScale = { x: 1, y: 1 };
     this.glowScale = { x: this.glow.scale.x, y: this.glow.scale.y };
+
+    /* ------------------------------------------------------- the banner */
 
     /**
      * The banner.
      *
-     * Sheared to the same angle as the burst, both ends, so it belongs to the
-     * frame instead of sitting on it. The old plate was an upright navy
-     * rectangle at 0.85 alpha: a hard vertical chop across the board with gems
-     * showing through it, in a colour that had nothing to do with the hero whose
-     * name was on it.
+     * Sheared to the same lean as the rest of the frame, both ends, so it
+     * belongs to the composition instead of sitting on it. The ground stays a
+     * near-black with the element only breathed into it — GEM_DARK for lightning
+     * is a dark yellow, and a dark yellow slab under gold type is mud — and the
+     * hero's colour is carried by the things that can be saturated without
+     * dirtying anything: the accent, the rules and the skill.
      *
-     * Two things replace it, and neither is the obvious fix. The obvious fix is
-     * to paint the plate in the element's own dark, and it is wrong: GEM_DARK
-     * for lightning is a dark yellow, and a dark yellow slab under gold type is
-     * mud. So the ground stays a near-black with the element only breathed into
-     * it, and the hero's colour is carried by the things that can be saturated
-     * without dirtying anything — the accent, the rules, the skill.
-     *
-     * And it stops where the type stops. It used to run out to the composition's
-     * edge, which on a name as short as SELISA is two thirds of a bar with
-     * nothing on it. What runs to the edge now is a hairline off the banner's
-     * shoulder: the lockup keeps the full width it was composed for, and only
-     * the part with words on it is a plate.
+     * And it stops where the type stops. What runs to the composition's edge is
+     * a hairline off the banner's shoulder: the lockup keeps the full width it
+     * was composed for, and only the part with words on it is a plate.
      */
-    const top = this.name.y - fs * 0.72;
-    const bot = this.skill.y + fs * 0.54;
+    const top = this.kicker.y - fs * 0.34;
+    const bot = this.skill.y + fs * 0.42;
     const bh = bot - top;
-    const shear = bh * LINES.lean;
+    const shear = bh * LEAN;
     const left = textX - fs * 0.66;
-    // Both edges lean the way the streaks do: bottom to the left of top. `t` is
-    // the fraction of the banner's depth, 0 at the top edge and 1 at the bottom.
+    // Both edges lean the way the rays do: bottom to the left of top. `t` is the
+    // fraction of the banner's depth, 0 at the top edge and 1 at the bottom.
     const leanAt = (t) => shear * (0.5 - t);
     const yAt = (t) => top + bh * t;
     const lAt = (t) => left + leanAt(t);
 
     // Where the far edge has to be, measured off the type rather than budgeted:
     // the roster's names run from SELISA to RICKLOW, and a plate cut for the
-    // longest of them is a plate with a hole in it for every other hero.
-    //
-    // Off both lines, and each at its own depth, because the edge leans. The
-    // skill sits three quarters of the way down the banner, where the lean has
-    // already taken a fifth of the shear off the corner — measure the plate on
-    // the name alone and the last letter of STORM VERDICT hangs over the edge.
+    // longest of them is a plate with a hole in it for every other hero. Off all
+    // three lines, each at its own depth, because the edge leans.
     const clearing = (width, y) =>
       textX + width + fs * 0.8 + shear * 0.5 - leanAt((y - top) / bh);
     const right = Math.min(
       s.right,
       Math.max(
+        clearing(this.kicker.width, this.kicker.y),
         clearing(this.name.width, this.name.y),
         clearing(this.skill.width, this.skill.y),
       ),
@@ -621,8 +791,8 @@ export class CutIn extends Container {
     // The hairline out to the edge, under the plate so the plate's own shoulder
     // finishes it. Drawn first for that reason and for no other.
     if (right < s.right - fs * 0.2) {
-      const t0 = 0.52;
-      const t1 = t0 + Math.max(1, fs * 0.05) / bh;
+      const t0 = 0.5;
+      const t1 = t0 + Math.max(1, fs * 0.045) / bh;
       this.plate.poly([
         rAt(t0) - fs * 0.4,
         yAt(t0),
@@ -654,7 +824,7 @@ export class CutIn extends Container {
 
     // The accent at the head of the banner: the element's colour with a lighter
     // core, so the eye is handed on to the name rather than kept by the bar.
-    const barW = fs * 0.2;
+    const barW = fs * 0.22;
     const bar = (a, b) => [
       lAt(0) + barW * a,
       yAt(0),
@@ -676,13 +846,18 @@ export class CutIn extends Container {
     killTweensOf(this.dim);
     killTweensOf(this.wash);
     killTweensOf(this.haze);
-    killTweensOf(this.lines);
+    killTweensOf(this.rayHub);
+    killTweensOf(this.rayHub.scale);
+    killTweensOf(this.rays);
     killTweensOf(this.glow);
     killTweensOf(this.glow.scale);
     killTweensOf(this.bust);
     killTweensOf(this.bust.scale);
+    killTweensOf(this.ring);
+    killTweensOf(this.ring.scale);
     killTweensOf(this.gateDriver);
     killTweensOf(this.plate);
+    killTweensOf(this.kicker);
     killTweensOf(this.name);
     killTweensOf(this.skill);
 
@@ -690,17 +865,23 @@ export class CutIn extends Container {
     this.dim.alpha = 0;
     this.wash.alpha = 0;
     this.haze.alpha = 0;
-    this.lines.x = 0;
-    this.lines.alpha = 0;
+    this.rayHub.rotation = 0;
+    this.rayHub.scale.set(1);
+    this.rays.alpha = 0;
     this.glow.alpha = 0;
     this.glow.scale.set(this.glowScale.x, this.glowScale.y);
     this.bust.alpha = 1;
     this.bust.x = this.bustHome;
+    this.bust.rotation = PANEL.tilt;
     this.bust.scale.set(this.bustScale.x, this.bustScale.y);
+    this.ring.alpha = 0;
+    this.ring.scale.set(1);
     this.gateDriver.v = 0;
     if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
     this.plate.alpha = 1;
     this.plate.x = 0;
+    this.kicker.alpha = 1;
+    this.kicker.x = this.textHome;
     this.name.alpha = 1;
     this.name.x = this.textHome;
     this.skill.alpha = 1;
@@ -708,14 +889,14 @@ export class CutIn extends Container {
   }
 
   /**
-   * Step the gate to `v` of the way through its burst, over `dur`.
+   * Step the border to `v` of the way through its burst, over `dur`.
    *
    * A tween on one number with the texture written out of its onUpdate, exactly
    * as HeroCard.flareUlt drives the same sheet on the card, and for the same
-   * reason: a sheet is not something a frame counter can keep in step
-   * with an arc that is three beats of different lengths, and the driver is the
-   * one thing both ends of a beat can be read off. Resolves immediately for a
-   * hero with no sheet, so play() can await it in line with everything else.
+   * reason: a sheet is not something a frame counter can keep in step with an
+   * arc that is three beats of different lengths, and the driver is the one
+   * thing both ends of a beat can be read off. Resolves immediately for a hero
+   * with no sheet, so play() can await it in line with everything else.
    */
   gateTo(v, dur, ease) {
     if (!this.gateArt) return Promise.resolve();
@@ -735,11 +916,11 @@ export class CutIn extends Container {
    * of dead air before the blast it fires next — the loudest move in the fight
    * arriving after its own build-up had already dissolved.
    *
-   * Now it is a hit: the medallion recoils, is thrown through the camera, the
-   * lockup is blown off the other way, and the wash takes the screen in the
-   * hero's colour. play() resolves *on* that wash, while it is still up, so the
-   * strike and the sweep the director fires next play underneath it — the board
-   * is uncovered already exploding rather than waiting to be told to.
+   * Now it is a hit: the panel recoils, is thrown through the camera, the lockup
+   * is blown off the other way, and the wash takes the screen in the hero's
+   * colour. play() resolves *on* that wash, while it is still up, so the strike
+   * and the sweep the director fires next play underneath it — the board is
+   * uncovered already exploding rather than waiting to be told to.
    */
   async play(index) {
     if (index !== undefined) this.setHero(index);
@@ -757,26 +938,45 @@ export class CutIn extends Container {
     const bs = this.bustScale;
     const gs = this.glowScale;
 
-    // A cut, not a dissolve. The dim and the lines are simply there on the
-    // first frame and the wash covers the two frames it takes the eye to catch
-    // up: fading a black rectangle up over the fight was the softest moment in
-    // the loudest beat of the creative.
+    // A cut, not a dissolve. The dim and the rays are simply there on the first
+    // frame and the wash covers the two frames it takes the eye to catch up:
+    // fading a black rectangle up over the fight was the softest moment in the
+    // loudest beat of the creative.
     this.dim.alpha = DIM;
-    this.lines.alpha = 1;
+    this.rays.alpha = 1;
     this.haze.alpha = this.hazeRest;
     this.wash.alpha = 0.94;
 
+    // The rays arrive thrown open and wound back, so the burst is still closing
+    // on the hero as the hero lands. Half a slot of spin is all it takes — any
+    // more and the frame reads as a spinning wheel rather than as a hit.
+    this.rayHub.scale.set(1.35);
+    this.rayHub.rotation = -0.16;
     this.bust.x = homeX - w * 0.45;
+    this.bust.scale.set(bs.x * 1.14, bs.y * 1.14);
+    this.kicker.x = textHome + w * 0.34;
     this.name.x = textHome + w * 0.5;
     this.skill.x = textHome + w * 0.7;
     this.plate.x = w;
 
     tween(this.wash, { alpha: 0 }, 0.2, { ease: Ease.quadOut });
 
+    // The burst closes on its own clock and is deliberately not awaited: it is
+    // still settling as the panel lands and for a beat after, which is what
+    // makes the landing the moment rather than the end of four tweens finishing
+    // together. Awaiting them stretched the entry to half a second and pushed
+    // every beat after it out with it.
+    tween(this.rayHub.scale, { x: 1, y: 1 }, 0.42, { ease: Ease.expoOut });
+    tween(this.rayHub, { rotation: 0 }, 0.5, { ease: Ease.expoOut });
+
     await Promise.all([
       tween(this.bust, { x: homeX }, 0.32, { ease: Ease.expoOut }),
-      tween(this.glow, { alpha: 0.66 }, 0.3),
+      tween(this.bust.scale, { x: bs.x, y: bs.y }, 0.36, {
+        ease: Ease.expoOut,
+      }),
+      tween(this.glow, { alpha: 0.7 }, 0.3),
       tween(this.plate, { x: 0 }, 0.28, { ease: Ease.expoOut }),
+      tween(this.kicker, { x: textHome }, 0.3, { ease: Ease.expoOut }),
       tween(this.name, { x: textHome }, 0.34, { ease: Ease.expoOut }),
       tween(this.skill, { x: textHome }, 0.4, { ease: Ease.expoOut }),
       // Linear, alone among these: the build is in the frames the sheet was
@@ -786,15 +986,27 @@ export class CutIn extends Container {
     ]);
     if (this.playId !== token) return;
 
-    // The hold is not a freeze: the lines drift and the medallion creeps in, so
-    // the punch below starts from something that was already moving.
-    tween(this.lines, { x: -w * 0.12 }, 0.55, { ease: Ease.quadOut });
-    tween(this.bust.scale, { x: bs.x * 1.05, y: bs.y * 1.05 }, 0.4, {
+    // The shockwave, on the frame the panel lands and gone in a quarter second.
+    // It is thrown from the panel's own centre at the panel's own size, which is
+    // what makes it read as the card hitting the glass rather than as a ring
+    // that happened to be there.
+    this.ring.alpha = 0.85;
+    this.ring.scale.set(0.75);
+    tween(this.ring.scale, { x: 2.6, y: 2.6 }, 0.42, { ease: Ease.quadOut });
+    tween(this.ring, { alpha: 0 }, 0.38, { ease: Ease.quadOut });
+
+    // The hold is not a freeze: the rays turn and the panel creeps in, so the punch below starts from something that was already
+    // moving.
+    tween(this.rayHub, { rotation: 0.05 }, 0.62, {
+      ease: Ease.quadOut,
+      delay: 0.12,
+    });
+    tween(this.bust.scale, { x: bs.x * 1.05, y: bs.y * 1.05 }, 0.45, {
       ease: Ease.quadOut,
     });
-    // Across the hold and the recoil both, so the gate is still moving into the
-    // frame the punch throws it out on rather than sitting on one for a beat and
-    // a half. Roughly the seven frames a second the sheet was timed to.
+    // Across the hold and the recoil both, so the border is still moving into
+    // the frame the punch throws it out on rather than sitting on one for a beat
+    // and a half. Roughly the seven frames a second the sheet was timed to.
     this.gateTo(GATE.hold, 0.43, Ease.linear);
     await delay(0.34);
     if (this.playId !== token) return;
@@ -804,33 +1016,38 @@ export class CutIn extends Container {
       tween(this.bust.scale, { x: bs.x * 0.98, y: bs.y * 0.98 }, 0.09, {
         ease: Ease.quadOut,
       }),
-      tween(this.bust, { x: homeX - w * 0.02 }, 0.09, {
-        ease: Ease.quadOut,
-      }),
+      tween(this.bust, { x: homeX - w * 0.02 }, 0.09, { ease: Ease.quadOut }),
     ]);
     if (this.playId !== token) return;
 
     // The punch. Everything leaves on the same beat and in opposite directions,
     // accelerating rather than easing out, so it reads as one hit instead of
     // four elements politely excusing themselves.
-    tween(this.bust.scale, { x: bs.x * 1.5, y: bs.y * 1.5 }, 0.26, {
+    tween(this.bust.scale, { x: bs.x * 1.55, y: bs.y * 1.55 }, 0.26, {
       ease: Ease.quadIn,
     });
     tween(this.bust, { x: homeX + w * 0.06 }, 0.26, { ease: Ease.quadIn });
+    tween(this.bust, { rotation: PANEL.tilt * 2.4 }, 0.26, {
+      ease: Ease.quadIn,
+    });
     tween(this.bust, { alpha: 0 }, 0.16, { delay: 0.1 });
     // The settle, spent being thrown through the camera. The last frames of the
     // sheet are the light going out of the border, which on the card is the
     // whole tail of the tap and here is a thing nobody has time to look at —
-    // which is the point: it leaves with the medallion instead of before it.
+    // which is the point: it leaves with the panel instead of before it.
     this.gateTo(1, 0.26, Ease.linear);
     tween(this.glow.scale, { x: gs.x * 1.8, y: gs.y * 1.8 }, 0.24, {
       ease: Ease.quadIn,
     });
     tween(this.glow, { alpha: 0 }, 0.22, { delay: 0.06 });
-    tween(this.lines, { x: -w * 0.75 }, 0.26, { ease: Ease.quadIn });
-    tween(this.lines, { alpha: 0 }, 0.2, { delay: 0.06 });
+    // The rays go with it, blown outward rather than faded: the burst is thrown
+    // through the camera on the same frame the hero is.
+    tween(this.rayHub.scale, { x: 2.4, y: 2.4 }, 0.26, { ease: Ease.quadIn });
+    tween(this.rayHub, { rotation: 0.16 }, 0.26, { ease: Ease.quadIn });
+    tween(this.rays, { alpha: 0 }, 0.22, { delay: 0.06 });
     tween(this.haze, { alpha: 0 }, 0.22, { delay: 0.04 });
     tween(this.plate, { x: w }, 0.2, { ease: Ease.backIn });
+    tween(this.kicker, { x: textHome + w * 0.4 }, 0.18, { ease: Ease.backIn });
     tween(this.name, { x: textHome + w * 0.55 }, 0.2, { ease: Ease.backIn });
     tween(this.skill, { x: textHome + w * 0.75 }, 0.22, { ease: Ease.backIn });
     tween(this.dim, { alpha: 0 }, 0.24, { delay: 0.05 });
@@ -844,10 +1061,12 @@ export class CutIn extends Container {
     // the hit, not a third of a second after the last fade.
     this.dim.alpha = 0;
     this.haze.alpha = 0;
-    this.lines.alpha = 0;
+    this.rays.alpha = 0;
     this.bust.alpha = 0;
     this.glow.alpha = 0;
+    this.ring.alpha = 0;
     this.plate.alpha = 0;
+    this.kicker.alpha = 0;
     this.name.alpha = 0;
     this.skill.alpha = 0;
 

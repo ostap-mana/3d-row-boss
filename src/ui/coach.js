@@ -148,23 +148,24 @@ const FRAME_SPAN = 0.88;
 const ARROW_SPAN = 0.62;
 
 /**
- * How far the frame round a hero card stands off the card, as a fraction of the
+ * How far the box round a hero card stands off the card, as a fraction of the
  * card's width.
  *
- * None: the box is the card. Both things drawn off it — the brackets in wear()
- * and the hole in the scrim, see CARD_HOLE_PAD — land on the card's own painted
- * border rather than outside it, so the lit rectangle in the dark has exactly
- * the card's outline and the marks sit on its edge.
+ * None: the box is the card. What is drawn off it — the hole in the scrim, see
+ * CARD_HOLE_PAD — lands on the card's own painted border rather than outside
+ * it, so the lit rectangle in the dark has exactly the card's outline.
  *
  * It stood at 0.04, on the argument that a frame wants to clear what it is
- * framing. Against a scrim it does not: the brackets and the dark's edge are
- * the same box, so every point of standoff is a point of *lit background*
- * around the card — a bright margin with nothing in it, which the eye reads as
- * part of the thing being pointed at and which is the one thing a hole cut to
- * one card is trying not to say. On the row it was also the widest a frame
- * could go before landing on a neighbour: the gap between two cards is about a
- * hundredth of the row's width — CARD.gap in core/layout.js — and a card pops
- * to CARD_READY inside it.
+ * framing, back when this box also carried four painted corner brackets. Those
+ * came off — see the end of drawCard — and against a scrim the standoff was
+ * wrong even while they were on: the brackets and the dark's edge were the same
+ * box, so every point of standoff was a point of *lit background* around the
+ * card, a bright margin with nothing in it, which the eye reads as part of the
+ * thing being pointed at and which is the one thing a hole cut to one card is
+ * trying not to say. On the row it was also the widest that box could go before
+ * landing on a neighbour: the gap between two cards is about a hundredth of the
+ * row's width — CARD.gap in core/layout.js — and a card pops to CARD_READY
+ * inside it.
  *
  * The box is still the card at its largest and not the slot the row laid out —
  * see CARD_READY — so what is left is a couple of points of daylight at the
@@ -386,7 +387,7 @@ export class Coach extends Container {
     // the card is simply asked where it is now, and this is also what moves the
     // point the hand is tapping. See cardAt.
     if (this.last.card) {
-      this.drawCard(this.last.card, this.last.type, this.last.color);
+      this.drawCard(this.last.card, this.last.type);
       return;
     }
     this.draw(this.last.board, this.last.step);
@@ -583,8 +584,6 @@ export class Coach extends Container {
    * gems, then the hero those gems charge.
    */
   async cardBeat(id, card, hand, type) {
-    const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
-
     this.last = null;
     this.clearMarks();
     // Taken off the board before it is asked for the row. The swap beat leaves
@@ -592,9 +591,27 @@ export class Coach extends Container {
     // there to the card would read as the player dragging a gem into the row.
     hand.stop();
 
-    this.drawCard(card, type, color);
+    // The hero's own colour and not the lesson's, and the difference is not
+    // academic: `cardFor` in Director.showLesson asks first for a charged hero
+    // wearing the swap's element and falls back to *any* charged hero, because
+    // a run where the only hero with a full bar is the healer while the board
+    // keeps serving fire would otherwise say nothing at all. On that fallback
+    // the card under the prop is one element and the swap that got here is
+    // another, and a purple hand knocking on a blue card is the hand claiming
+    // to be about something it is not standing on.
+    //
+    // This is the same tell that took the painted brackets off the card — see
+    // the note at the end of drawCard, where they wore the lesson's element and
+    // bracketed a water hero in fire orange. The hand is the last mark that
+    // lands on a card, so it is the last one that had to be asked whose colour
+    // it is wearing: on the row, the card's. `type` is kept as the fallback for
+    // a card that somehow arrives without a hero on it, which is the one case
+    // where the lesson's colour is better than no colour at all.
+    const shade = card.hero ? card.hero.element : type;
+
+    this.drawCard(card, shade);
     if (!this.cardAt) return;
-    hand.setElement(type);
+    hand.setElement(shade);
     hand.tapLoop(this.cardAt);
 
     await tween(this, { alpha: 1 }, 0.2);
@@ -732,12 +749,10 @@ export class Coach extends Container {
     // Never the opening lesson: this one only ever runs once a hero has charged,
     // which is a good way into a fight the player is already reading.
     this.opening = false;
-    const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
-
     // The hand wears the hero's colour the way it wears a gem's on the board,
     // and it is told before it is shown rather than while it is up.
     hand.setElement(type);
-    this.drawCard(card, type, color);
+    this.drawCard(card, type);
     // Fired, not awaited: the loop below is the frame's beat and the tap is the
     // prop's, and the two are deliberately not on one clock — a frame that
     // waited for the hand would spend half the lesson holding still.
@@ -767,29 +782,30 @@ export class Coach extends Container {
    * conversion, unlike the board, whose cells are offsets inside it.
    *
    * @param {object} card the HeroCard
-   * @param {number} type the element, which picks the painted set
-   * @param {number} color the element's light, which the fallback strokes with
+   * @param {number} type the element, which the scrim's light is tinted with
    */
   /**
-   * The box a frame or a hole goes round one hero card, or null when the row
-   * has not been laid out yet.
+   * The box the scrim's hole is cut to round one hero card, or null when the
+   * row has not been laid out yet.
    *
-   * One function because two things need it and they have to agree to the pixel
-   * — the frame drawCard paints and the hole reaim cuts. They were the same
-   * arithmetic written twice.
+   * It used to serve two callers that had to agree to the pixel — the brackets
+   * drawCard painted and the hole reaim cuts — and now only the hole is left;
+   * see the note at the end of drawCard for why the brackets came off. The
+   * function stays because the arithmetic is the awkward part and it was worth a
+   * name even with one caller.
    *
    * The scale is read off what the card is actually doing rather than assumed.
    * A charged card is measured at the top of its ready pulse — CARD_READY, the
-   * peak and not the live value, so the frame holds still while the card
+   * peak and not the live value, so the hole holds still while the card
    * breathes inside it.
    *
-   * Both demos now only ever put a frame on a charged card — see the `cardFor`
-   * in Director.showLesson, and teachUlt, which fires off the charge itself — so
+   * Both demos now only ever light a charged card — see the `cardFor` in
+   * Director.showLesson, and teachUlt, which fires off the charge itself — so
    * that is the branch this takes in practice. The other one is kept because the
-   * arithmetic is wrong rather than merely unused without it: a box drawn a
-   * fifth larger than the card it is round is a bracket floating off all four
-   * sides, and something asking for a frame on a card that is not popped should
-   * get a frame on the card that is there.
+   * arithmetic is wrong rather than merely unused without it: a hole cut a fifth
+   * larger than the card it is round is a ring of lit background on all four
+   * sides, and something asking to light a card that is not popped should get
+   * the card that is there.
    */
   cardBox(card) {
     const w = card.cardW || 0;
@@ -815,9 +831,8 @@ export class Coach extends Container {
     };
   }
 
-  drawCard(card, type, color) {
-    this.last = { card, type, color };
-    const w = card.cardW || 0;
+  drawCard(card, type) {
+    this.last = { card, type };
     const box = this.cardBox(card);
     if (!box) return;
 
@@ -843,10 +858,30 @@ export class Coach extends Container {
     this.focus = { card, type };
     this.reaim();
 
-    // Measured off the card's width rather than a board cell's: it is what the
-    // stroked fallback weights its line against, and a card is about three
-    // quarters of a cell.
-    this.paint([box], null, type, color, w);
+    /*
+     * And no frame on the card, deliberately.
+     *
+     * This used to `paint([box], null, type, color, w)` — the same four painted
+     * corner brackets the board's gems wear. On a gem they are the whole mark;
+     * on a hero card they were a second frame drawn round a tile that already
+     * has one, and once the charged card grew a border of its own that moves —
+     * see art/ultborder.js and tools/gen-ult-vfx.mjs — they read as a sticker
+     * stuck over the effect rather than as a pointer at it. They also wore the
+     * *lesson's* element and not the hero's, so the opening demo bracketed a
+     * water hero in fire orange, which is the tell that they were never about
+     * this card in the first place.
+     *
+     * The instruction is not weakened by taking them off. What says "this one"
+     * is the tutorial hand tapping it — `cardAt` above is set for exactly that,
+     * and both callers start a tapLoop on it — plus the scrim `reaim` cuts
+     * round the card in the opening lesson, plus the card itself, which is a
+     * fifth taller than its neighbours, prints READY and is on fire.
+     *
+     * `box` is still computed and `last` still set: the box is what reaim's
+     * hole is cut to, and a resize has to be able to redraw through here. The
+     * `color` this used to take went with the frame — it was the stroked
+     * fallback's stroke and nothing else on this path ever read it.
+     */
   }
 
   /**
@@ -924,7 +959,10 @@ export class Coach extends Container {
     if (!grip || id !== this.token) return;
 
     // The board is asked once more, in the same tick the travel starts — the
-    // reach above took a third of a second, and a boss turn fits inside that.
+    // reach above took the better part of half a second, and a boss turn fits
+    // inside that. It used to be a third: the hand travels onto the cell now
+    // instead of appearing on it (see APPROACH in ui/hand.js), which is a longer
+    // beat and so a wider window for the board to have moved underneath it.
     // previewSwap refuses a busy or blocked board on its first line and returns
     // false immediately, while Promise.all below would still run the hand's
     // full 0.4s slide beside it: a finger dragging a stone that never moves,

@@ -900,13 +900,13 @@ export const T = {
    */
   outcomeHold: 2.8,
   /**
-   * Time held back for the death animation and victory shout. The autoplay
+   * Time held back for the death animation and the beat after it. The autoplay
    * pace guard treats this as untouchable so a hands-off viewer still sees the
    * boss explode instead of being cut off by the hard cap.
    *
    * Three and a half of the thirty, which is most of what the collapse and
-   * the shout actually take. Trimming it further buys one more move and spends the
-   * only moment in the creative that is pure payoff to get it.
+   * `victoryHold` actually take. Trimming it further buys one more move and
+   * spends the only moment in the creative that is pure payoff to get it.
    */
   finaleReserve: 3.5,
   /**
@@ -1336,12 +1336,16 @@ export const COPY = {
    * The verdict, on the card that is only the verdict — see ui/outcome.js.
    *
    * Its own two keys rather than `victory` and `defeat` above, and the split is
-   * not tidiness. Those two are *shouts*: fired over the arena while the fight is
-   * still resolving, and `defeat` says PARTY WIPED because that is what the
+   * not tidiness. Those two are *shouts*: fired over the arena while the fight
+   * is still resolving, and `defeat` says PARTY WIPED because that is what the
    * player just watched happen to six cards. The card is not narrating a moment,
    * it is naming a result, and the word for that result is DEFEAT. One key doing
    * both jobs would have to pick one, and every argument for either is an
    * argument against the other.
+   *
+   * `victory` no longer has a shout to be the wording for — a win says the word
+   * once, here, on the card; see Director.win — and it stays because the end
+   * card's stood-down outcome line is still built from it.
    *
    * These are drawn as type rather than as art, the way the game draws them: the
    * band they sit in is the painted part and the word inside it is localised

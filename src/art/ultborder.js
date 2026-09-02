@@ -18,10 +18,10 @@
  *                             have one now, so nothing takes that path.
  *
  * The burst is played twice over, at both ends of the hand-off the tap starts:
- * on the card by HeroCard.flareUlt, and then round the medallion the cut-in puts
- * up in its place — see GATE in fx/cutin.js. That second one is the only caller
- * that cannot wear both geometries, which is why `shape` comes back with the
- * frames at all.
+ * on the card by HeroCard.flareUlt, and then round the panel the cut-in throws
+ * up in its place, which is the same card at ten times the size — see `setGate`
+ * in fx/cutin.js. That second one is the only caller that cannot wear both
+ * geometries, which is why `shape` comes back with the frames at all.
  *
  * Where the art comes from: **tools/gen-ult-vfx.mjs**, which computes all twelve
  * sheets rather than generating them, and stamps its particles with the shipped
@@ -321,11 +321,10 @@ export function ultBorder(element) {
  *
  * It carries the id of the shape it decoded onto, because not every caller can
  * wear every shape. A card lays a burst on its own rectangle and either geometry
- * lands on it; the cut-in hangs one round a medallion — see GATE in
- * fx/cutin.js — and at that size the halo's hairline-in-a-bloom, composed for a
- * card's margin, is a smear rather than a border. A caller that cares reads
- * `shape`; one that does not, like HeroCard.flareUlt, goes on not knowing there
- * is more than one.
+ * lands on it; the cut-in lays one on a panel twice as tall as it is wide — see
+ * `setGate` in fx/cutin.js — where the halo's ring reads as an oval hung off the
+ * corners rather than as a border. A caller that cares reads `shape`; one that
+ * does not, like HeroCard.flareUlt, goes on not knowing there is more than one.
  */
 export function ultBurst(element) {
   return sheets[`burst-${ID_BY_ELEMENT[element]}`] || null;

@@ -1177,8 +1177,9 @@ export class EndCard extends Container {
      * — and dropping them from both is the end of the same argument the defeat
      * card settled: the card is the wordmark, the painting, the plate and the
      * badges, and nothing on it discusses the result. The fight has already said
-     * it out loud by the time the card is up. See `defeat` in COPY, and the
-     * director, which still shouts COPY.victory over the arena.
+     * it out loud by the time the card is up — the outcome card stamps the
+     * verdict one screen earlier, and that is the only place it is said. See
+     * ui/outcome.js.
      *
      * `visible` rather than empty strings — set false where the two are built —
      * because the stack has to close up behind them. A Text with no text still
@@ -1274,11 +1275,31 @@ export class EndCard extends Container {
       if (!this.introducing) return;
     }
 
+    /**
+     * A click per rung, climbing.
+     *
+     * The card is assembled part by part and, until this, it was assembled in
+     * silence: the title sting it used to arrive on is gated off for any card
+     * the outcome screen has already stamped, which is every card the director
+     * builds — see `show`'s `stamped`, and sfx.endcardStep, where the sound
+     * itself is argued.
+     *
+     * Counted rather than indexed off the rung, because half the rungs are
+     * conditional — the outcome line and the promise under the wordmark are off
+     * on every card now, the rematch is a defeat's only — and a ladder that
+     * skipped the steps belonging to parts that were never built would climb in
+     * gaps. What the ear is being sold is a mechanism cycling once per part, and
+     * that only works if the steps are consecutive whatever is on the card.
+     */
+    let rung = 0;
+    const tick = (heavy) => sfx.endcardStep(rung++, heavy);
+
     if (this.outcome.visible) {
       const oy = this.outcome.y;
       this.outcome.y = oy - 18;
       tween(this.outcome, { alpha: 1 }, 0.24);
       tween(this.outcome, { y: oy }, 0.36, { ease: Ease.backOut });
+      tick();
     }
 
     await delay(0.1);
@@ -1287,16 +1308,23 @@ export class EndCard extends Container {
     this.brand.y = ly - 26;
     tween(this.brand, { alpha: 1 }, 0.28);
     tween(this.brand, { y: ly }, 0.42, { ease: Ease.backOut });
+    tick();
 
     await delay(0.12);
     if (!this.introducing) return;
-    if (this.sub.visible) tween(this.sub, { alpha: 1 }, 0.28);
+    if (this.sub.visible) {
+      tween(this.sub, { alpha: 1 }, 0.28);
+      tick();
+    }
 
     await delay(0.35);
     if (!this.introducing) return;
     const by = this.button.y;
     this.button.y = by + 30;
     tween(this.button, { alpha: 1 }, 0.25);
+    // The plate is the one rung that lands with a body under the click: it is
+    // what the card is for and the only part of it that can be tapped.
+    tick(true);
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
     if (!this.introducing) return;
 
@@ -1305,6 +1333,7 @@ export class EndCard extends Container {
     const gy = this.badges.y;
     this.badges.y = gy + 14;
     tween(this.badges, { alpha: 1 }, 0.3);
+    tick();
     await tween(this.badges, { y: gy }, 0.34, { ease: Ease.cubicOut });
     if (!this.introducing) return;
 
@@ -1325,6 +1354,7 @@ export class EndCard extends Container {
       const ry = this.retry.y;
       this.retry.y = ry + 8;
       tween(this.retry, { alpha: 1 }, 0.3);
+      tick();
       await tween(this.retry, { y: ry }, 0.34, { ease: Ease.cubicOut });
     }
     this.introducing = false;

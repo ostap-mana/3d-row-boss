@@ -2082,12 +2082,15 @@ export class Director {
     await dying;
     if (this.ended) return;
 
-    // No stinger on the shout. The horn belongs to the outcome card, which is
-    // where the player stops and where the same word is stamped a second time —
-    // see ui/outcome.js. Fired here as well it announced the win twice, and the
-    // first of the two was under a callout that is already on its way out.
-    await hud.shout(COPY.victory, 0.9, { fill: 0xffe066, from: 2.4 });
-    await delay(T.victoryHold - 0.9);
+    // No shout, and no stinger either. VICTORY belongs to the outcome card —
+    // the frame the player actually stops on, where the word is stamped inside
+    // the gold band and the horn plays with it; see ui/outcome.js. Called out
+    // here as well it announced the win twice over, and the first of the two
+    // went by on a callout already on its way out.
+    //
+    // The beat itself stays: `victoryHold` is the pause the collapse is given
+    // before the card cuts in, and it was never the shout's own time.
+    await delay(T.victoryHold);
   }
 
   /**

@@ -3,24 +3,38 @@
  * colour of the gem it is pointing at.
  *
  * Six files in `src/assets/hint`, one per element, cut by
- * tools/pack-neon-hand.mjs off the hint-hand sheet at
- * `src/source/hint/hand-sheet.png`: a neon outline of a hand with the index
- * finger up, the thumb out and a cuff running off the bottom right. Section 10.1
- * of that sheet draws the hand once in every element colour, and this is all six
- * of them — the frame the lesson puts round a gem and the arrow it points with
- * already come in six (see art/hintmarks.js), and the hand was the last mark
- * still wearing one colour on a board that had six.
+ * tools/pack-neon-hand.mjs off the hand-pose sheet at
+ * `src/source/hand/image.png`: a neon outline of a hand with the index finger
+ * up, the thumb out, a cuff running off the bottom and the element's sigil on
+ * the cuff. The sheet's first row draws that hand once in every element colour,
+ * and this is all six of them — the frame the lesson puts round a gem and the
+ * arrow it points with already come in six (see art/hintmarks.js), and the hand
+ * was the last mark still wearing one colour on a board that had six. Its other
+ * three rows are the same hand held straight-on, pointing right and pointing
+ * down, which no lesson asks for yet.
  *
  * The set is one texture per element and *one* of everything else. The packer
  * composes all six onto a common canvas with their fingertips on a common point,
  * so the aspect and the anchor below are true of every one of them and changing
  * element is a texture swap and nothing else.
  *
- * Before the recolour this file held one hand, the pale one, which is wind's:
- * `hand-wind.webp` is that same cutout and it replaced what used to be at
- * `src/assets/board/hint-hand-neon.webp`. Before that came a painted leather
- * gauntlet, still on disk at `src/assets/board/hint-hand.webp` with
+ * This is the second time this sheet has been the one cut. It takes the prop
+ * back off `hand-v2.png`, a redraw of the same four-by-six grid in a far
+ * narrower line — a long straight finger on a thin palm, 94 pixels across where
+ * this one is 160 — which is no longer on disk. Before either of them came six
+ * cut off the labelled hint sheet at `src/source/hint/hand-sheet.png`, whose
+ * section 10.1 held this pose in these six colours and which is still there;
+ * before that the single pale hand at `src/assets/board/hint-hand-neon.webp`,
+ * packed when none of this was per-element; and before all of it a painted
+ * leather gauntlet, still on disk at `src/assets/board/hint-hand.webp` with
  * tools/pack-hand.mjs still pointed at its own source.
+ *
+ * No file name moved across any of those swaps, so each of them was the two
+ * numbers below and, when the drawing changed shape as this one did, the three
+ * in ui/hand.js that say how big the prop stands on a cell. Coming back to this
+ * sheet moved all five again: it is a wider, squatter, heavier-lined hand than
+ * the one it replaced, which is a different prop on the board and not a recolour
+ * of the same one.
  *
  * The pose is the reason this file holds numbers as well as textures. The hand is
  * not centred on what it points at — it hangs below and to the right of it, the
@@ -63,7 +77,7 @@ const HAND_URLS = {
 const NEUTRAL = WIND;
 
 /** Natural size of the packed art — the same for all six. */
-export const HAND_ART = { w: 228, h: 258 };
+export const HAND_ART = { w: 330, h: 454 };
 
 /** How tall the hand stands to the width it is asked for. */
 export const HAND_ASPECT = HAND_ART.h / HAND_ART.w;
@@ -76,7 +90,7 @@ export const HAND_ASPECT = HAND_ART.h / HAND_ART.w;
  * middle of each hand's topmost solid row, lines all six up on it, and prints
  * where it landed.
  */
-export const HAND_TIP = { x: 0.1754, y: 0.0465 };
+export const HAND_TIP = { x: 0.2848, y: 0.0441 };
 
 const hands = {};
 let arrived = false;
