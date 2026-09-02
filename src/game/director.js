@@ -698,6 +698,29 @@ export class Director {
   }
 
   /**
+   * The same, for an ultimate — which is allowed through part of the hide.
+   *
+   * DIFFICULTY.ultPierce is a fraction of the hide rather than a bonus on top
+   * of the damage, and the difference is the entire point. Early in the fight
+   * armor() is 1, there is nothing to pierce, and this returns exactly what
+   * resistance() returns; on the final wall armor() is 0.5 and half of that
+   * half is handed back, so the cards land at 0.75 where the board lands at
+   * 0.5. One number, inert for the first two thirds of the run, and the reason
+   * the last third is fought with the roster.
+   *
+   * pace() is outside the pierce on purpose. The guard is a schedule and not a
+   * hide — it is the thing holding time-to-kill to DIFFICULTY.pace.seconds
+   * whatever the player does — and an ultimate that got to skip it would be a
+   * hole straight through the fight's length rather than a reward for saving a
+   * card.
+   */
+  ultResistance() {
+    const pierce = DIFFICULTY.ultPierce || 0;
+    const hide = this.armor();
+    return (hide + (1 - hide) * pierce) * this.pace();
+  }
+
+  /**
    * Announce a layer the boss just put up — once, on the hit that broke it.
    *
    * Armour the player cannot see is indistinguishable from a bug. A bar that
@@ -2204,13 +2227,15 @@ export class Director {
     }
 
     const cleared = await board.clearElement(element);
-    // Through the hide like everything else. The ultimate is the biggest number
-    // in the fight, and a big number that ignored the armour would be the one
-    // move that made the entire progression irrelevant.
+    // Through the hide, but not all of it — see ultResistance and
+    // DIFFICULTY.ultPierce. A big number that ignored the armour outright would
+    // make the whole progression irrelevant; a big number cut by the armour
+    // exactly like a match is makes the wall an argument against casting the
+    // one feature the creative is selling. Half the hide is the join.
     const total =
       (DIFFICULTY.ultDamage +
         cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
-      this.resistance();
+      this.ultResistance();
     // Cast into a fight the boss has already won: the light show plays out,
     // the damage does not. Same rule the cascade runs on — see resolveMove.
     const dealt = this.outcome === "defeat" ? 0 : total;
