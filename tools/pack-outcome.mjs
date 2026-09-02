@@ -45,6 +45,37 @@
  * the gap between the hit and the word is tuned in the mix rather than frozen
  * into an encode. Levels are the stingers' own problem for the same reason.
  *
+ * ## The card's rungs
+ *
+ * Five more cuts, and the same argument a third time. The end card assembles
+ * part by part and each part landed on the *board's* select click — one 90 ms
+ * cut resampled up a major sixth, five rungs of it, because it was the only
+ * click in the sprite. Resampling is the problem: by the top rung the click is
+ * 63 ms long and a fifth higher than anything else in the creative, which is
+ * the sound of a sample being stretched rather than of a card being built.
+ * `ui_click_tab` is also, still, the board's own tap — the last borrowed sound
+ * on the last screen, after the two endings were re-cut off it.
+ *
+ * The game already has the sounds this wants. `ui_click_add_*` is its own
+ * element-arrives click and it ships as three graded variants; `ui_click_tab_add`
+ * is a fourth. Laid down darkest to brightest they climb on timbre instead of
+ * on pitch, which is what the ladder was reaching for:
+ *
+ *   cardA  ui_click_add_2    3.2 kHz, the darkest and the tightest
+ *   cardB  ui_click_add_3    4.7 kHz
+ *   cardC  ui_click_add_1    6.9 kHz
+ *   cardD  ui_click_tab_add  6.9 kHz and a longer decay — the top of the climb
+ *   cardPlate  ui_bottle     1.3 kHz, 100 ms of decay, the only one with a body
+ *
+ * The plate is the rung the card is built around and the only part of it that
+ * can be tapped, so it is not a click at all but a clack, and it is the game's
+ * own — which is what let the synthesized body underneath it go away.
+ *
+ * They are appended after the endings rather than laid down among them, and
+ * deliberately: `at` is measured from the first sample of the first cut, so
+ * anything added at the end leaves victory, defeat and the two voice lines on
+ * the offsets they were already verified at.
+ *
  * Both are peak-normalized like everything else here, and both are trimmed to
  * the speech rather than to the file: the source lines carry a second of room
  * reverb past the last syllable, which is a second of a six-second sprite spent
@@ -115,6 +146,33 @@ const OUT = join(OUT_DIR, "outcome.mp3");
 const LEAD = 0.15;
 const GAP = 0.12;
 const TAIL = 0.2;
+
+/**
+ * Seconds of the preceding gap a cut is allowed to claim, for its own pre-echo.
+ *
+ * An MP3 encoder spreads a sharp attack backwards. The transform window is
+ * about 26 ms wide and the bit reservoir widens it further, so a click whose
+ * energy is entirely in its first two milliseconds comes back out of the
+ * decoder with a few milliseconds of that click sitting *in front of* where it
+ * was laid down. Measured on the four card rungs here: cardA's attack begins
+ * 10 ms before its own offset.
+ *
+ * A cut started exactly at its offset therefore plays from the middle of its
+ * own transient, which on a click is most of the sound. So a cut may declare a
+ * `pre` and the row printed for SLICES opens that much earlier and runs that
+ * much longer — the end is where it always was, and what is claimed is silence
+ * that was going to be gap anyway.
+ *
+ * It is per-cut rather than global because it costs something the long cuts
+ * cannot pay. `victory` and `defeat` are aligned against the frame their word
+ * lands on — see the note above `victory` in sfx.js and the offsets in
+ * ui/outcome.js — and starting either 20 ms earlier moves its weight 20 ms
+ * later against that frame. A click has no such appointment; a stinger does.
+ * The first cut in the file needs none either way: findHead searches for the
+ * first sample over one per cent of peak, so it lands on the pre-echo and the
+ * whole table shifts with it.
+ */
+const PRE = 0.02;
 
 /** Peak every cut is normalized to, in dBFS — sfx.mp3's own, near enough. */
 const PEAK = -1.4;
@@ -216,6 +274,53 @@ const CUTS = [
     filter:
       "atrim=0:1.0,asetpts=PTS-STARTPTS," +
       "afade=t=in:st=0:d=0.015,afade=t=out:st=0.72:d=0.28",
+  },
+
+  /*
+   * The card's four light rungs, darkest first — see "The card's rungs" above.
+   *
+   * All four sources are 185 ms files whose sound is over inside twenty: what
+   * follows the click is the room it was recorded in, and under a card being
+   * assembled at a rung every tenth of a second that room is the next rung's
+   * lead-in. So each is trimmed to 120 ms with the last 45 faded, which keeps
+   * the whole decay and drops only floor. They open on the transient — every
+   * one of them is at half power inside four milliseconds — so there is no fade
+   * in to put on them; a fade over an attack that fast is an attack removed.
+   */
+  {
+    name: "cardA",
+    pre: PRE,
+    src: "ui_click_add_2.wav",
+    filter: "atrim=0:0.11,asetpts=PTS-STARTPTS,afade=t=out:st=0.065:d=0.045",
+  },
+  {
+    name: "cardB",
+    pre: PRE,
+    src: "ui_click_add_3.wav",
+    filter: "atrim=0:0.12,asetpts=PTS-STARTPTS,afade=t=out:st=0.075:d=0.045",
+  },
+  {
+    name: "cardC",
+    pre: PRE,
+    src: "ui_click_add_1.wav",
+    filter: "atrim=0:0.12,asetpts=PTS-STARTPTS,afade=t=out:st=0.075:d=0.045",
+  },
+  {
+    name: "cardD",
+    pre: PRE,
+    src: "ui_click_tab_add.wav",
+    filter: "atrim=0:0.12,asetpts=PTS-STARTPTS,afade=t=out:st=0.075:d=0.045",
+  },
+  {
+    name: "cardPlate",
+    pre: PRE,
+    src: "ui_bottle.wav",
+    /**
+     * The clack, and the one cut here with a tail worth keeping: 100 ms of it,
+     * an octave and a half below the four clicks. Out at 240 ms with the last
+     * 90 faded, which is past the decay and short of the room behind it.
+     */
+    filter: "atrim=0:0.24,asetpts=PTS-STARTPTS,afade=t=out:st=0.15:d=0.09",
   },
 ];
 
@@ -339,8 +444,11 @@ try {
   // The table samples.js wants, with `at` measured from the first sample of the
   // first cut and not from the head of the file — see SLICES over there.
   let at = 0;
-  const rows = made.map((m) => {
-    const row = `  ${m.name}: { bank: "outcome", at: ${at.toFixed(2)}, dur: ${m.dur.toFixed(2)}, gain: ??? }, // ${m.src.replace(/\.wav$/, "")}`;
+  const rows = made.map((m, i) => {
+    // See PRE. The first cut is the one the head is found on and cannot back
+    // off; everything else opens into the gap behind it by as much as it asked.
+    const pre = i === 0 ? 0 : m.pre || 0;
+    const row = `  ${m.name}: { bank: "outcome", at: ${(at - pre).toFixed(3)}, dur: ${(m.dur + pre).toFixed(3)}, gain: ??? }, // ${m.src.replace(/\.wav$/, "")}`;
     at += m.dur + GAP;
     return row;
   });

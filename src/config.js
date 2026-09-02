@@ -293,7 +293,223 @@ export const DIFFICULTY = {
   ultGemMultiplier: 1.05,
 
   /**
+   * THE DIFFICULTY CURVE — the staircase the whole fight is hung on.
+   *
+   * The shape asked for, and not approximately: the keyframes below are traced
+   * off src/difficult/image.png, pixel by pixel. The drawn line was pulled out
+   * of the PNG as the topmost ink in each column, normalised against its own
+   * extent, and resampled — so `p` is where a landmark sits along the drawing's
+   * x axis and `attack` is its height mapped onto the range 0.45 to 2.9. The
+   * landmarks it gave, at a glance:
+   *
+   *     y      0.09  0.18  0.36  0.41  0.74  0.77  1.00   (of the drawing)
+   *     p      0.00  0.22  0.42  0.68  0.82  0.90  1.00
+   *
+   * Which reads as: a long, steadily steepening climb over the whole first
+   * half, a dead flat shelf across the middle quarter, a near-vertical catch,
+   * two seconds of held breath, and a last stroke straight up. Easy to start
+   * with, and the trap sprung at about seventy percent.
+   *
+   * Worth being blunt about the two places the trace was overruled, both for
+   * the same reason. The hand drifts upward across each shelf — 1.17 to 1.31
+   * on the wide one — and a shelf that creeps is a shelf nobody can feel, so
+   * both are flattened to their own average. Flat is plainly what the drawing
+   * means; the drift is a pen, not an intention.
+   *
+   * That distinction is the point of this block, because a smooth exponential
+   * is what was here before — `bossRamp` to the power of the turn, times a
+   * per-second `rage` — and a curve with no shelves on it is a curve a player
+   * never gets to stand on. Every move was worse than the last by a little,
+   * which reads as the fight sliding away rather than as the fight getting
+   * harder, and it is most of what the last round of feedback was about: "it's
+   * too fast, you lose too fast", and a mechanic that "should work on a
+   * subconscious level" being unreadable instead. A shelf is where reading
+   * happens. The player meets a new level of pressure, survives two or three
+   * moves at it, and *then* the floor drops again — and because the drop is
+   * announced (see Director.checkPhase) they can feel it coming.
+   *
+   * `steps` is the drawing, keyframed. `p` is fight progress, and everything
+   * else is linearly interpolated between neighbouring keyframes — so two
+   * keyframes carrying the same values are a shelf, and two carrying different
+   * ones are a rise. Retune the fight by moving these points; nothing else in
+   * the mode needs to know the shape.
+   *
+   *   attack    everything the boss throws, multiplied. See currentAttack.
+   *   resist    fraction of the player's damage that lands. See armor().
+   *   obsidian  blocks laid per boss turn. See pickObsidian.
+   *   hold      most blocks the board carries at once, out of 25.
+   *   name      shouted the moment the fight crosses this keyframe, so a rise
+   *             is a beat the player sees coming rather than a bar that
+   *             quietly starts moving slower. Put it on the keyframe where a
+   *             rise *begins* — the announcement is a warning, not a receipt.
+   *
+   * The x axis is two axes, and the split is worth knowing about before moving
+   * anything: `attack`, `obsidian` and `hold` are read against the clock
+   * (Director.progress) and `resist` against the boss's own health bar
+   * (Director.wounds). Both of those notes carry the measurements that forced
+   * it — briefly, the clock is the only axis smooth enough for shelves to be
+   * stood on, and health is the only one that never punishes a player for being
+   * behind. The pace guard below keeps the two roughly in step, so a keyframe's
+   * `p` means about the same thing in either.
+   *
+   * Two announced rises and no more, and that ceiling is arithmetic rather than
+   * taste. A shelf is only felt when two swings in a row land on it at equal
+   * strength, the boss swings every T.bossPress — four seconds — and the
+   * schedule is 26 of them. Six swings for the whole run, which is room for two
+   * shelves and a wall however finely the line is traced, and it is what an
+   * earlier three-rise draft of this table foundered on: it measured out at
+   * 0.90, 0.90, 1.27, 1.60, 1.60, 2.71, consecutive swings never equal, a slide
+   * wearing a staircase's clothes. DIFFICULTY.armor's third layer name goes
+   * unused here for the same reason.
+   *
+   * Where the six swings land on the traced line — this is the fight, as the
+   * player actually meets it:
+   *
+   *      4s   x0.61   rake      9% of a hero bar   the climb
+   *      8s   x0.92   breath    8%                 the climb
+   *     12s   x1.21   smash    33%                 the shelf
+   *     16s   x1.26   smash    15%                 the shelf  <- equal pair
+   *     20s   x2.02   rake     30%                 the catch
+   *     24s   x2.33   breath   20%                 the breath
+   *     28s   x2.90   smash    78%                 the last stroke
+   *
+   * The resist column is deliberately budgeted to cost the same total damage
+   * as the flat `armor` table it replaces — integrated, both ask for about 1.32
+   * bare boss bars — so this pass changes the *distribution* of the fight and
+   * not its length. Simulated over 2000 runs per skill level, before and after,
+   * win rates and kill times come out the same to within a rounding error: 92%
+   * at 31.2s for a weak player, 100% at 26.5s for an ordinary one, 100% at
+   * 23.2s for a strong one. What changed is what the boss's swings do across
+   * those same seconds — from 1.00, 1.14, 1.30, 1.48, 1.69, a slide where every
+   * swing is a little worse than the last, to 0.54, 0.73, 1.15, 1.25, 1.25 and
+   * then the catch. Time-to-kill still belongs to `pace` below.
+   *
+   * Set `enabled` false and bossRamp/armor take the fight back, smooth curve
+   * and all.
+   */
+  curve: {
+    enabled: true,
+    /**
+     * The clock half of progress, in seconds. Kept level with pace.seconds:
+     * they are two readings of the same schedule, and a curve that finished
+     * before or after the pace guard's line would be pulling against it.
+     */
+    seconds: 26,
+    steps: [
+      /**
+       * The origin, and deliberately the easiest moment in the fight by a wide
+       * margin.
+       *
+       * bossPress is 4 seconds and it starts with the fight, so the first swing
+       * lands on somebody who has made one match and may not yet have worked
+       * out that this is a match-three at all. Whatever sits here is what the
+       * game does to a player it has not finished teaching. The old curve
+       * opened at a flat 1.0 and compounded from there, and the party was
+       * already chewed before the mechanic had landed — which is most of what
+       * "it's too fast, you lose too fast" was about.
+       */
+      { p: 0.0, attack: 0.45, resist: 1.0, obsidian: 2, hold: 6 },
+      /**
+       * The gentlest stretch of the climb, and the reason the first half of the
+       * drawing is a slope rather than a step.
+       *
+       * Nothing is flat here and nothing is meant to be: difficulty rises the
+       * whole way from the origin to the middle of the run, slowly at first and
+       * then faster. That is the drawn line, and it is a better opening than the
+       * shelf an earlier pass of this table put here — a fight that is *level*
+       * for its first ten seconds has nothing to say in them, where a fight that
+       * is gently, steadily getting worse is teaching the player that it will.
+       */
+      { p: 0.22, attack: 0.7, resist: 0.94, obsidian: 3, hold: 7 },
+      /**
+       * Top of the climb, and the start of the long flat middle.
+       *
+       * The slope steepens into this point — measured off the drawing, the rise
+       * roughly doubles its gradient over the stretch above — so arriving here
+       * feels like the fight finally showing its teeth, right before it stops.
+       */
+      { p: 0.42, attack: 1.25, resist: 0.8, obsidian: 4, hold: 9 },
+      /**
+       * THE SHELF — a quarter of the whole run, dead flat, and the widest
+       * feature on the drawing.
+       *
+       * Second eleven to second eighteen: nothing gets worse. This is where a
+       * match-three is actually learned, and where a player who has understood
+       * it gets to look good at it — the same swing every four seconds, a board
+       * that stops shrinking, the ultimates they have been charging all fight
+       * finally worth their cut-in.
+       *
+       * Its width is not a taste call. A shelf is only felt when two swings in a
+       * row land on it at equal strength — one swing at a new level is an event,
+       * two is a level — the boss swings every T.bossPress, and the schedule is
+       * 26 seconds. That is six swings for the whole run, and it is what caps
+       * this table at two shelves and a wall however finely the line is traced.
+       * Here the swings at 12s and 16s both land at about 1.25.
+       *
+       * Traced dead flat rather than at the hand's own slight drift (1.17 rising
+       * to 1.31 across it). A shelf that creeps is a shelf nobody can feel, and
+       * flat is plainly what the drawing means.
+       */
+      {
+        p: 0.68,
+        attack: 1.25,
+        resist: 0.8,
+        obsidian: 4,
+        hold: 9,
+        name: "OBSIDIAN HIDE",
+      },
+      /**
+       * THE CATCH — and on the drawing it is the most violent thing on the
+       * page, a near-vertical stroke out of the middle of a flat line.
+       *
+       * Damage nearly doubles and a fifth more of the player's own damage stops
+       * landing, across three and a half seconds. The fight the player spent
+       * seven seconds getting comfortable in turns out to have been the
+       * tutorial. It is meant to be startling, which is exactly why the shelf
+       * above is named: the wall announces itself the moment it starts going up
+       * — see Director.checkPhase. A spike the player is warned about is
+       * difficulty; the same spike unannounced is a bug report.
+       */
+      { p: 0.82, attack: 2.2, resist: 0.6, obsidian: 7, hold: 11 },
+      /**
+       * The second shelf, and barely a shelf — two seconds of held breath at
+       * the top of the catch before the last stroke. Drawn short on purpose:
+       * by now the player is quick, and the run is nearly out of clock.
+       */
+      {
+        p: 0.9,
+        attack: 2.2,
+        resist: 0.6,
+        obsidian: 7,
+        hold: 11,
+        name: "MOLTEN CORE",
+      },
+      /**
+       * The last stroke of the drawing, and it goes straight up.
+       *
+       * The golem swings for about three quarters of a hero bar and shrugs off
+       * half of everything aimed back at it, on a board down to a third of its
+       * cells, with the doom strip already red. Every clock in the mode arrives
+       * together here, which is the point — this is a climax, not a difficulty
+       * setting.
+       *
+       * 0.5 resist is a floor rather than a preference. Under about half, a
+       * player who earned the kill watches their damage stop mattering, and that
+       * reads as the game cheating rather than as armour. What keeps this the
+       * right side of that line is how little of the run it covers.
+       */
+      { p: 1.0, attack: 2.9, resist: 0.5, obsidian: 8, hold: 12 },
+    ],
+  },
+
+  /**
    * Blocks laid per boss turn: base, plus this much more each turn.
+   *
+   * The curve-off path. With `curve.enabled` the wave and its ceiling come off
+   * the staircase's `obsidian` and `hold` columns instead, so that the board
+   * tightens on the same beat as everything else rather than on a schedule of
+   * its own — a squeeze arriving between two announced rises is the one kind of
+   * pressure the player has no way to read.
    *
    * The growth carries the squeeze rather than the base: an opening wave of
    * three still leaves the board readable for a first-timer, and 1.2 a turn
@@ -326,6 +542,13 @@ export const DIFFICULTY = {
   /**
    * Boss attack damage, multiplied by this to the power of the turn index.
    *
+   * The curve-off path, and the smooth exponential `curve` above was written to
+   * replace. Read the rest of this note as the argument for why a compounding
+   * per-turn ramp is *a* difficulty curve — it is, and a defensible one — and
+   * the note on `curve` for why it is the wrong one for a thirty second
+   * creative: every move worse than the last by a little is a fight with
+   * nowhere for the player to stand and learn.
+   *
    * Not gentle any more. At 1.14 the golem's fifth swing lands nearly twice as
    * hard as its first and its eighth two and a half times, so a fight that runs
    * long does not merely stay dangerous — it accelerates away from the player.
@@ -356,12 +579,29 @@ export const DIFFICULTY = {
    * third again what it opened with. rageMax sits above what a run can reach on
    * purpose: what the player is meant to feel is the climb, not a ceiling the
    * fight flattens out against. Thinking stops being free.
+   *
+   * Cut from 0.012/1.45 with the curve, and it had to be: a multiplier that
+   * climbs every frame is the one thing that can flatten a shelf, and the
+   * shelves are the whole shape now. It is not switched off, because it is
+   * still the only thing that answers a player standing still inside a single
+   * step of the staircase — but the seconds a stall costs are now mostly
+   * charged by the curve itself, which walks forward on the clock when the
+   * health bar will not (see curve.steps). At 0.005 and a 1.18 ceiling a shelf
+   * drifts up about six percent across the three or four moves spent on it:
+   * felt, and not a rise.
    */
-  ragePerSecond: 0.012,
-  rageMax: 1.45,
+  ragePerSecond: 0.005,
+  rageMax: 1.18,
 
   /**
    * The boss's hide, thickening as its health drops.
+   *
+   * The curve-off path. With `curve.enabled` the hide is the staircase's
+   * `resist` column, which is this idea kept and given shelves: the layers here
+   * are three cliffs the bar falls off, where the curve ramps into each one
+   * over a tenth of the fight and then holds. The total is budgeted to match —
+   * both tables ask for about 1.32 bare boss bars — so what changed is where
+   * the fight is expensive, not how expensive it is.
    *
    * Ordered deepest first: the first entry whose `below` the boss has
    * fallen under wins, and every point of damage from then on is multiplied by

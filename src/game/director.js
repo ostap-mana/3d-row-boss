@@ -485,6 +485,121 @@ export class Director {
   /* ------------------------------------------------------------ escalation */
 
   /**
+   * How far through the fight the player is, 0 to 1 — the x axis of
+   * DIFFICULTY.curve.
+   *
+   * The clock, and not the boss's health, and that choice is the one thing here
+   * worth arguing about, so here is the argument.
+   *
+   * Health is the obvious axis and it was the first one tried. It does not
+   * work, and it fails for a measurable reason rather than a matter of taste:
+   * damage in this game lands in lumps far bigger than a shelf. A five-cell
+   * step is worth about a third of the boss's bar on its own — five gems at
+   * DIFFICULTY.damagePerGem through sizeBonus 1.9 — a run is six or seven moves
+   * end to end, and progress therefore arrives in jumps of 0.15 to 0.35.
+   * Simulated on health, an ordinary fight went from a 0.89 swing at the first
+   * boss turn to a 1.55 swing at the second: the whole middle of the staircase
+   * was stepped over without ever being played. A shelf nobody stands on is not
+   * a shelf, and a curve whose shelves all get skipped is the smooth
+   * exponential it was written to replace, wearing a table.
+   *
+   * The clock advances at a fixed rate whatever the board does, so every shelf
+   * is stood on for a known number of seconds by every player alike — which is
+   * also what lets the widths in curve.steps be argued in boss swings instead
+   * of in vibes. And the health bar is not left out of it: the pace guard holds
+   * the bar to a straight line against this same schedule (DIFFICULTY.pace,
+   * whose `seconds` is deliberately kept level with the curve's), so a player
+   * standing on the second shelf is a player with roughly half a boss left. The
+   * two readings agree — this is the one that is smooth.
+   *
+   * What it costs is the fast player's early kill: somebody who empties the bar
+   * at fifteen seconds meets one announced wall instead of two. They won, well
+   * inside a thirty second creative, which is not a case worth bending the
+   * shape of the fight for.
+   *
+   * On elapsed() rather than now(), for the same reason rage() is: seconds
+   * spent inside an ultimate are seconds nobody could have played in, and
+   * charging for them would make spending a hero the one move in the fight that
+   * escalated the boss. See holdClock.
+   */
+  progress() {
+    const curve = DIFFICULTY.curve;
+    const secs = curve && curve.seconds ? curve.seconds : 0;
+    if (secs <= 0) return 0;
+    const spent = Math.max(0, this.elapsed() - this.fightStart);
+    return Math.max(0, Math.min(1, spent / secs));
+  }
+
+  /**
+   * The other axis: how much of the boss is gone. Read by exactly one column of
+   * the curve — `resist` — and here is why that column is special.
+   *
+   * Everything else on the staircase is the boss getting angrier, which is a
+   * function of how long the fight has run. `resist` is the boss's hide, which
+   * is a function of how chewed up the boss is, and reading it off the clock
+   * turns out to be actively unfair rather than merely inaccurate.
+   *
+   * Measured, because it was written the other way first and the simulation
+   * caught it: on the clock, a weak player's win rate fell from 92% to 59%,
+   * every lost run a timeout. The reason is that the hide arrives on a schedule
+   * they are not on. A player who has taken a third of the bar in twenty
+   * seconds meets MOLTEN CORE's half-damage anyway, and spends the rest of the
+   * creative watching a health bar that has stopped moving — which is the exact
+   * "my best result was 1% of the boss's HP" the last round of feedback was
+   * about, rebuilt out of new parts.
+   *
+   * On health it cannot happen by construction: armour is something the player
+   * damaged the boss into putting up, so it is only ever met by somebody who
+   * earned it. The pace guard is the piece that handles the opposite case — a
+   * player running ahead of schedule — and it only ever bites when they are
+   * ahead. Between them nothing punishes being behind.
+   *
+   * The lumpiness that ruled health out for the attack column does not matter
+   * here. `resist` is sampled on every cascade step rather than once every four
+   * seconds, and what the player reads off it is a rate, not a value — how fast
+   * the bar is moving, integrated over the whole fight. Shelves in this column
+   * do not need two equal samples in a row to land.
+   */
+  wounds() {
+    return Math.max(0, Math.min(1, 1 - this.bossHp));
+  }
+
+  /**
+   * Read one column of DIFFICULTY.curve at the fight's current progress,
+   * interpolated between the keyframes either side of it.
+   *
+   * Linear and nothing cleverer on purpose: the table *is* the drawing, so two
+   * keyframes with equal values have to come out as a dead-flat shelf and two
+   * with different ones as a straight climb. Smoothing between them would round
+   * the corners off the one feature the shape exists for — the moment the floor
+   * drops.
+   *
+   * @param {string} field one of attack, resist, obsidian, hold
+   * @param {number} p where to read it — progress() for every column except
+   *   resist, which is read at wounds(). See both for why there are two axes.
+   * @param {number} fallback returned when the curve is off or empty
+   */
+  curveAt(field, p, fallback) {
+    const curve = DIFFICULTY.curve;
+    if (!curve || !curve.enabled) return fallback;
+    const steps = curve.steps || [];
+    if (!steps.length) return fallback;
+
+    // Before the first keyframe and after the last, the curve holds its ends
+    // rather than extrapolating off them.
+    if (p <= steps[0].p) return steps[0][field];
+    for (let i = 1; i < steps.length; i++) {
+      const b = steps[i];
+      if (p > b.p) continue;
+      const a = steps[i - 1];
+      const span = b.p - a.p;
+      const t = span > 0 ? (p - a.p) / span : 1;
+      return a[field] + (b[field] - a[field]) * t;
+    }
+    return steps[steps.length - 1][field];
+  }
+
+  /**
    * How many of DIFFICULTY.armor's layers the boss is currently wearing.
    *
    * The table is ordered deepest first, so this is just how many thresholds the
@@ -509,8 +624,18 @@ export class Director {
    * expensive stretch — which is the one thing the old constant-rate bar could
    * never say, and the reason a match that felt decisive on move one is only a
    * chip on move seven.
+   *
+   * The `resist` column of DIFFICULTY.curve, so the hide thickens in the same
+   * rise-and-shelf pattern as everything else: it ramps over the tenth of the
+   * fight after an announced wall goes up, then holds dead flat until the next
+   * one. What the player sees is a bar that slows sharply on the beat the boss
+   * roared and then falls at a rate they can plan around — instead of one that
+   * quietly changed gear at a health threshold they had no way to know about.
+   * DIFFICULTY.armor is still here and still read when the curve is off.
    */
   armor() {
+    const curve = DIFFICULTY.curve;
+    if (curve && curve.enabled) return this.curveAt("resist", this.wounds(), 1);
     const layers = DIFFICULTY.armor || [];
     const depth = this.armorDepth();
     return depth === 0 ? 1 : layers[layers.length - depth].mult;
@@ -581,18 +706,52 @@ export class Director {
    * its own name at the moment it comes up.
    */
   checkPhase() {
-    const depth = this.armorDepth();
+    const depth = this.curveDepth();
     if (this.settled() || depth <= this.phase) return;
     this.phase = depth;
 
-    const layers = DIFFICULTY.armor;
-    const layer = layers[layers.length - depth];
+    const layer = this.phaseName(depth);
+    if (!layer) return;
     sfx.bossEnrage();
     this.s.boss.enrage();
     this.s.hud.enrage();
     this.s.shake(16, 0.45);
     this.s.vfx.flash(0xff2a06, 0.3, 0.4);
-    this.s.hud.shout(layer.name, 0.55, { fill: 0xff8a3d, from: 2 });
+    this.s.hud.shout(layer, 0.55, { fill: 0xff8a3d, from: 2 });
+  }
+
+  /**
+   * How many announced rises the fight has already crossed.
+   *
+   * Off the curve's named keyframes when the curve is on, off the armour table
+   * when it is not, so `phase` counts the same thing either way: walls the
+   * player has been told about, only ever climbing. Nothing in this fight walks
+   * progress backwards — the health bar never refills and the clock never runs
+   * back — but the counter is one-way regardless, because its job is to fire
+   * each callout exactly once and not once per cascade step.
+   */
+  curveDepth() {
+    const curve = DIFFICULTY.curve;
+    if (!curve || !curve.enabled) return this.armorDepth();
+    const p = this.progress();
+    let depth = 0;
+    (curve.steps || []).forEach((step) => {
+      if (step.name && p >= step.p) depth++;
+    });
+    return depth;
+  }
+
+  /** The name of the `depth`th announced rise, or null if there isn't one. */
+  phaseName(depth) {
+    const curve = DIFFICULTY.curve;
+    if (curve && curve.enabled) {
+      const named = (curve.steps || []).filter((step) => step.name);
+      const step = named[depth - 1];
+      return step ? step.name : null;
+    }
+    const layers = DIFFICULTY.armor || [];
+    const layer = layers[layers.length - depth];
+    return layer ? layer.name : null;
   }
 
   /**
@@ -927,6 +1086,13 @@ export class Director {
     // Held for an ultimate: the fuse stops where it is, the strip holds the
     // number it was showing, and the room stops tightening. See holdClock.
     if (this.clockHoldAt) return;
+
+    // The staircase walks forward on the clock as well as on damage (see
+    // progress), so a rise can come due on a frame where nothing was hit. Every
+    // other caller of this is a damage path; without one here the player who is
+    // losing — the one who most needs the warning — is the only one who never
+    // gets it.
+    this.checkPhase();
 
     if (this.doomLeft > 0) {
       this.doomLeft = Math.max(0, this.doomLeft - dt);
@@ -1399,8 +1565,20 @@ export class Director {
    * after that it is weather, so the unlock is what stops the boss becoming
    * predictable at exactly the point it is meant to be at its worst.
    *
-   * Ramped twice over: DIFFICULTY.bossRamp to the power of the turn charges for
-   * the number of moves taken, rage() for the seconds spent taking them.
+   * Ramped off DIFFICULTY.curve's `attack` column — the staircase — times
+   * rage() for the seconds spent standing still inside one of its steps.
+   *
+   * This is the drawn shape at its most legible, because a boss's damage is the
+   * one number in the fight the player reads directly, off their own health
+   * bars, every four seconds. On a shelf the swing lands for what the last one
+   * landed for and the player learns what they can afford; on a rise it lands
+   * for half again, on the beat after the golem roared the wall's name. The
+   * exponential this replaced could only ever say "worse than last time", every
+   * time, which is the same sentence often enough that it stops being heard.
+   *
+   * The opening step is under 1 on purpose: bossPress starts with the fight, so
+   * the first swing arrives before the player has made a match. See
+   * curve.steps.
    */
   currentAttack() {
     const pool = BOSS_ATTACKS.filter((a) => (a.from || 0) <= this.turn);
@@ -1408,7 +1586,12 @@ export class Director {
     const base = fresh.length
       ? fresh[0]
       : pool[this.turn % pool.length] || BOSS_ATTACKS[0];
-    const ramp = Math.pow(DIFFICULTY.bossRamp, this.turn) * this.rage();
+    const step = this.curveAt(
+      "attack",
+      this.progress(),
+      Math.pow(DIFFICULTY.bossRamp, this.turn),
+    );
+    const ramp = step * this.rage();
     return {
       kind: base.kind,
       targets: base.targets,
@@ -1442,17 +1625,32 @@ export class Director {
 
     // The wave this turn, plus whatever the attack itself brings with it: the
     // late unlock in BOSS_ATTACKS pays in board as well as in health.
+    //
+    // Off the curve's `obsidian` column, so the board tightens on the same rise
+    // the boss's damage does and holds still on the same shelf. That matters
+    // more here than anywhere: obsidian costs the player options, and options
+    // arriving or leaving on a schedule of their own is the "half-glitch,
+    // half-unreadable" complaint in its purest form — the screen gets harder to
+    // read for no reason the player was given.
     const want =
       Math.round(
-        DIFFICULTY.obsidianBase + this.turn * DIFFICULTY.obsidianGrowth,
+        this.curveAt(
+          "obsidian",
+          this.progress(),
+          DIFFICULTY.obsidianBase + this.turn * DIFFICULTY.obsidianGrowth,
+        ),
       ) + ((attack && attack.obsidianBonus) || 0);
     // The ceiling climbs with the fight too, so the endgame is played on a
     // genuinely smaller board rather than on the same one under pressure.
     const ceiling = Math.floor(
       Math.min(
         DIFFICULTY.obsidianMaxCap,
-        DIFFICULTY.obsidianMax +
-          this.turn * (DIFFICULTY.obsidianMaxGrowth || 0),
+        this.curveAt(
+          "hold",
+          this.progress(),
+          DIFFICULTY.obsidianMax +
+            this.turn * (DIFFICULTY.obsidianMaxGrowth || 0),
+        ),
       ),
     );
     const budget = Math.min(want, ceiling - held);

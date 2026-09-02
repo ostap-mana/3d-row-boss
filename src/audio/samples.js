@@ -61,8 +61,8 @@ const MIN = 0.0001;
  * `AUDIO.sfxSampleLevel` scales the lot. The comment on each line is the sound
  * it was lifted from, which is the only way back to the original.
  *
- * `bank` says which file a cut is measured into, and only the two endings carry
- * one. They are the last sound the player hears and they were the two weakest
+ * `bank` says which file a cut is measured into, and everything the last screen
+ * makes a sound with carries one. They are the last sound the player hears and they were the two weakest
  * things in here — a menu tab for a win and a back button for a loss, borrowed
  * because they were already in the sprite — so they were re-cut from the game's
  * own victory stinger and its own braam, and re-cut assets do not fit in a file
@@ -128,7 +128,26 @@ const SLICES = {
   defeat: { bank: "outcome", at: 3.12, dur: 2.6, gain: 0.22 }, // ui_click_braam
   /* The narrator, over the two stingers above — see the note under `bank`. */
   victoryVo: { bank: "outcome", at: 5.84, dur: 1.2, gain: 0.32 }, // "Victory!"
-  defeatVo: { bank: "outcome", at: 7.16, dur: 1.0, gain: 0.36 }, // "Defeat"
+  defeatVo: { bank: "outcome", at: 7.16, dur: 1, gain: 0.36 }, // "Defeat"
+  /**
+   * The store card assembling, a cut per part — see `endcardStep` in sfx.js.
+   *
+   * Four light rungs darkest to brightest and a clack for the plate, all five
+   * the game's own UI. They climb on timbre rather than on playback rate, which
+   * is what replaced them: every rung used to be the board's `select` click
+   * resampled, and the top one was that 90 ms cut squeezed to 63.
+   *
+   * Each opens 20 ms before the cut was laid down and runs 20 ms longer,
+   * ending where it always did. That is not padding — it is the cut's own
+   * pre-echo, which an MP3 encoder puts in front of an attack this sharp and
+   * which a slice starting on the offset would play from the middle of. See
+   * PRE in tools/pack-outcome.mjs, where the number is argued.
+   */
+  cardA: { bank: "outcome", at: 8.26, dur: 0.13, gain: 0.11 }, // ui_click_add_2
+  cardB: { bank: "outcome", at: 8.49, dur: 0.14, gain: 0.11 }, // ui_click_add_3
+  cardC: { bank: "outcome", at: 8.73, dur: 0.14, gain: 0.11 }, // ui_click_add_1
+  cardD: { bank: "outcome", at: 8.97, dur: 0.14, gain: 0.11 }, // ui_click_tab_add
+  cardPlate: { bank: "outcome", at: 9.21, dur: 0.26, gain: 0.15 }, // ui_bottle
   banner: { at: 31.55, dur: 0.32, gain: 0.1 }, // ui_expand_in
   endcard: { at: 31.99, dur: 1.6, gain: 0.16 }, // SMN_TITLE
   cta: { at: 33.71, dur: 0.12, gain: 0.12 }, // ui_click_main

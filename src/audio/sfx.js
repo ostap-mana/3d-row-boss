@@ -731,7 +731,13 @@ export function banner() {
 
 /** The end card arriving. */
 export function endcard(defeated) {
-  if (samples.play("endcard", { rate: defeated ? 0.92 : 1 })) return;
+  // Not transposed on a loss any more. The recorded cut is the game's own title
+  // sting, and dropping a recording of a tuned instrument 8% is a detune rather
+  // than a mood — audible as a warble on the one screen the player stops on.
+  // The synthesized twin below still branches, because an oscillator asked for
+  // a lower note is not a stretched sample; and the verdict has already been
+  // said by then anyway, by the outcome screen. See ui/outcome.js.
+  if (samples.play("endcard")) return;
   if (defeated) {
     tone({
       freq: 196,
@@ -764,6 +770,22 @@ export function endcard(defeated) {
 const CARD_STEP = [1.0, 1.09, 1.19, 1.3, 1.42];
 
 /**
+ * The rungs themselves, darkest to brightest.
+ *
+ * Four cuts rather than one cut at four pitches, and that is the whole repair:
+ * every rung used to be `select` — the board's own tap — resampled up a major
+ * sixth across the five, which by the top rung is a 90 ms click squeezed to 63
+ * and sitting a fifth above anything else in the creative. It read as a sample
+ * being stretched, which is the one thing the last screen cannot sound like.
+ *
+ * These are the game's own element-arrives clicks, which ship as three graded
+ * variants and a fourth on the tab. Laid down dark to bright they climb on
+ * timbre, so the mechanism still cycles and nothing is transposed to get there.
+ * See tools/pack-outcome.mjs, which cuts them, and SLICES in samples.js.
+ */
+const CARD_RUNGS = ["cardA", "cardB", "cardC", "cardD"];
+
+/**
  * One rung of the end card arriving.
  *
  * The card used to land in silence. `sfx.endcard` below is the title sting it
@@ -787,21 +809,27 @@ const CARD_STEP = [1.0, 1.09, 1.19, 1.3, 1.42];
  * @param {boolean} [heavy] the plate, which lands harder than the rest
  */
 export function endcardStep(step, heavy) {
-  const rate = CARD_STEP[Math.max(0, Math.min(CARD_STEP.length - 1, step | 0))];
-  if (samples.play("select", { rate, gain: heavy ? 1.5 : 0.85 })) {
-    // The plate's body, under the click rather than instead of it: the sprite
-    // has no heavy click in it, and one cut played twice is a stutter.
-    if (heavy) {
-      tone({
-        freq: 190,
-        to: 120,
-        dur: 0.12,
-        gain: 0.1,
-        type: "triangle",
-        cut: 900,
-      });
+  const i = Math.max(0, step | 0);
+  const rate = CARD_STEP[Math.min(CARD_STEP.length - 1, i)];
+
+  // The plate is its own cut now — a clack with a hundred milliseconds of body
+  // under it — so the synthesized tone that used to be layered here to give the
+  // click a bottom is gone with the click that needed one.
+  if (heavy) {
+    if (samples.play("cardPlate")) return;
+  } else {
+    const last = CARD_RUNGS.length - 1;
+    // Past the fourth rung the brightest cut is held and lifted a little, so a
+    // card with more parts than the ladder has cuts still climbs — by a tone at
+    // the very top rather than by the major sixth this used to reach for.
+    const over = Math.max(0, i - last);
+    if (
+      samples.play(CARD_RUNGS[Math.min(i, last)], {
+        rate: Math.min(1 + over * 0.03, 1.09),
+      })
+    ) {
+      return;
     }
-    return;
   }
 
   // The synthesized ratchet: a sprung click over a small wooden body. Square
