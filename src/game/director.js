@@ -485,37 +485,14 @@ export class Director {
   /* ------------------------------------------------------------ escalation */
 
   /**
-   * How far through the fight the player is, 0 to 1 — the x axis of
-   * DIFFICULTY.curve.
+   * How much of the fight's schedule has been spent, 0 to 1.
    *
-   * The clock, and not the boss's health, and that choice is the one thing here
-   * worth arguing about, so here is the argument.
-   *
-   * Health is the obvious axis and it was the first one tried. It does not
-   * work, and it fails for a measurable reason rather than a matter of taste:
-   * damage in this game lands in lumps far bigger than a shelf. A five-cell
-   * step is worth about a third of the boss's bar on its own — five gems at
-   * DIFFICULTY.damagePerGem through sizeBonus 1.9 — a run is six or seven moves
-   * end to end, and progress therefore arrives in jumps of 0.15 to 0.35.
-   * Simulated on health, an ordinary fight went from a 0.89 swing at the first
-   * boss turn to a 1.55 swing at the second: the whole middle of the staircase
-   * was stepped over without ever being played. A shelf nobody stands on is not
-   * a shelf, and a curve whose shelves all get skipped is the smooth
-   * exponential it was written to replace, wearing a table.
-   *
-   * The clock advances at a fixed rate whatever the board does, so every shelf
-   * is stood on for a known number of seconds by every player alike — which is
-   * also what lets the widths in curve.steps be argued in boss swings instead
-   * of in vibes. And the health bar is not left out of it: the pace guard holds
-   * the bar to a straight line against this same schedule (DIFFICULTY.pace,
-   * whose `seconds` is deliberately kept level with the curve's), so a player
-   * standing on the second shelf is a player with roughly half a boss left. The
-   * two readings agree — this is the one that is smooth.
-   *
-   * What it costs is the fast player's early kill: somebody who empties the bar
-   * at fifteen seconds meets one announced wall instead of two. They won, well
-   * inside a thirty second creative, which is not a case worth bending the
-   * shape of the fight for.
+   * Not the curve's axis — that is pressure(), and the note there is where the
+   * argument for the health bar lives. This is only the clock term pressure()
+   * puts a floor under a stalled run with, and it is kept separate because a
+   * bare clock reading is a genuinely different question from "how far through
+   * the fight is this player", and conflating the two is what an earlier
+   * revision of this file did.
    *
    * On elapsed() rather than now(), for the same reason rage() is: seconds
    * spent inside an ultimate are seconds nobody could have played in, and
@@ -562,6 +539,47 @@ export class Director {
    */
   wounds() {
     return Math.max(0, Math.min(1, 1 - this.bossHp));
+  }
+
+  /**
+   * The axis everything except `resist` is read at: the boss's health bar, with
+   * a slow clock floor underneath it.
+   *
+   * DIFFICULTY.curve is specified against the bar — easy down to half, medium
+   * to a quarter, brutal after that — and for anybody who is actually damaging
+   * the boss that is the whole of this function: wounds() wins, and the clock
+   * term never gets a look in. Checked at every pace a person plays at, the
+   * floor sits well under the bar the entire run.
+   *
+   * The floor exists for the run the spec does not describe. A player who never
+   * damages the boss would otherwise meet a golem swinging at 0.30 with one
+   * block on the board for a full thirty seconds — not an easy fight, an absent
+   * one, and an ad that ends on a health bar nobody touched. So the pressure the
+   * boss applies is allowed to walk forward on the clock at a rate that reaches
+   * `slack` of the way up the curve by the end of the schedule, which puts a
+   * stalled run in the middle of the medium zone rather than at a wall it did
+   * not earn.
+   *
+   * Deliberately NOT used for armour. `resist` reads wounds() directly, because
+   * armour is something the player damaged the boss into putting up and a
+   * laggard meeting it would be punished for being behind — see wounds. This
+   * one is the boss's aggression, which nothing says has to be earned.
+   *
+   * On elapsed() rather than now(), for the same reason rage() is: seconds
+   * spent inside an ultimate are seconds nobody could have played in, and
+   * charging for them would make spending a hero the one move in the fight that
+   * escalated the boss. See holdClock.
+   */
+  pressure() {
+    const curve = DIFFICULTY.curve;
+    const hurt = this.wounds();
+    if (!curve || !curve.seconds) return hurt;
+    const clock = this.progress();
+    const lead = curve.clockLead;
+    // The ceiling: temper may run at most `clockLead` ahead of the schedule.
+    const held = lead === undefined ? hurt : Math.min(hurt, clock + lead);
+    // ...and the floor: a stalled run is dragged forward anyway.
+    return Math.max(held, clock * (curve.clockFloor || 0));
   }
 
   /**
@@ -698,26 +716,33 @@ export class Director {
   }
 
   /**
-   * The same, for an ultimate — which is allowed through part of the hide.
+   * The same, for an ultimate — which the hide bites harder, not softer.
    *
-   * DIFFICULTY.ultPierce is a fraction of the hide rather than a bonus on top
-   * of the damage, and the difference is the entire point. Early in the fight
-   * armor() is 1, there is nothing to pierce, and this returns exactly what
-   * resistance() returns; on the final wall armor() is 0.5 and half of that
-   * half is handed back, so the cards land at 0.75 where the board lands at
-   * 0.5. One number, inert for the first two thirds of the run, and the reason
-   * the last third is fought with the roster.
+   * DIFFICULTY.ultHideBite is an exponent on armor(), and the shape of a power
+   * is the whole reason this works. At full health armor() is 1 and 1 to any
+   * power is 1, so an opening ultimate is resisted exactly as much as a match
+   * is — nothing — and the fight's length, which matches set, does not move.
+   * As the hide thickens the exponent bends the ultimate away much faster than
+   * the match: at armor() 0.3 a match keeps 30% of its damage and an ultimate
+   * keeps 12%.
    *
-   * pace() is outside the pierce on purpose. The guard is a schedule and not a
-   * hide — it is the thing holding time-to-kill to DIFFICULTY.pace.seconds
-   * whatever the player does — and an ultimate that got to skip it would be a
-   * hole straight through the fight's length rather than a reward for saving a
-   * card.
+   * That is the answer to a requirement one armour number could not hold. The
+   * ending had to be a grind an ultimate could not rescue — a cast worth a
+   * couple of percent rather than ten — while still being winnable inside
+   * T.hardCap. Thickening the hide far enough to starve the ultimate starves
+   * the matches too, and the boss stops dying at all: the note on ultHideBite
+   * has the measured numbers (37, 51, 87 seconds). Giving the ultimate its own
+   * curve through the same hide separates the two questions.
+   *
+   * pace() stays outside the exponent, and multiplied rather than raised. The
+   * guard is a schedule and not a hide — it is the thing holding time-to-kill
+   * to DIFFICULTY.pace.seconds whatever the player does — and bending an
+   * ultimate against it would be charging the player twice for the same lead.
    */
   ultResistance() {
-    const pierce = DIFFICULTY.ultPierce || 0;
+    const bite = DIFFICULTY.ultHideBite;
     const hide = this.armor();
-    return (hide + (1 - hide) * pierce) * this.pace();
+    return (bite === undefined ? hide : Math.pow(hide, bite)) * this.pace();
   }
 
   /**
@@ -756,7 +781,7 @@ export class Director {
   curveDepth() {
     const curve = DIFFICULTY.curve;
     if (!curve || !curve.enabled) return this.armorDepth();
-    const p = this.progress();
+    const p = this.pressure();
     let depth = 0;
     (curve.steps || []).forEach((step) => {
       if (step.name && p >= step.p) depth++;
@@ -1611,7 +1636,7 @@ export class Director {
       : pool[this.turn % pool.length] || BOSS_ATTACKS[0];
     const step = this.curveAt(
       "attack",
-      this.progress(),
+      this.pressure(),
       Math.pow(DIFFICULTY.bossRamp, this.turn),
     );
     const ramp = step * this.rage();
@@ -1659,7 +1684,7 @@ export class Director {
       Math.round(
         this.curveAt(
           "obsidian",
-          this.progress(),
+          this.pressure(),
           DIFFICULTY.obsidianBase + this.turn * DIFFICULTY.obsidianGrowth,
         ),
       ) + ((attack && attack.obsidianBonus) || 0);
@@ -1670,7 +1695,7 @@ export class Director {
         DIFFICULTY.obsidianMaxCap,
         this.curveAt(
           "hold",
-          this.progress(),
+          this.pressure(),
           DIFFICULTY.obsidianMax +
             this.turn * (DIFFICULTY.obsidianMaxGrowth || 0),
         ),
@@ -2227,11 +2252,11 @@ export class Director {
     }
 
     const cleared = await board.clearElement(element);
-    // Through the hide, but not all of it — see ultResistance and
-    // DIFFICULTY.ultPierce. A big number that ignored the armour outright would
-    // make the whole progression irrelevant; a big number cut by the armour
-    // exactly like a match is makes the wall an argument against casting the
-    // one feature the creative is selling. Half the hide is the join.
+    // Through the hide, and bitten harder by it than a match is — see
+    // ultResistance and DIFFICULTY.ultHideBite. The ultimate opens as the
+    // biggest number in the fight and ends the run worth a twentieth of the
+    // bar, because the last quarter was asked for as a grind that ultimates do
+    // not rescue.
     const total =
       (DIFFICULTY.ultDamage +
         cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
