@@ -77,9 +77,10 @@ export const RETRY_LINE_ART = { w: 1024, h: 85 };
 /**
  * The two outcome banners — out of the build, and kept only as measurements.
  *
- * `victory.webp` and `defeat.webp` are still on disk and tools/pack-victory.mjs
- * and tools/pack-defeat.mjs still make them, but nothing imports them any more,
- * so they are not bytes in the bundle. The screen they were for is gone: the
+ * `victory.webp` and `defeat.webp` are off disk now — see .deleted-assets.txt —
+ * and tools/pack-victory.mjs and tools/pack-defeat.mjs still make them on
+ * demand. Nothing imported them even while they were there, so they were never
+ * bytes in the bundle either. The screen they were for is gone: the
  * verdict is now the game's own title band with a word in it over a frozen still
  * of the fight — see ui/outcome.js — and the end card that follows has said
  * nothing about the result since. That is 170 kB of WebP, and about 227 kB of

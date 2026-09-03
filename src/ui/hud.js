@@ -487,7 +487,7 @@ export class Hud extends Container {
       const crestH = (foot - top) * CREST_RISE;
       const crestW = this.crest.resize(crestH);
       this.crest.x = x + crestW / 2;
-      this.crest.y = layout.stage.y + layout.safe.top + 2 * ui + crestH / 2;
+      this.crest.y = layout.safeBox.y + 2 * ui + crestH / 2;
       inset = crestW + 2 * ui;
     }
 
@@ -552,10 +552,14 @@ export class Hud extends Container {
       // Measured across the stage rather than across the window: on anything
       // wider than a phone the shout belongs over the board it is about, not
       // stretched across a monitor the arena is merely bleeding into.
-      const stage = layout.stage;
-      this.calloutWidth = stage.w - layout.safe.left - layout.safe.right - 24;
-      this.calloutSize = Math.max(17, Math.min(stage.w * 0.078, 38 * ui));
-      this.callout.x = stage.cx;
+      // The stage less the cutouts, which is one box — see safeStage in
+      // core/layout.js. Centred on it rather than on the stage, because a
+      // phone with a notch down one side has two different middles and the
+      // shout belongs over the board, which is centred on the same box.
+      const box = layout.safeBox;
+      this.calloutWidth = box.w - 24;
+      this.calloutSize = Math.max(17, Math.min(box.w * 0.078, 38 * ui));
+      this.callout.x = box.cx;
       this.callout.y = layout.board.y;
     } else {
       // Landscape has no gap, so the callout lives over the boss column —
@@ -1141,13 +1145,31 @@ export class Hud extends Container {
     label.anchor.set(0.5);
     label.x = x;
     label.y = y;
-    // Numbers over the outer hero cards start half off screen otherwise.
+    // Numbers over the outer hero cards start half off screen otherwise — and
+    // held inside the safe box rather than the stage, because "off screen" and
+    // "behind a cutout" are the same thing to whoever is trying to read it.
     if (this.layout) {
-      const stage = this.layout.stage;
+      const box = this.layout.safeBox;
       const half = label.width / 2 + 4;
-      label.x = Math.min(Math.max(x, stage.x + half), stage.x + stage.w - half);
+      label.x = Math.min(Math.max(x, box.x + half), box.right - half);
     }
-    label.scale.set(0.4);
+    /**
+     * Stamped on, not grown.
+     *
+     * It used to open at four tenths of full size and ease up to one, which is
+     * a number arriving politely. A hit does not arrive politely: the figure
+     * lands wider than it will end up and half as tall, and springs into shape
+     * — the same squash-and-stretch the stones land with, on the one piece of
+     * type in the fight that is a consequence of something rather than a label
+     * for it. A tier-two number lands harder and takes longer to settle,
+     * because a tier-two number is the point of the move that made it.
+     *
+     * The tilt is the other half. Six numbers over six cards, all upright and
+     * all the same weight, read as a table of results; the same six with a few
+     * degrees of scatter that spring out read as six things happening.
+     */
+    label.scale.set(tier === 2 ? 1.62 : 1.4, tier === 2 ? 0.46 : 0.58);
+    label.rotation = (Math.random() - 0.5) * (tier === 2 ? 0.2 : 0.13);
     this.numbers.addChild(label);
 
     /**
@@ -1181,11 +1203,18 @@ export class Hud extends Container {
       top = Math.max(from - rise, guard);
     }
     label.y = from;
-    tween(label.scale, { x: 1, y: 1 }, 0.22, { ease: Ease.backOut });
-    tween(label, { alpha: 0 }, 0.3, { delay: 0.5 });
+    tween(label.scale, { x: 1, y: 1 }, tier === 2 ? 0.46 : 0.34, {
+      ease: Ease.elasticOut,
+    });
+    tween(label, { rotation: 0 }, 0.5, { ease: Ease.elasticOut });
+    tween(label, { alpha: 0 }, 0.26, { delay: 0.56 });
     // Destroy on the longest tween, never before one that is still writing.
+    //
+    // `expoOut` rather than `quadOut`: the figure is thrown off the thing it
+    // was printed on and then floats, which puts the whole of its travel in
+    // the moment it is worth reading and leaves the tail to the fade.
     tween(label, { y: top }, 0.85, {
-      ease: Ease.quadOut,
+      ease: Ease.expoOut,
     }).then(() => label.destroy());
   }
 

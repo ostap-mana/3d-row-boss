@@ -11,12 +11,21 @@ import { Application, Container, Graphics, Rectangle, Sprite } from "pixi.js";
 
 import { computeLayout } from "./core/layout.js";
 import {
+  measureSafeInsets,
   measureViewport,
   resolutionFor,
   watchViewport,
 } from "./core/viewport.js";
 import { setApp } from "./core/context.js";
+import { nextFrame } from "./core/idle.js";
 import { updateTweens } from "./core/tween.js";
+import {
+  clearStop,
+  hitStop,
+  rumble,
+  shakeDecay,
+  warpDt,
+} from "./core/juice.js";
 import { reseed } from "./core/rng.js";
 import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
@@ -111,6 +120,13 @@ async function boot() {
   // the Coach asks once per beat whether the painted set arrived and strokes its
   // own rings for the whole lesson if it has not.
   // Every bitmap is inlined in this file, so these are decodes, not downloads.
+  //
+  // What is *not* here is the other two thirds of the pixels — see loadRest()
+  // at the foot of this file. The rule for which list a loader belongs in is
+  // whether anything built below reads it as it is constructed: everything in
+  // this one is grabbed at construction and a late arrival would be missed, and
+  // everything in the other is asked for at the moment it is used and takes null
+  // for an answer.
   await Promise.all([
     loadFonts(),
     loadArena(),
@@ -125,18 +141,11 @@ async function boot() {
     loadOutcomeUi(),
     loadBossArt(),
     loadBossCrest(),
-    loadFireArt(),
-    loadSpellArt(),
     loadGemPopArt(),
     loadCardPlates(),
     loadCardFrame(),
-    // The animated border a charged card wears. Here rather than lazily on the
-    // first hero to fill, because that hero fills mid-fight: six sheets decoding
-    // while the board is cascading is a hitch on the one beat that has to land.
-    loadUltBorders(),
     loadHeroAvatars(),
     loadHintHand(),
-    loadHintMarks(),
     loadHpBarArt(),
     loadCardBars(),
   ]);
@@ -150,7 +159,27 @@ async function boot() {
   // Everything inside `world` shakes together; overlays sit outside it.
   const world = new Container();
   const overlay = new Container();
-  app.stage.addChild(world, overlay);
+  /**
+   * The safe area, drawn.
+   *
+   * Off, always, until somebody asks for it — `__SIEGE__.safeZones(true)` in a
+   * console, or on a phone over USB. It is here because a cutout is the one
+   * thing in this layout that cannot be checked on the machine it is written
+   * on: a desktop browser reports zero insets whatever it is told, a simulator
+   * reports the right ones and paints its own notch over the answer, and the
+   * device that actually has one is behind a cable with no inspector on it. So
+   * the numbers the layout solved with are drawn as lines on the screen they
+   * were solved for, and a row of hero cards on the wrong side of one is
+   * visible from across the room.
+   *
+   * Above the overlay layer rather than inside the world, so it is over the end
+   * card and the outcome band too — those are the two screens the insets were
+   * being ignored on. See safeStage in core/layout.js.
+   */
+  const guides = new Graphics();
+  guides.visible = false;
+  guides.eventMode = "none";
+  app.stage.addChild(world, overlay, guides);
 
   // Clip the boss at the lava line so it genuinely climbs out of the pool.
   // Outlives every rebuild — it is a shape, not a piece of the fight.
@@ -170,7 +199,7 @@ async function boot() {
    * at the first. The object's identity never changes, so the director's
    * `this.s` and the `__SIEGE__` handle both stay good across a rebuild.
    */
-  const scene = { app, layout: null, shake };
+  const scene = { app, layout: null, shake, hitStop };
 
   /**
    * Build the fight — every time it is played.
@@ -292,24 +321,50 @@ async function boot() {
   /* ------------------------------------------------------------ layout */
 
   /**
+   * Whether the whole screen is ours, with nobody drawing a close button over
+   * the top of it.
+   *
+   * Three things have to be true at once, and the layout only spends the corner
+   * it holds for that button when all three are.
+   *
+   * Fullscreen, because that is the one state in which the browser's own chrome
+   * is gone as well and the corner is genuinely empty. Top-level, because a
+   * frame inside a container never owns anything — and goFullscreen refuses to
+   * ask in one, so this is belt and braces on a decision made there. And no
+   * MRAID or DAPI object, because those are the two ways a network says "this
+   * document is an ad and I am the app around it": a webview creative can be
+   * the top-level document and still have a native close button painted over it
+   * by the SDK, which no web API will ever tell us about.
+   *
+   * Read on every relayout rather than latched, because fullscreen is left as
+   * well as entered — a back gesture, an Escape — and the corner has to come
+   * back when it is.
+   */
+  function ownsScreen() {
+    try {
+      if (window.top !== window) return false;
+      if (window.mraid || window.dapi) return false;
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    } catch {
+      // A cross-origin `window.top` read throws, and a throw here means we are
+      // in somebody else's page — which is the answer.
+      return false;
+    }
+  }
+
+  /**
    * The notch, the home indicator, and whatever else the device keeps for
    * itself, in CSS pixels.
    *
-   * Measured off the probe in index.html rather than guessed, and re-measured on
-   * every relayout: the insets are not constant, they swap axes on rotation and
-   * a webview can report zero until it has settled.
+   * Measured off the probe in index.html rather than guessed — see
+   * measureSafeInsets in core/viewport.js, which also maps the reading onto the
+   * box we actually draw in. Handed straight through by the watcher on every
+   * change; this path is for the one call that happens before the watcher is
+   * built, and for a relayout that was asked for by something other than a
+   * viewport change.
    */
   function safeInsets() {
-    const probe = document.getElementById("safe-probe");
-    if (!probe) return { top: 0, right: 0, bottom: 0, left: 0 };
-    const cs = getComputedStyle(probe);
-    const px = (v) => Math.max(0, parseFloat(v) || 0);
-    return {
-      top: px(cs.paddingTop),
-      right: px(cs.paddingRight),
-      bottom: px(cs.paddingBottom),
-      left: px(cs.paddingLeft),
-    };
+    return measureSafeInsets(view);
   }
 
   /**
@@ -323,7 +378,9 @@ async function boot() {
    * error and it has no business being in the composition. See core/viewport.js.
    */
   let view = { w: first.w, h: first.h };
-  let layout = computeLayout(view.w, view.h, safeInsets());
+  let layout = computeLayout(view.w, view.h, safeInsets(), {
+    owned: ownsScreen(),
+  });
 
   /**
    * @param {{w:number,h:number,resolution:number}} [size] the measurement to
@@ -342,7 +399,12 @@ async function boot() {
       app.renderer.resize(size.w, size.h, size.resolution);
       view = { w: size.w, h: size.h };
     }
-    layout = computeLayout(view.w, view.h, safeInsets());
+    // The watcher's own reading, taken in the same frame as the size it came
+    // with: the two move together on a rotation and on a fullscreen transition,
+    // and a second measurement here would be a second, later answer to the same
+    // question. See apply() in core/viewport.js.
+    const safe = (size && size.safe) || safeInsets();
+    layout = computeLayout(view.w, view.h, safe, { owned: ownsScreen() });
     scene.layout = layout;
 
     // Through `scene` and not through bindings of its own: the cast is rebuilt
@@ -372,6 +434,56 @@ async function boot() {
       layout.h + layout.boss.floor,
     );
     lavaMask.fill({ color: 0xffffff });
+
+    drawGuides();
+  }
+
+  /**
+   * The guides, redrawn for whatever the layout just solved. See `guides`.
+   *
+   * Three boxes and the regions inside them: the window in grey, the stage the
+   * composition is held to in amber, the safe box everything free-standing is
+   * laid out in green, and then each region the solver returned so a collision
+   * can be read off the screen rather than inferred from one. Nothing is drawn
+   * at all while it is off, which is what makes it free to leave in.
+   */
+  function drawGuides() {
+    guides.clear();
+    if (!guides.visible) return;
+
+    const line = (r, color, width) => {
+      guides.rect(r.x, r.y, r.w, r.h);
+      guides.stroke({ width, color, alpha: 0.9, alignment: 0.5 });
+    };
+
+    line({ x: 0, y: 0, w: layout.w, h: layout.h }, 0x8899aa, 1);
+    line(layout.stage, 0xffaa22, 1.5);
+    // The one that matters: past this line is a notch, a home indicator or a
+    // gesture bar, and anything drawn over it is the bug this is looking for.
+    line(layout.safeBox, 0x22ff88, 2);
+
+    line(layout.hud, 0x44ccff, 1);
+    line(layout.cards, 0xff44aa, 1);
+    line(
+      {
+        x: layout.board.x,
+        y: layout.board.y,
+        w: layout.board.size,
+        h: layout.board.size,
+      },
+      0xffffff,
+      1,
+    );
+    line(
+      {
+        x: layout.banner.x - layout.banner.w / 2,
+        y: layout.banner.y - layout.banner.h / 2,
+        w: layout.banner.w,
+        h: layout.banner.h,
+      },
+      0xffee44,
+      1,
+    );
   }
 
   relayout();
@@ -389,6 +501,20 @@ async function boot() {
   // host and lays out for the settled size — so the relayout() above is only
   // ever laying out for the size the renderer was built with.
   watchViewport(host, relayout);
+
+  /**
+   * And one more for fullscreen, on top of the settle the watcher starts for it.
+   *
+   * Entering fullscreen changes what the layout is *allowed* to use without
+   * necessarily changing anything the watcher measures — the close button's
+   * corner comes back to us the moment nobody else can draw in it, and on a
+   * phone that can happen at exactly the same width, height, ratio and set of
+   * insets. The watcher calls back only when its measurement moves, so the
+   * transition is given a relayout of its own. See ownsScreen and CLOSE_KEEPOUT.
+   */
+  ["fullscreenchange", "webkitfullscreenchange"].forEach((type) =>
+    document.addEventListener(type, () => relayout(), { passive: true }),
+  );
 
   /* -------------------------------------------------------------- audio */
 
@@ -532,28 +658,128 @@ async function boot() {
   /** Starts the run without a finger — set by firstTouch, for __SIEGE__. */
   let begin = () => {};
 
+  /**
+   * Rattle the camera.
+   *
+   * Translation, and nothing else. There was a version of this that rolled the
+   * frame and pushed it in as well, and it went: a composition that tips and
+   * zooms on every landing is a composition that never sits still, and a
+   * layout whose edges move against the screen is the whole of what reads as
+   * the picture swimming. So the world is moved and never deformed — `world.x`
+   * and `world.y`, the same two numbers this file has always written, which is
+   * also what keeps freezeFight's photograph square to the screen.
+   *
+   * Everything the shake gained is in *how* those two numbers move: a noise
+   * with a body to it instead of a per-frame coin toss, a decay that arrives
+   * at nothing flat, a direction taken off the blow that caused it, and an
+   * amplitude measured in the layout's own scale rather than in raw points.
+   *
+   * @param {number} amount peak displacement in reference points — a 375 point
+   *        phone's points, multiplied by `layout.ui` on the way in, so one call
+   *        site reads the same on a phone and on a full-screen desktop
+   * @param {number} duration seconds
+   * @param {object} [opts] `axis` {x,y}: the direction the blow travelled, which
+   *        the shake is then thrown mostly along rather than every way at once.
+   *        `freq` scales the rumble's rate — under 1 for pressure that hums (a
+   *        jet, a floor giving way), over 1 for something that snaps.
+   */
   let shakeAmount = 0;
   let shakeLeft = 0;
   let shakeTotal = 0;
+  /**
+   * Seconds the noise has been running, and it never resets.
+   *
+   * Continuous across overlapping shakes on purpose: the rumble is sampled from
+   * this, and restarting it at every call would put the frame back through the
+   * same opening excursion each time — six landings in a cascade all kicking
+   * the screen the same way, which reads as a pulse rather than as chaos.
+   */
+  let shakeT = 0;
+  /** Unit vector the blow came down, or null for a shake with no direction. */
+  let shakeAxis = null;
+  /** Rate multiplier on the rumble — see rumble in core/juice.js. */
+  let shakeFreq = 1;
 
-  function shake(amount, duration) {
-    shakeAmount = Math.max(shakeAmount, amount);
-    shakeTotal = duration;
-    shakeLeft = duration;
+  function shake(amount, duration, opts) {
+    const o = opts || {};
+
+    /**
+     * Authored against the reference phone, drawn on whatever this turns out
+     * to be.
+     *
+     * Every call site in the director names a displacement in points, and every
+     * one of them was tuned on a 375 point screen where twenty points is a
+     * twentieth of the width. Full-bleed on a 1920 point desktop — which is
+     * what core/layout.js now lays out for — that same twenty points is a
+     * hundredth, and a shake nobody can see is a shake that is not there. So
+     * the amplitude is scaled by the one number that says how big this screen
+     * is against the one it was drawn for.
+     */
+    const scaled = amount * (layout ? layout.ui : 1);
+
+    // The loudest of whatever is overlapping decides the character, so a heavy
+    // blow is never diluted by the taps landing beside it.
+    if (scaled >= shakeAmount) {
+      shakeFreq = o.freq === undefined ? 1 : o.freq;
+      if (o.axis) {
+        const len = Math.hypot(o.axis.x, o.axis.y);
+        shakeAxis =
+          len > 0.001 ? { x: o.axis.x / len, y: o.axis.y / len } : null;
+      } else {
+        shakeAxis = null;
+      }
+    }
+    shakeAmount = Math.max(shakeAmount, scaled);
+    // Never cut a shake short: a long rumble with a short tap inside it is the
+    // rumble, and the old version handed the tap's duration to the amplitude of
+    // the rumble and snapped the frame back mid-excursion.
+    shakeLeft = Math.max(shakeLeft, duration);
+    shakeTotal = Math.max(shakeTotal, shakeLeft);
   }
 
+  /**
+   * Runs on real time, not on the world clock — see core/juice.js.
+   *
+   * Which is the point of having both: a blow lands, the world freezes for
+   * sixty milliseconds with the beam still in the air and the shards still
+   * hanging, and the camera goes on rattling around all of it. Slowing the
+   * shake down with everything else would throw away the one frame the freeze
+   * exists to let the player look at.
+   */
   function updateShake(dt) {
     if (shakeLeft <= 0) {
-      world.x = 0;
-      world.y = 0;
-      shakeAmount = 0;
+      // Guarded rather than written every frame: at rest this is the identity
+      // transform, and an idle creative has no business touching the world's
+      // position sixty times a second.
+      if (shakeAmount !== 0) {
+        world.x = 0;
+        world.y = 0;
+        shakeAmount = 0;
+        shakeAxis = null;
+        shakeFreq = 1;
+      }
       return;
     }
+
     shakeLeft -= dt;
-    const k = Math.max(0, shakeLeft / shakeTotal);
-    const a = shakeAmount * k;
-    world.x = (Math.random() - 0.5) * a * 2;
-    world.y = (Math.random() - 0.5) * a * 2;
+    shakeT += dt;
+    const k = shakeLeft > 0 ? shakeLeft / shakeTotal : 0;
+    const a = shakeAmount * shakeDecay(k);
+
+    let ox = rumble(shakeT, 0, shakeFreq);
+    let oy = rumble(shakeT, 1, shakeFreq);
+    if (shakeAxis) {
+      // Thrown down the blow's own line, with a third of that loose across it:
+      // a claw that came in from the left knocks the frame left, and a shake
+      // that is purely one-dimensional reads as a slide rather than as a hit.
+      const along = ox;
+      const across = oy * 0.32;
+      ox = shakeAxis.x * along - shakeAxis.y * across;
+      oy = shakeAxis.y * along + shakeAxis.x * across;
+    }
+
+    world.x = ox * a;
+    world.y = oy * a;
   }
 
   /* ------------------------------------------------------- the first touch */
@@ -590,11 +816,61 @@ async function boot() {
    * events are for the webviews that never got pointer events at all; whichever
    * arrives first wins and the rest are taken off.
    */
+  /**
+   * Take the whole screen, when taking it is ours to take.
+   *
+   * The composition is laid out for whatever box it is given and it fills that
+   * box — see core/layout.js — so this is not about making the game fit. It is
+   * about the box: a browser hands the page a window with a URL bar, a tab
+   * strip and a taskbar around it, and on a desktop that is a third of the
+   * screen spent on furniture around a fight.
+   *
+   * Two guards, and the first one is the one that matters.
+   *
+   * `window.top === window` — only when the creative is the page, never when it
+   * is a frame inside somebody else's. Every ad network draws its own close
+   * button over the creative and draws it in the host document; a frame that
+   * puts itself fullscreen paints over that button, and a playable a person
+   * cannot close is a playable that gets the whole account pulled. So in a
+   * container this does nothing at all, on purpose, and the layout there was
+   * already filling the frame it was given.
+   *
+   * And it is asked for once, inside the gesture. Fullscreen is gated on user
+   * activation in every engine, so it cannot be requested at boot; it is
+   * requested on the same touch that starts the fight, and if the engine says
+   * no — iOS Safari says no for anything that is not a video, an embedded
+   * webview says no, a permissions policy says no — nothing is reported and
+   * nothing is retried. The fight has already started underneath it.
+   */
+  function goFullscreen() {
+    try {
+      if (window.top !== window) return;
+      if (document.fullscreenElement || document.webkitFullscreenElement)
+        return;
+      const el = document.documentElement;
+      const ask = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!ask) return;
+      // `navigationUI` is a hint and not every engine takes it; the call is the
+      // same call with or without it.
+      const done = ask.call(el, { navigationUI: "hide" });
+      // A rejected promise with no handler is an unhandled rejection, and a
+      // creative must never throw — not even into the console.
+      if (done && done.catch) done.catch(() => {});
+    } catch {
+      /* a browser that will not go fullscreen is a browser in a window */
+    }
+  }
+
   function firstTouch() {
     const EVENTS = ["pointerdown", "touchstart", "mousedown"];
     return new Promise((resolve) => {
       const go = () => {
         EVENTS.forEach((type) => window.removeEventListener(type, go, true));
+        // Inside the handler and not in the `then` below: this is the frame the
+        // gesture is live on, and the promise's continuation is a microtask
+        // later — which most engines still honour and one or another of them
+        // will not.
+        goFullscreen();
         resolve();
       };
       EVENTS.forEach((type) =>
@@ -609,10 +885,21 @@ async function boot() {
 
   app.ticker.add((ticker) => {
     // Clamped so a backgrounded tab does not fast-forward the storyboard.
-    const dt = Math.min(ticker.deltaMS / 1000, 0.05);
+    const real = Math.min(ticker.deltaMS / 1000, 0.05);
+    /**
+     * The world's own clock, which is the real one except for the fraction of a
+     * second after something lands. See core/juice.js.
+     *
+     * Two clocks rather than one because two things in here are not allowed to
+     * be slowed down. The doom clock is a promise to the player about how long
+     * they have and it is kept in seconds, so the director is ticked on real
+     * time; and the camera shake is the thing the freeze exists to show off, so
+     * it is ticked on real time as well.
+     */
+    const dt = warpDt(real);
     updateTweens(dt);
     // The doom clock runs on wall time, so the director needs the frame too.
-    if (director) director.update(dt);
+    if (director) director.update(real);
     // Read off `scene` rather than off consts, so a rebuilt cast is the one
     // being ticked and the run before it stops moving the moment it is replaced.
     scene.bg.update(dt);
@@ -624,7 +911,7 @@ async function boot() {
     scene.outcome.update(dt);
     scene.endcard.update(dt);
     scene.prompt.update(dt);
-    updateShake(dt);
+    updateShake(real);
   });
 
   /* ----------------------------------------------------------- the rematch */
@@ -653,6 +940,18 @@ async function boot() {
    * is now gone.
    */
   function restart() {
+    // Whatever the last frame of the old fight was holding, let go of it: a
+    // rematch that opens on a frame still thrown off centre by the blow that
+    // ended the first one is a rematch that opens crooked.
+    clearStop();
+    shakeLeft = 0;
+    shakeTotal = 0;
+    shakeAmount = 0;
+    shakeAxis = null;
+    shakeFreq = 1;
+    world.x = 0;
+    world.y = 0;
+
     // A new board for a new run. The Board constructor deals its grid out of
     // the RNG, so this has to land before buildScene and not after it.
     reseed();
@@ -682,12 +981,89 @@ async function boot() {
   // before it drives anything.
   scene.mute = setMuted;
   scene.begin = () => begin();
+  // For a QA pass driving the creative without a finger: the first touch is
+  // where this normally happens, and `begin()` is not a touch. See goFullscreen.
+  scene.fullscreen = goFullscreen;
+  /**
+   * Show the layout's own working — the insets it measured and the boxes it
+   * solved. `__SIEGE__.safeZones()` toggles, `safeZones(true)` forces it on.
+   * Hands back the insets it is currently drawing, which is the number worth
+   * reading off a device on its own. See `guides` and drawGuides.
+   */
+  scene.safeZones = (on) => {
+    guides.visible = on === undefined ? !guides.visible : !!on;
+    drawGuides();
+    return { ...layout.safe, shown: guides.visible };
+  };
   window.__SIEGE__ = scene;
 
   // Nothing is held back and nothing is put in front: the first frame of the
   // creative is the fight, standing still, with one line of type over it asking
   // to be touched. See Director.armIntro and ui/startprompt.js.
   director.armIntro();
+
+  /**
+   * The art the first frame does not need, decoded once the first frame is up.
+   *
+   * Thirty megapixels used to go through the main thread before anything was
+   * drawn — a hundred and twenty megabytes of RGBA, on a phone, between the file
+   * being parsed and the golem being on screen. Twenty-three of those thirty are
+   * in this list, and none of it can be wanted in the first seconds of the
+   * fight: a hero has to charge before a border can play, a match has to land
+   * before a spell can be thrown, and the boss has to reach for his fire.
+   *
+   * The reason this is safe now and was not before is *when* it runs, not that
+   * it runs late. Loading an ult sheet on the first hero to fill was rejected
+   * for a good reason — that hero fills mid-fight, and six sheets decoding while
+   * the board is cascading is a hitch on the one beat that has to land. This
+   * does not wait for the fill. It runs in the window between the first frame
+   * and the player's first touch, which is dead time by construction: nothing
+   * moves until `firstTouch` resolves, the doom clock has not started, and the
+   * board is standing still under a caption asking to be tapped. And it runs a
+   * sheet to a frame rather than all of them to one task, so even a player who
+   * taps instantly gets long frames rather than a stall. See core/idle.js.
+   *
+   * Not awaited, and every loader in it is written to be missable: the pieces
+   * that grab their art at construction are all in the list above, and these
+   * four are asked for at the moment they are used — `spellFrames`, `fireFrames`
+   * and `hintMarksReady` each answer null and each has a fallback behind it. The
+   * ult sheets are the one exception, because a card builds its border sprite in
+   * its constructor, so the row is told to pick them up. See HeroCard.adoptUltArt.
+   */
+  async function loadRest() {
+    // Two frames rather than one: the first gets us past the frame this task is
+    // already inside, and the second past the render that frame schedules — so
+    // the first decode lands after the composition has actually been painted
+    // rather than in the middle of painting it.
+    await nextFrame();
+    await nextFrame();
+
+    // Heaviest first. Each of these paces itself internally, so the order is
+    // about which fallback is retired soonest rather than about the frame
+    // budget — and the border is both the biggest and the one with a hand-off
+    // at the end of it.
+    try {
+      await loadUltBorders();
+      // Both ends of the tap's hand-off: the six cards, and the panel the
+      // cut-in throws up in their place. Each is a card that built its border
+      // sprite before the sheets existed.
+      scene.heroRow.adoptUltArt();
+      scene.cutin.adoptUltArt();
+    } catch {
+      /* every card keeps the border it was built without */
+    }
+    for (const load of [loadSpellArt, loadFireArt, loadHintMarks]) {
+      try {
+        await load();
+      } catch {
+        /* that effect keeps the fallback it already draws */
+      }
+    }
+  }
+
+  // Fired, not awaited: boot is done, and this is what happens in the quiet
+  // after it.
+  loadRest();
 
   signalReady();
   // And that is where it waits.

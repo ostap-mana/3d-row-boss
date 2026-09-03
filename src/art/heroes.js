@@ -48,7 +48,14 @@ import {
 import { heroBust, heroRoundel } from "./avatars.js";
 import { glowTexture, gradientTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
-import { tween, tweenValue, delay, killTweensOf, Ease } from "../core/tween.js";
+import {
+  tween,
+  tweenValue,
+  delay,
+  killTweensOf,
+  punch,
+  Ease,
+} from "../core/tween.js";
 import { lerpColor } from "../core/color.js";
 import { fitFont } from "../ui/text.js";
 import * as sfx from "../audio/sfx.js";
@@ -978,6 +985,23 @@ export class HeroCard extends Container {
       this.ultBorder.alpha = 0;
       this.ultBorder.visible = false;
       this.addChild(this.ultBorder);
+    } else {
+      /**
+       * Where the border would have gone, kept for a sheet that lands late.
+       *
+       * The twelve ult sheets are sixteen of the thirty megapixels this creative
+       * decodes, and none of them can be needed until a hero charges — so they
+       * are decoded after the first frame is on screen rather than before it.
+       * See the deferred pass in main.js.
+       *
+       * The index is the whole of what that costs. This sprite's place in the
+       * child list is the point of it: it goes under the frame, the gauges, the
+       * sigil and the captions, and a border appended once those exist is a glow
+       * laid over the readouts instead of behind them. Everything added after
+       * this branch is added unconditionally, so the length here is the slot,
+       * exactly, whether or not the art ever turns up. See adoptUltArt.
+       */
+      this.ultSlot = this.children.length;
     }
 
     // Still here with the art in place: it draws the charge rule, and the
@@ -1076,6 +1100,64 @@ export class HeroCard extends Container {
         this.ultBorder.visible = true;
         this.ultBorder.alpha = ULT.alpha;
       }
+    }
+  }
+
+  /**
+   * Take the ult art on, for a sheet that decoded after this card was built.
+   *
+   * The deferred half of the boot reads the twelve ult sheets once the fight is
+   * already on screen — see main.js — so a card built before that has no border
+   * and no sprite to put one on. This is the other end of that: the art is
+   * re-read, the sprite is made, and it goes in at the slot the constructor kept
+   * for it rather than on top of the readouts.
+   *
+   * Two guards and both are the same guard: a card that already has a sprite has
+   * nothing to adopt, and a card whose element was never packed has nothing to
+   * adopt either. Between them, calling this on every card whenever a sheet
+   * lands is safe and cheap, which is why the row simply does.
+   *
+   * `ultLit` is deliberately not touched. A card charged in the fraction of a
+   * second before its sheet arrived is a card mid-fallback — the spin is the
+   * loop, faster, and it owns the sprite it does not have — so it keeps the run
+   * it started and picks the border up on the next charge. The alternative is
+   * lighting a border under a burst that is already playing, which is a texture
+   * swap and a re-fit in the middle of an animation. Deferred art lands inside
+   * the first second and nothing can charge that fast, so this is a rule about
+   * a case rather than a case that happens.
+   */
+  adoptUltArt() {
+    if (this.ultBorder || this.ultSlot === undefined) return;
+
+    const art = ultBorder(this.hero.element);
+    const burst = ultBurst(this.hero.element);
+    if (!art && !burst) return;
+
+    this.ultArt = art;
+    this.ultBurstArt = burst;
+    this.ultShown = art || burst;
+
+    this.ultBorder = new Sprite(this.ultShown.frames[0]);
+    this.ultBorder.anchor.set(0.5);
+    this.ultBorder.blendMode = "add";
+    this.ultBorder.alpha = 0;
+    this.ultBorder.visible = false;
+    this.addChildAt(this.ultBorder, this.ultSlot);
+    this.ultSlot = undefined;
+
+    // Fitted here rather than left to the next relayout: the row is laid out
+    // once at boot and then only when the window moves, so a border that waited
+    // for a resize would be a sprite at its texture's own pixel size until the
+    // phone was turned over. `cardW` is set by the first resize, which has
+    // already run by the time any of this is reached.
+    if (this.cardW) {
+      fitUltBorder(
+        this.ultBorder,
+        this.ultShown,
+        this.cardW,
+        this.cardH,
+        this.ultGrow,
+      );
     }
   }
 
@@ -1564,6 +1646,24 @@ export class HeroCard extends Container {
       ease: Ease.backOut,
     });
 
+    /**
+     * The lunge.
+     *
+     * The row stands under the boss, so a hero throwing something at it throws
+     * it upward — and the card stretches that way and narrows as it goes, which
+     * is the whole of what separates a card that attacked from a card that
+     * jumped. The travel was already here in the pivot; this is the effort
+     * behind it.
+     *
+     * Not on a charged card. `pulsing` means update() is writing this scale
+     * every frame off its own sine, and a punch into that is a punch that is
+     * gone before the next frame draws. The lead of a volley is very often the
+     * charged one, so this is a real case and not a guard against a hypothetical.
+     */
+    if (!this.pulsing) {
+      punch(this, lead ? 0.13 : 0.06, lead ? 0.42 : 0.32, { axis: "y" });
+    }
+
     // A pulsing card is already glowing on its own schedule; a second owner on
     // the same alpha just makes it stutter.
     if (this.pulsing) return;
@@ -1634,8 +1734,15 @@ export class HeroCard extends Container {
     sfx.heroHurt();
 
     killTweensOf(this.pivot);
-    this.pivot.set(kick * 7, -5);
+    // Driven down as well as sideways: everything that hits this row comes
+    // from the beast above it, and a card knocked purely sideways reads as
+    // having been nudged by the card beside it.
+    this.pivot.set(kick * 8, -9);
     tween(this.pivot, { x: 0, y: 0 }, 0.45, { ease: Ease.elasticOut });
+
+    // Flattened by the blow — the mirror of the lunge in strike(), which
+    // stretches the other way. Same `pulsing` guard, same reason.
+    if (!this.pulsing) punch(this, 0.12, 0.46, { axis: "x" });
 
     this.burn.alpha = 0.85;
     tween(this.burn, { alpha: 0 }, 0.4);
@@ -1772,6 +1879,17 @@ export class HeroRow extends Container {
 
   update(dt) {
     this.cards.forEach((c) => c.update(dt));
+  }
+
+  /**
+   * Hand the late ult sheets to whichever cards were built without them.
+   *
+   * Called once by the deferred boot pass in main.js, and a no-op on every card
+   * that already has its border — see HeroCard.adoptUltArt, which is written to
+   * be safe to call on all six whatever state they are in.
+   */
+  adoptUltArt() {
+    this.cards.forEach((c) => c.adoptUltArt());
   }
 
   /** "all", "lowest" or a list of indices -> the cards that eat the full hit. */

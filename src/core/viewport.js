@@ -127,6 +127,96 @@ export function resolutionFor(w, h) {
   return clamp(Math.min(capped, afford), MIN_DPR, capped);
 }
 
+/** No cutouts anywhere: the answer on most of the devices this runs on. */
+const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
+
+/**
+ * The probe, cached.
+ *
+ * Looked up rather than held from boot because the insets are read on every
+ * settle frame now — see apply() — and `getElementById` on every one of those
+ * is a document walk for an element that never moves. Re-looked-up if it is
+ * ever detached, which is the one thing that would make the cache lie.
+ */
+let probeEl = null;
+function probe() {
+  if (!probeEl || !probeEl.isConnected) {
+    probeEl = document.getElementById("safe-probe");
+  }
+  return probeEl;
+}
+
+/**
+ * The device's own insets — the notch, the home indicator, the gesture bar —
+ * mapped into the box the renderer is drawing.
+ *
+ * Two halves, and the second one is the reason this lives here rather than in
+ * main.js.
+ *
+ * The first half is the reading. `env(safe-area-inset-*)` is resolved by the
+ * browser against the *layout* viewport and handed back as real padding on the
+ * hidden probe in index.html — a computed padding rather than a custom
+ * property, because `getPropertyValue` returns the unresolved `env(...)` token
+ * on some webviews. Note that a creative running inside an ad container's
+ * iframe is told zero by every engine, per spec: insets belong to the top-level
+ * document. That is the right answer there — the container decided where the
+ * frame goes and the frame's edges are not the screen's.
+ *
+ * The second half is the mapping, and without it the insets are being applied
+ * to the wrong box. The render box is pinned to the *visual* viewport, which on
+ * a phone browser is the layout viewport less whatever the toolbar is currently
+ * covering — so a 34 point home indicator sitting under a 51 point toolbar is
+ * already outside the box we draw in, and taking it off the bottom a second
+ * time is 34 points of screen spent on nothing. So each inset is reduced by
+ * however much of that edge the render box is already clear of. Where the two
+ * boxes are the same box — a webview, a fullscreen page, a desktop window —
+ * every gap is zero and the insets pass through untouched.
+ *
+ * @param {{w:number,h:number}} [box] the render box; omit for raw insets
+ */
+export function measureSafeInsets(box) {
+  const el = probe();
+  if (!el) return { ...NO_INSETS };
+
+  const cs = getComputedStyle(el);
+  const px = (v) => {
+    const n = parseFloat(v);
+    return n > 0 ? n : 0;
+  };
+  const top = px(cs.paddingTop);
+  const right = px(cs.paddingRight);
+  const bottom = px(cs.paddingBottom);
+  const left = px(cs.paddingLeft);
+  if (!box) return { top, right, bottom, left };
+
+  // The host is pinned at the layout viewport's top left corner — see pin() —
+  // so the box is only ever short at the right and the bottom, and those are
+  // the only two edges with a gap to discount.
+  const de = document.documentElement;
+  const docW = de && de.clientWidth > 0 ? de.clientWidth : box.w;
+  const docH = de && de.clientHeight > 0 ? de.clientHeight : box.h;
+  const spareX = Math.max(0, docW - box.w);
+  const spareY = Math.max(0, docH - box.h);
+
+  return {
+    top,
+    right: Math.max(0, right - spareX),
+    bottom: Math.max(0, bottom - spareY),
+    left,
+  };
+}
+
+/** Whether two readings differ by enough to be worth a relayout. */
+function insetsMoved(a, b) {
+  if (!a) return true;
+  return (
+    Math.abs(a.top - b.top) > 0.5 ||
+    Math.abs(a.right - b.right) > 0.5 ||
+    Math.abs(a.bottom - b.bottom) > 0.5 ||
+    Math.abs(a.left - b.left) > 0.5
+  );
+}
+
 /**
  * Pin the host to a measurement, so the CSS box and the render box are one box.
  *
@@ -150,11 +240,13 @@ function pin(host, w, h) {
  * Watch the viewport and call back whenever the size or the pixel ratio moves.
  *
  * @param {HTMLElement} host element the canvas fills; pinned to each measurement
- * @param {(size:{w:number,h:number,resolution:number}) => void} onChange
- * @returns {{refresh:()=>void, stop:()=>void, current:()=>{w:number,h:number,resolution:number}}}
+ * @param {(size:{w:number,h:number,resolution:number,
+ *   safe:{top:number,right:number,bottom:number,left:number}}) => void} onChange
+ * @returns {{refresh:()=>void, stop:()=>void, current:()=>{w:number,h:number,
+ *   resolution:number,safe:object}}}
  */
 export function watchViewport(host, onChange) {
-  let last = { w: 0, h: 0, resolution: 0 };
+  let last = { w: 0, h: 0, resolution: 0, safe: null };
   let settleUntil = 0;
   let stable = 0;
   let frame = 0;
@@ -165,15 +257,32 @@ export function watchViewport(host, onChange) {
   function apply() {
     const { w, h } = measureViewport();
     const resolution = resolutionFor(w, h);
+    /**
+     * The insets are part of the measurement, not something read off to the
+     * side of it — and that is what makes a fullscreen transition land.
+     *
+     * A page entering fullscreen on a phone with a cutout keeps the size it
+     * had and gains a notch: the browser was already drawing the status bar
+     * area itself, and now the creative is under it. Same width, same height,
+     * same pixel ratio — so a watcher that compares only those three sees
+     * nothing happen and the boss name stays where it was, which is now behind
+     * a camera. Rotation is the same story in reverse: a square-ish window
+     * turning over swaps the notch from a side to the top without changing
+     * either number by enough to notice.
+     */
+    const safe = measureSafeInsets({ w, h });
     // The ratio is compared loosely: it is a float off the device, and a
-    // hairline difference is not worth rebuilding every texture for.
+    // hairline difference is not worth rebuilding every texture for. So are the
+    // insets, which are a used value off a computed style and can carry a
+    // fraction of a point of rounding with them.
     const moved =
       w !== last.w ||
       h !== last.h ||
-      Math.abs(resolution - last.resolution) > 0.01;
+      Math.abs(resolution - last.resolution) > 0.01 ||
+      insetsMoved(last.safe, safe);
     if (!moved) return false;
 
-    last = { w, h, resolution };
+    last = { w, h, resolution, safe };
     pin(host, w, h);
     onChange(last);
     return true;
@@ -234,6 +343,26 @@ export function watchViewport(host, onChange) {
     globalThis.addEventListener(type, bump, { passive: true }),
   );
 
+  /**
+   * Fullscreen, entered and left — see goFullscreen in main.js.
+   *
+   * A `resize` usually comes with it and on a desktop it always does, which is
+   * why this was never missed. On a phone it is the case where it does not: the
+   * window keeps the size it had and only the insets move, and past that the
+   * whole transition is a couple of hundred milliseconds of the browser
+   * animating its own chrome away — during which every size reported is a size
+   * that is on its way somewhere else. This is the signal that starts the
+   * settle loop over that animation, so the layout follows the screen open
+   * rather than being solved once against the middle of it.
+   *
+   * Both spellings: `webkit` is what an older iOS webview fires, and the
+   * unprefixed name is not an alias of it there.
+   */
+  const DOC = ["fullscreenchange", "webkitfullscreenchange"];
+  DOC.forEach((type) =>
+    document.addEventListener(type, bump, { passive: true }),
+  );
+
   const vv = globalThis.visualViewport;
   if (vv) {
     // `scroll` as well as `resize`: on iOS the toolbar retracting is reported
@@ -266,6 +395,7 @@ export function watchViewport(host, onChange) {
       stopped = true;
       if (frame) cancelAnimationFrame(frame);
       WIN.forEach((type) => globalThis.removeEventListener(type, bump));
+      DOC.forEach((type) => document.removeEventListener(type, bump));
       if (vv) {
         vv.removeEventListener("resize", bump);
         vv.removeEventListener("scroll", bump);

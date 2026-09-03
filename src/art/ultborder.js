@@ -89,6 +89,7 @@
 
 import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
+import { paced } from "../core/idle.js";
 import { FIRE, WATER, NATURE, LIGHTNING, ARCANE, WIND } from "../config.js";
 
 /**
@@ -290,14 +291,18 @@ async function cut(url) {
 export async function loadUltBorders() {
   if (loaded) return;
   loaded = true;
-  await Promise.all(
-    Object.keys(urls).map(async (id) => {
-      try {
-        const art = await cut(urls[id]);
-        if (art) sheets[id] = art;
-      } catch {
-        // Left out of `sheets`, which is exactly how the caller asks.
-      }
+  // A sheet to a frame rather than all twelve at once. These are the heaviest
+  // bitmaps in the creative — sixteen of the thirty megapixels it decodes — and
+  // `Promise.all` over them puts every canvas draw and every texture upload in
+  // one task, which is a quarter of a second of stalled frame. This is loaded
+  // after the fight is on screen now, so that stall would land on the player
+  // rather than on a black screen they never see. See core/idle.js.
+  await paced(
+    Object.keys(urls).map((id) => async () => {
+      const art = await cut(urls[id]);
+      if (art) sheets[id] = art;
+      // A throw is caught by `paced` and leaves the id out of `sheets`, which
+      // is exactly how the caller asks.
     }),
   );
 }

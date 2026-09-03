@@ -18,6 +18,7 @@ export const Ease = {
   cubicInOut: (t) =>
     t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
   expoOut: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  expoIn: (t) => (t === 0 ? 0 : Math.pow(2, 10 * t - 10)),
   backOut: (t) => {
     const c = 1.70158;
     return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
@@ -32,6 +33,61 @@ export const Ease = {
     return (
       Math.pow(2, -10 * t) * Math.sin(((t - p / 4) * (2 * Math.PI)) / p) + 1
     );
+  },
+
+  /**
+   * backOut with a tenth of the overshoot, for travel of about one cell.
+   *
+   * `backOut` overshoots its distance by a tenth, which is a nice settle over a
+   * card sliding in from off screen and a gem visibly bumping into the next
+   * column over the width of one tile. This carries the same settle at a size
+   * that fits inside the cell it lands in.
+   */
+  backOutSoft: (t) => {
+    const c = 0.9;
+    return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+  },
+
+  /** backOut with half again the overshoot — for things that arrive hard. */
+  backOutHard: (t) => {
+    const c = 2.6;
+    return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+  },
+
+  /**
+   * Pull back, then throw — the windup and the overshoot in one curve.
+   *
+   * Worth having as a curve rather than as two tweens because the anticipation
+   * is what makes a snap read as intended rather than as a dropped frame, and a
+   * two-tween version of it has to be awaited to stay in order.
+   */
+  anticipate: (t) => {
+    const c = 1.9;
+    if (t < 0.36) {
+      const k = t / 0.36;
+      return -0.14 * ((c + 1) * k * k * k - c * k * k);
+    }
+    // Picks up exactly where the windup left off, so the curve is continuous:
+    // -0.14 at the handover, 1 at the end.
+    const k = (t - 0.36) / 0.64;
+    const back = 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2);
+    return -0.14 + 1.14 * back;
+  },
+
+  /** Lands, bounces twice, settles. */
+  bounceOut: (t) => {
+    const n = 7.5625;
+    if (t < 1 / 2.75) return n * t * t;
+    if (t < 2 / 2.75) {
+      const k = t - 1.5 / 2.75;
+      return n * k * k + 0.75;
+    }
+    if (t < 2.5 / 2.75) {
+      const k = t - 2.25 / 2.75;
+      return n * k * k + 0.9375;
+    }
+    const k = t - 2.625 / 2.75;
+    return n * k * k + 0.984375;
   },
 };
 
@@ -155,6 +211,56 @@ export function killTweensOf(target) {
       active.splice(i, 1)[0].resolve();
     }
   }
+}
+
+/**
+ * Squash-and-stretch scale kick, snapped on and elastic on the way home.
+ *
+ * The one bit of animation vocabulary the creative was missing everywhere at
+ * once. A thing that is struck, or that strikes, does not change size smoothly
+ * in both directions — it is deformed on the frame of the event and springs
+ * back, and it conserves its area while it does, so a stretch along x is a
+ * squash along y. Written once here because six files wanted it.
+ *
+ * Set rather than tweened on the way out: the deformation IS the impact frame,
+ * and easing into it over a tenth of a second is what makes an impact read as a
+ * throb. Only the return is animated.
+ *
+ * Takes over the scale it is given — whatever else was tweening it is killed,
+ * because two owners on one scale is a stutter and a punch is a caller saying
+ * "this is mine now".
+ *
+ * @param {{scale?:object, x?:number, y?:number}} target a display object, or a
+ *        bare point to drive directly
+ * @param {number} amount how far it deforms; 0.2 is a nudge, 0.6 is a wallop
+ * @param {number} [duration] seconds of spring-back
+ * @param {object} [opts] `base` rest scale (default 1), `ratio` how much of the
+ *        stretch the cross axis gives back (default 0.6, i.e. mostly), `axis`
+ *        "x" to stretch wide and squash flat, "y" for tall and thin, and
+ *        `ease` for the return
+ * @returns {Promise<void>} resolves when it has settled
+ */
+export function punch(target, amount, duration, opts) {
+  const o = opts || {};
+  const scale = target.scale || target;
+  const base = o.base === undefined ? 1 : o.base;
+  const ratio = o.ratio === undefined ? 0.6 : o.ratio;
+  const wide = o.axis !== "y";
+
+  killTweensOf(scale);
+  const along = base * (1 + amount);
+  const across = base * (1 - amount * ratio);
+  scale.x = wide ? along : across;
+  scale.y = wide ? across : along;
+
+  return tween(
+    scale,
+    { x: base, y: base },
+    duration === undefined ? 0.34 : duration,
+    {
+      ease: o.ease || Ease.elasticOut,
+    },
+  );
 }
 
 export function now() {

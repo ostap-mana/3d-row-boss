@@ -805,16 +805,25 @@ export class EndCard extends Container {
   stackPortrait(layout) {
     const { ui } = layout;
     /**
-     * The column keeps to the stage; the painting behind it does not.
+     * The column keeps to the safe box; the painting behind it does not.
      *
      * See core/layout.js. The card is the one screen in the creative that is
      * genuinely full-bleed — the key art fills whatever it is given — but the
      * type and the CTA on top of it are a stack, and a stack solved off a
      * desktop window is a wordmark stretched across a metre of monitor with a
      * store row a foot below it. So the picture gets the window and the stack
-     * gets the same box the fight was played in.
+     * gets the same box the fight was played in, less the cutouts.
+     *
+     * The cutouts are the half that was missing, and this column is where they
+     * cost the most in the creative. Every rung down here is a fraction of `h`
+     * measured from one end of the box or the other — the outcome line a
+     * twentieth from the top, the badges a pad up from the bottom — so on a
+     * notched phone the verdict was set under the camera and the store row
+     * under the home indicator, with the RETRY rule, which is a tap target,
+     * sitting on the gesture bar that swipes the browser away. Solved in the
+     * safe box every one of those fractions means what it says.
      */
-    const s = layout.stage;
+    const s = layout.safeBox;
     const { w, h } = s;
     const pad = h * 0.045;
 
@@ -903,8 +912,10 @@ export class EndCard extends Container {
    */
   stackLandscape(layout) {
     const { ui } = layout;
-    // The same split as upright, on the same box — see stackPortrait.
-    const s = layout.stage;
+    // The same split as upright, on the same box — see stackPortrait. Sideways
+    // the box matters for a different edge: the cutout is on a long side here,
+    // so it is the pitch column's own left edge that the notch was standing in.
+    const s = layout.safeBox;
     const { w, h } = s;
     const colW = w * 0.5;
     const cx = s.x + w * 0.26;

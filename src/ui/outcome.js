@@ -329,7 +329,11 @@ export class OutcomeScreen extends Container {
   resize(layout) {
     this.layout = layout;
     const { w, h, ui, portrait } = layout;
-    const s = layout.stage;
+    // The band and the tap line are fractions of a box from one end of it to
+    // the other, so the box is the stage less the cutouts — see safeStage in
+    // core/layout.js. The still and the scrim under them are not: they are a
+    // photograph of the whole screen and go back where they were taken from.
+    const s = layout.safeBox;
     const key = portrait ? "portrait" : "landscape";
 
     this.hitArea = new Rectangle(0, 0, w, h);
@@ -369,7 +373,12 @@ export class OutcomeScreen extends Container {
 
     /* --------------------------------------------------------- the tap line */
 
-    const tapY = s.y + s.h * TAP_Y[key] - layout.safe.bottom * 0.5;
+    // Straight off the box now. This used to carry half the bottom inset as a
+    // correction of its own, which is the sort of term that appears when the
+    // box a fraction is taken of is the wrong box: TAP_Y is 0.86 of the screen
+    // the player can see, and the box it is measured in already ends where the
+    // home indicator starts.
+    const tapY = s.y + s.h * TAP_Y[key];
     this.tap.position.set(s.cx, tapY);
 
     const size = fitFont(this.tapText, s.w * 0.7, clamp(14 * ui, 11, 20));

@@ -137,9 +137,17 @@ function cardBand(x, avail, count, maxH) {
  * Now there is this, and the board. The board is deliberately not in it: a
  * full-bleed play field under inset chrome is a decision, and it only reads as
  * one while the chrome agrees with itself about where the edge is.
+ *
+ * The ceiling is in `ui` and not in points, which matters now that the stage
+ * runs to three times the reference phone rather than twice. A flat 28 point
+ * cap is four percent of a phone's width and one and a half of a full-screen
+ * desktop's — so on the big screens the margin quietly became a hairline and
+ * the chrome sat against the bezel. Scaled, four percent stays four percent,
+ * and on every phone in the matrix `w * 0.042` is under 28 anyway: the cap
+ * never binds there and nothing about them changes.
  */
-function gutter(w) {
-  return clamp(w * 0.042, 12, 28);
+function gutter(w, ui) {
+  return clamp(w * 0.042, 12, 28 * (ui || 1));
 }
 
 /**
@@ -203,7 +211,23 @@ const BANNER_BREATH = 1.045;
  *   logoW:number,logoH:number,gap:number}}
  */
 function bannerBox(ui, stacked) {
-  const plateW = Math.max(100, BANNER_W * ui);
+  /**
+   * The plate grows with the screen, and then it stops growing so fast.
+   *
+   * Straight `ui` is right up to about a big phone and wrong past it. The
+   * plate's whole job is to be read, and it is read at 124 points on the
+   * reference phone; scaled flat, a tablet gets a 270 point PLAY NOW — a third
+   * of the width of the screen — and every point of that height comes off the
+   * board, because upright the lockup has a band of its own and the board
+   * starts under it. So past a big phone it takes a little over half of each
+   * further point of scale: still growing, no longer taking the screen.
+   *
+   * The knee is at 1.2 rather than at 1 so that every phone in the matrix is on
+   * the straight part of it and lays out exactly as it always has.
+   */
+  const KNEE = 1.2;
+  const scale = ui <= KNEE ? ui : KNEE + (ui - KNEE) * 0.55;
+  const plateW = Math.max(100, BANNER_W * scale);
   const plateH = (plateW * PLAY_ART.h) / PLAY_ART.w;
   const logoW = plateW * (stacked ? BANNER_LOGO_W : BANNER_LOGO_W_WIDE);
   const logoH = (logoW * LOGO_ART.h) / LOGO_ART.w;
@@ -226,28 +250,42 @@ function bannerBox(ui, stacked) {
 /**
  * The box the composition is solved in — the safe zone.
  *
- * `short` is the reference phone's short side, and it is the same 375 `ui` has
- * always divided by; `maxScale` is the same 2.0 `ui` has always clamped to. Tying
- * the stage to those two numbers is the point of it: past this size the type
- * stopped growing, so past this size nothing else may either, and a composition
- * that stops growing all at once keeps the proportions it was drawn with
- * instead of coming apart at one end.
+ * `short` is the reference phone's short side, and it is the same 375 `ui`
+ * divides by. `maxScale` is the ceiling on how many times bigger than that
+ * phone the composition may be drawn, and `ui` clamps to the same number — the
+ * two move together by construction, because a stage that outgrows the scale
+ * the type and the chrome are drawn at is a stage that comes apart at one end.
+ *
+ * Both of these were tighter, and what the tighter numbers cost was every
+ * screen that is not a phone. At maxScale 2 the composition stopped at 750
+ * points across its short side, so a 1080 point desktop drew the fight at
+ * seventy percent of its window with the arena filling the margin: correct,
+ * conservative, and unmistakably a phone build being previewed. 3.2 is the
+ * scale at which a 1920x1080 window is drawn edge to edge, which is the single
+ * commonest screen the creative is reviewed on, and it is affordable for a
+ * reason that is worth stating: a big screen is a low-density screen. The pixel
+ * budget in core/viewport.js hands a 1080p window a device ratio near 1, so the
+ * gems land at about 1.3 source pixels per drawn pixel there — softer than a
+ * phone's, nowhere near soft enough to see. Past about 1440p the cap binds
+ * again and the composition centres with the arena behind it, which is the
+ * right failure: it keeps its proportions instead of dissolving.
  *
  * The aspects are read off the devices rather than chosen. Upright, every phone
  * this ships to is between 0.42 wide over tall (a 21:9 Xperia) and 0.5625 (a
- * 9:16 SE), so the range is exactly the phones and every one of them gets the
- * whole window. Anything squarer than 9:16 — an iPad's 0.75, a desktop window's
- * anything — is a shape the creative was never drawn for, and it gets a 9:16
- * stage centred in it with the arena running out to the edges behind. Sideways
- * the same reading gives 1.2 to 2.2: an SE on its side is 1.78 and a modern
- * phone 2.17, while an ultrawide desktop's 2.37 is trimmed back to a shape the
- * boss's column and the board can still share honestly.
+ * 9:16 SE), and the range now runs on to 0.72 — a 3:4 iPad is 0.75 and an
+ * unfolded foldable 0.83, and both of those used to be handed a 9:16 column
+ * with a quarter of the window empty either side of it. At 0.72 the tablet
+ * keeps its full width: the chrome and the hero row run the width of the
+ * screen, and the board — which is bound by the height it has, not the width —
+ * is what sits centred inside it. Sideways the same reading gives 1.05 to 2.4:
+ * an SE on its side is 1.78, a modern phone 2.17, a 21:9 monitor 2.33, and a
+ * window dragged nearly square gets 1.05 rather than being trimmed to 1.2.
  */
 const STAGE = {
   short: 375,
-  maxScale: 2,
-  portrait: { min: 0.42, max: 0.5625 },
-  landscape: { min: 1.2, max: 2.2 },
+  maxScale: 3.2,
+  portrait: { min: 0.42, max: 0.72 },
+  landscape: { min: 1.05, max: 2.4 },
 };
 
 /**
@@ -317,6 +355,52 @@ function stageBox(w, h, portrait) {
 }
 
 /**
+ * The stage with the cutouts taken off it: the box anything free-standing is
+ * laid out in.
+ *
+ * The fight screen does not need this — every region in the two solvers below
+ * is measured against `safe` where it touches an edge, because each of them is
+ * a different distance from a different edge. The screens that do need it are
+ * the two that are solved as a *column*: the outcome card and the end card,
+ * where a headline, a plate, a CTA and a store row are placed as fractions of
+ * one box from one end of it to the other. Those were solved against the stage,
+ * which is the window on every phone — so on a notched one the win banner sat
+ * under the camera and the store badges under the home indicator, and the
+ * fraction that put them there was correct about a box that was the wrong box.
+ *
+ * So they are handed this instead, and they go on being one expression each:
+ * `s.y + s.h * 0.05` is a twentieth of the way down whatever the player can
+ * actually see. The full-bleed halves of those screens — the painting, the
+ * scrims, the flash, the still — keep reading `layout.w` and `layout.h` and go
+ * on bleeding under the cutout, which is the whole point of `viewport-fit=cover`
+ * and the one thing up there that should.
+ *
+ * Same shape as `stage` down to the last field, so it is a drop-in for it at
+ * the head of a solver rather than something every one of those expressions has
+ * to be rewritten around.
+ *
+ * The floor is a guard and nothing more: an inset pair cannot really eat a whole
+ * screen, but a webview that reports nonsense should cost us a squashed layout
+ * rather than a negative one that turns every fraction inside out.
+ */
+function safeStage(stage, safe) {
+  const w = Math.max(stage.w * 0.5, stage.w - safe.left - safe.right);
+  const h = Math.max(stage.h * 0.5, stage.h - safe.top - safe.bottom);
+  const x = stage.x + safe.left;
+  const y = stage.y + safe.top;
+  return {
+    x,
+    y,
+    w,
+    h,
+    cx: x + w / 2,
+    cy: y + h / 2,
+    right: x + w,
+    bottom: y + h,
+  };
+}
+
+/**
  * Every region the solver returned, moved out of stage space and into the
  * window's.
  *
@@ -335,6 +419,7 @@ function place(solved, stage, w, h) {
     w,
     h,
     stage,
+    safeBox: safeStage(stage, solved.safe),
     board: move(solved.board),
     banner: move(solved.banner),
     cards: move(solved.cards),
@@ -345,11 +430,16 @@ function place(solved, stage, w, h) {
 
 /**
  * @param {{top:number,right:number,bottom:number,left:number}} [safe] device
- *   insets — the notch, the home indicator. Measured in main.js; zero is a
- *   perfectly good answer and every browser without cutouts gives it.
+ *   insets — the notch, the home indicator. Measured in core/viewport.js; zero
+ *   is a perfectly good answer and every browser without cutouts gives it.
+ * @param {{owned?:boolean}} [opts] `owned` when the creative has the whole
+ *   screen to itself and nobody is drawing a close button over it — see
+ *   CLOSE_KEEPOUT and ownsScreen() in main.js. Defaults to false, which is the
+ *   answer in a container and the conservative one everywhere else.
  */
-export function computeLayout(w, h, safe) {
+export function computeLayout(w, h, safe, opts) {
   const device = safe || { top: 0, right: 0, bottom: 0, left: 0 };
+  const owned = !!(opts && opts.owned);
   const portrait = h >= w;
   const stage = stageBox(w, h, portrait);
 
@@ -376,12 +466,25 @@ export function computeLayout(w, h, safe) {
   // The same measurement for the close button: it is drawn at the window's
   // corner, so what the stage owes it is whatever is left of it once the margin
   // above the stage has cleared it. On a desktop that is nothing.
-  const keepout = Math.max(0, CLOSE_KEEPOUT - stage.y);
+  //
+  // And nothing at all when the screen is ours. The keepout is a corner held
+  // for somebody else's button, so on a page that went fullscreen with no
+  // container over it there is no button to hold it for — the whole cutout is
+  // ours and the CTA goes back to the foot of the chrome. See ownsScreen().
+  const keepout = owned ? 0 : Math.max(0, CLOSE_KEEPOUT - stage.y);
 
   // Off the stage rather than off the window — this is the number the whole
   // creative is scaled by and it has to agree with the box it is scaling inside.
   // On a phone the two are the same thing.
-  const ui = clamp(Math.min(stage.w, stage.h) / STAGE.short, 0.72, 2.0);
+  // `STAGE.maxScale` and not a literal: the stage's short side is already
+  // capped at `short * maxScale` above, so this bound is the same bound written
+  // twice — and writing it as the same expression is what stops the two drifting
+  // the next time either is touched.
+  const ui = clamp(
+    Math.min(stage.w, stage.h) / STAGE.short,
+    0.72,
+    STAGE.maxScale,
+  );
 
   const solved = portrait
     ? portraitLayout(stage.w, stage.h, ui, inset, keepout)
@@ -415,7 +518,7 @@ const BOSS_MIN = 0.215;
 
 function portraitLayout(w, h, ui, safe, keepout) {
   const pad = 10 * ui;
-  const gut = gutter(w);
+  const gut = gutter(w, ui);
 
   /* ------------------------------------------------------------ top chrome */
 
@@ -424,7 +527,10 @@ function portraitLayout(w, h, ui, safe, keepout) {
   // a guess that ran 12 points long on a 640 point screen, which is 12 points
   // the golem could have had. The block is the name, the bar, and the strip
   // under it at the offsets ui/hud.js actually draws them at.
-  const barH = clamp(h * 0.018, 12, 26);
+  // Both bounds are the ones a phone hits; the ceiling is in `ui` so that a
+  // full-screen desktop is not asked to read a twenty-six point health bar
+  // across two thousand points of window. See gutter().
+  const barH = clamp(h * 0.018, 12, 26 * ui);
   // The name is set at 11 * ui and drawn with an ascender, so it measures about
   // 15 — and this is that plus the air a top edge wants when there is no cutout
   // to stand off from. At 13 it came out with five points over it on a phone
@@ -505,14 +611,27 @@ function portraitLayout(w, h, ui, safe, keepout) {
   // all kept going, so the biggest thing on the screen became a hero card and
   // the play field sat in the middle of a margin. Every term here is now a
   // measurement of this screen.
-  const size = Math.min(w, room);
+  //
+  // The width in question is the width less the cutouts, and that is the one
+  // concession the full-bleed board makes to them. It keeps no gutter — a play
+  // field running to the edge is the decision this screen is built on, and the
+  // chrome standing off that edge is what makes it read as one — but an edge a
+  // camera is drilled through is not an edge, and a column of gems behind it is
+  // a column the player cannot see to match. Upright both insets are zero on
+  // every phone in the matrix and this is `w`; it is the sideways case, and the
+  // foldables and webviews that inset a portrait window, that it is here for.
+  const fieldW = w - safe.left - safe.right;
+  const size = Math.min(fieldW, room);
   const cell = (size * GRID_RATIO) / 5;
   const boardY = row.y - pad * 0.8 - size;
-  const boardX = (w - size) / 2;
+  // Centred in the field rather than in the window: with a cutout down one side
+  // those are two different middles, and the board that lines up with the row
+  // and the bar above it is the one that shares their box.
+  const boardX = safe.left + (fieldW - size) / 2;
 
   const bossFloor = boardY + size * BOSS_OVERLAP;
   const bossH = bossFloor - bossTop;
-  const bossScale = Math.min((w * 0.92) / BOSS_ART.w, bossH / BOSS_ART.h);
+  const bossScale = Math.min((fieldW * 0.92) / BOSS_ART.w, bossH / BOSS_ART.h);
 
   return {
     w,
@@ -527,7 +646,8 @@ function portraitLayout(w, h, ui, safe, keepout) {
       y: bannerY,
     },
     boss: {
-      x: w / 2,
+      // On the board's own middle, which is the field's — see boardX.
+      x: safe.left + fieldW / 2,
       y: bossTop + bossH * 0.52,
       scale: bossScale,
       floor: bossFloor,
@@ -544,9 +664,9 @@ function portraitLayout(w, h, ui, safe, keepout) {
 
 function landscapeLayout(w, h, ui, safe, keepout) {
   const pad = 9 * ui;
-  const gut = gutter(h);
+  const gut = gutter(h, ui);
 
-  const barH = clamp(h * 0.032, 10, 22);
+  const barH = clamp(h * 0.032, 10, 22 * ui);
   const nameH = 15 * ui;
   const hudY = safe.top + pad * 0.8 + nameH;
   const chromeBottom = hudY + barH + 3 * ui + Math.max(3, barH * 0.32);
@@ -589,10 +709,12 @@ function landscapeLayout(w, h, ui, safe, keepout) {
   // is: on anything roomier than a phone it was the term that won, and it won by
   // leaving the bottom quarter of the screen empty under a board that had
   // stopped growing.
-  const size = Math.min(
-    h - safe.top - safe.bottom - bandBottom - pad * 1.4,
-    w * 0.5,
-  );
+  //
+  // `bandBottom` is an absolute y and it was measured down from `safe.top`
+  // already — hudY starts there — so the room under it is the distance to the
+  // bottom inset and nothing else. Taking the top inset off a second time here
+  // was charging the board twice for the same notch.
+  const size = Math.min(h - safe.bottom - bandBottom - pad * 1.4, w * 0.5);
   const cell = (size * GRID_RATIO) / 5;
   const boardX = rightEdge - size;
   const boardY = bandBottom + (h - safe.bottom - bandBottom - size) / 2;

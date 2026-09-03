@@ -764,6 +764,10 @@ export class Director {
     this.s.boss.enrage();
     this.s.hud.enrage();
     this.s.shake(16, 0.45);
+    // A wall coming off the beast is a beat in its own right and it used to go
+    // by inside whatever cascade knocked it loose. Held, so the flash and the
+    // layer's name land on a frame that is standing still.
+    this.s.hitStop(0.5, 0.11);
     this.s.vfx.flash(0xff2a06, 0.3, 0.4);
     this.s.hud.shout(layer, 0.55, { fill: 0xff8a3d, from: 2 });
   }
@@ -1217,13 +1221,16 @@ export class Director {
    * the thing that stops the player playing.
    */
   async castDoom(lethal) {
-    const { boss, hud, vfx, shake, layout } = this.s;
+    const { boss, hud, vfx, shake, hitStop, layout } = this.s;
 
     sfx.doomCast();
     hud.shout(COPY.doomCast, 0.6, { fill: 0xff2f1a, from: 2.8 });
     boss.enrage();
     hud.enrage();
-    shake(18, 0.5);
+    // A long low rumble under the roar: this is the ground failing, and ground
+    // does not crack — it hums. Half rate for twice the weight; see rumble in
+    // core/juice.js.
+    shake(18, 0.5, { freq: 0.5 });
     await boss.roar();
     if (this.settled()) return;
 
@@ -1239,6 +1246,10 @@ export class Director {
     });
     vfx.flash(0xff2a06, 0.85, 0.7);
     shake(30, 0.9);
+    // The hardest stop in the fight, and the only one worth a fifth of a
+    // second: the flash is at full white, both shock rings are open, and the
+    // whole frame is held there while the camera tears around it.
+    hitStop(0.92, 0.18);
 
     const row = layout.cards;
     const rolling = vfx.wave(impact.y, row.y + row.h * 0.5, 0xff3a06, {
@@ -1479,7 +1490,7 @@ export class Director {
    * its per-step callback, and the cascade must not wait on the light show.
    */
   partyVolley(step, lead) {
-    const { boss, heroRow, vfx, shake } = this.s;
+    const { boss, heroRow, vfx, shake, hitStop } = this.s;
     const target = boss.impactPoint();
 
     heroRow.strikeOrder(lead).forEach((index, slot) => {
@@ -1502,7 +1513,20 @@ export class Director {
             .then(() => {
               if (this.ended) return;
               boss.hit(isLead ? power : power * 0.6);
-              shake(isLead ? 5 + step * 2 : 2.5, isLead ? 0.24 : 0.14);
+              // Thrown along the beam's own line, so six heroes hitting from
+              // six places along the row knock the frame six different ways
+              // rather than all rattling it the same way at once.
+              shake(isLead ? 5 + step * 2 : 2.5, isLead ? 0.24 : 0.14, {
+                axis: { x: target.x - from.x, y: target.y - from.y },
+                // The assists are texture, not beats: pitched up so that five
+                // of them inside a third of a second read as a patter under the
+                // lead's blow rather than as five blows.
+                freq: isLead ? 1 : 1.4,
+              });
+              // The lead's blow is the one the row swung behind, so it is the
+              // one that gets a beat. Never the assists — see the merge rule in
+              // core/juice.js: five stops inside half a second is slow motion.
+              if (isLead) hitStop(0.22);
             });
         },
       );
@@ -1511,7 +1535,7 @@ export class Director {
 
   /** Clear, cascade, and take off exactly what the player earned. */
   async resolveMove() {
-    const { board, boss, hud, vfx, shake } = this.s;
+    const { board, boss, hud, vfx, shake, hitStop } = this.s;
     const before = this.bossHp;
 
     await board.resolve((step, cells) => {
@@ -1550,7 +1574,25 @@ export class Director {
         .then(() => {
           if (this.ended) return;
           boss.hit(power);
-          shake(6 + step * 3, 0.28);
+          /**
+           * The world stops for as long as it takes to read the number.
+           *
+           * The single loudest thing added to the fight, and it costs a
+           * fraction of a second: the beam is still in the air, the shards are
+           * still hanging off the beast, the number is still coming up, and all
+           * of it holds while the camera goes on rattling around it. See
+           * core/juice.js, and note the camera is ticked on real time in
+           * main.js precisely so it keeps moving through this.
+           *
+           * Scaled by the rung of the cascade, because that is the one thing
+           * the beat has to say. A triple is a flicker; a five-chain stops the
+           * screen dead, which is a match-3 saying "that one counted" without
+           * printing a word.
+           */
+          hitStop(0.3 + Math.min(0.45, step * 0.15));
+          shake(6 + step * 3, 0.28, {
+            axis: { x: target.x - origin.x, y: target.y - origin.y },
+          });
           hud.damage(
             share * BOSS_MAX_HP,
             target.x,
@@ -1563,7 +1605,25 @@ export class Director {
       // goes. It is no longer decided before the player touched anything.
       if (step >= 2) {
         sfx.combo(step);
-        hud.shout("COMBO x" + step, 0.5, { fill: 0xffe066, from: 1.8 });
+        /**
+         * And it is louder every rung.
+         *
+         * The counter used to print at one size in one colour whether the
+         * player had earned a double or a six-chain, which throws away the one
+         * moment in a match-3 that escalates on its own. Three channels now,
+         * all of them off `step`: it is thrown in from further out, it is held
+         * a little longer, and it goes from gold to a hot orange once the chain
+         * is past the point where the player is watching something they set off
+         * rather than something they did.
+         *
+         * `from` is capped at 2.6 — see shout in ui/hud.js, which scales the
+         * type down to fit the screen but cannot stop an overshoot that starts
+         * off the edge of it.
+         */
+        hud.shout("COMBO x" + step, 0.44 + Math.min(0.24, step * 0.05), {
+          fill: step >= 4 ? 0xffa02a : 0xffe066,
+          from: Math.min(2.6, 1.6 + step * 0.26),
+        });
       }
 
       hud.setHp(this.bossHp, 0.4);
@@ -1873,7 +1933,7 @@ export class Director {
    * playing at once, not one attack.
    */
   async bossRake(attack, cells) {
-    const { boss, hud, vfx, shake, layout } = this.s;
+    const { boss, hud, vfx, shake, hitStop, layout } = this.s;
 
     hud.shout(attack.shout || COPY.rake, 0.4, { fill: 0xff5a6e, from: 1.4 });
     const dir = await boss.rake();
@@ -1883,7 +1943,12 @@ export class Director {
     // claws opened, so they start where the claws are and the wave below is
     // what carries the hit down to the row.
     const at = boss.impactPoint();
-    shake(16, 0.4);
+    // Along the swipe. `dir` is the side the body actually travelled to, which
+    // the marks are already laid down — the camera is now thrown the same way,
+    // so the swipe, the slashes and the frame all agree about which way the
+    // claws went.
+    shake(16, 0.4, { axis: { x: dir, y: 0.3 }, freq: 1.15 });
+    hitStop(0.6, 0.1);
     vfx.claw(at.x, at.y + layout.stage.h * 0.02, 0xff3a5a, {
       dir,
       len: layout.stage.w * 1.05,
@@ -1934,7 +1999,11 @@ export class Director {
     await boss.lavaBreath(0.62);
     if (this.settled()) return;
 
-    shake(10, 0.4);
+    // A jet is pressure, not a blow: it wants a long even hum rather than a
+    // rattle, so it runs at under half the rate everything else shakes at.
+    // Everything else in the fight lands once; this one is still arriving half
+    // a second later.
+    shake(10, 0.5, { freq: 0.45 });
     const row = layout.cards;
     const mouth = boss.mouthPoint();
     const onto = { x: row.x + row.w / 2, y: row.y + row.h * 0.45 };
@@ -1976,14 +2045,17 @@ export class Director {
    * into the hero row, and the board cracks open where it passes.
    */
   async bossSmash(attack, cells) {
-    const { hud, boss, vfx, shake, layout } = this.s;
+    const { hud, boss, vfx, shake, hitStop, layout } = this.s;
 
     hud.shout(attack.shout || COPY.smash, 0.4, { fill: 0xffb03d, from: 1.4 });
     await boss.smash();
     if (this.settled()) return;
 
     const impact = boss.fistPoint();
-    shake(20, 0.55);
+    // Two fists coming straight down: thrown down the same line they were, and
+    // pitched up, because the one thing a fist is not is a rumble.
+    shake(20, 0.55, { axis: { x: 0, y: 1 }, freq: 1.2 });
+    hitStop(0.7, 0.12);
     vfx.shock(impact.x, impact.y, 0xff8a3d, {
       size: layout.stage.w * 1.6,
       width: 14,
@@ -2066,7 +2138,7 @@ export class Director {
    * @returns {Promise<void>} settles when every bar has finished moving
    */
   strikeHeroes(attack) {
-    const { heroRow, hud, vfx, layout } = this.s;
+    const { heroRow, hud, vfx, layout, hitStop } = this.s;
     // The fight is already called. A swing still in the air when the boss went
     // down does not get to take the party with it, and that is the whole of the
     // draw this mode does not have. See claim.
@@ -2086,6 +2158,16 @@ export class Director {
     const solo = targets.length === 1;
     const jobs = [];
     let fell = 0;
+    /**
+     * The party's turn to have the frame held for them.
+     *
+     * Once for the wave and not once per card. The pops are staggered seventy
+     * milliseconds apart so that six of them do not arrive as one noise, and
+     * six stops down that stagger would be a third of a second of slow motion
+     * — so the first card to actually lose health takes the beat and the rest
+     * land inside it.
+     */
+    let held = false;
 
     heroRow.cards.forEach((card, i) => {
       const direct = targets.indexOf(i) !== -1;
@@ -2103,6 +2185,13 @@ export class Director {
       const lift = layout.cards.h * (i % 2 ? 0.42 : 0.06);
       const pop = () => {
         if (this.ended) return;
+        if (!held) {
+          held = true;
+          // Harder than a hero's own blow lands, and harder still for the one
+          // card a slam picked out: taking damage is the beat the player is
+          // meant to feel, not the beat they are meant to enjoy.
+          hitStop(direct ? (solo ? 0.55 : 0.42) : 0.24);
+        }
         vfx.impact({ x: card.x, y: card.y }, 0xff5a1f, direct ? 0.55 : 0.3);
         hud.damage(lost * HERO_MAX_HP, at.x, at.y - lift, direct ? 1 : 0, {
           sign: "-",
@@ -2221,7 +2310,8 @@ export class Director {
 
   /** The cast itself. Split out only so `playUltimate` has one exit to guard. */
   async castUltimate() {
-    const { board, boss, heroRow, hud, vfx, cutin, shake, layout } = this.s;
+    const { board, boss, heroRow, hud, vfx, cutin, shake, hitStop, layout } =
+      this.s;
     const index = this.ultHero;
     const card = heroRow.cards[index];
     if (!card || card.downed) return;
@@ -2305,7 +2395,14 @@ export class Director {
 
     sfx.ultBlast(element);
     boss.hit(2);
-    shake(22, 0.6);
+    shake(22, 0.6, {
+      axis: { x: target.x - origin.x, y: target.y - origin.y },
+    });
+    // The payoff for a full bar, and the second longest stop in the fight: the
+    // spell is landing, the wash is at full brightness and the biggest number
+    // in the run is on its way up. Held just short of the cataclysm's, because
+    // the cataclysm is the one beat that outranks it.
+    hitStop(0.85, 0.15);
     vfx.flash(light, 0.55, 0.55);
     hud.damage(dealt * BOSS_MAX_HP, target.x, target.y - 24, 2);
     hud.setHp(this.bossHp, 0.6);
@@ -2326,7 +2423,7 @@ export class Director {
   /* -------------------------------------------------------- how it ends */
 
   async win() {
-    const { boss, board, hud, vfx, shake } = this.s;
+    const { boss, board, hud, vfx, shake, hitStop } = this.s;
     this.claim("victory");
     board.lockInput();
     this.stopIdle();
@@ -2337,6 +2434,10 @@ export class Director {
     await this.bossSettled();
 
     shake(26, 0.8);
+    // The blow that finished it, held. Not the collapse — the collapse is
+    // eight tenths of a second of the beast coming apart and it wants to play
+    // at speed; this is the quarter beat before it starts.
+    hitStop(0.8, 0.14);
     const dying = boss.die();
     await delay(0.35);
     vfx.flash(0xffffff, 1, 0.7);

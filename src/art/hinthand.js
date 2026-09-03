@@ -26,8 +26,9 @@
  * section 10.1 held this pose in these six colours and which is still there;
  * before that the single pale hand at `src/assets/board/hint-hand-neon.webp`,
  * packed when none of this was per-element; and before all of it a painted
- * leather gauntlet, still on disk at `src/assets/board/hint-hand.webp` with
- * tools/pack-hand.mjs still pointed at its own source.
+ * leather gauntlet at `src/assets/board/hint-hand.webp`, now off disk as well —
+ * see .deleted-assets.txt — with tools/pack-hand.mjs still pointed at its own
+ * source under src/source, which is where any of these can be packed again.
  *
  * No file name moved across any of those swaps, so each of them was the two
  * numbers below and, when the drawing changed shape as this one did, the three

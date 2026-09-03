@@ -23,7 +23,7 @@ import {
   FRAME_ART,
   FRAME_OPENING,
 } from "../art/boardframe.js";
-import { tween, delay, Ease, killTweensOf, now } from "../core/tween.js";
+import { tween, delay, Ease, killTweensOf, now, punch } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 
@@ -184,6 +184,8 @@ export class Board extends Container {
 
     this.drag = null;
     this.selected = null;
+    /** The stone the finger is currently holding down — see press(). */
+    this.pressed = null;
 
     this.build();
   }
@@ -259,6 +261,10 @@ export class Board extends Container {
       gem.setType(type);
       gem.alpha = 1;
       gem.scale.set(1);
+      // Cleared with a quarter turn on it now — see popCells — and a pool that
+      // hands the tilt back out is a board that slowly fills up with crooked
+      // stones.
+      gem.rotation = 0;
       gem.visible = true;
       gem.resize(this.cell);
       return gem;
@@ -272,6 +278,11 @@ export class Board extends Container {
   recycle(gem) {
     gem.visible = false;
     gem.glow.alpha = 0;
+    // The swell a swap puts on a stone outlives a cancelled preview by design
+    // — it always settles back at 1 — but a stone recycled inside that window
+    // would be dealt back out with a tween still writing to its scale, and
+    // whatever obtainGem set would be overwritten on the next frame.
+    killTweensOf(gem.scale);
     this.pool.push(gem);
   }
 
@@ -446,7 +457,52 @@ export class Board extends Container {
     const cell = this.cellAt(p.x, p.y);
     if (!cell) return;
     this.drag = { start: cell, x: p.x, y: p.y, fired: false };
+    this.press(cell);
     if (this.onTouchStart) this.onTouchStart(p.x, p.y);
+  }
+
+  /**
+   * The stone under the finger, admitting the finger is there.
+   *
+   * The one animation in the creative the player is the author of, and there
+   * was nothing here: a press moved a glow up behind the gem — see
+   * clearSelection — and the gem itself did not budge, which on a touch screen
+   * with no cursor is a board that cannot tell you whether it heard you. So it
+   * is picked up: a tenth of its size on a fast overshoot, which at a hundred
+   * point cell is a stone visibly lifted out of its socket.
+   *
+   * Held rather than sprung. Everything else in here is an impulse that decays,
+   * because everything else in here is an event; a press is a state, and it
+   * lasts exactly as long as the finger does.
+   */
+  press(cell) {
+    this.letGo();
+    if (this.locks[cell.r] && this.locks[cell.r][cell.c]) return;
+    const gem = this.grid[cell.r][cell.c];
+    if (!gem || gem.destroyed) return;
+    this.pressed = gem;
+    killTweensOf(gem.scale);
+    tween(gem.scale, { x: 1.1, y: 1.1 }, 0.1, { ease: Ease.backOutHard });
+  }
+
+  /**
+   * Put back whatever the last press picked up.
+   *
+   * Deliberately not awaited and deliberately not conditional on the touch
+   * having done anything: every path out of a touch comes through here — the
+   * swipe that fired, the tap that selected, the finger that slid off the
+   * board, the input lock that took the board away mid-drag — because a stone
+   * left lifted is a stone that stays lifted for the rest of the run.
+   *
+   * `animateSwap` and `popCells` both take the scale over from here on their
+   * first frame, so a stone that is on its way somewhere is never fought over.
+   */
+  letGo() {
+    const gem = this.pressed;
+    this.pressed = null;
+    if (!gem || gem.destroyed) return;
+    killTweensOf(gem.scale);
+    tween(gem.scale, { x: 1, y: 1 }, 0.16, { ease: Ease.backOut });
   }
 
   handleMove(e) {
@@ -469,6 +525,7 @@ export class Board extends Container {
     this.drag.fired = true;
     const from = this.drag.start;
     this.drag = null;
+    this.letGo();
     // The swipe is spent the moment it fires, so the hand comes off here rather
     // than at pointerup — which on a flick arrives long after the gems moved.
     if (this.onTouchEnd) this.onTouchEnd();
@@ -479,6 +536,7 @@ export class Board extends Container {
   handleUp(e) {
     const drag = this.drag;
     this.drag = null;
+    this.letGo();
     // Every touch that did not already spend itself on a swipe reports its end
     // here, including one that never found a cell to begin with — a press on
     // the frame is still a press, and letGo is a no-op when the prop was never
@@ -566,6 +624,9 @@ export class Board extends Container {
   lockInput() {
     this.inputEnabled = false;
     this.drag = null;
+    // The board can be taken away mid-touch — a doom cast, the end of the
+    // fight — and the finger is not told about it. See letGo().
+    this.letGo();
     this.clearSelection();
   }
 
@@ -607,7 +668,8 @@ export class Board extends Container {
       // Soft failure: no red, no buzzer — just put it back and re-hint.
       this.swapModel(a, b);
       sfx.reject();
-      await this.animateSwap(ga, gb, 0.13);
+      await this.animateSwap(ga, gb, 0.14);
+      this.shrug(ga, gb);
       this.busy = false;
       this.inputEnabled = true;
       if (this.onInvalid) this.onInvalid();
@@ -679,6 +741,10 @@ export class Board extends Container {
         const p = this.cellPos(r, c);
         gem.x = p.x;
         gem.y = p.y;
+        // Killed tweens stop where they stand, and a refused swap is a tilt on
+        // its way back to zero — see shrug. Snapped with the position, or the
+        // stone sits crooked in its socket for the rest of the run.
+        gem.rotation = 0;
       }
     }
   }
@@ -706,6 +772,29 @@ export class Board extends Container {
     const rest = run.filter((cell) => !(cell.r === to.r && cell.c === to.c));
     if (rest.length === 0) return null;
     return { run, from, to, rest };
+  }
+
+  /**
+   * The two stones of a refused swap, shrugging it off.
+   *
+   * A swap that made nothing already puts itself back, and putting itself back
+   * is not an answer — it is the same animation as the swap, run in reverse, so
+   * a player who mis-swiped watches four tenths of a second of movement that
+   * says nothing about why. This is the "no": a tilt in opposite directions
+   * that springs out, which is a pair of stones refusing each other and is over
+   * before the hand is off the glass.
+   *
+   * Not awaited by its caller. The board is handed back on the same frame — the
+   * refusal plays out over a board that is already live again, because the one
+   * thing a soft failure must not cost is the next swipe.
+   */
+  shrug(ga, gb) {
+    [ga, gb].forEach((gem, i) => {
+      if (!gem) return;
+      killTweensOf(gem);
+      gem.rotation = i ? -0.19 : 0.19;
+      tween(gem, { rotation: 0 }, 0.42, { ease: Ease.elasticOut });
+    });
   }
 
   /** Tiny "this will not move" wobble on a block the player tried to drag. */
@@ -738,12 +827,48 @@ export class Board extends Container {
     this.grid[b.r][b.c] = tmp;
   }
 
+  /**
+   * Trade two stones on screen.
+   *
+   * This was two straight-line lerps, and a straight-line lerp is what a swap
+   * looks like when nobody has been asked to like it. Three things on top of
+   * it now, and all three are the same idea: a swipe is the one moment in the
+   * fight the player's own hand is on, so it is the one animation that has to
+   * answer back.
+   *
+   * The stones swell as they pass. Two tiles crossing at a constant size read
+   * as a diagram of a swap; two that lift, pass and settle read as being
+   * picked up — and the swell is what puts the pair in front of the twenty-three
+   * stones they are moving between, without touching the display order.
+   *
+   * They arrive with a settle rather than stopping dead. `backOutSoft` carries
+   * a tenth of `backOut`'s overshoot, which over the width of one cell is a few
+   * pixels of bump into the socket — enough to feel, not enough to look like
+   * the stone missed.
+   *
+   * And they land on exactly the cell they were sent to, which is why the
+   * swell is two chained tweens back to 1 rather than a curve that overshoots:
+   * `previewSwap` runs this to show the lesson's move and runs it again to put
+   * it back, so anything left behind here accumulates.
+   */
   animateSwap(ga, gb, dur) {
     const ax = ga.x;
     const ay = ga.y;
+
+    const carry = (gem) => {
+      killTweensOf(gem.scale);
+      return tween(gem.scale, { x: 1.16, y: 1.16 }, dur * 0.42, {
+        ease: Ease.quadOut,
+      }).then(() =>
+        tween(gem.scale, { x: 1, y: 1 }, dur * 0.58, { ease: Ease.backOut }),
+      );
+    };
+
     return Promise.all([
-      tween(ga, { x: gb.x, y: gb.y }, dur, { ease: Ease.quadInOut }),
-      tween(gb, { x: ax, y: ay }, dur, { ease: Ease.quadInOut }),
+      tween(ga, { x: gb.x, y: gb.y }, dur, { ease: Ease.backOutSoft }),
+      tween(gb, { x: ax, y: ay }, dur, { ease: Ease.backOutSoft }),
+      carry(ga),
+      carry(gb),
     ]);
   }
 
@@ -931,28 +1056,135 @@ export class Board extends Container {
     });
   }
 
-  /** Blow up a set of cells. */
+  /**
+   * Blow up a set of cells.
+   *
+   * The beat the whole genre is built on, so it is worth the four extra lines.
+   *
+   * It goes off from the middle outwards rather than in array order. `findMatches`
+   * walks rows and then columns, so the old `i * 0.012` stagger fired an L-shaped
+   * match as two separate sweeps meeting at the corner — the order the matcher
+   * happened to find them in, which is not an order anything in the world would
+   * break in. Delayed by distance from the run's own centre instead, a five in a
+   * row detonates from the middle and an L goes off from the elbow, and both read
+   * as one event with a place it started.
+   *
+   * The stone is thrown *past* full size on a hard overshoot and then collapses
+   * on an accelerating curve, which is the difference between a gem popping and a
+   * gem being turned off: `backOutHard` puts a visible flinch in the swell, and
+   * `expoIn` spends the first half of the collapse barely moving and the second
+   * half gone.
+   *
+   * The spin is the cheap part and does most of the work. A quarter turn either
+   * way, picked per stone, means twelve stones clearing in a cascade are twelve
+   * events rather than one effect played twelve times.
+   */
   async popCells(cells) {
-    const jobs = cells.map((cell, i) => {
+    // The middle of the run, in cells, so the stagger radiates from it.
+    let mr = 0;
+    let mc = 0;
+    cells.forEach((cell) => {
+      mr += cell.r;
+      mc += cell.c;
+    });
+    mr /= cells.length;
+    mc /= cells.length;
+
+    const jobs = cells.map((cell) => {
       const gem = this.grid[cell.r][cell.c];
       if (!gem) return Promise.resolve();
       this.grid[cell.r][cell.c] = null;
       if (this.onPop) {
         this.onPop(this.x + gem.x, this.y + gem.y, gem.type);
       }
-      gem.glow.alpha = 0.8;
-      return tween(gem.scale, { x: 1.35, y: 1.35 }, 0.09, {
-        delay: i * 0.012,
+
+      // Whatever else was writing this stone's size — a press that has not
+      // finished settling, a ripple from the step before — the pop owns it now.
+      killTweensOf(gem.scale);
+
+      const reach = Math.hypot(cell.r - mr, cell.c - mc);
+      // Both directions, and never the same twice in a row down a line: the
+      // sign comes off the cell's own parity rather than the RNG, so a five in
+      // a row alternates instead of clumping.
+      const spin = ((cell.r + cell.c) % 2 ? 1 : -1) * 0.55;
+
+      gem.glow.alpha = 1;
+      return tween(gem.scale, { x: 1.42, y: 1.42 }, 0.1, {
+        delay: reach * 0.028,
+        ease: Ease.backOutHard,
       })
         .then(() =>
           Promise.all([
-            tween(gem.scale, { x: 0, y: 0 }, 0.16, { ease: Ease.backIn }),
-            tween(gem, { alpha: 0 }, 0.16),
+            tween(gem.scale, { x: 0, y: 0 }, 0.17, { ease: Ease.expoIn }),
+            tween(gem, { rotation: spin }, 0.17, { ease: Ease.quadIn }),
+            // Held opaque for the first half and then gone: a stone that fades
+            // out from the frame it started shrinking on is a stone that was
+            // never there, and the shrink is the part worth watching.
+            tween(gem, { alpha: 0 }, 0.09, { delay: 0.08 }),
           ]),
         )
         .then(() => this.recycle(gem));
     });
+    this.ripple(cells);
     await Promise.all(jobs);
+  }
+
+  /**
+   * The stones that did *not* clear, flinching as the ones beside them go.
+   *
+   * The cheapest big idea in the pass. Everything else about a match happens to
+   * the matched stones, so a clear reads as three tiles being deleted out of a
+   * grid that never noticed — and a grid that never notices is a spreadsheet.
+   * Five of their neighbours jolting a frame later is what turns it into
+   * something that happened *on* the board: the run goes off, the shock runs
+   * outwards through the stones around it, and it is over before the collapse
+   * starts.
+   *
+   * Squashed along y and not along x, because the ripple's own direction is
+   * outwards from the run and there is no cheap way to point it — a flinch
+   * every stone answers the same way is read as the board flexing, which is
+   * what it is.
+   *
+   * Nothing here is awaited and nothing may throw. Each punch re-checks that
+   * the stone it was aimed at is still the stone in that cell when its delay
+   * comes up, because between the two the run above it may have collapsed and
+   * handed it somewhere else entirely.
+   */
+  ripple(cells) {
+    // Two cells: the four stones sharing an edge with the run and the four
+    // touching its corners, and nothing beyond them. Wider, the whole board
+    // twitches at once and the run stops being the thing that caused it.
+    const REACH = 2;
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const gem = this.grid[r][c];
+        if (!gem || gem.destroyed) continue;
+        // Encased stones do not flinch: the whole point of the obsidian is that
+        // it is the one thing on the board that does not answer to anything.
+        if (this.locks[r] && this.locks[r][c]) continue;
+
+        let near = REACH;
+        for (let i = 0; i < cells.length; i++) {
+          const d = Math.hypot(cells[i].r - r, cells[i].c - c);
+          if (d < near) near = d;
+        }
+        if (near >= REACH) continue;
+
+        // Squared, so the stone against the run takes nearly all of it and the
+        // one behind that takes a hint. A linear falloff spreads the same total
+        // movement over eight tiles and reads as a wobble.
+        const fall = 1 - near / REACH;
+        const amount = 0.17 * fall * fall;
+        if (amount < 0.012) continue;
+
+        delay(near * 0.032).then(() => {
+          if (this.destroyed || gem.destroyed) return;
+          if (this.grid[r][c] !== gem) return;
+          punch(gem, amount, 0.36, { axis: "y" });
+        });
+      }
+    }
   }
 
   /**
@@ -1109,10 +1341,41 @@ export class Board extends Container {
       const dist = Math.abs(f.gem.y - p.y) / this.cell;
       const dur = Math.min(0.42, 0.15 + dist * 0.055);
       f.gem.x = p.x;
+      /**
+       * How hard it lands, off how far it fell.
+       *
+       * The squash used to be one number for every stone in the column, which
+       * is the one thing a landing must not be: a gem that slid down one cell
+       * and a gem that fell the whole height of the board hit the floor with
+       * exactly the same splat, and five of them landing identically is what
+       * made a refill read as a list rather than as a collapse. Capped, because
+       * past about four cells nothing gets flatter, it only gets sillier.
+       */
+      const weight = Math.min(1, 0.3 + dist * 0.2);
+
+      /**
+       * Drawn out by the fall, and drawn out *more* the longer it lasts.
+       *
+       * The stone accelerates — `quadIn` on the y — so the stretch is put on
+       * the same curve rather than set once at the top: it leaves its cell at
+       * its own size and is at full stretch on the frame it lands, which is the
+       * frame the squash below takes over on. Set at the top instead and the
+       * gem is at its thinnest while it is barely moving, which reads as a
+       * stone that was already stretched and then happened to fall.
+       */
+      const stretch = 0.06 + 0.15 * weight;
+      killTweensOf(f.gem.scale);
+      f.gem.scale.set(1, 1);
+      tween(f.gem.scale, { x: 1 - stretch * 0.5, y: 1 + stretch }, dur, {
+        ease: Ease.quadIn,
+      });
+
       return tween(f.gem, { y: p.y }, dur, { ease: Ease.quadIn }).then(() =>
-        tween(f.gem.scale, { y: 0.86, x: 1.12 }, 0.06).then(() =>
-          tween(f.gem.scale, { y: 1, x: 1 }, 0.14, { ease: Ease.backOut }),
-        ),
+        // Set on the frame of the landing and sprung back, rather than eased
+        // into over sixty milliseconds — see punch in core/tween.js. Easing
+        // into a squash is a stone breathing; arriving in one is a stone
+        // hitting something.
+        punch(f.gem, 0.2 * weight, 0.26 + 0.1 * weight, { axis: "x" }),
       );
     });
     this.falling = [];

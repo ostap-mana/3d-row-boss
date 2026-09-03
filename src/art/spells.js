@@ -35,6 +35,7 @@
 
 import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
+import { paced } from "../core/idle.js";
 import { FIRE, WATER, NATURE, LIGHTNING, ARCANE, WIND } from "../config.js";
 
 /** The grid, exactly as tools/pack-spells.mjs packs it. */
@@ -74,17 +75,32 @@ export const BOSS_SPELLS = { breath: "breath", smash: "slam", rake: "claw" };
  * `assetsInlineLimit` is set high enough in vite.config.js that these come back
  * as base64 rather than URLs, which is the whole point: the deliverable is one
  * self-contained file that makes no requests.
+ *
+ * `fire-sheet.webp` is excluded in the *pattern* and not only in the loop below,
+ * and that is worth 62 kB of the deliverable. `eager: true` is a build-time
+ * instruction: every path the glob matches is imported and, at this inline
+ * limit, base64'd into the bundle whether or not anything reads it back. The
+ * sheet is also imported directly by art/fire.js — on its own grid, off a still
+ * — so skipping it at runtime left the file inlined twice over, once here and
+ * once there, for 125 kB of bundle spent on 62 kB of art. A negative pattern is
+ * how a glob is told not to reach something; a `continue` is only how the
+ * program is told not to use it.
  */
-const FOUND = import.meta.glob("../assets/fx/*-sheet.webp", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
+const FOUND = import.meta.glob(
+  ["../assets/fx/*-sheet.webp", "!../assets/fx/fire-sheet.webp"],
+  {
+    eager: true,
+    query: "?url",
+    import: "default",
+  },
+);
 
 const urls = {};
 for (const path in FOUND) {
   const id = path.slice(path.lastIndexOf("/") + 1).replace("-sheet.webp", "");
   // Cut off a still, on its own grid, with its own module. Not one of these.
+  // The glob above no longer matches it, so this is a guard rather than a
+  // filter: it is what keeps the sheet out if that pattern is ever widened.
   if (id === "fire") continue;
   urls[id] = FOUND[path];
 }
@@ -127,23 +143,29 @@ async function cut(url) {
 }
 
 /**
- * Decode every sheet that shipped, before the first frame.
+ * Decode every sheet that shipped — after the first frame, not before it.
  *
  * Never rejects, and one bad sheet never takes the others with it: an id that
  * fails to decode is simply absent from `spellFrames`, and the hero or the boss
  * swing that wanted it falls back to the effect it threw before. That fallback
  * is the normal case until the clips exist, not an error path.
+ *
+ * It is also what makes this safe to load late. Nine sheets is six megapixels,
+ * a fifth of everything this creative decodes, and not one of them can be
+ * wanted until a match is made — `Vfx.spell` asks for its frames at the moment
+ * of the cast and takes null for an answer. So the queue below runs a sheet to
+ * a frame once the fight is up, and a cast that beats it to the punch throws the
+ * beam instead, exactly as it does for an id whose clip was never generated.
+ * See the deferred pass in main.js and core/idle.js.
  */
 export async function loadSpellArt() {
   if (loaded) return frames;
   loaded = true;
-  await Promise.all(
-    Object.keys(urls).map(async (id) => {
-      try {
-        frames[id] = await cut(urls[id]);
-      } catch {
-        // Left out of `frames`, which is exactly how the caller asks.
-      }
+  await paced(
+    Object.keys(urls).map((id) => async () => {
+      frames[id] = await cut(urls[id]);
+      // A throw is caught by `paced` and leaves the id out of `frames`, which
+      // is exactly how the caller asks.
     }),
   );
   return frames;

@@ -381,10 +381,32 @@ export class CutIn extends Container {
     this.playId = 0;
 
     // The healer's, like every other thing above that is pointed at a hero: this
-    // is whose cut-in it is until a player taps a different card. Safe here
-    // rather than in the first resize because main.js has already awaited
-    // loadUltBorders by the time a CutIn is built.
+    // is whose cut-in it is until a player taps a different card.
+    //
+    // The burst sheets are *not* decoded by the time a CutIn is built any more —
+    // they are the heaviest thing in the creative and they load after the first
+    // frame now, see loadRest() in main.js — so this asks and gets nothing on
+    // the first pass. It is still asked here, because the panel has to be in a
+    // legal state before anything can draw it, and adoptUltArt below is the
+    // other half. `setHero` cannot be relied on to fix it up: it early-returns
+    // when the hero has not changed, and the hero this is pointed at now is the
+    // one whose ultimate might be spent first.
     this.setGate(HEROES[this.index].element);
+  }
+
+  /**
+   * Re-read the burst sheet, for art that decoded after this was built.
+   *
+   * `setGate` is a pure state assignment — a sheet or null, a visibility and a
+   * texture, no children — so running it a second time is free and safe. The
+   * resize behind it is what `setHero` does for the same reason: the gate is
+   * fitted to the panel in resize(), and a gate that gained its sheet without
+   * one would be a sprite at its texture's own pixel size the first time it was
+   * shown. See loadRest() in main.js.
+   */
+  adoptUltArt() {
+    this.setGate(HEROES[this.index].element);
+    if (this.layout) this.resize(this.layout);
   }
 
   /**
@@ -443,7 +465,11 @@ export class CutIn extends Container {
   resize(layout) {
     this.layout = layout;
     const { w, h } = layout;
-    const s = layout.stage;
+    // The panel and the lockup are placed as fractions of a box, so the box is
+    // the stage less the cutouts — see safeStage in core/layout.js. The dim and
+    // the wash below take the window, as they always have: they are what the
+    // screen is handed over on.
+    const s = layout.safeBox;
     const el = HEROES[this.index].element;
     const tall = layout.portrait;
 
