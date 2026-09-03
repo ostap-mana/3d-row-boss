@@ -2701,7 +2701,11 @@ export class Director {
     const { board, coach, hand } = this.s;
     this.lessonLive = false;
     if (coach) coach.stop();
-    board.cancelPreview();
+    // Glided, not snapped. This is the one preview cancel the player is looking
+    // at when it happens — it is fired by their own first touch — and the two
+    // stones the lesson borrowed are a cell from home with the model already
+    // agreeing where they belong, so they can be allowed to travel there.
+    board.cancelPreview(true);
     // Back to its own size before anything else can pick the prop up: the demo
     // hand is shown a shade large on purpose and nothing else here is a demo.
     hand.setUrgency(1);

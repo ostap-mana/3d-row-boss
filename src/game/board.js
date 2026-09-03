@@ -30,6 +30,28 @@ import * as sfx from "../audio/sfx.js";
 const GEM_TYPES = GEM_COLORS.length;
 const SWIPE_RATIO = 0.34;
 
+/**
+ * How long a swap takes, and how long it takes to come back.
+ *
+ * The one animation the player's own hand authors, so it is the one that may
+ * not read as a cut. It ran in 0.15s: a stone crossing a hundred-point cell in
+ * nine frames, which is over before the eye has followed it and lands as a
+ * jump rather than as a move. The lesson shows that exact travel over 0.4s,
+ * which is most of why the tutorial read as smooth while the real thing did
+ * not. 0.22 is the middle — still ahead of the finger coming off the glass,
+ * long enough to be followed across the cell.
+ *
+ * The revert is a shade quicker. Same distance the other way, and the player
+ * already knows what happened, so it does not need the same room — but it is
+ * not allowed to be a snap either: a swap that fails in a fifth of the time it
+ * succeeded in reads as the board slapping the stone back.
+ */
+const SWAP_TIME = 0.22;
+const REVERT_TIME = 0.2;
+
+/** How long the shown board takes to slide back onto the model's cells. */
+const PREVIEW_HOME = 0.18;
+
 /** Stand-in dropped into `locks` while the boss is looking ahead. */
 const PROBE = { probe: true };
 
@@ -158,6 +180,14 @@ export class Board extends Container {
      * is not the board. See previewSwap.
      */
     this.preview = null;
+    /**
+     * Gems are travelling home from a preview — see glideGems.
+     *
+     * Read by everything that is about to animate the same stones, because a
+     * travel that starts from a moving target lands off the socket.
+     */
+    this.homing = false;
+    this.homeToken = 0;
     this.previewToken = 0;
 
     /** Hooks the director subscribes to. */
@@ -645,6 +675,11 @@ export class Board extends Container {
   async attemptSwap(a, b) {
     // Whatever the lesson was showing, the player is answering it now.
     this.cancelPreview();
+    // A glide from an earlier lesson may still be carrying stones home, and
+    // this is about to read two of their positions to travel between. Killed
+    // and placed, because a swap that starts from a moving target ends up
+    // sitting between two sockets for the rest of the run.
+    if (this.homing) this.snapGems();
     if (this.busy) return;
 
     // Encased gems do not budge. Same soft feedback as any other bad swap:
@@ -661,14 +696,14 @@ export class Board extends Container {
 
     const ga = this.grid[a.r][a.c];
     const gb = this.grid[b.r][b.c];
-    await this.animateSwap(ga, gb, 0.15);
+    await this.animateSwap(ga, gb, SWAP_TIME);
     this.swapModel(a, b);
 
     if (this.findMatches().length === 0) {
       // Soft failure: no red, no buzzer — just put it back and re-hint.
       this.swapModel(a, b);
       sfx.reject();
-      await this.animateSwap(ga, gb, 0.14);
+      await this.animateSwap(ga, gb, REVERT_TIME);
       this.shrug(ga, gb);
       this.busy = false;
       this.inputEnabled = true;
@@ -724,15 +759,67 @@ export class Board extends Container {
    * on the player's first touch. Cheap and safe to call when nothing is being
    * previewed, which is most of the time.
    */
-  cancelPreview() {
+  cancelPreview(glide) {
     this.previewToken++;
     if (!this.preview) return;
     this.preview = null;
-    this.snapGems();
+    if (glide) this.glideGems();
+    else this.snapGems();
+  }
+
+  /**
+   * The same journey home, travelled rather than jumped.
+   *
+   * The lesson leaves two real stones standing on each other's cells, and the
+   * player's first touch used to put them back by writing their positions —
+   * two gems in the middle of the board changing place on one frame, at the
+   * exact moment the player is looking at them, which is the single hardest
+   * cut the board had. There is nothing to hurry: the stones are only ever a
+   * cell from where they belong and the model already agrees with where they
+   * are going, so they can be allowed to get there.
+   *
+   * Not for callers that are about to move the same stones themselves — see
+   * the homing flag, and attemptSwap, which snaps instead.
+   */
+  glideGems(dur) {
+    const token = ++this.homeToken;
+    this.homing = true;
+    const jobs = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const gem = this.grid[r][c];
+        if (!gem) continue;
+        killTweensOf(gem);
+        const p = this.cellPos(r, c);
+        // Already home. An eased tween over no distance is a frame of stall,
+        // and twenty-three of the twenty-five stones are in this case.
+        if (Math.abs(gem.x - p.x) < 0.5 && Math.abs(gem.y - p.y) < 0.5) {
+          gem.x = p.x;
+          gem.y = p.y;
+          gem.rotation = 0;
+          continue;
+        }
+        jobs.push(
+          tween(
+            gem,
+            { x: p.x, y: p.y, rotation: 0 },
+            dur === undefined ? PREVIEW_HOME : dur,
+            { ease: Ease.quadInOut },
+          ),
+        );
+      }
+    }
+    Promise.all(jobs).then(() => {
+      // The token, not the flag: a second glide, or a snap, started while this
+      // one was in flight and owns the answer now.
+      if (token === this.homeToken) this.homing = false;
+    });
   }
 
   /** Every gem back on its own cell, killing whatever was moving it. */
   snapGems() {
+    this.homeToken++;
+    this.homing = false;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const gem = this.grid[r][c];
@@ -1015,6 +1102,12 @@ export class Board extends Container {
    */
   async claim(job) {
     await this.whenQuiet();
+    // A preview glide may still be carrying stones home (see glideGems), and
+    // everything claimed from here animates those same stones off the position
+    // they are standing on. Placed first, because two owners on one gem's
+    // position is a stutter rather than a slower move — and by the time a
+    // claim gets in, a glide is a fifth of a second old at most.
+    if (this.homing) this.snapGems();
     this.busy = true;
     try {
       return await job();
@@ -1339,7 +1432,7 @@ export class Board extends Container {
     const jobs = (this.falling || []).map((f) => {
       const p = this.cellPos(f.r, f.c);
       const dist = Math.abs(f.gem.y - p.y) / this.cell;
-      const dur = Math.min(0.42, 0.15 + dist * 0.055);
+      const dur = Math.min(0.46, 0.19 + dist * 0.058);
       f.gem.x = p.x;
       /**
        * How hard it lands, off how far it fell.
@@ -1364,8 +1457,13 @@ export class Board extends Container {
        * stone that was already stretched and then happened to fall.
        */
       const stretch = 0.06 + 0.15 * weight;
+      // Not written flat first. A stone that was mid-flinch when the collapse
+      // reached it — a ripple off the run beside it, a press it had not finished
+      // giving back — had its size set to 1 on the frame the fall started, which
+      // is a pop on exactly the stones the eye is already following. The stretch
+      // leaves from whatever size the stone actually is; both paths land on the
+      // same value, so nothing accumulates.
       killTweensOf(f.gem.scale);
-      f.gem.scale.set(1, 1);
       tween(f.gem.scale, { x: 1 - stretch * 0.5, y: 1 + stretch }, dur, {
         ease: Ease.quadIn,
       });

@@ -68,7 +68,23 @@ import {
 import { bed } from "./audio/sfx.js";
 import { music } from "./audio/music.js";
 
+/**
+ * What boot spent, in milliseconds, for whoever asks — `__SIEGE__.timing`.
+ *
+ * Three numbers and one of them is the product: `ready` is how long a player
+ * stares at a flat colour before the fight is on screen, and it is the only
+ * figure on this page that a network's own bounce curve is measured against.
+ * `deferred` is when the rest of the art finished arriving behind it, and the
+ * gap between the two is the whole of what splitting the load bought. Kept
+ * because it cannot be measured from here: the machine this is written on
+ * decodes thirty megapixels in a blink and the phone it ships to does not.
+ */
+const timing = { essential: 0, ready: 0, deferred: 0 };
+
 async function boot() {
+  const bootStart = performance.now();
+  const since = () => Math.round(performance.now() - bootStart);
+
   // Before a single await. The first touch can land while the fonts and the
   // fourteen bitmaps below are still decoding, and on a phone that first touch
   // is the one that owns the sound for the rest of the session.
@@ -149,6 +165,7 @@ async function boot() {
     loadHpBarArt(),
     loadCardBars(),
   ]);
+  timing.essential = since();
   initGemTextures(app.renderer);
 
   const host = document.getElementById("pixi-container") || document.body;
@@ -995,6 +1012,7 @@ async function boot() {
     drawGuides();
     return { ...layout.safe, shown: guides.visible };
   };
+  scene.timing = timing;
   window.__SIEGE__ = scene;
 
   // Nothing is held back and nothing is put in front: the first frame of the
@@ -1059,10 +1077,18 @@ async function boot() {
         /* that effect keeps the fallback it already draws */
       }
     }
+    timing.deferred = since();
   }
 
   // Fired, not awaited: boot is done, and this is what happens in the quiet
   // after it.
+  // Stamped on the frame after boot returns, which is the first one the
+  // composition is actually painted on — the number a bounce curve is measured
+  // against, rather than the moment the last decode resolved.
+  nextFrame().then(() => {
+    timing.ready = since();
+  });
+
   loadRest();
 
   signalReady();
