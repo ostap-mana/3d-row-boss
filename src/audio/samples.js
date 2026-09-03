@@ -130,7 +130,19 @@ const SLICES = {
   victoryVo: { bank: "outcome", at: 5.84, dur: 1.2, gain: 0.32 }, // "Victory!"
   defeatVo: { bank: "outcome", at: 7.16, dur: 1, gain: 0.36 }, // "Defeat"
   /**
-   * The store card assembling, a cut per part — see `endcardPart` in sfx.js.
+   * The store card assembling — see CARD_ARRIVAL in sfx.js.
+   *
+   * Nothing in this group is fired any more, and nothing is meant to be. The
+   * card arrives on `endcard` below — the title sting, 1.6 seconds over the
+   * whole assembly — and on nothing else: every part of it landing on a click
+   * of its own was a second thing arriving inside the first, and the three
+   * attempts at it are written up in ui/endcard.js where the sequence is.
+   *
+   * All six cuts are left in the file. They are cut, verified and already paid
+   * for in about 4 kB of something that is inlined whole, so a card that wants
+   * a sound per part again is a call site and a lookup table rather than a
+   * re-encode of outcome.mp3 and a re-measure of every offset behind it. What
+   * each was for is below, in the present tense, for whoever goes back.
    *
    * Four light rungs darkest to brightest and a clack for the plate, all five
    * the game's own UI. They climb on timbre rather than on playback rate, which
@@ -148,12 +160,21 @@ const SLICES = {
    * pre-echo, which an MP3 encoder puts in front of an attack this sharp and
    * which a slice starting on the offset would play from the middle of. See
    * PRE in tools/pack-outcome.mjs, where the number is argued.
+   *
+   * Every level here is 5 dB over the 0.11 a UI click carries during a fight,
+   * and the whole group moved together so the balance below is untouched. The
+   * card is not the board: the lobby theme is under it at `musicTrackLevel` and
+   * the title sting lands over the whole assembly, and a click tuned to be
+   * heard against an empty board is heard against neither. What the lift buys
+   * is each arrival reading as a part landing rather than as a tick somewhere
+   * behind the music; what it costs is nothing, because nothing else is
+   * competing for this screen.
    */
-  cardA: { bank: "outcome", at: 8.26, dur: 0.13, gain: 0.11 }, // ui_click_add_2
-  cardB: { bank: "outcome", at: 8.49, dur: 0.14, gain: 0.11 }, // ui_click_add_3
-  cardC: { bank: "outcome", at: 8.73, dur: 0.14, gain: 0.11 }, // ui_click_add_1
-  cardD: { bank: "outcome", at: 8.97, dur: 0.14, gain: 0.11 }, // ui_click_tab_add
-  cardPlate: { bank: "outcome", at: 9.21, dur: 0.26, gain: 0.15 }, // ui_bottle
+  cardA: { bank: "outcome", at: 8.26, dur: 0.13, gain: 0.2 }, // ui_click_add_2
+  cardB: { bank: "outcome", at: 8.49, dur: 0.14, gain: 0.2 }, // ui_click_add_3
+  cardC: { bank: "outcome", at: 8.73, dur: 0.14, gain: 0.2 }, // ui_click_add_1
+  cardD: { bank: "outcome", at: 8.97, dur: 0.14, gain: 0.2 }, // ui_click_tab_add
+  cardPlate: { bank: "outcome", at: 9.21, dur: 0.26, gain: 0.27 }, // ui_bottle
   /**
    * The plate's top and the rematch's tick — the two cuts the card grew when
    * the ladder became a part list. See CARD_PARTS in sfx.js for what they are
@@ -164,21 +185,34 @@ const SLICES = {
    * `cardShine` sits over `cardPlate` rather than beside it. Both are
    * peak-normalized to -1.4 dBFS and their RMS is not the same — the clack is
    * -12.2 dB and the sheen -21.0, ten decibels of crest apart — so matching
-   * their gains would put the sheen ten under the body and lose it. At 0.20 it
-   * lands 6 dB under the clack's own contribution and 6 over a light click,
-   * which is a top on a button rather than a second button.
+   * their gains would put the sheen ten under the body and lose it. It sits a
+   * ratio of 1.33 over the clack, which lands it 6 dB under the clack's own
+   * contribution and 6 over a light click: a top on a button rather than a
+   * second button.
    *
    * `cardBack` is 18 ms of tick where every other click here is 90 to 120, and
-   * the ear weighs energy rather than peak: at the clicks' own 0.11 it carries
-   * 6 dB less than they do and disappears under the endcard theme. 0.15 puts it
-   * about 3 dB under a click — still the quietest arrival on the card, which is
-   * what the rematch is meant to be, and still audible, which it was not.
+   * the ear weighs energy rather than peak: at a click's own gain it carries
+   * 6 dB less than they do and disappears under the endcard theme. A ratio of
+   * 1.33 over a click puts it about 3 dB under one — still the quietest arrival
+   * on the card, which is what the rematch is meant to be, and still audible,
+   * which it was not.
+   *
+   * Both ratios are what is tuned, not the absolute numbers: the group moved
+   * 5 dB with the rungs above and these two moved with it.
    */
-  cardShine: { bank: "outcome", at: 9.57, dur: 0.23, gain: 0.2 }, // ui_click_high
-  cardBack: { bank: "outcome", at: 9.9, dur: 0.07, gain: 0.15 }, // ui_click_back_1
+  cardShine: { bank: "outcome", at: 9.57, dur: 0.23, gain: 0.36 }, // ui_click_high
+  cardBack: { bank: "outcome", at: 9.9, dur: 0.07, gain: 0.27 }, // ui_click_back_1
   banner: { at: 31.55, dur: 0.32, gain: 0.1 }, // ui_expand_in
   endcard: { at: 31.99, dur: 1.6, gain: 0.16 }, // SMN_TITLE
-  cta: { at: 33.71, dur: 0.12, gain: 0.12 }, // ui_click_main
+  /**
+   * The tap that leaves for the store, and the loudest click in either file.
+   *
+   * Raised with the card's own arrivals for the same reason: it is the one
+   * input the creative is built to collect, it is taken over the theme and the
+   * sting, and at a fight click's 0.12 the player who committed heard less than
+   * the player who tapped a gem.
+   */
+  cta: { at: 33.71, dur: 0.12, gain: 0.18 }, // ui_click_main
 };
 
 /**

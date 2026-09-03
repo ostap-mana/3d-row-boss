@@ -547,7 +547,7 @@ export class EndCard extends Container {
 
     // Painted, the height is the art's and not the card's. RETRY_H is the drawn
     // pill's own proportion — a flat capsule at about 3:1 — and the ornament is
-    // a rule at 9.57; asked for the pill's box it would come out three times
+    // a rule at 12.05; asked for the pill's box it would come out four times
     // too deep, with the gems at each end stretched into eggs. So width is what
     // the card decides and height is what the art answers, which is how every
     // other piece of brand art on this screen is sized.
@@ -1154,9 +1154,9 @@ export class EndCard extends Container {
    * @param {"victory"|"defeat"} outcome
    * @param {boolean} [stamped] the verdict has already been announced, on the
    *   screen before this one — see ui/outcome.js. The banner is then left off
-   *   the card entirely and so is the sound of it arriving: a second stamp is
-   *   the creative telling the player something they have just spent five
-   *   seconds reading, and the card has a pitch to make instead.
+   *   the card entirely: a second stamp is the creative telling the player
+   *   something they have just spent five seconds reading, and the card has a
+   *   pitch to make instead. The sting is not gated on it — see `show`.
    *
    *   The stack closes up behind it on its own. Upright the banner was never a
    *   rung — `placeBanner` lays it in the hole the picture is aimed into and
@@ -1166,7 +1166,18 @@ export class EndCard extends Container {
    */
   async show(outcome, stamped) {
     this.defeat = outcome === "defeat";
-    if (!stamped) sfx.endcard(this.defeat);
+    // The card arrives on the game's own title sting, stamped or not.
+    //
+    // This was gated on `stamped`, and since the director stamps every card it
+    // builds the gate meant the sting never fired at all: the last screen of
+    // the creative came up under the lobby theme with nothing on it but the
+    // part-by-part clicks below, which is a card appearing rather than a card
+    // landing. The repeat argument holds for the *banner* — a second VICTORY in
+    // paint is the creative repeating itself, and that is still left off below
+    // — but it was never an argument for the biggest arrival in the spot having
+    // no sound of its own. The stinger on the screen before is the verdict;
+    // this is the pitch showing up, and they are not the same event.
+    sfx.endcard(this.defeat);
 
     /**
      * Neither the outcome line nor the promise under the wordmark is set here
@@ -1276,29 +1287,37 @@ export class EndCard extends Container {
     }
 
     /**
-     * A sound per part, and the part's own.
+     * The card assembles in silence, and the sting is the whole of its sound.
      *
-     * The card is assembled part by part and, until this, it was assembled in
-     * silence: the title sting it used to arrive on is gated off for any card
-     * the outcome screen has already stamped, which is every card the director
-     * builds — see `show`'s `stamped`, and sfx.endcardPart, where the sounds
-     * themselves are argued.
+     * Every part of this used to fire one: a rung counter walking a ladder of
+     * clicks, then a cut per part — a whoosh on the logo, a clack and a sheen on
+     * the plate, a click on the store row, a tick on the way out — then one cut
+     * repeated on all of them. All three were answering the same question the
+     * wrong way round. The card had gone quiet because the title sting was gated
+     * off behind `stamped`, and what it wanted back was the sting, not a
+     * substitute assembled out of UI clicks.
      *
-     * Named rather than counted. This was a rung counter walking a ladder of
-     * one click at five pitches, and the counter was there because half the
-     * rungs are conditional — the outcome line and the promise under the
-     * wordmark are off on every card now, the rematch is a defeat's only — so
-     * an index off the rung would have climbed in gaps. A part that names its
-     * own sound has no ladder to fall off: the wordmark flies in on the game's
-     * panel whoosh, the plate lands on a clack with a sheen over it, the store
-     * row clicks and the way out ticks, whatever else is or is not on the card.
+     * The sting is back and ungated — see `show` — and it is the only sound the
+     * card has. It fires once as the card arrives under the wordmark and then
+     * once per part down the stack the player is being sold: the plate, the
+     * store row, the way out. The same cut every time.
+     *
+     * That is the whole of the mix, and the sameness is the point. Three
+     * attempts at this gave each part a sound of its own — a ladder of clicks,
+     * then a cut per part, then one cut per part — and each time what the screen
+     * ended up sounding like was several unrelated noises inside two seconds
+     * rather than one thing being put in front of somebody. One cut, landing
+     * where a part lands, reads as the card being dealt out.
+     *
+     * They overlap, and are meant to: the cut runs 1.6 seconds and the parts are
+     * a third of a second apart, so each hit lands inside the tail of the one
+     * before it. That is a sting being struck four times, not four stings.
      */
     if (this.outcome.visible) {
       const oy = this.outcome.y;
       this.outcome.y = oy - 18;
       tween(this.outcome, { alpha: 1 }, 0.24);
       tween(this.outcome, { y: oy }, 0.36, { ease: Ease.backOut });
-      sfx.endcardPart("line");
     }
 
     await delay(0.1);
@@ -1307,13 +1326,11 @@ export class EndCard extends Container {
     this.brand.y = ly - 26;
     tween(this.brand, { alpha: 1 }, 0.28);
     tween(this.brand, { y: ly }, 0.42, { ease: Ease.backOut });
-    sfx.endcardPart("wordmark");
 
     await delay(0.12);
     if (!this.introducing) return;
     if (this.sub.visible) {
       tween(this.sub, { alpha: 1 }, 0.28);
-      sfx.endcardPart("sub");
     }
 
     await delay(0.35);
@@ -1321,24 +1338,23 @@ export class EndCard extends Container {
     const by = this.button.y;
     this.button.y = by + 30;
     tween(this.button, { alpha: 1 }, 0.25);
-    // The plate is the one part that lands with a body under the click, and
-    // now with a sheen over it as well: it is what the card is for and the only
-    // part of it that can be tapped, so it is the heaviest thing on the card.
-    sfx.endcardPart("plate");
+    // The plate, on the sting the card itself arrived on — and the first of the
+    // three hits down the stack, about 570 ms behind the card's own.
+    sfx.endcard(this.defeat);
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
     if (!this.introducing) return;
 
-    // The badges after the CTA, and quietly: they are the reassurance under it,
-    // not a second thing competing with it for the tap.
+    // The badges after the CTA: they are the reassurance under it, not a second
+    // thing competing with it for the tap.
     const gy = this.badges.y;
     this.badges.y = gy + 14;
     tween(this.badges, { alpha: 1 }, 0.3);
-    sfx.endcardPart("badges");
+    sfx.endcard(this.defeat);
     await tween(this.badges, { y: gy }, 0.34, { ease: Ease.cubicOut });
     if (!this.introducing) return;
 
     /**
-     * The rematch last of all, and on the quietest arrival on the card.
+     * The rematch last of all.
      *
      * Order is the argument here as much as size is. The plate lands first and
      * lands hardest, the store row settles under it, and only then does the way
@@ -1354,7 +1370,7 @@ export class EndCard extends Container {
       const ry = this.retry.y;
       this.retry.y = ry + 8;
       tween(this.retry, { alpha: 1 }, 0.3);
-      sfx.endcardPart("retry");
+      sfx.endcard(this.defeat);
       await tween(this.retry, { y: ry }, 0.34, { ease: Ease.cubicOut });
     }
     this.introducing = false;

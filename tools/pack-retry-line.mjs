@@ -5,12 +5,26 @@
  *   node tools/pack-retry-line.mjs --png     # keep the intermediate PNG too
  *   node tools/pack-retry-line.mjs --proof   # composite it over the end card
  *
- * The source is `src/source/endcard/retry-line.png`, 2048x682: a chromed
- * hairline running the full width with a faceted violet gem finial off each
- * end, breaking in the middle around a crest gem and the words "RETRY" set
- * under a circular-arrow glyph. It is the same divider vocabulary as
- * `S_TitleOrnamentLine` on the outcome screen — see art/outcomeui.js — with a
- * label sitting in the break rather than a plain notch.
+ * The source is `src/source/endcard/retry-line-gold.png`: a warm champagne
+ * hairline with a small pale diamond finial off each end, breaking in the
+ * middle around the word "RETRY" set under a circular-arrow glyph, with a
+ * shallow bracket carried *under* the label. It is the same divider vocabulary
+ * as `S_TitleOrnamentLine` on the outcome screen — see art/outcomeui.js — with
+ * a label sitting in the break rather than a plain notch, and it is the same
+ * gold as that ornament rather than the chrome the card used to carry.
+ *
+ * ## Its resolution is the ceiling on this pack, and it is low
+ *
+ * The chrome-and-magenta divider this replaced came in at 2048x682 with 1863 px
+ * of ink across. This one was recovered from a 507x147 capture and carries 444
+ * px of ink, so packing it to WIDTH is a 2.3x upscale and the hairline lands
+ * soft — about a pixel and a half of ramp where the old cut had a hard edge.
+ * That is a property of the source and no resampler here can undo it. If a
+ * higher-resolution plate of this divider ever turns up, drop it in and re-run:
+ * nothing below is written to this file's size.
+ *
+ * The old source stays on disk next to this one, the same way pack-retry.mjs's
+ * gem plate does. Nothing points at it any more.
  *
  * It replaces the blue gem plate `tools/pack-retry.mjs` packs. That plate was a
  * second painted button under the PLAY NOW plate, and two lit gem lockups in one
@@ -21,11 +35,19 @@
  *
  * ## Not a keyer
  *
- * Same as pack-retry.mjs and for the same reason: the matte arrived on the
+ * Same as pack-retry.mjs and for the same reason: the matte is already on the
  * source, the backdrop is alpha 0 over rgb 0,0,0, and any ramp over "distance
  * from white" reads that as maximum ink and hands back a black rectangle. This
  * trims and resamples and does nothing else, and nothing here may become a
  * keyer.
+ *
+ * The matte on this cut was pulled off a flat near-black capture rather than
+ * shipped with the art: the local background was measured under the ink, the
+ * residual gated at three sigma of its noise, and alpha taken from the residual
+ * luminance and then unpremultiplied — so the file composites over black
+ * exactly as the capture did, and over anything else the glow around the label
+ * still falls off instead of ending on an edge. That is the step this tool must
+ * not repeat. It has already happened.
  *
  * ## Trim, and why the aspect is the output
  *
@@ -46,7 +68,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "src/source/endcard/retry-line.png");
+const SRC = join(ROOT, "src/source/endcard/retry-line-gold.png");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 const OUT = join(OUT_DIR, "retry-line");
 

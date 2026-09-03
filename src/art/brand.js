@@ -39,11 +39,12 @@ export const KEY_ART = { w: 1500, h: 1246 };
 /**
  * The RETRY divider, packed by tools/pack-retry-line.mjs.
  *
- * The defeat card's way out, and deliberately not a second plate. A chromed
- * hairline with a violet gem finial off each end, breaking in the middle around
- * a crest gem and the word RETRY under a circular-arrow glyph — the same
- * divider vocabulary the outcome screen is built from, with a label in the
- * break instead of a plain notch. See art/outcomeui.js.
+ * The defeat card's way out, and deliberately not a second plate. A warm
+ * champagne hairline with a small pale diamond finial off each end, breaking in
+ * the middle around the word RETRY under a circular-arrow glyph and carrying a
+ * shallow bracket under the label — the same divider vocabulary the outcome
+ * screen is built from, with a label in the break instead of a plain notch. See
+ * art/outcomeui.js.
  *
  * It replaced a blue gem plate that wore the PLAY NOW plate's own frame, and
  * the shape is the argument: two lit gem lockups stacked in one column is the
@@ -52,11 +53,26 @@ export const KEY_ART = { w: 1500, h: 1246 };
  * plate is still on disk and tools/pack-retry.mjs still makes it; nothing
  * imports it, so it is not bytes in the bundle.
  *
- * At 9.57 it is a rule and not a button, which is why the card cannot measure it
- * off the PLAY NOW plate the way it measured the old one — see EndCard.fitRetry
- * and RETRY_W.
+ * It is gold now and was chrome with magenta gems for one pass in between. Same
+ * argument, one step further: the outcome screen's ornament is this gold, so a
+ * chrome rule on the card after it was the only piece of furniture in the
+ * creative quoting a different metal. That cut is still on disk as
+ * `src/source/endcard/retry-line.png` and is the sharper file by a long way —
+ * 1863 px of ink against this one's 444, see the note in the packer — so if the
+ * softness at resolution 2 ever reads as a compression artefact, that is the
+ * trade being paid for the colour, and it is reversible.
+ *
+ * At 12.05 it is a rule and not a button, which is why the card cannot measure
+ * it off the PLAY NOW plate the way it measured the old one — see
+ * EndCard.fitRetry and RETRY_W. Thinner than the chrome cut's 9.55: that one
+ * stood a crest gem clear above the rule and hung a faceted finial off each
+ * end, and this one spends its whole height on cap-height type and a bracket
+ * that only just clears the baseline. At the width the card gives it that is
+ * about four fifths of the depth, which the layout reads straight off this
+ * constant and needs no telling about — but the hit box does, and it is grown
+ * around the art rather than measured from it. See EndCard.placeRetry.
  */
-export const RETRY_LINE_ART = { w: 1024, h: 107 };
+export const RETRY_LINE_ART = { w: 1024, h: 85 };
 
 /**
  * The two outcome banners — out of the build, and kept only as measurements.
