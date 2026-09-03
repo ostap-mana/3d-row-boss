@@ -760,76 +760,151 @@ export function endcard(defeated) {
 }
 
 /**
- * The ladder the end card's rungs climb, as playback rates.
+ * What each part of the store card lands on.
  *
- * Same idea as the cascade's RATE and a much shorter reach: five steps over a
- * major sixth, so the card assembling reads as one mechanism cycling rather
- * than as the same click five times. It tops out because the cut being moved is
- * a UI click a tenth of a second long, and past about 1.5 a click is a tick.
+ * This was a ladder — five rungs of one click at five playback rates, walked by
+ * a counter as the card assembled — and the ladder was the repair before this
+ * one. It replaced a single cut resampled up a major sixth, which by the top
+ * rung was a 90 ms click squeezed to 63 and sitting a fifth above anything else
+ * in the creative: the sound of a sample being stretched, on the one screen
+ * that cannot afford to sound cheap.
+ *
+ * What it did not fix is that the card is not five of anything. It is a
+ * wordmark, a plate, a store row and a way out — a logo, a button, a
+ * reassurance and a footnote — and a ladder gives four things of four different
+ * weights the same click at four pitches. The player hears a mechanism cycling,
+ * which is right, and nothing about which part just arrived, which is the half
+ * that was missing.
+ *
+ * So each part names its own cut instead, and all of them are the game's:
+ *
+ *   wordmark  ui_expand_in    the game's own panel-arrives whoosh, which is
+ *             + ui_click_tab_add
+ *                             what the logo does — it flies in and lands. The
+ *                             whoosh is shared with `banner` above rather than
+ *                             cut again: the same sound doing the same job, and
+ *                             a slice already in the sprite costs nothing to
+ *                             fire twice. The click on top of it is the ladder's
+ *                             brightest rung, at 170 ms — where the backOut on
+ *                             `brand` first reaches its target, measured off the
+ *                             curve rather than guessed, so the sound is the
+ *                             logo arriving and not a second sound after it.
+ *   plate     ui_bottle       the clack, with ui_click_high laid over it 20 ms
+ *             + ui_click_high behind — a body and a sheen, which is how the
+ *                             game plays its own gold buttons and what makes
+ *                             the CTA the heaviest thing on the card.
+ *   badges    ui_click_add_1  a light click, unchanged: the store row is the
+ *                             reassurance under the CTA, not a rival to it.
+ *   retry     ui_click_back_1 the game's own leave-a-screen tick, in place of
+ *                             the element-arrives click the rematch used to
+ *                             land on. See `cardBack` in pack-outcome.mjs.
+ *
+ * `line` and `sub` are the two conditional rungs — the outcome line over the
+ * wordmark and the promise under it, both off on every card the director builds
+ * — and they keep two of the ladder's four clicks. They are here so that a card
+ * built by hand with either of them on still sounds assembled rather than
+ * half-silent, and they are the reason `cardA` and `cardB` are still in the
+ * bank. Nothing in it is dead: the third rung is the store row's and the
+ * fourth is the wordmark's landing.
+ *
+ * `over` is a second cut on the same event, `overDelay` seconds behind the
+ * first — a sheen on the plate, a landing under the logo. `freq` is the
+ * synthesized ratchet's pitch for the part, used only when the bank has not
+ * decoded; see the fallback at the bottom of `endcardPart`.
  */
-const CARD_STEP = [1.0, 1.09, 1.19, 1.3, 1.42];
+const CARD_PARTS = {
+  /** The outcome line, when a card is built with one. */
+  line: { cut: "cardA", freq: 330 },
+  /** The wordmark: air, then the logo landing on the beat the tween lands on. */
+  wordmark: {
+    cut: "banner",
+    gain: 1.15,
+    over: "cardD",
+    overDelay: 0.17,
+    air: true,
+  },
+  /** The promise under it, when a card is built with one. */
+  sub: { cut: "cardB", freq: 360 },
+  /** The plate: the only part with a body, and the heaviest thing on the card. */
+  plate: {
+    cut: "cardPlate",
+    over: "cardShine",
+    overDelay: 0.02,
+    freq: 430,
+    heavy: true,
+  },
+  /** The store row, under the plate in every sense. */
+  badges: { cut: "cardC", freq: 392 },
+  /** The way out, and the quietest arrival on the card. */
+  retry: { cut: "cardBack", freq: 300, light: true },
+};
 
 /**
- * The rungs themselves, darkest to brightest.
+ * One part of the end card arriving.
  *
- * Four cuts rather than one cut at four pitches, and that is the whole repair:
- * every rung used to be `select` — the board's own tap — resampled up a major
- * sixth across the five, which by the top rung is a 90 ms click squeezed to 63
- * and sitting a fifth above anything else in the creative. It read as a sample
- * being stretched, which is the one thing the last screen cannot sound like.
- *
- * These are the game's own element-arrives clicks, which ship as three graded
- * variants and a fourth on the tab. Laid down dark to bright they climb on
- * timbre, so the mechanism still cycles and nothing is transposed to get there.
- * See tools/pack-outcome.mjs, which cuts them, and SLICES in samples.js.
- */
-const CARD_RUNGS = ["cardA", "cardB", "cardC", "cardD"];
-
-/**
- * One rung of the end card arriving.
- *
- * The card used to land in silence. `sfx.endcard` below is the title sting it
- * came up on, and that is gated off now for every card the outcome screen has
+ * The card used to land in silence. `sfx.endcard` above is the title sting it
+ * came up on, and that is gated off for every card the outcome screen has
  * already stamped — which is every card the director builds — so the whole
- * assembly, wordmark to badges, made no sound at all.
+ * assembly, wordmark to badges, made no sound at all. What goes back is not the
+ * sting: a sting is one event and this is four, each landing on its own beat.
  *
- * What goes back is not the sting. A sting is one event and this is five: the
- * wordmark, the line under it, the plate, the store row and the way out, each
- * landing on its own beat. So each one gets a *click* — the sample is the
- * game's own UI click, moved a step up the ladder per rung — and what five of
- * them in a row sound like is an action being cycled: a mechanism loading a
- * round per part, ending on the plate.
+ * Named rather than counted, which is the change from `endcardStep`. The
+ * counter existed because half the rungs are conditional and a ladder indexed
+ * off the rung would climb in gaps; a part that names its own sound does not
+ * care what was or was not built before it, so the gaps stop being a problem
+ * to solve. See CARD_PARTS for what each one is and why.
  *
- * `heavy` is the plate's, and it is the one rung that is not a click but a
- * clack. It is the thing the whole card is built around and the only part of it
- * that can be tapped, so it lands with a body under the click and everything
- * else lands lighter than it.
- *
- * @param {number} step which rung, from the top of the card down
- * @param {boolean} [heavy] the plate, which lands harder than the rest
+ * @param {string} part a key of CARD_PARTS
  */
-export function endcardStep(step, heavy) {
-  const i = Math.max(0, step | 0);
-  const rate = CARD_STEP[Math.min(CARD_STEP.length - 1, i)];
+export function endcardPart(part) {
+  const p = CARD_PARTS[part];
+  if (!p) return;
 
-  // The plate is its own cut now — a clack with a hundred milliseconds of body
-  // under it — so the synthesized tone that used to be layered here to give the
-  // click a bottom is gone with the click that needed one.
-  if (heavy) {
-    if (samples.play("cardPlate")) return;
-  } else {
-    const last = CARD_RUNGS.length - 1;
-    // Past the fourth rung the brightest cut is held and lifted a little, so a
-    // card with more parts than the ladder has cuts still climbs — by a tone at
-    // the very top rather than by the major sixth this used to reach for.
-    const over = Math.max(0, i - last);
-    if (
-      samples.play(CARD_RUNGS[Math.min(i, last)], {
-        rate: Math.min(1 + over * 0.03, 1.09),
-      })
-    ) {
-      return;
-    }
+  if (
+    samples.play(p.cut, p.gain === undefined ? undefined : { gain: p.gain })
+  ) {
+    // A second voice on the same event, and the delay is what decides whether
+    // it is heard as one sound or two. The plate's sheen is fired 20 ms behind
+    // its clack and its own attack is a further 14 ms slower — measured in the
+    // bank, where the clack crosses audible 19 ms into its window and the sheen
+    // 34 into its — so the top lands about a thirtieth of a second after the
+    // body, inside the window where the ear fuses the pair. The wordmark's
+    // landing is the opposite case and wants to be heard as its own beat: 170
+    // ms, which is where the logo's tween reaches its target.
+    //
+    // Unguarded on purpose — a plate that gets its body and loses its sheen is
+    // the plate this had before the sheen existed, and falling through to the
+    // synthesized ratchet *underneath* a clack that already played would be two
+    // plates.
+    if (p.over) samples.play(p.over, { delay: p.overDelay });
+    return;
+  }
+
+  // The wordmark's own fallback, and the only one here that is not a click: a
+  // band of noise opening upward under a slow attack, which is what a whoosh is
+  // when there is no recording of one. A ratchet under a logo is a part moving;
+  // this is a thing arriving — and it arrives on the tick below, on the same
+  // 170 ms the sampled landing is fired at.
+  if (p.air) {
+    noise({
+      type: "bandpass",
+      freq: 700,
+      to: 4200,
+      dur: 0.34,
+      gain: 0.055,
+      q: 0.5,
+      attack: 0.14,
+    });
+    tone({
+      freq: 1046.5,
+      to: 660,
+      dur: 0.08,
+      gain: 0.055,
+      type: "triangle",
+      cut: 5200,
+      delay: p.overDelay,
+    });
+    return;
   }
 
   // The synthesized ratchet: a sprung click over a small wooden body. Square
@@ -840,19 +915,19 @@ export function endcardStep(step, heavy) {
     type: "highpass",
     freq: 3200,
     to: 1600,
-    dur: 0.045,
-    gain: (heavy ? 0.07 : 0.045) * 1,
+    dur: p.light ? 0.03 : 0.045,
+    gain: p.heavy ? 0.07 : p.light ? 0.03 : 0.045,
     q: 0.8,
   });
   tone({
-    freq: 330 * rate,
-    to: 200 * rate,
-    dur: 0.06,
-    gain: heavy ? 0.1 : 0.06,
+    freq: p.freq,
+    to: p.freq * 0.6,
+    dur: p.light ? 0.04 : 0.06,
+    gain: p.heavy ? 0.1 : p.light ? 0.045 : 0.06,
     type: "square",
     cut: 2400,
   });
-  if (heavy) {
+  if (p.heavy) {
     tone({
       freq: 170,
       to: 110,
@@ -860,6 +935,16 @@ export function endcardStep(step, heavy) {
       gain: 0.11,
       type: "triangle",
       cut: 800,
+    });
+    // The sheen, synthesized: the one part of the ratchet that is not the
+    // ratchet, on the same 20 ms delay the sample gets.
+    tone({
+      freq: 2400,
+      to: 3600,
+      dur: 0.09,
+      gain: 0.05,
+      type: "sine",
+      delay: 0.02,
     });
   }
 }

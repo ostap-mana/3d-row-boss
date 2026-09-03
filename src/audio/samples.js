@@ -130,12 +130,18 @@ const SLICES = {
   victoryVo: { bank: "outcome", at: 5.84, dur: 1.2, gain: 0.32 }, // "Victory!"
   defeatVo: { bank: "outcome", at: 7.16, dur: 1, gain: 0.36 }, // "Defeat"
   /**
-   * The store card assembling, a cut per part — see `endcardStep` in sfx.js.
+   * The store card assembling, a cut per part — see `endcardPart` in sfx.js.
    *
    * Four light rungs darkest to brightest and a clack for the plate, all five
    * the game's own UI. They climb on timbre rather than on playback rate, which
    * is what replaced them: every rung used to be the board's `select` click
    * resampled, and the top one was that 90 ms cut squeezed to 63.
+   *
+   * The four are no longer a ladder walked in order. `cardA` and `cardB` are
+   * the two conditional lines', `cardC` is the store row's and `cardD` is the
+   * logo landing at the end of the whoosh `banner` is cut from; the two parts
+   * that carry the card — the plate and the rematch — have cuts of their own
+   * below. See CARD_PARTS in sfx.js, which is where the mapping lives.
    *
    * Each opens 20 ms before the cut was laid down and runs 20 ms longer,
    * ending where it always did. That is not padding — it is the cut's own
@@ -148,6 +154,28 @@ const SLICES = {
   cardC: { bank: "outcome", at: 8.73, dur: 0.14, gain: 0.11 }, // ui_click_add_1
   cardD: { bank: "outcome", at: 8.97, dur: 0.14, gain: 0.11 }, // ui_click_tab_add
   cardPlate: { bank: "outcome", at: 9.21, dur: 0.26, gain: 0.15 }, // ui_bottle
+  /**
+   * The plate's top and the rematch's tick — the two cuts the card grew when
+   * the ladder became a part list. See CARD_PARTS in sfx.js for what they are
+   * for, and pack-outcome.mjs for how they are cut; both gains are arithmetic
+   * off the RMS of the cut, because a peak-normalized table cannot be balanced
+   * by eye.
+   *
+   * `cardShine` sits over `cardPlate` rather than beside it. Both are
+   * peak-normalized to -1.4 dBFS and their RMS is not the same — the clack is
+   * -12.2 dB and the sheen -21.0, ten decibels of crest apart — so matching
+   * their gains would put the sheen ten under the body and lose it. At 0.20 it
+   * lands 6 dB under the clack's own contribution and 6 over a light click,
+   * which is a top on a button rather than a second button.
+   *
+   * `cardBack` is 18 ms of tick where every other click here is 90 to 120, and
+   * the ear weighs energy rather than peak: at the clicks' own 0.11 it carries
+   * 6 dB less than they do and disappears under the endcard theme. 0.15 puts it
+   * about 3 dB under a click — still the quietest arrival on the card, which is
+   * what the rematch is meant to be, and still audible, which it was not.
+   */
+  cardShine: { bank: "outcome", at: 9.57, dur: 0.23, gain: 0.2 }, // ui_click_high
+  cardBack: { bank: "outcome", at: 9.9, dur: 0.07, gain: 0.15 }, // ui_click_back_1
   banner: { at: 31.55, dur: 0.32, gain: 0.1 }, // ui_expand_in
   endcard: { at: 31.99, dur: 1.6, gain: 0.16 }, // SMN_TITLE
   cta: { at: 33.71, dur: 0.12, gain: 0.12 }, // ui_click_main

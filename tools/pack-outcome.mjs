@@ -71,6 +71,33 @@
  * can be tapped, so it is not a click at all but a clack, and it is the game's
  * own — which is what let the synthesized body underneath it go away.
  *
+ * ## The card's parts
+ *
+ * Two more cuts, and the end of the same argument. The ladder above fixed how
+ * the rungs were *made* and left every part of the card landing on the same
+ * kind of sound; the card is a logo, a button, a reassurance and a footnote,
+ * and only two of those are clicks. So the two that are not get their own:
+ *
+ *   cardShine  ui_click_high    laid 20 ms over the plate's clack — a 6.9 kHz
+ *                               sheen on a 2.4 kHz body, which is how the game
+ *                               plays its own gold buttons and what makes the
+ *                               CTA the heaviest thing on the screen.
+ *   cardBack   ui_click_back_1  the rematch, on the game's own leave-a-screen
+ *                               tick instead of on `ui_click_tab_add`, which is
+ *                               its element-arrives click. A card offering the
+ *                               fight back sounded like a card adding something
+ *                               to a collection.
+ *
+ * The wordmark needed no new cut of its own: it flies in on `ui_expand_in`, the
+ * game's own panel-arrives whoosh, which is already in sfx.mp3 as `banner`, and
+ * lands 170 ms later on `cardD` — the brightest of the four rungs, which the
+ * ladder had been spending on whichever part happened to be fifth. See
+ * CARD_PARTS in audio/sfx.js, which is where the mapping from part to cut lives.
+ *
+ * Appended after the rungs for the same reason the rungs were appended after
+ * the endings: `at` is measured from the first sample of the first cut, so
+ * everything already verified keeps the offset it was verified at.
+ *
  * They are appended after the endings rather than laid down among them, and
  * deliberately: `at` is measured from the first sample of the first cut, so
  * anything added at the end leaves victory, defeat and the two voice lines on
@@ -321,6 +348,56 @@ const CUTS = [
      * 90 faded, which is past the decay and short of the room behind it.
      */
     filter: "atrim=0:0.24,asetpts=PTS-STARTPTS,afade=t=out:st=0.15:d=0.09",
+  },
+
+  /*
+   * The last two, and the same argument a fourth time — see "The card's parts"
+   * in sfx.js, which is where what they are *for* is written down.
+   *
+   * The four rungs above solved the resampling; what they did not solve is that
+   * the store card has four parts of four different weights and every one of
+   * them landed on a click. The wordmark, the plate, the store row and the way
+   * out are a logo, a button, a reassurance and a footnote, and a card that
+   * ticks four times while they arrive is a card assembling in the abstract.
+   * So the two that carry the most and the least get a cut of their own, and
+   * the two clicks they replace go back to being what they are: the rungs the
+   * conditional lines still use.
+   */
+  {
+    name: "cardShine",
+    pre: PRE,
+    src: "ui_click_high.wav",
+    /**
+     * The sheen over the plate, and the brightest cut in either file: a 6.9 kHz
+     * centroid against the clack's 2.4. Layered rather than swapped — see
+     * `plate` in CARD_PARTS — because what the CTA needs is a body *and* a top,
+     * and the game ships them as two sounds.
+     *
+     * Its energy is gone by 189 ms and what is left reads under -38 dB, so out
+     * at 210 with the last 60 faded: the whole decay, none of the floor. No
+     * fade in — this is at -7.4 dB in its first frame, and a fade over an
+     * attack that fast is the attack removed.
+     */
+    filter: "atrim=0:0.21,asetpts=PTS-STARTPTS,afade=t=out:st=0.15:d=0.06",
+  },
+  {
+    name: "cardBack",
+    pre: PRE,
+    src: "ui_click_back_1.wav",
+    /**
+     * The way out, in the game's own way-out sound — 18 ms of tick, dry, and
+     * the hottest source in the folder at -0.1 dBFS.
+     *
+     * `ui_click_tab_add`, which the rematch used to land on, is the game's
+     * *element arrives* click: a card offering the fight back on the sound of
+     * something being added to a collection. This is the click the game plays
+     * when a player leaves a screen, which is what the rematch does.
+     *
+     * Out at 50 ms with the last 20 faded, which is 30 ms past a sound that is
+     * over in 18 and exists only so the trim lands in silence rather than on
+     * the noise floor's first sample.
+     */
+    filter: "atrim=0:0.05,asetpts=PTS-STARTPTS,afade=t=out:st=0.03:d=0.02",
   },
 ];
 

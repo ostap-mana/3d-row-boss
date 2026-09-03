@@ -1276,30 +1276,29 @@ export class EndCard extends Container {
     }
 
     /**
-     * A click per rung, climbing.
+     * A sound per part, and the part's own.
      *
      * The card is assembled part by part and, until this, it was assembled in
      * silence: the title sting it used to arrive on is gated off for any card
      * the outcome screen has already stamped, which is every card the director
-     * builds — see `show`'s `stamped`, and sfx.endcardStep, where the sound
-     * itself is argued.
+     * builds — see `show`'s `stamped`, and sfx.endcardPart, where the sounds
+     * themselves are argued.
      *
-     * Counted rather than indexed off the rung, because half the rungs are
-     * conditional — the outcome line and the promise under the wordmark are off
-     * on every card now, the rematch is a defeat's only — and a ladder that
-     * skipped the steps belonging to parts that were never built would climb in
-     * gaps. What the ear is being sold is a mechanism cycling once per part, and
-     * that only works if the steps are consecutive whatever is on the card.
+     * Named rather than counted. This was a rung counter walking a ladder of
+     * one click at five pitches, and the counter was there because half the
+     * rungs are conditional — the outcome line and the promise under the
+     * wordmark are off on every card now, the rematch is a defeat's only — so
+     * an index off the rung would have climbed in gaps. A part that names its
+     * own sound has no ladder to fall off: the wordmark flies in on the game's
+     * panel whoosh, the plate lands on a clack with a sheen over it, the store
+     * row clicks and the way out ticks, whatever else is or is not on the card.
      */
-    let rung = 0;
-    const tick = (heavy) => sfx.endcardStep(rung++, heavy);
-
     if (this.outcome.visible) {
       const oy = this.outcome.y;
       this.outcome.y = oy - 18;
       tween(this.outcome, { alpha: 1 }, 0.24);
       tween(this.outcome, { y: oy }, 0.36, { ease: Ease.backOut });
-      tick();
+      sfx.endcardPart("line");
     }
 
     await delay(0.1);
@@ -1308,13 +1307,13 @@ export class EndCard extends Container {
     this.brand.y = ly - 26;
     tween(this.brand, { alpha: 1 }, 0.28);
     tween(this.brand, { y: ly }, 0.42, { ease: Ease.backOut });
-    tick();
+    sfx.endcardPart("wordmark");
 
     await delay(0.12);
     if (!this.introducing) return;
     if (this.sub.visible) {
       tween(this.sub, { alpha: 1 }, 0.28);
-      tick();
+      sfx.endcardPart("sub");
     }
 
     await delay(0.35);
@@ -1322,9 +1321,10 @@ export class EndCard extends Container {
     const by = this.button.y;
     this.button.y = by + 30;
     tween(this.button, { alpha: 1 }, 0.25);
-    // The plate is the one rung that lands with a body under the click: it is
-    // what the card is for and the only part of it that can be tapped.
-    tick(true);
+    // The plate is the one part that lands with a body under the click, and
+    // now with a sheen over it as well: it is what the card is for and the only
+    // part of it that can be tapped, so it is the heaviest thing on the card.
+    sfx.endcardPart("plate");
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
     if (!this.introducing) return;
 
@@ -1333,7 +1333,7 @@ export class EndCard extends Container {
     const gy = this.badges.y;
     this.badges.y = gy + 14;
     tween(this.badges, { alpha: 1 }, 0.3);
-    tick();
+    sfx.endcardPart("badges");
     await tween(this.badges, { y: gy }, 0.34, { ease: Ease.cubicOut });
     if (!this.introducing) return;
 
@@ -1354,7 +1354,7 @@ export class EndCard extends Container {
       const ry = this.retry.y;
       this.retry.y = ry + 8;
       tween(this.retry, { alpha: 1 }, 0.3);
-      tick();
+      sfx.endcardPart("retry");
       await tween(this.retry, { y: ry }, 0.34, { ease: Ease.cubicOut });
     }
     this.introducing = false;
