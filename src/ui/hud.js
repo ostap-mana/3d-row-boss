@@ -561,12 +561,36 @@ export class Hud extends Container {
       this.calloutSize = Math.max(17, Math.min(box.w * 0.078, 38 * ui));
       this.callout.x = box.cx;
       this.callout.y = layout.board.y;
+      /**
+       * The line the words are not allowed to cross: the top of the grid.
+       *
+       * Centring on `board.y` puts half the type below it, and half of a
+       * thirty point line is about what the plate's own stone border is —
+       * which is why this read as "on the seam" on a phone and quietly
+       * stopped being true on anything bigger. The border is a fraction of
+       * the board and the type is a fraction of the stage, and on a 768
+       * point screen the type is the one that grew: fifty points of it came
+       * down across the first row of gems, so the tutorial line was sitting
+       * on the one thing it was pointing at.
+       *
+       * So the grid's top line is recorded here and shout() sits the words
+       * on top of it, once it knows how tall they came out. See there.
+       */
+      this.calloutFloor =
+        layout.board.y + (layout.board.size - 5 * layout.board.cell) / 2;
+      // How far up it is allowed to climb to buy that clearance. The boss
+      // stands with his feet over the top of the board — see BOSS_OVERLAP —
+      // and a shout in his face is the thing the seam was chosen to avoid.
+      this.calloutCeil = layout.board.y - layout.board.size * 0.1;
     } else {
       // Landscape has no gap, so the callout lives over the boss column —
       // centring it on screen would put it straight through the health bar.
       // The column, which is the board's left edge less wherever the stage
       // starts — on a phone that is the board's own x and this is the line it
       // always was.
+      // Nothing to clear sideways: the shout stands in the boss's column and
+      // the board is off to the right of it. See calloutFloor above.
+      this.calloutFloor = 0;
       const column = layout.board.x - layout.stage.x;
       this.calloutWidth = column * 0.92;
       this.calloutSize = Math.max(16, Math.min(column * 0.17, 34 * ui));
@@ -1092,7 +1116,17 @@ export class Hud extends Container {
       join: "round",
     };
     this.callout.alpha = 0;
+    // Measured at rest — the overshoot below is what it grows from, not what
+    // it settles at, and the clearance is about where it settles.
+    this.callout.scale.set(1);
     fitFont(this.callout, this.calloutWidth || 320, this.calloutSize || 28);
+    // Stood on the grid's top line rather than centred on the plate's edge.
+    // Clamped: on a screen with no room above the board the honest answer is
+    // the seam it already had. See calloutFloor in resize().
+    if (this.calloutFloor) {
+      const clear = this.calloutFloor - this.callout.height / 2;
+      this.callout.y = Math.max(clear, this.calloutCeil);
+    }
     // Modest overshoot: a long headline popping in at 1.6x spills off a 375pt
     // screen for a couple of frames.
     this.callout.scale.set(o.from || 1.25);
@@ -1119,6 +1153,14 @@ export class Hud extends Container {
    * Damage number flying off whatever just got hit.
    * @param {object} [opts] `sign` and `fill` — hero damage comes through here
    *   as a red "-N" so the two directions of damage never read the same.
+   *
+   *   The boss's own numbers carry no sign at all. They used to default to
+   *   "+N", which is the one shape a number climbing off a health bar must not
+   *   have: gold, rising, and prefixed the way healing is written everywhere
+   *   else in the genre — so an ultimate landing for two million read as the
+   *   boss being topped up by it. The fill colour and the minus already tell
+   *   the two directions apart; the plus was carrying no information of its
+   *   own and lying about the rest.
    */
   damage(value, x, y, tier, opts) {
     const o = opts || {};
@@ -1128,7 +1170,7 @@ export class Hud extends Container {
         (this.layout ? this.layout.ui : 1),
     );
     const label = new Text({
-      text: (o.sign || "+") + comma(value),
+      text: (o.sign === undefined ? "" : o.sign) + comma(value),
       style: {
         fontFamily: FONT,
         fontSize: size,
