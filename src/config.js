@@ -456,7 +456,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.30 -> 0.85   1.55->1.70   2.80 -> 3.40
+   *     attack      0.30 -> 0.85   1.55->1.70   2.80 -> 3.17
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -515,10 +515,11 @@ export const DIFFICULTY = {
    *       40%   medium       x1.55   23%   30%           28%
    *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
    *       12%   super hard   x2.80   42%   15%            9%
-   *        0%   super hard   x3.40   51%   11%            6%
+   *        0%   super hard   x3.17   48%   11%            6%
    *
-   * The smash on that last line lands for 92% of a hero bar. That is the swing
-   * that ends runs, and it is meant to be.
+   * The smash on that last line lands for 86% of a hero bar. That is the swing
+   * that ends runs, and it is meant to be — see the last keyframe, which is
+   * where the 92% it used to be was let out a little.
    *
    * The last two columns are the other half of what the ending is for. An
    * ultimate opens worth slightly more than the best match on the board and
@@ -779,7 +780,7 @@ export const DIFFICULTY = {
        * "a couple of percent" and into "why did I press that".
        *
        * The boss's temper keeps climbing through it — `attack` still runs 2.9
-       * to 3.4 — so the last tenth is not a plateau in difficulty. It is a
+       * to 3.17 — so the last tenth is not a plateau in difficulty. It is a
        * plateau in exactly one thing: how much a hit is worth.
        *
        * It also hands the board a little back, and that is the honest cost of
@@ -789,7 +790,31 @@ export const DIFFICULTY = {
        * fight.
        */
       { p: 0.9, attack: 2.9, resist: 0.38, obsidian: 8, hold: 12 },
-      { p: 1.0, attack: 3.4, resist: 0.38, obsidian: 9, hold: 12 },
+      /**
+       * The killing blow, and the one place the last quarter was let out.
+       *
+       * 3.40 before, and the whole of what came off is here rather than spread
+       * across the zone: 0.88 and 0.9 are untouched, so the wall arrives with
+       * the same teeth and it is only the very end of the tail that is softer.
+       * Measured on the index the curve is read by — `attack/0.30` over
+       * `resist`, which is what a keyframe is worth against the opening swing —
+       * the fight now tops out at x27.8 where it topped out at x29.8, and the
+       * last tenth rises from x25.4 to that rather than to thirty.
+       *
+       * `attack` and not `resist`, and the difference is the whole reason this
+       * is the number that moved. `resist` is how much of the player's damage
+       * lands, so touching it moves the kill time and every figure in the
+       * bracket table above with it; `attack` is only ever how hard the boss
+       * hits back. The bar still needs 1.34 bars of damage to empty and an
+       * ultimate is still worth its 2.5% down here — nothing about the grind
+       * changed. What changed is that the swing which ends runs takes 86% of a
+       * hero bar rather than 92%, and the rake 48% rather than 51%.
+       *
+       * The brackets above were simulated at 3.40, so read them as the floor
+       * under this build rather than as its measurement: a softer killing blow
+       * can only move a wipe into a win, and it moves nothing else.
+       */
+      { p: 1.0, attack: 3.17, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
