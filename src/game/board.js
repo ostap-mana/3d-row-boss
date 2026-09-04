@@ -52,6 +52,104 @@ const REVERT_TIME = 0.2;
 /** How long the shown board takes to slide back onto the model's cells. */
 const PREVIEW_HOME = 0.18;
 
+/**
+ * How far the stones follow the finger before the swipe commits, in cells.
+ *
+ * The board's last cut, and the one that was never going to be spotted as a
+ * cut because it looks like nothing at all: the stone under the finger did not
+ * move. A gesture crossed a third of a cell with the whole grid sitting
+ * perfectly still, the threshold tripped, and only then did anything travel —
+ * so the first third of every swipe was the board ignoring the player and the
+ * rest was the board catching up. The tutorial hand rode the finger from the
+ * first pixel while the stone it was holding sat still, which is the version
+ * of this that is hardest to unsee once noticed.
+ *
+ * So the pair leans. One to one with the finger, both stones together, along
+ * the one axis the swipe can commit to, capped just short of the SWIPE_RATIO
+ * that fires it. What that buys is not the two dozen pixels of travel — it is
+ * that the swap then starts from where the stones already are, so there is no
+ * frame anywhere in a move where anything is in a place the finger did not put
+ * it.
+ */
+const LEAN_MAX = 0.3;
+
+/**
+ * What a stone gives when the finger drags it at nothing.
+ *
+ * The edge of the board, or a neighbour the boss has encased. A tenth of a
+ * cell is a stone that answers and does not go, which is the difference
+ * between a board that refused the swipe and a board that never felt it.
+ */
+const LEAN_REFUSE = 0.1;
+
+/** How long a lean the player did not spend takes to settle back. */
+const LEAN_HOME = 0.14;
+
+/**
+ * How closely a leaning stone chases the finger, as a time constant.
+ *
+ * The finger's own position, written straight onto the stone, is the version
+ * of this with no lag in it at all — and it is the wrong one, because it is
+ * also a teleport waiting for a reason. The stone is not always in its socket
+ * when the finger takes hold of it: the pair from a cancelled lesson is still
+ * gliding home, an abandoned gesture's stone is still settling back, and a
+ * finger that turns a corner leaves an offset on the axis it just gave up.
+ * Each of those is a jump of up to a whole cell, written on the one frame the
+ * player is guaranteed to be looking at the stone.
+ *
+ * Chased instead, and the whole family of them stops existing: two hundredths
+ * of a second is half the remaining distance every frame at 60Hz, so a stone
+ * closes on anything within three or four frames and there is no discontinuity
+ * anywhere in the gesture. What it costs is about a frame and a half of lag
+ * behind a fast flick, which is a stone that has weight rather than a stone
+ * that is glued to the glass — and a flick that outruns it hands the travel
+ * straight over to the swap, which is what should be animating a flick anyway.
+ */
+const LEAN_CHASE = 0.022;
+
+/**
+ * How far ahead the other axis has to be before a gesture changes its mind.
+ *
+ * A finger travelling diagonally crosses the x == y line several times on the
+ * way, and picking the dominant axis fresh every frame made the pair flick
+ * between two directions. Once a direction is chosen it is defended: the other
+ * axis has to be clearly ahead, not merely ahead. The swipe then commits to
+ * the direction the stones were already leaning in, which is the only reason
+ * the lean is allowed to decide this at all.
+ */
+const LEAN_HYST = 1.4;
+
+/** The swell of a cleared stone, and its collapse. */
+const POP_SWELL = 0.1;
+const POP_COLLAPSE = 0.17;
+
+/**
+ * How much of that collapse the board waits out before it drops the stones
+ * above into the hole.
+ *
+ * The pop and the collapse used to be strictly in sequence — every stone gone
+ * to the last frame of its shrink, and only then did anything fall. Which is
+ * a beat of stillness in the middle of the one moment the genre is built on,
+ * and a cascade made of those reads as a list of steps rather than as a board
+ * coming apart. At six tenths the cleared stone is a speck at seven percent of
+ * its size and half faded; the stones above it are already moving, and the
+ * clear and the collapse are one event again.
+ */
+const POP_HANDOVER = 0.6;
+
+/**
+ * Spare stones kept in the pool.
+ *
+ * A refill takes gems out of the pool and a clear puts them back, and the two
+ * used to be exactly in step because the collapse waited for the last frame of
+ * the pop. They are not in step any more — see POP_HANDOVER — so for a tenth
+ * of a second in the middle of every cascade the pool is empty and obtainGem
+ * builds GemViews instead: a Graphics, a Sprite and a texture lookup apiece,
+ * on the exact frame the eye is following stones down the board. Eight is more
+ * than any one rung of a cascade can ask for.
+ */
+const POOL_SPARE = 8;
+
 /** Stand-in dropped into `locks` while the boss is looking ahead. */
 const PROBE = { probe: true };
 
@@ -166,7 +264,8 @@ export class Board extends Container {
      * same reason it exists — the grid is already in the state this describes.
      */
     this.pendingMove = null;
-    /** Something is writing the grid: a swap, a cascade, obsidian. See claim(). */
+    /** Resolvers handed out by whenQuiet, answered when the board lets go. */
+    this.quiet = [];
     this.busy = false;
     /** Game-clock stamp of the last reshuffle — see SHUFFLE_GAP. */
     this.lastShuffle = -Infinity;
@@ -180,14 +279,6 @@ export class Board extends Container {
      * is not the board. See previewSwap.
      */
     this.preview = null;
-    /**
-     * Gems are travelling home from a preview — see glideGems.
-     *
-     * Read by everything that is about to animate the same stones, because a
-     * travel that starts from a moving target lands off the socket.
-     */
-    this.homing = false;
-    this.homeToken = 0;
     this.previewToken = 0;
 
     /** Hooks the director subscribes to. */
@@ -216,8 +307,17 @@ export class Board extends Container {
     this.selected = null;
     /** The stone the finger is currently holding down — see press(). */
     this.pressed = null;
+    /**
+     * The pair the finger is currently pulling apart, or null — see leanTo.
+     *
+     * Holds the cells it borrowed the stones from rather than the positions it
+     * moved them to, so putting them back asks the model where they belong
+     * instead of trusting a point read half a gesture ago.
+     */
+    this.lean = null;
 
     this.build();
+    this.prewarm();
   }
 
   /* ------------------------------------------------------------ model init */
@@ -270,6 +370,21 @@ export class Board extends Container {
     // owed to the player if it does.
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) this.grid[r][c].setType(START_BOARD[r][c]);
+    }
+  }
+
+  /**
+   * Put spare stones in the pool before anything needs one.
+   *
+   * Built at boot, where a few objects cost nothing, rather than during the
+   * first cascade that outruns its own recycling. See POOL_SPARE.
+   */
+  prewarm() {
+    for (let i = 0; i < POOL_SPARE; i++) {
+      const gem = new GemView(0);
+      gem.visible = false;
+      this.gemLayer.addChild(gem);
+      this.pool.push(gem);
     }
   }
 
@@ -333,6 +448,8 @@ export class Board extends Container {
     // that have just moved underneath it.
     this.preview = null;
     this.previewToken++;
+    // Whatever the finger was holding, it is not holding it at this size.
+    this.lean = null;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const gem = this.grid[r][c];
@@ -507,10 +624,23 @@ export class Board extends Container {
    */
   press(cell) {
     this.letGo();
+    // Not while the board is writing itself. A stone halfway through a
+    // collapse is not the player's to pick up, and taking its scale over would
+    // leave it wearing the shape its fall was in the middle of giving it.
+    if (this.busy) return;
     if (this.locks[cell.r] && this.locks[cell.r][cell.c]) return;
     const gem = this.grid[cell.r][cell.c];
     if (!gem || gem.destroyed) return;
     this.pressed = gem;
+    // Brought to the front for as long as the finger has it. A stone lifted a
+    // tenth inside its own socket overlapped nothing and the display order
+    // could be left alone; one that travels a third of a cell out of it passes
+    // over the stone it is heading for, and the grid is dealt row by row — so
+    // half the board would slide *under* its neighbour. Nothing in here reads
+    // the child order: the grid holds the stones themselves, not indices.
+    if (gem.parent) {
+      gem.parent.setChildIndex(gem, gem.parent.children.length - 1);
+    }
     killTweensOf(gem.scale);
     tween(gem.scale, { x: 1.1, y: 1.1 }, 0.1, { ease: Ease.backOutHard });
   }
@@ -526,13 +656,195 @@ export class Board extends Container {
    *
    * `animateSwap` and `popCells` both take the scale over from here on their
    * first frame, so a stone that is on its way somewhere is never fought over.
+   *
+   * The size is only half of it now. A touch also leaves the pair standing
+   * wherever the gesture last dragged them, and that is put back here too —
+   * see homeLean.
    */
   letGo() {
+    this.homeLean();
     const gem = this.pressed;
     this.pressed = null;
     if (!gem || gem.destroyed) return;
     killTweensOf(gem.scale);
     tween(gem.scale, { x: 1, y: 1 }, 0.16, { ease: Ease.backOut });
+  }
+
+  /**
+   * Carry the pair the finger is dragging, and say which way it is going.
+   *
+   * Called from every pointermove before the swipe has committed to anything —
+   * see LEAN_MAX for why the board is not allowed to sit still through that
+   * part of a gesture. Positions are written rather than tweened: the finger
+   * is the animation here, and a curve between the two is exactly the lag this
+   * exists to take out.
+   *
+   * Both stones move, in opposite directions, along the one axis a swap can
+   * happen on. A pair that leans is already saying what the swipe will do,
+   * which is the same job the opening lesson does with a demo hand — except
+   * this one is answering a gesture the player is making rather than proposing
+   * one they are not.
+   *
+   * @returns {?{r:number,c:number}} the direction the swipe would commit to,
+   *          or null while the gesture is still inside the deadzone
+   */
+  leanTo(dx, dy) {
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    // A finger that has not moved has no direction to have an opinion about.
+    if (ax < 1 && ay < 1) return null;
+
+    // Chosen once and then defended — see LEAN_HYST.
+    const held = this.lean;
+    const horiz = held
+      ? held.horiz
+        ? ay <= ax * LEAN_HYST
+        : ax > ay * LEAN_HYST
+      : ax > ay;
+    const dir = horiz
+      ? { r: 0, c: dx > 0 ? 1 : -1 }
+      : { r: dy > 0 ? 1 : -1, c: 0 };
+
+    const start = this.drag.start;
+    const gem = this.pressed;
+    // Nothing to carry: a press on a block, or on a board that is busy writing
+    // itself. The swipe still gets its direction, because attemptSwap has an
+    // answer for both — a nudge, and nothing at all, respectively.
+    if (!gem || this.busy) return dir;
+
+    const to = { r: start.r + dir.r, c: start.c + dir.c };
+    const open =
+      this.inBounds(to) &&
+      !this.isLocked(start.r, start.c) &&
+      !this.isLocked(to.r, to.c);
+    const partner = open ? this.grid[to.r][to.c] : null;
+
+    if (!held || held.gem !== gem) {
+      /**
+       * Only a stone that is home may be picked up.
+       *
+       * A lesson that has just been cancelled is still carrying its two stones
+       * back — see glideGems — and for those two tenths of a second the model
+       * and the screen disagree about which stone is standing on this cell.
+       * The model is what press and this read, so leaning during that window
+       * drags a gem in from a cell away while the one actually under the
+       * finger sits still: the single worst thing the board could do with the
+       * player's first ever touch, which is exactly when it would happen.
+       *
+       * Nothing is lost by waiting. The gesture leans a few frames later, on
+       * the stone the player is looking at, and a swipe that fires before then
+       * still moves the right pair into the right sockets — see animateSwap.
+       */
+      const at = this.cellPos(start.r, start.c);
+      if (Math.hypot(gem.x - at.x, gem.y - at.y) > this.cell * 0.25) {
+        return dir;
+      }
+      // A different stone: whatever the last gesture borrowed goes back before
+      // this one picks anything up.
+      this.homeLean();
+      killTweensOf(gem);
+      this.lean = {
+        gem,
+        cell: start,
+        partner: null,
+        pcell: null,
+        horiz,
+        off: 0,
+      };
+    }
+    const lean = this.lean;
+    lean.horiz = horiz;
+    if (lean.partner !== partner) {
+      // The finger turned a corner, or dragged onto a block. The stone the old
+      // direction had borrowed is nobody's now.
+      this.homeStone(lean.partner, lean.pcell);
+      lean.partner = partner;
+      lean.pcell = partner ? to : null;
+      if (partner) killTweensOf(partner);
+    }
+
+    // Clamped rather than eased towards the cap: one to one with the finger is
+    // the whole idea, and the cap sits four hundredths of a cell short of the
+    // threshold that fires the swipe, so the flat part of it lasts a couple of
+    // frames at most. Recorded rather than applied — the stones are carried
+    // there a frame at a time by updateLean.
+    const reach = this.cell * (partner ? LEAN_MAX : LEAN_REFUSE);
+    const raw = horiz ? dx : dy;
+    lean.off = Math.max(-reach, Math.min(reach, raw));
+    return dir;
+  }
+
+  /**
+   * Carry the leaning pair towards where the finger has asked for them.
+   *
+   * A frame's worth of the distance left, on the board's own clock, rather
+   * than the whole of it on the pointer's — see LEAN_CHASE. Cheap enough to
+   * run unconditionally: there is at most one pair leaning at any moment and
+   * most frames have none.
+   *
+   * The cells are checked, not trusted, for the same reason homeStone checks
+   * them: a wave of obsidian or a reshuffle can deal one of these stones
+   * somewhere else while the finger is still down, and it belongs to whatever
+   * put it there.
+   */
+  updateLean(dt) {
+    const lean = this.lean;
+    if (!lean) return;
+    const k = 1 - Math.exp(-dt / LEAN_CHASE);
+
+    const carry = (gem, cell, sign) => {
+      if (!gem || !cell || gem.destroyed) return;
+      if (this.grid[cell.r][cell.c] !== gem) return;
+      const p = this.cellPos(cell.r, cell.c);
+      const off = lean.off * sign;
+      const tx = p.x + (lean.horiz ? off : 0);
+      const ty = p.y + (lean.horiz ? 0 : off);
+      gem.x += (tx - gem.x) * k;
+      gem.y += (ty - gem.y) * k;
+    };
+
+    carry(lean.gem, lean.cell, 1);
+    carry(lean.partner, lean.pcell, -1);
+  }
+
+  /**
+   * Put back whatever the last lean borrowed.
+   *
+   * Travelled, not written. This is the answer to a gesture the player
+   * abandoned — a finger lifted without a swipe, a drag that turned out to be
+   * a tap — and a pair of stones arriving back in their sockets on a single
+   * frame is the cut the lean exists to remove, played backwards.
+   *
+   * Safe to call at any time, which is why every path out of a touch does. A
+   * swap, a fall or a shuffle taking the same stones somewhere else kills what
+   * this starts on its own first frame — see animateSwap.
+   */
+  homeLean() {
+    const lean = this.lean;
+    if (!lean) return;
+    this.lean = null;
+    this.homeStone(lean.gem, lean.cell);
+    this.homeStone(lean.partner, lean.pcell);
+  }
+
+  /**
+   * One stone back onto the cell it was borrowed from, if it is still there.
+   *
+   * The cell is checked rather than trusted. A wave of obsidian, a reshuffle
+   * or a cascade can land between the lean and the finger coming off it, and a
+   * stone the model has since dealt somewhere else belongs to whatever put it
+   * there — the last thing that stone needs is a tween pulling it back to
+   * where it used to live.
+   */
+  homeStone(gem, cell) {
+    if (!gem || !cell || gem.destroyed) return;
+    if (this.grid[cell.r][cell.c] !== gem) return;
+    const p = this.cellPos(cell.r, cell.c);
+    // Already home, which is most calls: a tween over no distance is a frame
+    // of stall and a killTweensOf nobody asked for.
+    if (Math.abs(gem.x - p.x) < 0.5 && Math.abs(gem.y - p.y) < 0.5) return;
+    killTweensOf(gem);
+    tween(gem, { x: p.x, y: p.y }, LEAN_HOME, { ease: Ease.quadOut });
   }
 
   handleMove(e) {
@@ -541,13 +853,15 @@ export class Board extends Container {
     if (this.onTouchMove) this.onTouchMove(p.x, p.y);
     const dx = p.x - this.drag.x;
     const dy = p.y - this.drag.y;
+    // The stones come with the finger from the first pixel, and the direction
+    // the swipe commits to is the one they are already leaning in — see
+    // leanTo. Read before the threshold below, because the whole point of it
+    // is to answer the part of the gesture that has not fired yet.
+    const dir = this.leanTo(dx, dy);
     const threshold = this.cell * SWIPE_RATIO;
+    if (!dir) return;
     if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
 
-    const dir =
-      Math.abs(dx) > Math.abs(dy)
-        ? { r: 0, c: dx > 0 ? 1 : -1 }
-        : { r: dy > 0 ? 1 : -1, c: 0 };
     const target = {
       r: this.drag.start.r + dir.r,
       c: this.drag.start.c + dir.c,
@@ -675,11 +989,6 @@ export class Board extends Container {
   async attemptSwap(a, b) {
     // Whatever the lesson was showing, the player is answering it now.
     this.cancelPreview();
-    // A glide from an earlier lesson may still be carrying stones home, and
-    // this is about to read two of their positions to travel between. Killed
-    // and placed, because a swap that starts from a moving target ends up
-    // sitting between two sockets for the rest of the run.
-    if (this.homing) this.snapGems();
     if (this.busy) return;
 
     // Encased gems do not budge. Same soft feedback as any other bad swap:
@@ -696,14 +1005,23 @@ export class Board extends Container {
 
     const ga = this.grid[a.r][a.c];
     const gb = this.grid[b.r][b.c];
-    await this.animateSwap(ga, gb, SWAP_TIME);
+    // Told where the two stones are going, rather than left to work it out
+    // from where they are standing. They are very often not standing on their
+    // sockets — the finger has just leaned them a third of a cell towards each
+    // other, and a lesson may still be gliding one of them home — and a swap
+    // that reads its destinations off the pair's own positions inherits every
+    // one of those offsets and leaves the board a few pixels crooked for the
+    // rest of the run.
+    const pa = this.cellPos(b.r, b.c);
+    const pb = this.cellPos(a.r, a.c);
+    await this.animateSwap(ga, gb, SWAP_TIME, pa, pb);
     this.swapModel(a, b);
 
     if (this.findMatches().length === 0) {
       // Soft failure: no red, no buzzer — just put it back and re-hint.
       this.swapModel(a, b);
       sfx.reject();
-      await this.animateSwap(ga, gb, REVERT_TIME);
+      await this.animateSwap(ga, gb, REVERT_TIME, pb, pa);
       this.shrug(ga, gb);
       this.busy = false;
       this.inputEnabled = true;
@@ -778,12 +1096,14 @@ export class Board extends Container {
    * cell from where they belong and the model already agrees with where they
    * are going, so they can be allowed to get there.
    *
-   * Not for callers that are about to move the same stones themselves — see
-   * the homing flag, and attemptSwap, which snaps instead.
+   * Nothing has to be told this is running, and nothing is. Everything that
+   * moves a stone — a swap, a fall, a shuffle, the finger — kills whatever was
+   * writing the one it is about to take and travels to the cell the model
+   * gives it, so a glide is either taken over cleanly or left alone to finish.
+   * That invariant is what replaced the flag this used to raise, and the
+   * board-wide snap every claim used to open with.
    */
   glideGems(dur) {
-    const token = ++this.homeToken;
-    this.homing = true;
     const jobs = [];
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -809,17 +1129,15 @@ export class Board extends Container {
         );
       }
     }
-    Promise.all(jobs).then(() => {
-      // The token, not the flag: a second glide, or a snap, started while this
-      // one was in flight and owns the answer now.
-      if (token === this.homeToken) this.homing = false;
-    });
+    return Promise.all(jobs);
   }
 
   /** Every gem back on its own cell, killing whatever was moving it. */
   snapGems() {
-    this.homeToken++;
-    this.homing = false;
+    // Including the pair a finger is holding: their positions are about to be
+    // written, so the tween that would have carried them back has nothing left
+    // to carry. The finger is welcome to lean them again on its next move.
+    this.lean = null;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const gem = this.grid[r][c];
@@ -937,10 +1255,39 @@ export class Board extends Container {
    * swell is two chained tweens back to 1 rather than a curve that overshoots:
    * `previewSwap` runs this to show the lesson's move and runs it again to put
    * it back, so anything left behind here accumulates.
+   *
+   * @param {object} ga the stone travelling to `pa`
+   * @param {object} gb the stone travelling to `pb`
+   * @param {number} dur seconds
+   * @param {{x:number,y:number}} [pa] where `ga` is going; defaults to where
+   *        `gb` is standing, which is the lesson's case — an on-socket pair
+   *        trading places
+   * @param {{x:number,y:number}} [pb] where `gb` is going
    */
-  animateSwap(ga, gb, dur) {
-    const ax = ga.x;
-    const ay = ga.y;
+  animateSwap(ga, gb, dur, pa, pb) {
+    const to = pa || { x: gb.x, y: gb.y };
+    const back = pb || { x: ga.x, y: ga.y };
+
+    /**
+     * One stone, on its way, off whatever was moving it before.
+     *
+     * The swap owns both of them from here: a lean the finger left behind, a
+     * lesson gliding home, the tilt off a refusal a moment ago. Killed rather
+     * than fought with, because two tweens on one position is the one thing in
+     * here that reads as a dropped frame — and because the destination is a
+     * cell rather than the other stone's position, the travel can start from
+     * wherever the stone actually is and still land in its socket.
+     *
+     * The tilt comes home with it. A stone still carrying a shrug when the
+     * next swipe picks it up used to keep that angle for the rest of the run,
+     * since killing the shrug leaves it wherever it had sprung back to.
+     */
+    const travel = (gem, dest) => {
+      killTweensOf(gem);
+      return tween(gem, { x: dest.x, y: dest.y, rotation: 0 }, dur, {
+        ease: Ease.backOutSoft,
+      });
+    };
 
     const carry = (gem) => {
       killTweensOf(gem.scale);
@@ -952,8 +1299,8 @@ export class Board extends Container {
     };
 
     return Promise.all([
-      tween(ga, { x: gb.x, y: gb.y }, dur, { ease: Ease.backOutSoft }),
-      tween(gb, { x: ax, y: ay }, dur, { ease: Ease.backOutSoft }),
+      travel(ga, to),
+      travel(gb, back),
       carry(ga),
       carry(gb),
     ]);
@@ -1059,6 +1406,25 @@ export class Board extends Container {
   /* -------------------------------------------------------------- resolving */
 
   /**
+   * Something is writing the grid: a swap, a cascade, obsidian. See claim().
+   *
+   * An accessor rather than a plain field because letting go of the board is
+   * an event other beats are waiting on, and they used to find out about it by
+   * asking every fortieth of a second. See whenQuiet.
+   */
+  get busy() {
+    return this.working;
+  }
+
+  set busy(v) {
+    this.working = v;
+    if (v || this.quiet.length === 0) return;
+    const waiting = this.quiet;
+    this.quiet = [];
+    waiting.forEach((resolve) => resolve());
+  }
+
+  /**
    * Settles once nothing is writing the grid.
    *
    * For a reader rather than a writer: the boss scores the board before it aims
@@ -1067,7 +1433,13 @@ export class Board extends Container {
    * looking at.
    */
   async whenQuiet() {
-    while (this.busy) await delay(0.04);
+    // Answered on the frame the board lets go rather than on the next poll —
+    // see the busy setter. A fortieth of a second of nothing is not long to
+    // wait and the seam between two beats is a very visible place to wait it:
+    // the boss's wave landing on top of a cascade that has just finished is
+    // exactly this handover, and it used to have a gap in the middle of it.
+    // The loop stands because a second claim can get in first.
+    while (this.busy) await new Promise((resolve) => this.quiet.push(resolve));
   }
 
   /**
@@ -1102,12 +1474,12 @@ export class Board extends Container {
    */
   async claim(job) {
     await this.whenQuiet();
-    // A preview glide may still be carrying stones home (see glideGems), and
-    // everything claimed from here animates those same stones off the position
-    // they are standing on. Placed first, because two owners on one gem's
-    // position is a stutter rather than a slower move — and by the time a
-    // claim gets in, a glide is a fifth of a second old at most.
-    if (this.homing) this.snapGems();
+    // Nothing is placed on the way in. Every beat that runs from here moves
+    // the stones it is going to move by killing whatever was writing them and
+    // travelling to the cell the model hands it — see animateSwap, animateFalls
+    // and slideShuffle — so a lesson still gliding home, or a pair the finger
+    // has leaned, is taken over cleanly rather than snapped out from under the
+    // one person watching it.
     this.busy = true;
     try {
       return await job();
@@ -1142,7 +1514,10 @@ export class Board extends Container {
         this.applyGravity();
         this.refill(step);
         await this.animateFalls();
-        await delay(0.02);
+        // No pause between the rungs. A cascade is one collapse that keeps
+        // finding more to clear, and the frame of stillness that used to be
+        // inserted between its steps is most of what made it read as a list of
+        // them instead.
       }
       await this.ensurePlayable();
       return step;
@@ -1183,9 +1558,10 @@ export class Board extends Container {
     mr /= cells.length;
     mc /= cells.length;
 
-    const jobs = cells.map((cell) => {
+    const gone = [];
+    cells.forEach((cell) => {
       const gem = this.grid[cell.r][cell.c];
-      if (!gem) return Promise.resolve();
+      if (!gem) return;
       this.grid[cell.r][cell.c] = null;
       if (this.onPop) {
         this.onPop(this.x + gem.x, this.y + gem.y, gem.type);
@@ -1202,14 +1578,26 @@ export class Board extends Container {
       const spin = ((cell.r + cell.c) % 2 ? 1 : -1) * 0.55;
 
       gem.glow.alpha = 1;
-      return tween(gem.scale, { x: 1.42, y: 1.42 }, 0.1, {
+      const swell = tween(gem.scale, { x: 1.42, y: 1.42 }, POP_SWELL, {
         delay: reach * 0.028,
         ease: Ease.backOutHard,
-      })
+      });
+      // What the board waits for: the swell, and as much of the collapse as it
+      // takes for the stone to be out of the way. See POP_HANDOVER.
+      gone.push(swell.then(() => delay(POP_COLLAPSE * POP_HANDOVER)));
+      // Fired and then on nobody's clock. The last frames of a stone that is
+      // already a speck are not something the collapse above it has to be held
+      // up for, and holding it up for them is what put a beat of stillness in
+      // the middle of every match.
+      swell
         .then(() =>
           Promise.all([
-            tween(gem.scale, { x: 0, y: 0 }, 0.17, { ease: Ease.expoIn }),
-            tween(gem, { rotation: spin }, 0.17, { ease: Ease.quadIn }),
+            tween(gem.scale, { x: 0, y: 0 }, POP_COLLAPSE, {
+              ease: Ease.expoIn,
+            }),
+            tween(gem, { rotation: spin }, POP_COLLAPSE, {
+              ease: Ease.quadIn,
+            }),
             // Held opaque for the first half and then gone: a stone that fades
             // out from the frame it started shrinking on is a stone that was
             // never there, and the shrink is the part worth watching.
@@ -1219,7 +1607,7 @@ export class Board extends Container {
         .then(() => this.recycle(gem));
     });
     this.ripple(cells);
-    await Promise.all(jobs);
+    await Promise.all(gone);
   }
 
   /**
@@ -1433,7 +1821,14 @@ export class Board extends Container {
       const p = this.cellPos(f.r, f.c);
       const dist = Math.abs(f.gem.y - p.y) / this.cell;
       const dur = Math.min(0.46, 0.19 + dist * 0.058);
-      f.gem.x = p.x;
+      // This fall owns the stone. The x used to be written flat on the frame
+      // the drop started, which was harmless while nothing else could move a
+      // stone sideways and is not any more: one the finger had leaned out of
+      // its socket, or one still gliding home from a lesson, was put back on
+      // its column in a single frame and then dropped. Carried on the fall's
+      // own curve instead — gravity moves nothing sideways, so for nearly
+      // every stone this is a tween over no distance at all.
+      killTweensOf(f.gem);
       /**
        * How hard it lands, off how far it fell.
        *
@@ -1468,7 +1863,9 @@ export class Board extends Container {
         ease: Ease.quadIn,
       });
 
-      return tween(f.gem, { y: p.y }, dur, { ease: Ease.quadIn }).then(() =>
+      return tween(f.gem, { x: p.x, y: p.y, rotation: 0 }, dur, {
+        ease: Ease.quadIn,
+      }).then(() =>
         // Set on the frame of the landing and sprung back, rather than eased
         // into over sixty milliseconds — see punch in core/tween.js. Easing
         // into a squash is a stone breathing; arriving in one is a stone
@@ -1809,6 +2206,9 @@ export class Board extends Container {
 
   /** Write the blocks into the model and dim whatever they trap. */
   encase(cells) {
+    // A stone the finger has dragged out of one of these cells is about to be
+    // trapped in it. Put back first, or the block forms over the gap it left.
+    this.homeLean();
     const made = [];
     cells.forEach((cell) => {
       if (!this.inBounds(cell) || this.isLocked(cell.r, cell.c)) return;
@@ -1888,13 +2288,22 @@ export class Board extends Container {
     await Promise.all(jobs);
   }
 
-  updateLocks(dt) {
+  /**
+   * The board's frame: the blocks breathing, and the pair under the finger.
+   *
+   * Was updateLocks, when the blocks were the only thing in here that moved
+   * on its own. The lean is the second — it is answering a pointer that fires
+   * on its own schedule, and a chase that only advances when an event happens
+   * stalls halfway home the moment a finger stops moving.
+   */
+  update(dt) {
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const lock = this.locks[r][c];
         if (lock) lock.update(dt);
       }
     }
+    this.updateLean(dt);
   }
 
   /* ------------------------------------------------------------------- fx */

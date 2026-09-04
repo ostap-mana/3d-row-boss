@@ -78,17 +78,19 @@ export function ctaClick(source) {
   }, 1200);
 }
 
-/** Meta wants an explicit readiness ping, everyone else ignores it. */
+/**
+ * Meta wants an explicit readiness ping, everyone else ignores it.
+ *
+ * MRAID used to be answered here too, with an empty listener on its `ready`
+ * event — which did nothing, because MRAID's readiness is not something the
+ * creative reports, it is something the creative waits for. That wait lives in
+ * net/mraid.js now, where the things that actually depend on it are.
+ */
 export function signalReady() {
   const w = window;
   try {
     if (w.FbPlayableAd && typeof w.FbPlayableAd.onReady === "function") {
       w.FbPlayableAd.onReady();
-    }
-    if (typeof w.mraid !== "undefined") {
-      if (w.mraid.getState && w.mraid.getState() === "loading") {
-        w.mraid.addEventListener("ready", () => {});
-      }
     }
   } catch (e) {
     /* wrapper missing or half-implemented — nothing to do */

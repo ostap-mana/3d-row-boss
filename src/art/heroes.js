@@ -1117,14 +1117,14 @@ export class HeroCard extends Container {
    * adopt either. Between them, calling this on every card whenever a sheet
    * lands is safe and cheap, which is why the row simply does.
    *
-   * `ultLit` is deliberately not touched. A card charged in the fraction of a
-   * second before its sheet arrived is a card mid-fallback — the spin is the
-   * loop, faster, and it owns the sprite it does not have — so it keeps the run
-   * it started and picks the border up on the next charge. The alternative is
-   * lighting a border under a burst that is already playing, which is a texture
-   * swap and a re-fit in the middle of an animation. Deferred art lands inside
-   * the first second and nothing can charge that fast, so this is a rule about
-   * a case rather than a case that happens.
+   * A card that is *already* charged is lit from here, and that is not the edge
+   * case it reads as — it is the opening. DIFFICULTY.chargeStart deals the demo
+   * hero at full, so applyReadyState runs in the constructor, a frame before any
+   * sheet exists, and its `if (this.ultBorder && this.ultArt)` finds neither. It
+   * set `ultLit` while the sheets were decoded ahead of the first frame; since
+   * they moved behind it, nothing lit that card until it had been spent and
+   * charged again. Which is to say the one card the hint hand points at stood
+   * there charged and dark for the whole of the demo.
    */
   adoptUltArt() {
     if (this.ultBorder || this.ultSlot === undefined) return;
@@ -1159,6 +1159,15 @@ export class HeroCard extends Container {
         this.ultGrow,
       );
     }
+
+    // Through lightUlt rather than by hand, so what goes on is the loop at the
+    // loop's own size — `ultShown` above is the burst for any element that
+    // shipped one without a loop, and lightUlt is the one place that knows to
+    // wear the other. `ultFlaring` cannot be set on a card that had no sprite
+    // until three lines ago, because flareUlt returns on exactly that; it is
+    // checked anyway, because the rule in this file is that the sprite has one
+    // owner, not that this path happens to reach it first.
+    if (this.ready && !this.ultFlaring) this.lightUlt();
   }
 
   resize(w, h) {

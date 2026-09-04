@@ -1312,6 +1312,16 @@ export class Coach extends Container {
 
     // A filled dart with a dark rim, because the seam is half one gem and half
     // the next and the arrow has to survive both.
+    //
+    // Filled in the travelling stone's own light, like the painted arrow it is
+    // standing in for. It used to be white — the one mark this file drew in no
+    // element's colour, on a board where the rings beside it, the frames round
+    // the run and the hand holding the gem are all in the element's. Against
+    // six coloured marks a white one does not read as the plain version of the
+    // arrow, it reads as something else entirely. GEM_LIGHT is pale enough to
+    // carry a filled shape, and the dark rim below is what holds it off the
+    // two discs it lies across. An encased cell has no light of its own and
+    // still comes through here white — see the top of lesson().
     const ux = Math.cos(arrow.rotation);
     const uy = Math.sin(arrow.rotation);
     // `along` runs with the travel and `across` square to it, so one set of
@@ -1348,6 +1358,6 @@ export class Coach extends Container {
       join: "round",
     });
     g.poly(dart, true);
-    g.fill({ color: 0xffffff, alpha: 0.97 });
+    g.fill({ color, alpha: 0.97 });
   }
 }

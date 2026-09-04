@@ -2,6 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      The container's own API — and the only request this one file is allowed
+      to make. See src/net/mraid.js: the SDK the ad plays inside intercepts
+      this URL and answers it with its own build, and a few of them inject
+      nothing unless it is asked for. First in the head and not deferred,
+      because nothing may read window.mraid before it exists. Standalone it
+      404s, which is silent, and is the case every path in net/cta.js covers.
+    -->
+    <script src="mraid.js"></script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"

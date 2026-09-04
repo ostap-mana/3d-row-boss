@@ -59,6 +59,7 @@ import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
+import { mraidReport, watchViewable } from "./net/mraid.js";
 import {
   audioSleep,
   installAudioUnlock,
@@ -162,6 +163,7 @@ async function boot() {
     loadCardFrame(),
     loadHeroAvatars(),
     loadHintHand(),
+    loadHintMarks(),
     loadHpBarArt(),
     loadCardBars(),
   ]);
@@ -559,6 +561,30 @@ async function boot() {
   document.addEventListener("visibilitychange", () =>
     audioSleep(document.hidden),
   );
+  /**
+   * The same thing again, from the container that does not use the document to
+   * say it.
+   *
+   * Inside an ad SDK's webview the document is very often not hidden while the
+   * ad is scrolled off a feed or the app is in the background — see
+   * net/mraid.js. So the fight was played out to nobody and lost on their
+   * behalf, and the first thing they saw on coming back was a defeat card for
+   * a fight they never had.
+   *
+   * The clock is held rather than the audio alone, and holding it is the whole
+   * point: the ticker is what drives the tweens, the cascade and the thirty
+   * second doom clock, so stopping it parks the fight on the frame it was on
+   * and starts it again from there. Only ever on the container's own word — a
+   * start-up reading of `isViewable` is a guess, and an SDK that guesses wrong
+   * once and never corrects itself would leave a creative frozen on its first
+   * frame forever.
+   */
+  watchViewable((seen, live) => {
+    audioSleep(!seen);
+    if (!live) return;
+    if (seen) app.ticker.start();
+    else app.ticker.stop();
+  });
 
   /* -------------------------------------------------------------- freeze */
 
@@ -858,6 +884,9 @@ async function boot() {
    * no — iOS Safari says no for anything that is not a video, an embedded
    * webview says no, a permissions policy says no — nothing is reported and
    * nothing is retried. The fight has already started underneath it.
+   *
+   * The third guard is byFinger, and it is why this is no longer asked for on a
+   * desktop: see below.
    */
   function goFullscreen() {
     try {
@@ -878,16 +907,45 @@ async function boot() {
     }
   }
 
+  /**
+   * Whether the gesture that started the fight was made with a finger.
+   *
+   * What the whole screen is worth depends entirely on the answer. On a phone
+   * the furniture round the page is a URL bar that eats a tenth of the screen
+   * and slides about while the board is being played, and taking the screen is
+   * a straight win. On a desktop it is somebody's browser window: they have
+   * other tabs, a second monitor, a video call on the other half of the screen
+   * — and a page that throws itself into fullscreen the instant it is clicked,
+   * with no button and no warning, is a page that has taken over the machine.
+   * It also traps them: leaving is a keystroke nobody was told about.
+   *
+   * Read off the gesture rather than sniffed off the device, because the
+   * gesture is the thing that actually answers the question. A touchscreen
+   * laptop is a desktop until somebody taps it, and then it is not.
+   *
+   * `touchstart` is a finger by definition, `mousedown` never is, and
+   * `pointerdown` says so itself — anything that is not a mouse is a finger or
+   * a pen, and both of those are somebody holding the screen. No event at all
+   * means nobody touched anything: that is `__SIEGE__.begin()`, which has
+   * `__SIEGE__.fullscreen()` beside it for a pass that does want the screen.
+   */
+  function byFinger(e) {
+    if (!e) return false;
+    if (e.type === "touchstart") return true;
+    if (e.type === "mousedown") return false;
+    return e.pointerType !== "mouse";
+  }
+
   function firstTouch() {
     const EVENTS = ["pointerdown", "touchstart", "mousedown"];
     return new Promise((resolve) => {
-      const go = () => {
+      const go = (e) => {
         EVENTS.forEach((type) => window.removeEventListener(type, go, true));
         // Inside the handler and not in the `then` below: this is the frame the
         // gesture is live on, and the promise's continuation is a microtask
         // later — which most engines still honour and one or another of them
         // will not.
-        goFullscreen();
+        if (byFinger(e)) goFullscreen();
         resolve();
       };
       EVENTS.forEach((type) =>
@@ -921,7 +979,7 @@ async function boot() {
     // being ticked and the run before it stops moving the moment it is replaced.
     scene.bg.update(dt);
     scene.boss.update(dt);
-    scene.board.updateLocks(dt);
+    scene.board.update(dt);
     scene.heroRow.update(dt);
     scene.hud.update(dt);
     scene.spotlight.update(dt);
@@ -1013,6 +1071,9 @@ async function boot() {
     return { ...layout.safe, shown: guides.visible };
   };
   scene.timing = timing;
+  // What the wrapper is saying, for a pass reading it off a real device. See
+  // mraidReport — undefined everywhere the creative is not inside a container.
+  scene.mraid = mraidReport;
   window.__SIEGE__ = scene;
 
   // Nothing is held back and nothing is put in front: the first frame of the
@@ -1043,10 +1104,18 @@ async function boot() {
    *
    * Not awaited, and every loader in it is written to be missable: the pieces
    * that grab their art at construction are all in the list above, and these
-   * four are asked for at the moment they are used — `spellFrames`, `fireFrames`
-   * and `hintMarksReady` each answer null and each has a fallback behind it. The
+   * three are asked for at the moment they are used — `spellFrames` and
+   * `fireFrames` each answer null and each has a fallback behind it. The
    * ult sheets are the one exception, because a card builds its border sprite in
    * its constructor, so the row is told to pick them up. See HeroCard.adoptUltArt.
+   *
+   * The hint marks used to be the fourth. They came out because the lesson does
+   * not wait for this window — the opening hint is on the creative's very first
+   * frame, cold, and the marks were the *last* decode in this list, behind the
+   * ult sheets — so the one pass every impression is guaranteed to see was the
+   * one pass drawn in the fallback: stroked rings and a plain white dart, on a
+   * board whose every other mark comes in the element's colour. The painted set
+   * is twelve small files, so it is now awaited with the hand it points beside.
    */
   async function loadRest() {
     // Two frames rather than one: the first gets us past the frame this task is
@@ -1070,7 +1139,7 @@ async function boot() {
     } catch {
       /* every card keeps the border it was built without */
     }
-    for (const load of [loadSpellArt, loadFireArt, loadHintMarks]) {
+    for (const load of [loadSpellArt, loadFireArt]) {
       try {
         await load();
       } catch {
