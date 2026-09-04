@@ -199,11 +199,64 @@ export function measureSafeInsets(box) {
   const spareY = Math.max(0, docH - box.h);
 
   return {
-    top,
+    top: Math.max(0, top - chromeAbove(docW, docH, bottom)),
     right: Math.max(0, right - spareX),
     bottom: Math.max(0, bottom - spareY),
     left,
   };
+}
+
+/**
+ * How much browser furniture is sitting above the page, so the notch can stop
+ * being paid for twice.
+ *
+ * This is the in-app browser case and it is the one a playable is actually
+ * opened in: a link tapped inside a scanner app, a chat, a feed. The host puts
+ * the page in a web view with its own bar across the top — a back chevron and
+ * the domain — and that bar is drawn *over* the cutout, so the page below it is
+ * nowhere near the camera. Every engine ought to report zero insets there, per
+ * spec, because the safe area belongs to the viewport and this viewport starts
+ * under a toolbar. Several iOS web views report the device's insets anyway.
+ *
+ * What that costs is a band of nothing. The layout takes the fifty-nine points
+ * it is told about off the top, the boss's name and his health bar start below
+ * them, and the player sees a strip of empty sky under the browser's own bar —
+ * the notch charged for once by the host and once again by us. It is the single
+ * most visible layout bug the creative has, because it is the top of the
+ * screen and it is there for the whole run.
+ *
+ * So the reading is checked against the screen rather than believed. The page's
+ * layout viewport is `docH` tall and the device's screen is `screenH`; whatever
+ * is missing between them is furniture the browser kept, and a page that starts
+ * that far down cannot be under a cutout that shallow. Subtracted rather than
+ * zeroed, because a short bar on a deep notch leaves a real inset behind and
+ * the difference is exactly what is left of it.
+ *
+ * The one thing the difference does not say is which end the furniture is at,
+ * and a bar along the bottom would have the same arithmetic with the opposite
+ * answer. The bottom inset settles it: a home indicator reported under us is
+ * the device saying our bottom edge is the screen's bottom edge, so the missing
+ * points are above. With no indicator to read — an older phone, or a bar at
+ * each end — nothing is discounted and the band stays, which is the safe way
+ * round to be wrong.
+ *
+ * @param {number} docW layout viewport width, for reading the orientation
+ * @param {number} docH layout viewport height
+ * @param {number} bottom the raw bottom inset, before any discount
+ */
+function chromeAbove(docW, docH, bottom) {
+  // Nothing to weigh it against, and nothing that says the gap is above us.
+  const scr = globalThis.screen;
+  if (!scr || !(bottom > 0)) return 0;
+
+  // `screen.width` and `screen.height` are the portrait pair on some engines
+  // and the current pair on others, so they are sorted rather than trusted.
+  const long = Math.max(scr.width || 0, scr.height || 0);
+  const short = Math.min(scr.width || 0, scr.height || 0);
+  if (!(long > 0)) return 0;
+  const screenH = docH >= docW ? long : short;
+
+  return Math.max(0, screenH - docH);
 }
 
 /** Whether two readings differ by enough to be worth a relayout. */

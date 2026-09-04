@@ -516,6 +516,18 @@ const BOSS_OVERLAP = 0.07;
  */
 const BOSS_MIN = 0.215;
 
+/**
+ * A last nudge up the figure gets in both orientations, in UI points.
+ *
+ * The band he is centred in is measured off the chrome above and the row below,
+ * and both of those are honest — but the rig's box is a little taller than the
+ * beast painted inside it, so the fitted figure reads a touch low in its own
+ * slot. Three points is the difference between a crown that sits under the
+ * lockup and one that lines up with it, and it is small enough that the shadow
+ * and the lava pool stay on the floor the layout drew for them.
+ */
+const BOSS_LIFT = 3;
+
 function portraitLayout(w, h, ui, safe, keepout) {
   const pad = 10 * ui;
   const gut = gutter(w, ui);
@@ -648,7 +660,7 @@ function portraitLayout(w, h, ui, safe, keepout) {
     boss: {
       // On the board's own middle, which is the field's — see boardX.
       x: safe.left + fieldW / 2,
-      y: bossTop + bossH * 0.52,
+      y: bossTop + bossH * 0.52 - BOSS_LIFT * ui,
       scale: bossScale,
       floor: bossFloor,
     },
@@ -749,7 +761,7 @@ function landscapeLayout(w, h, ui, safe, keepout) {
       // near enough the floor the layout drew for him, and the hero row is drawn
       // after the boss anyway: a slam that carries the feet into the top of a
       // card reads as the row standing in front of him, which is where it is.
-      y: bossTop + bossH * 0.55,
+      y: bossTop + bossH * 0.55 - BOSS_LIFT * ui,
       scale: bossScale,
       floor: bossTop + bossH,
     },

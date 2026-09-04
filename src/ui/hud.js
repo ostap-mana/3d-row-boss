@@ -591,7 +591,14 @@ export class Hud extends Container {
       // Nothing to clear sideways: the shout stands in the boss's column and
       // the board is off to the right of it. See calloutFloor above.
       this.calloutFloor = 0;
-      const column = layout.board.x - layout.stage.x;
+      // The column is measured from the safe box and not from the stage, which
+      // are the same line on a phone with no cutout and two different lines on
+      // every phone with one. Sideways is where the cutout lands on a side, so
+      // the stage reading gave the shout the notch's points to spread into
+      // while centring it on the boss — who is already inset by them. On a 16
+      // Pro Max that put the widest lines about four points behind the island;
+      // it never showed on a 15, where the same sum came out one point clear.
+      const column = layout.board.x - layout.safeBox.x;
       this.calloutWidth = column * 0.92;
       this.calloutSize = Math.max(16, Math.min(column * 0.17, 34 * ui));
       this.callout.x = layout.boss.x;
