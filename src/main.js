@@ -853,11 +853,14 @@ async function boot() {
    * the board starts the fight and makes the move, rather than starting the
    * fight and being thrown away.
    *
-   * `pointerdown` rather than a click, and `touchstart` and `mousedown`
-   * beside it: a click is a press and a release, and on a board played by
-   * dragging the release can land a whole swipe after the press. The two older
-   * events are for the webviews that never got pointer events at all; whichever
-   * arrives first wins and the rest are taken off.
+   * And a press is not yet the gesture — see firstTouch, which watches one from
+   * the press to whatever it turns into. A finger resting on the glass while
+   * the ad slides past, or a graze the system takes back as a scroll, is a
+   * `pointerdown` like any other, and starting on that is a creative that
+   * begins without anybody having asked it to. What starts the fight is a press
+   * that is lifted or a press that is dragged into a swipe. `touchstart` and
+   * `mousedown` are beside the pointer events for the webviews that never got
+   * them, and whichever family finishes the gesture first wins.
    */
   /**
    * Take the whole screen, when taking it is ours to take.
@@ -936,24 +939,173 @@ async function boot() {
     return e.pointerType !== "mouse";
   }
 
+  /**
+   * The gesture, watched from the press to whatever it turns into.
+   *
+   * A bare `pointerdown` used to be the whole of this, and the whole of what
+   * was wrong with it: a press is not yet an interaction. A finger resting on
+   * the glass while the ad slides up a feed is a press, and so is the graze the
+   * system takes back a frame later as a scroll, an edge-swipe or a pull on the
+   * notification shade. Every one of those arrives on this window as a
+   * `pointerdown` like any other, and every one of them used to spend the
+   * flash, the roar and the first second of the thirty on somebody who had not
+   * decided to play anything. From the outside that is a creative that starts
+   * on its own, which is the one thing the rule this function exists for
+   * forbids.
+   *
+   * So a press only nominates itself, and the end of the gesture is what
+   * decides:
+   *
+   *   - lifted — a tap, however long it took. Somebody put a finger on the
+   *     screen and took it off again, and there is no reading of that which is
+   *     not an answer to the line in the middle of it.
+   *   - dragged past DRAG — a swipe, which on this screen is a move on the
+   *     board. Taken the moment it passes the threshold rather than on the
+   *     release, because the release of a swipe lands a whole gesture later and
+   *     the fight has to be running underneath the swap it is about to collect.
+   *     See Board.pendingMove and Director.armIntro.
+   *   - cancelled — the system took the touch away to do something else with
+   *     it. It was never a gesture on this creative, and it starts nothing.
+   *
+   * An untrusted event is dropped before any of that. A wrapper poking a
+   * synthetic tap into the frame to check the creative is clickable is not a
+   * player, and this rule is about a person.
+   *
+   * `pointer*` first with `touch*` and `mouse*` beside it, for the webviews
+   * that never got pointer events at all: one press arms the candidate, every
+   * duplicate of it is dropped by `from`, and whichever family finishes the
+   * gesture first wins.
+   */
   function firstTouch() {
-    const EVENTS = ["pointerdown", "touchstart", "mousedown"];
+    const DOWN = ["pointerdown", "touchstart", "mousedown"];
+    const MOVE = ["pointermove", "touchmove", "mousemove"];
+    const UP = ["pointerup", "touchend", "mouseup"];
+    const CANCEL = ["pointercancel", "touchcancel"];
+    const ALL = [...DOWN, ...MOVE, ...UP, ...CANCEL];
+    /**
+     * How far a press has to travel before it is read as a swipe, in CSS
+     * pixels. The board's own swipe threshold is larger and this is not trying
+     * to be it — all this has to clear is the wobble of a finger holding still.
+     */
+    const DRAG = 10;
+
     return new Promise((resolve) => {
-      const go = (e) => {
-        EVENTS.forEach((type) => window.removeEventListener(type, go, true));
+      /** The live press: where it started, and whether a finger made it. */
+      let from = null;
+      let done = false;
+
+      // A touch carries its point in a list and a mouse carries it on itself;
+      // `changedTouches` is the one that is still populated on a touchend.
+      const at = (e) => {
+        const list = e.changedTouches || e.touches;
+        const p = list && list.length ? list[0] : e;
+        return { x: p.clientX || 0, y: p.clientY || 0 };
+      };
+
+      const commit = (finger) => {
+        if (done) return;
+        done = true;
+        ALL.forEach((type) => window.removeEventListener(type, route, true));
         // Inside the handler and not in the `then` below: this is the frame the
         // gesture is live on, and the promise's continuation is a microtask
         // later — which most engines still honour and one or another of them
-        // will not.
-        if (byFinger(e)) goFullscreen();
+        // will not. A drag commits on a move rather than on a press, which
+        // grants no activation of its own; the press it started with is still
+        // inside its own window, and that is what this is spending.
+        if (finger) goFullscreen();
         resolve();
       };
-      EVENTS.forEach((type) =>
-        window.addEventListener(type, go, { capture: true, passive: true }),
+
+      const route = (e) => {
+        // Not a person. See the header.
+        if (e.isTrusted === false) return;
+        if (DOWN.includes(e.type)) {
+          // One press at a time. The same finger arrives here as a
+          // `pointerdown` and again as a `touchstart`, and the second of those
+          // is the first one over again rather than a second gesture.
+          if (!from) from = { ...at(e), finger: byFinger(e) };
+          return;
+        }
+        // Everything below is the end of a gesture, and there is no gesture.
+        if (!from) return;
+        if (CANCEL.includes(e.type)) {
+          from = null;
+          return;
+        }
+        if (MOVE.includes(e.type)) {
+          const p = at(e);
+          if (Math.hypot(p.x - from.x, p.y - from.y) >= DRAG) {
+            commit(from.finger);
+          }
+          return;
+        }
+        commit(from.finger);
+      };
+
+      ALL.forEach((type) =>
+        window.addEventListener(type, route, { capture: true, passive: true }),
       );
       // The one path in that is not a finger. See __SIEGE__ below.
-      begin = go;
+      begin = () => commit(false);
     });
+  }
+
+  /** Retires the listener a previous run armed, so a rematch arms exactly one. */
+  let dropLessonExit = () => {};
+
+  /**
+   * How long after arming a press is still the press that armed it, in ms.
+   *
+   * A tap arrives as `touchstart`, `touchend`, and then — for anything still
+   * listening for a mouse — a synthesised `mousedown` a few milliseconds behind
+   * both. That third event is the same finger over again rather than a second
+   * press, and without this it would take the lesson down before the board it
+   * is drawn on had rendered a frame.
+   */
+  const EXIT_GRACE = 400;
+
+  /**
+   * The lesson comes off on the next press, wherever on the screen it lands.
+   *
+   * Director.spendOpeningHint is the one door out of the opening lesson and
+   * everything that walked through it was a touch *on the board* —
+   * Board.handleDown fires onInteract, and nothing outside the grid fires
+   * anything. Which is correct for the hint itself and wrong for the scrim
+   * underneath it: the dark is over the whole screen, so a player who answers
+   * it by pressing the golem, a hero card, or the space beside the board has
+   * made a gesture at a thing that is covering everything and watched nothing
+   * happen.
+   *
+   * On a cold boot this is not armed at all, because the press that ends the
+   * lesson is the press that starts the fight and that one is spent by hand —
+   * see the firstTouch continuation at the bottom of this file. This is for the
+   * rematch, which has no start gesture of its own: RETRY is the press, the run
+   * is going by the time restart returns, and what is wanted is the press after
+   * it. Hence EXIT_GRACE.
+   *
+   * Down events only, and untrusted ones dropped, for the same reasons
+   * firstTouch has both: the up half of a press is not a new gesture, and a
+   * wrapper's synthetic tap is not a person answering a hint.
+   */
+  function armLessonExit() {
+    dropLessonExit();
+    const DOWN = ["pointerdown", "touchstart", "mousedown"];
+    const armed = performance.now();
+    const press = (e) => {
+      if (e.isTrusted === false) return;
+      if (performance.now() - armed < EXIT_GRACE) return;
+      dropLessonExit();
+      // Read off the live `director` and not off a captured one: a rematch
+      // builds a new one, and this is armed again beside it.
+      if (director) director.spendOpeningHint();
+    };
+    dropLessonExit = () => {
+      DOWN.forEach((type) => window.removeEventListener(type, press, true));
+      dropLessonExit = () => {};
+    };
+    DOWN.forEach((type) =>
+      window.addEventListener(type, press, { capture: true, passive: true }),
+    );
   }
 
   /* -------------------------------------------------------------- loop */
@@ -1041,6 +1193,11 @@ async function boot() {
     director = new Director(scene);
     scene.director = director;
     director.armIntro();
+    // A rematch deals a new board and arms the lesson again, so the way out of
+    // it is armed again too. RETRY is this run's start gesture and it is
+    // already spent, so what takes the dark off here is the press after it —
+    // see armLessonExit, which is the whole reason that helper exists.
+    armLessonExit();
     director.run();
   }
 
@@ -1171,6 +1328,13 @@ async function boot() {
   // on the same gesture the player starts the fight with.
   firstTouch().then(() => {
     scene.prompt.dismiss();
+    // The dark goes with the caption, on the very gesture that starts the
+    // fight. The scrim is laid over the whole screen, so a press anywhere on
+    // the glass *is* a press on it — asking for a second one would be asking
+    // the player to answer the same dark twice. What is left after this is the
+    // lesson's own marks on their own clock: the hand comes back over the board
+    // with the idle hint, without a screen of dark behind it.
+    director.spendOpeningHint();
     director.run();
   });
 }

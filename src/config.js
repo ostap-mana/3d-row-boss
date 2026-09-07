@@ -236,9 +236,9 @@ export const DIFFICULTY = {
    */
   chargePerGem: 0.2,
   /**
-   * What the healer's bar is dealt at — and it is dealt full.
+   * What the opening hero's bar is dealt at — and it is dealt full.
    *
-   * A stake and not a rate: it moves where Arissa's first ultimate lands and
+   * A stake and not a rate: it moves where the run's first ultimate lands and
    * nothing else, because chargePerGem above is what the rest of the fight runs
    * on. Full, so that the creative can show the ultimate at all.
    *
@@ -249,16 +249,41 @@ export const DIFFICULTY = {
    * that separates this game from every other match-three in the feed was never
    * demonstrated before the player had to decide whether to keep watching.
    *
-   * What it costs the fight is Arissa's first tide arriving free rather than
-   * two triples in. On a thirty second clock against a boss whose whole threat
-   * is the doom timer, that is a head start and not a broken fight — and it is
-   * the healer, so the head start is survival rather than damage. Put it back to
+   * What it costs the fight is one ultimate arriving free rather than two
+   * triples in. On a thirty second clock against a boss whose whole threat is
+   * the doom timer, that is a head start and not a broken fight. Put it back to
    * 0.16 and the balance is exactly what it was; the demo goes quiet with it.
    */
   chargeStart: 1,
 
   /**
-   * The same, for the four heroes who are not the healer.
+   * Whether the hero dealt that full bar is rolled, or is always the healer.
+   *
+   * It used to be Arissa every time, because chargeStart was written as the
+   * healer's own stake — so every impression opened on the same face, the same
+   * cut-in and the same tide, and the five other portraits this creative exists
+   * to sell were never seen doing anything before the player decided. A roster
+   * the opening cannot show is not a roster.
+   *
+   * Rolled off the run's seed rather than Math.random — see HeroRow, which
+   * rolls it once when the row is built, and core/rng.js. Same seed, same
+   * opener, so a pinned RUN_SEED still replays the identical fight.
+   *
+   * The healer is still in the hat, so a sixth of runs open exactly as they did
+   * before and the other five open on damage. What that costs the fight is the
+   * free heal: a head start on survival becomes a head start on the boss's bar.
+   * Arissa's faster fill is untouched — see chargePerGem — so the tide is still
+   * the first ultimate the fight *earns* whenever it is not the one it is dealt.
+   *
+   * Set false to put the old behaviour back.
+   */
+  randomOpeningHero: true,
+
+  /**
+   * The same, for everybody else — which is now two different sets of five.
+   * The rate belongs to the five who are not the healer, as it always did; the
+   * stake belongs to the five who did not win the opening roll, and that is a
+   * different five in most runs. See randomOpeningHero.
    *
    * Deliberately slower than Arissa's: their ultimates are pure damage, they are
    * not racing the doom clock, and at her rate every single match armed
@@ -456,7 +481,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.30 -> 0.85   1.55->1.70   2.80 -> 3.17
+   *     attack      0.30 -> 0.85   1.55->1.70   2.80 -> 3.08
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -515,11 +540,11 @@ export const DIFFICULTY = {
    *       40%   medium       x1.55   23%   30%           28%
    *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
    *       12%   super hard   x2.80   42%   15%            9%
-   *        0%   super hard   x3.17   48%   11%            6%
+   *        0%   super hard   x3.08   46%   11%            6%
    *
-   * The smash on that last line lands for 86% of a hero bar. That is the swing
+   * The smash on that last line lands for 83% of a hero bar. That is the swing
    * that ends runs, and it is meant to be — see the last keyframe, which is
-   * where the 92% it used to be was let out a little.
+   * where the 92% it used to be was let out twice.
    *
    * The last two columns are the other half of what the ending is for. An
    * ultimate opens worth slightly more than the best match on the board and
@@ -779,9 +804,13 @@ export const DIFFICULTY = {
        * would have carried on down to 1.2% by the killing blow, which is past
        * "a couple of percent" and into "why did I press that".
        *
-       * The boss's temper keeps climbing through it — `attack` still runs 2.9
-       * to 3.17 — so the last tenth is not a plateau in difficulty. It is a
-       * plateau in exactly one thing: how much a hit is worth.
+       * The boss's temper still creeps through it, but only just: `attack`
+       * runs 2.9 to 3.08 across the stretch. It used to climb to 3.17 and
+       * carry the index the curve is read by from x25.4 to x27.8 with it;
+       * pulled to x27.0 at the kill, the whole tenth is under two tenths of a
+       * multiplier. So the boss's temper is very nearly a plateau here too,
+       * and how much a hit is worth is outright one. Raise the killing blow
+       * first if the ending has to accelerate rather than hold.
        *
        * It also hands the board a little back, and that is the honest cost of
        * flattening here: a five-cell step lands for 14% across the last tenth
@@ -793,13 +822,15 @@ export const DIFFICULTY = {
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
-       * 3.40 before, and the whole of what came off is here rather than spread
-       * across the zone: 0.88 and 0.9 are untouched, so the wall arrives with
-       * the same teeth and it is only the very end of the tail that is softer.
-       * Measured on the index the curve is read by — `attack/0.30` over
-       * `resist`, which is what a keyframe is worth against the opening swing —
-       * the fight now tops out at x27.8 where it topped out at x29.8, and the
-       * last tenth rises from x25.4 to that rather than to thirty.
+       * 3.40 before, then 3.17, and 3.08 now, and the whole of what came off
+       * is here rather than spread across the zone: 0.88 and 0.9 are untouched,
+       * so the wall arrives with the same teeth and it is only the very end of
+       * the tail that is softer. Measured on the index the curve is read by —
+       * `attack/0.30` over `resist`, which is what a keyframe is worth against
+       * the opening swing — the fight now tops out at x27.0 where it topped
+       * out at x29.8, and the last tenth rises to it gently from the x25.4
+       * below rather than climbing to thirty. 3.08 is the value that lands the
+       * index on 27; the keyframe above carries what a tail that flat costs.
        *
        * `attack` and not `resist`, and the difference is the whole reason this
        * is the number that moved. `resist` is how much of the player's damage
@@ -807,14 +838,14 @@ export const DIFFICULTY = {
        * bracket table above with it; `attack` is only ever how hard the boss
        * hits back. The bar still needs 1.34 bars of damage to empty and an
        * ultimate is still worth its 2.5% down here — nothing about the grind
-       * changed. What changed is that the swing which ends runs takes 86% of a
-       * hero bar rather than 92%, and the rake 48% rather than 51%.
+       * changed. What changed is that the swing which ends runs takes 83% of a
+       * hero bar rather than 92%, and the rake 46% rather than 51%.
        *
        * The brackets above were simulated at 3.40, so read them as the floor
        * under this build rather than as its measurement: a softer killing blow
        * can only move a wipe into a win, and it moves nothing else.
        */
-      { p: 1.0, attack: 3.17, resist: 0.38, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 3.08, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
@@ -2159,6 +2190,51 @@ export const BOSS_ATTACKS = [
     from: 3,
   },
 ];
+
+/**
+ * How fast an ultimate happens — every knob for the gap between the tap and the
+ * blast, in one place.
+ *
+ * The complaint this answers is the simplest one a playable can get: "I tapped
+ * it and nothing happened." Three separate things were putting time between the
+ * tap and the cast, and only one of them was the cut-in everybody was proud of.
+ *
+ *   - `rush` is the big one. A tap on a charged hero used to be *queued* until
+ *     the fight loop next came round to it, and if the board was mid-cascade
+ *     that is a second and a half of gems falling with the player's finger
+ *     already off the card. Nothing was broken and nothing looked broken; it
+ *     simply did not answer. The whole world clock runs at this rate from the
+ *     tap until the cast takes over — see core/juice.js setTimeScale — so the
+ *     cascade in flight finishes in a few frames and the cut-in lands on the
+ *     tap. 5 is fast enough that the remainder of a long cascade is gone inside
+ *     a fifth of a second and slow enough that it reads as the board hurrying
+ *     rather than as a dropped frame. It never touches the cataclysm fuse,
+ *     which main.js ticks on real time: rushing an animation must not cost the
+ *     player seconds.
+ *
+ *   - `cast` is the ultimate itself, at a rate rather than by re-timing thirty
+ *     tweens across four files. The cut-in, the board wipe, the spell and the
+ *     numbers all move together, which is the only way to speed a beat like
+ *     this up without it coming apart — a cut-in trimmed on its own just gets
+ *     out of step with the sound and the blast. 1.35 takes the cast from about
+ *     two and a half seconds to under two and leaves every beat in it intact.
+ *     Push it past about 1.6 and the hold on the hero's face stops being a hold.
+ *
+ *   - `tail` is the pause after the blast, for a cast with nothing behind it. A
+ *     beat to let the biggest number in the run land, and no more than that. It
+ *     is skipped outright the moment another hero is queued — see
+ *     Director.castUltimate — so two ultimates back to back have nothing
+ *     between them at all.
+ *
+ * See also ULT.burst.lead in art/heroes.js, which is the fourth: the card's own
+ * flare used to hold the screen for 0.42s before the cut-in was allowed to take
+ * it, and is now 0.
+ */
+export const ULT_PACE = {
+  rush: 5,
+  cast: 1.35,
+  tail: 0.22,
+};
 
 /**
  * How far Arissa's tide refills the party. Deliberately not a full heal any more:

@@ -46,12 +46,12 @@ import {
   fitKeyArt,
   fitLogo,
   fitPlayPlate,
-  fitRetryLine,
+  fitRetryBoss,
   keyArtSprite,
   logoSprite,
   playHeight,
   playPlateSprite,
-  retryLineSprite,
+  retryBossSprite,
   DEFEAT_ART,
   VICTORY_ART,
 } from "../art/brand.js";
@@ -100,29 +100,55 @@ const SIDE_SCRIM = [
 const BADGE_GAP = 0.28;
 
 /**
- * The RETRY divider, measured off the store row it now sits under.
+ * The RETRY lockup, measured off the PLAY NOW plate directly above it.
  *
- * Off the badges and not off the PLAY NOW plate, because it is no longer a
- * second button in the plate's column — it is a rule drawn under the bottom of
- * the card, and the bottom of the card is the store row. See RETRY_LINE_ART.
- * Measuring it against the row keeps the rule and the badges locked to each
- * other on every shape the card is solved for; a fraction of the card width
- * would drift apart between a phone and a tablet held sideways.
+ * Off the plate and not off the store row, which is where the rule this
+ * replaced was measured from. That rule was a line drawn under the bottom of
+ * the card and the bottom of the card is the badges, so it belonged to them.
+ * This is a button again, it stands in the plate's column, and the only number
+ * that matters about it is how it compares to the plate.
  *
- * A hair wider than the row rather than flush with it, which is what 1.12 buys.
- * A rule that stops exactly where the badges stop reads as an underline on the
- * third badge; carried a little past both ends it reads as the line the card
- * finishes on. It is clamped to the column either way, so on a screen where the
- * row is already at its cap the rule simply matches it.
+ * 0.74, so that comparison comes out the right way round. This is the one piece
+ * of art on the card that can outshout the CTA — a lit painting with a monster
+ * in it, against a plate with two words on it — and a card that shouts louder
+ * about the rematch than about the install is a card working against itself.
+ * Held to three quarters of the plate's width, the pitch is still the widest
+ * thing in the column and the way out is plainly the smaller of the two offers.
+ * That is the whole of the concession: on colour, on light and on interest this
+ * loses to nothing, and it is a cost taken with open eyes. See RETRY_BOSS_ART.
+ *
+ * RETRY_BOSS_MAX is the ceiling, as a share of the box the column is solved in.
+ * Width alone was enough for a rule at 12.05 and is not enough for a painting
+ * at 1.38: sideways, three quarters of the plate implies a rung deeper than the
+ * wordmark, the plate and the store row together, and the column would run off
+ * both ends of the screen. Upright it never binds; sideways it always does, and
+ * on a short landscape window — a browser chrome eating half of 600 points —
+ * it is the only thing standing between the column and the edges.
+ *
+ * RETRY_CLEAR is the air over the lockup, as a share of the lockup's own height.
+ *
+ * A fraction of the art and not of the screen, because what has to be cleared is
+ * the art. Every other gap in this stack is a fraction of the box the column is
+ * solved in, which was right for a rule: a rule is a straight line, its top edge
+ * is its ink, and a gap that is 3% of the screen looks like 3% of the screen
+ * above it. This lockup's top edge is a shaman on the boss's shoulder holding a
+ * staff up over its head — a thin silhouette reaching well above the mass of the
+ * thing — and against the store row directly over it that reads as touching long
+ * before the boxes do. A quarter of the art's height is what stops it reading
+ * that way; the old 3% of the screen is kept as a floor under it, for the drawn
+ * fallback and for any window short enough that the ceiling has taken the art
+ * down to nothing.
  *
  * RETRY_PILL_W and RETRY_H only reach the drawn fallback, which is still a
  * capsule measured off the plate — two thirds of it, as it was before there was
  * any art here at all: a dark pill at the plate's own width beside a painted gem
  * lockup is not a second button, it is the first one with a shadow. The painted
- * path takes its height from its own aspect instead. See fitRetry, which is
- * where the two part.
+ * path takes its box from its own aspect and the ceiling instead. See fitRetry,
+ * which is where the two part.
  */
-const RETRY_W = 1.12;
+const RETRY_BOSS_W = 0.74;
+const RETRY_BOSS_MAX = 0.22;
+const RETRY_CLEAR = 0.25;
 const RETRY_PILL_W = 0.64;
 const RETRY_H = 0.56;
 
@@ -437,15 +463,15 @@ export class EndCard extends Container {
     this.retry.addChild(this.retryBg);
 
     /**
-     * The painted divider, when it decoded — see art/brand.js.
+     * The painted lockup, when it decoded — see art/brand.js.
      *
      * Added over the drawn pill and under the type, which is the same order the
      * CTA button above uses and for the same reason: exactly one of the two is
      * ever drawn, and which one is decided once in fitRetry rather than checked
-     * everywhere. With the ornament there the pill is left empty and the word is
+     * everywhere. With the painting there the pill is left empty and the word is
      * already in the art; without it, the pill and the word are the button.
      */
-    this.retryArt = retryLineSprite();
+    this.retryArt = retryBossSprite();
     if (this.retryArt) this.retry.addChild(this.retryArt);
     this.retryText = new Text({
       text: COPY.retry,
@@ -532,28 +558,29 @@ export class EndCard extends Container {
   /**
    * Size the retry control and report the box it took.
    *
-   * Two widths in, because the two paths are measured off two different things
-   * and always were: `w` is what the painted rule spans — the store row's width
-   * carried a little past both ends, see RETRY_W — and `bw`/`bh` are the CTA
-   * plate's box, which is all the drawn pill has ever been sized against. Both
-   * callers have both numbers by the time they get here: portrait lays the
-   * badges and the plate out before it solves the foot of the column, and
-   * landscape measures every rung before it places any of them.
+   * Two boxes in, because the two paths are measured off two different things
+   * and always were: `w` by `maxH` is what the painting is allowed — the CTA
+   * plate's width at RETRY_BOSS_W, under a ceiling the layout sets, see
+   * RETRY_BOSS_MAX — and `bw`/`bh` are the plate's own box, which is all the
+   * drawn pill has ever been sized against. Both callers have every one of
+   * those numbers by the time they get here: portrait lays the badges and the
+   * plate out before it solves the foot of the column, and landscape measures
+   * every rung before it places any of them.
    *
    * @returns {{w: number, h: number}}
    */
-  fitRetry(w, bw, bh) {
+  fitRetry(w, bw, bh, maxH) {
     this.retryBg.clear();
 
-    // Painted, the height is the art's and not the card's. RETRY_H is the drawn
-    // pill's own proportion — a flat capsule at about 3:1 — and the ornament is
-    // a rule at 12.05; asked for the pill's box it would come out four times
-    // too deep, with the gems at each end stretched into eggs. So width is what
-    // the card decides and height is what the art answers, which is how every
-    // other piece of brand art on this screen is sized.
+    // Painted, the box is the art's and not the card's. RETRY_H is the drawn
+    // pill's own proportion — a flat capsule at about 3:1 — and the painting is
+    // a lockup at 1.42; asked for the pill's box it would come back with the
+    // boss squashed into a letterbox. So the card says what it can spare and the
+    // art says what it takes of that, which is how every other piece of brand
+    // art on this screen is sized — with a ceiling on top, because this is the
+    // only one deep enough to overrun the column it is a rung of.
     if (this.retryArt) {
-      const h = fitRetryLine(this.retryArt, w);
-      return { w, h };
+      return fitRetryBoss(this.retryArt, w, maxH);
     }
 
     const pw = bw * RETRY_PILL_W;
@@ -581,6 +608,23 @@ export class EndCard extends Container {
   }
 
   /**
+   * The air the retry rung wants over it, in points.
+   *
+   * One function because both layouts have to agree about it: upright the gap is
+   * subtracted from a running edge, sideways it is a rung's own gap in a column
+   * that is centred as one block, and a clearance that differed between them
+   * would be the store row sitting closer to the boss on one orientation than on
+   * the other for no reason a reader could see.
+   *
+   * `boxH` is the box the column is solved in and `artH` is what the rung came
+   * out at — see RETRY_CLEAR, which is why the art's own height is the number
+   * that usually wins.
+   */
+  retryClear(boxH, artH) {
+    return Math.max(12, boxH * 0.03, artH * RETRY_CLEAR);
+  }
+
+  /**
    * Sit the retry button at `x, y` and give it the one listener on this card
    * that does not lead to a store.
    *
@@ -588,16 +632,23 @@ export class EndCard extends Container {
    * louder one: the container behind this is a full-screen CTA, so without it
    * every tap on RETRY would open the store *and* restart the fight.
    *
-   * The target is deeper than the art, and that is the price of drawing this as
-   * a rule. The ornament is about a tenth as tall as it is wide — on a phone it
-   * stands eight or nine points deep — and a strip that thin is a control only a
-   * mouse can hit. So the box is grown around it to a thumb's worth of height,
-   * centred on the rule, and never narrower than the 44 points a touch target
-   * has to be. It stays inside the card's bottom margin: this is the last rung,
-   * and the padding it takes comes out of the gap under the store row.
+   * The target is the art's own box, and no longer deeper than it. That growth
+   * was the price of drawing this as a rule: the ornament stood eight or nine
+   * points deep on a phone, which is a control only a mouse can hit, so the box
+   * had to be grown around it to a thumb's worth of height. The painting is a
+   * hundred points deep and is a thumb's target already — grown by the same
+   * third it would reach up into the store row above it and answer taps meant
+   * for the badges with a rematch.
+   *
+   * The floor stays, because the ceiling in fitRetry can drive the art down on
+   * a short window and 44 points is what a touch target has to be. The corners
+   * of the box are the lockup's own bloom rather than paint, so a tap in one is
+   * a tap on a transparent pixel that restarts the fight — which is the right
+   * answer for a control this size and the wrong one to spend a per-pixel hit
+   * test on.
    */
   placeRetry(x, y, w, h) {
-    const hitH = Math.max(h * 1.3, 44);
+    const hitH = Math.max(h, 44);
     this.retry.position.set(x, y);
     this.retry.hitArea = new Rectangle(-w / 2, -hitH / 2, w, hitH);
     this.retry.eventMode = "static";
@@ -847,10 +898,10 @@ export class EndCard extends Container {
      */
     let foot = s.bottom - pad;
     if (this.retry.visible) {
-      const r = this.fitRetry(Math.min(badge.w * RETRY_W, w * 0.94), bw, bh);
+      const r = this.fitRetry(bw * RETRY_BOSS_W, bw, bh, h * RETRY_BOSS_MAX);
       const ry = foot - r.h / 2;
       this.placeRetry(s.cx, ry, r.w, r.h);
-      foot = ry - r.h / 2 - Math.max(12, h * 0.03);
+      foot = ry - r.h / 2 - this.retryClear(h, r.h);
     }
 
     const badgeY = foot - badge.h / 2;
@@ -942,9 +993,11 @@ export class EndCard extends Container {
     );
     // Measured here with the rest of the column and placed below as a rung of
     // it — one more optional rung, on exactly the terms the other two are on.
-    // Off the badge row's width, clamped to the column, exactly as upright.
+    // Off the CTA plate's width under the column's own ceiling, exactly as
+    // upright. Sideways it is the ceiling that decides it: see RETRY_BOSS_MAX,
+    // and fitRetryBoss, which brings the width back down to meet it.
     const retry = this.retry.visible
-      ? this.fitRetry(Math.min(badge.w * RETRY_W, colW * 0.94), bw, bh)
+      ? this.fitRetry(bw * RETRY_BOSS_W, bw, bh, h * RETRY_BOSS_MAX)
       : null;
     const bannerH = this.sizeBanner(
       Math.min(colW * BANNER_COL, 520 * ui),
@@ -1015,9 +1068,10 @@ export class EndCard extends Container {
     });
     rungs.push({
       h: badge.h,
-      // A full gap under the row when the rule follows it, so the rule reads as
-      // the line the card finishes on rather than as an underline on the badges.
-      gap: retry ? 0.9 : 0,
+      // The clearance the lockup asks for, expressed in this column's own gap
+      // unit because that is the only currency the rung list has. Upright the
+      // same number is subtracted directly; see retryClear, which both call.
+      gap: retry ? this.retryClear(h, retry.h) / gap : 0,
       place: (y) => this.badges.position.set(cx, y + badge.h / 2),
     });
     if (retry) {

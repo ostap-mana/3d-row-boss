@@ -18,6 +18,7 @@ import {
   GEM_DARK,
   GEM_LIGHT,
   FONT,
+  HEALER,
   HEROES,
   HERO_CRITICAL,
   HERO_HP_FLOOR,
@@ -48,6 +49,7 @@ import {
 import { heroBust, heroRoundel } from "./avatars.js";
 import { glowTexture, gradientTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
+import { rndInt } from "../core/rng.js";
 import {
   tween,
   tweenValue,
@@ -150,23 +152,31 @@ const SIGIL = { k: 0.32, min: 13, max: 30, gap: 0.085 };
  * `burst` is the good one: a sheet of its own — a build, a white-hot peak and a
  * settle — played once, straight through. `lead` is what the cut-in waits for
  * before it takes the screen, and it is the only number here the *fight* can
- * feel: the cut used to land a tenth of a second after the tap, which over a
- * burst would have shown the player its first two frames and then a black
- * rectangle. At `lead` the cut lands on the peak instead. See `flareLead`,
- * which is what the director asks, and Director.castUltimate, which asks it.
+ * feel.
+ *
+ * Both leads are 0, and that is a deliberate reversal. The burst's was 0.42 so
+ * that the cut would land on the sheet's white-hot peak rather than over its
+ * first two frames, which is a good argument about the art and the wrong answer
+ * for the fight: it is four tenths of a second between the player's tap and
+ * anything taking the screen, on the one input in the creative sold as
+ * instant. The sheet is not lost — it plays on under the cut-in's wash, which
+ * fades up over its first fifth of a second rather than cutting to black — and
+ * what the player gets back is the cut arriving on the frame they tapped.
+ * Restore 0.42 here if the peak is ever wanted back; nothing else has to move.
  *
  * `flare` is the fallback for the four elements with no burst sheet: `rate`
  * spins the loop's own frames faster and `grow` throws them outwards,
  * which is what the still set needed a second painted file for — see the burst
- * in art/frameaura.js. It keeps the old tenth of a second of lead, because
- * there is no arc in it to wait for.
+ * in art/frameaura.js. See `flareLead`, which is what the director asks, and
+ * Director.castUltimate, which asks it — and ULT_PACE in config.js, which is
+ * the rest of the same tuning.
  */
 const ULT = {
   alpha: 0.85,
   in: 0.26,
   out: 0.22,
-  burst: { grow: 1.06, dur: 0.62, lead: 0.42, tail: 0.72 },
-  flare: { grow: 1.18, rate: 2.6, dur: 0.3, lead: 0.1 },
+  burst: { grow: 1.06, dur: 0.62, lead: 0, tail: 0.72 },
+  flare: { grow: 1.18, rate: 2.6, dur: 0.3, lead: 0 },
 };
 
 /** element -> drawn-shape fallback, baked at most once each */
@@ -836,15 +846,23 @@ export const READY_SCALE = 1.14;
 export const READY_SWING = 0.045;
 
 export class HeroCard extends Container {
-  constructor(hero, index) {
+  /**
+   * @param {object} hero the roster entry — see HEROES
+   * @param {number} index the card's slot in the row
+   * @param {boolean} opening true for the one hero dealt a full bar. Rolled per
+   *   run rather than nailed to the healer — see rollOpeningHero.
+   */
+  constructor(hero, index, opening = false) {
     super();
     this.hero = hero;
     this.index = index;
     this.ready = false;
-    // Every bar is earned from its own colour now. The healer starts higher and
-    // fills faster because she is the one racing the doom clock — see
-    // DIFFICULTY.chargeStart against DIFFICULTY.partyChargeStart.
-    this.charge = hero.heal
+    // Every bar is earned from its own colour now. Whoever won the opening roll
+    // is dealt full; the healer fills faster than the rest whether or not she is
+    // that hero, because she is the one racing the doom clock — see
+    // DIFFICULTY.chargeStart against DIFFICULTY.partyChargeStart, and
+    // rollOpeningHero for who is holding the first one.
+    this.charge = opening
       ? DIFFICULTY.chargeStart
       : DIFFICULTY.partyChargeStart;
 
@@ -1838,15 +1856,50 @@ export class HeroCard extends Container {
   }
 }
 
+/**
+ * Who opens the fight already charged.
+ *
+ * The opening ultimate used to be Arissa's by construction: chargeStart was
+ * read off `hero.heal`, so the same hero was dealt the same full bar in every
+ * impression, and the demo hand, the cut-in and the first spell the player ever
+ * sees were the same three seconds every time. Five sixths of the roster this
+ * creative is selling never did anything before the player made up their mind.
+ *
+ * So the card that starts ready is drawn instead. Off the run's seed, not
+ * Math.random: the row is built after main.js reseeds, so a pinned RUN_SEED
+ * deals the same opener with the same board — see core/rng.js — and a rematch
+ * reseeds and rolls again, which is what makes the second run look different
+ * from the first.
+ *
+ * Everybody is in the hat, the healer included: her tide is one of the six
+ * openings rather than the only one. Nothing else about her moves — she still
+ * fills fastest, and her ultimate is still the only one that heals.
+ *
+ * DIFFICULTY.randomOpeningHero turns the roll off and hands it back to HEALER,
+ * which is the exact behaviour this replaced.
+ *
+ * @returns {number} index into HEROES
+ */
+export function rollOpeningHero() {
+  return DIFFICULTY.randomOpeningHero ? rndInt(HEROES.length) : HEALER;
+}
+
 export class HeroRow extends Container {
   constructor(onCardTap) {
     super();
     initPortraits();
 
+    /**
+     * Whose bar is dealt full, for this row and this run. One roll per row: the
+     * cards are built from it a line later, and a rebuilt row — which is what a
+     * restart does — is a new fight and a new roll.
+     */
+    this.opening = rollOpeningHero();
+
     // No tray under the row: the cards stand straight on the arena, each one
     // framed by its own plate.
     this.cards = HEROES.map((hero, i) => {
-      const card = new HeroCard(hero, i);
+      const card = new HeroCard(hero, i, i === this.opening);
       card.on("pointertap", () => onCardTap(i, card));
       this.addChild(card);
       return card;

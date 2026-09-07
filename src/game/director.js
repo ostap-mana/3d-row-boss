@@ -42,9 +42,11 @@ import {
   T,
   ULT_HEAL_FLOOR,
   ULT_HEAL_TO,
+  ULT_PACE,
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
+import { clearStop, setTimeScale } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
@@ -171,8 +173,26 @@ export class Director {
     this.ultShows = 0;
     this.moveToken = 0;
     this.ultResolver = null;
-    this.ultQueued = false;
-    /** Which hero the pending ultimate belongs to — any of them can be spent. */
+    /**
+     * Heroes tapped and not yet cast, in the order they were tapped.
+     *
+     * A queue and not a single slot. It used to be one index plus a boolean,
+     * which meant a second tap during a cast overwrote the first: tap three
+     * charged heroes while the first cut-in is playing and two of the three
+     * ultimates were silently thrown away, having already lit the card and
+     * taken the tap. Every tap on a charged hero who is still standing is a
+     * cast now, and they run in the order they were asked for.
+     */
+    this.ultQueue = [];
+    /**
+     * Set while castUltimate is holding its own tail pause, cleared once that
+     * pause is over. If a hero is tapped while this is up, onCardTap fires it
+     * early — see castUltimate and onCardTap. A queued ultimate should not
+     * have to sit through a pause invented for a cast with nothing queued
+     * behind it.
+     */
+    this.ultChainResolver = null;
+    /** Which hero the ultimate being cast belongs to — any of them can be spent. */
     this.ultHero = HEALER;
     /**
      * Raised by the tap that spends a hero, dropped once that ultimate has
@@ -181,6 +201,25 @@ export class Director {
      * cover.
      */
     this.ultCasting = false;
+    /**
+     * Whether an ultimate is actually playing, as opposed to merely bought.
+     *
+     * `ultCasting` goes up on the tap and covers the wait as well as the cast,
+     * which is exactly right for the shield and exactly wrong for the rush:
+     * asked with that flag, a tap on a second hero during the first hero's
+     * cut-in would read as "something is in the way, hurry it up" and
+     * fast-forward the ultimate the player is watching. This is only up between
+     * the first frame of the cast and its last. See rushForUlt.
+     */
+    this.ultInFlight = false;
+    /**
+     * The rate the world is being run at on this director's account.
+     *
+     * Held here as well as in core/juice.js so the raise and the drop are one
+     * object's business: a fight that ended, or was rebuilt, mid-rush must not
+     * be able to leave a five-times world behind it. See setUltRate.
+     */
+    this.ultRate = 1;
     /**
      * The fight's clocks, held while an ultimate is being cast.
      *
@@ -382,6 +421,14 @@ export class Director {
     this.armDoom();
 
     while (!this.ended) {
+      // Nothing between two turns is allowed to run rushed. The rush belongs to
+      // the gap between a tap and the cast it bought and to nothing else, and a
+      // fight that ends inside that gap — the hurried cascade was the one that
+      // emptied the boss's bar — leaves through the line below and never
+      // reaches the drop in takeQueuedUlt. Without this the whole victory beat
+      // would play at five times speed. See setUltRate.
+      this.setUltRate(1);
+
       // One place decides how this fight ends, and it reads a verdict claimed
       // where the damage actually landed rather than two independent polls that
       // could both come back true on the same frame. See claim.
@@ -1127,6 +1174,42 @@ export class Director {
     else this.releaseClock();
   }
 
+  /**
+   * Run the world at `rate` — the one door to core/juice.js setTimeScale.
+   *
+   * Owned in one place because the failure mode is not subtle: a rate left
+   * raised is the rest of the fight in fast-forward, and every path that raises
+   * it has an exit that does not obviously come back here. So the raise is
+   * always paired, the drop is idempotent, and both fight-ending routes call it
+   * on their way out whether or not anything was ever raised.
+   *
+   * A stop in flight is dropped on the way up. Hit-stop holds the frame for up
+   * to two tenths of a second, which is nothing under a blow that has landed
+   * and is the entire answer to a tap when it sits between the tap and the cast
+   * it bought: the one thing the player is owed there is movement.
+   */
+  setUltRate(rate) {
+    if (this.ultRate === rate) return;
+    this.ultRate = rate;
+    if (rate > 1) clearStop();
+    setTimeScale(rate);
+  }
+
+  /**
+   * Hurry whatever is standing between a tapped ultimate and its cast.
+   *
+   * Not an interrupt. The cascade that is playing goes on playing, the boss
+   * mid-swing finishes its swing and every promise waiting on either of them
+   * resolves in the order it always did — the clock under all of it simply runs
+   * at ULT_PACE.rush until the cast takes over, so a second and a half of gems
+   * falling is a fifth of a second of them. Nothing downstream has to know it
+   * is being rushed, which is why this is a clock and not a flag threaded
+   * through the board.
+   */
+  rushForUlt() {
+    this.setUltRate(ULT_PACE.rush);
+  }
+
   /** Start the countdown, the moment the player can actually act on it. */
   armDoom() {
     this.fightStart = now();
@@ -1315,16 +1398,13 @@ export class Director {
   async playerTurn() {
     const board = this.s.board;
 
-    // A tap that arrived while the boss was mid-animation still counts.
-    if (this.ultQueued && this.canUlt(this.ultHero)) {
-      this.ultQueued = false;
-      return "ult";
-    }
-    // Queued against a hero who is no longer spendable — they went down while
-    // the boss was still animating. The ultimate is gone, and the shield the
-    // tap raised goes with it rather than standing over a cast that will never
+    // A tap that arrived while the boss was mid-animation still counts, and so
+    // does every tap stacked up behind it. See takeQueuedUlt.
+    if (this.takeQueuedUlt()) return "ult";
+    // Nothing left that can still be spent — whoever was queued went down while
+    // the boss was animating. The ultimate is gone, and the shield the tap
+    // raised goes with it rather than standing over a cast that will never
     // happen.
-    this.ultQueued = false;
     this.setCasting(false);
 
     const hint = this.currentHint();
@@ -1346,7 +1426,44 @@ export class Director {
     this.stopResolver = null;
     this.stopIdle();
     if (action !== "swap") board.cancelWait();
+    // The tap that won the race put its hero on the queue and woke this — the
+    // cast still has to be taken off it, or the hero cast would be whoever went
+    // last and this one would be cast again on the next turn.
+    //
+    // The empty case is not reachable from onCardTap, which pushes and then
+    // wakes this in the same breath, and it is guarded anyway: "wiped" is the
+    // one action that sends playFight back around its loop without spending
+    // anything, which is what a turn with nothing to cast is.
+    if (action === "ult" && !this.takeQueuedUlt()) return "wiped";
     return action;
+  }
+
+  /**
+   * Pull the next spendable hero off the queue and make them the cast.
+   *
+   * Skips anyone who stopped being spendable while they waited — went down, or
+   * was already spent — and reports whether anybody is left to cast.
+   */
+  takeQueuedUlt() {
+    while (this.ultQueue.length) {
+      const next = this.ultQueue.shift();
+      if (!this.canUlt(next)) continue;
+      this.ultHero = next;
+      // Back up for this cast. playUltimate drops the shield in its `finally`
+      // whether or not anything is queued behind it, so a chained ultimate
+      // would otherwise be cast with the party mortal and the clock running —
+      // the one window the tap is supposed to have bought. See setCasting.
+      this.setCasting(true);
+      // Whatever the rush was hurrying it has caught: the cast is the next
+      // thing to happen, and it owns the clock from here. See setUltRate.
+      this.setUltRate(1);
+      return true;
+    }
+    // Nobody left to cast — everyone queued went down while they waited. The
+    // rush was for an ultimate that is not going to happen, and letting it
+    // stand would run the rest of the fight at five times speed.
+    this.setUltRate(1);
+    return false;
   }
 
   /** Any charged hero who is still standing can be spent, not just Arissa. */
@@ -1375,18 +1492,46 @@ export class Director {
       this.restartIdle();
       return;
     }
-    this.ultHero = index;
+    // Behind whatever is already waiting, rather than on top of it. Two taps in
+    // the same second are two ultimates.
+    this.ultQueue.push(index);
     // Immortal — and off the clock — from the tap, not from the first frame of
     // the cut-in. The two can be a whole cascade apart: a tap that lands
-    // mid-resolve has no resolver to wake and is parked in ultQueued until the
-    // next pass through playerTurn, and the boss's track is running for every
-    // frame of that gap.
+    // mid-resolve has no resolver to wake and waits in ultQueue until the next
+    // pass through playerTurn, and the boss's track is running for every frame
+    // of that gap.
     // The player has committed the bar; the commitment is what is protected.
     this.setCasting(true);
     const resolve = this.ultResolver;
     this.ultResolver = null;
-    if (resolve) resolve("ult");
-    else this.ultQueued = true;
+    if (resolve) {
+      // The turn was parked on exactly this. The cast starts on the next tick
+      // and there is nothing in the way to hurry.
+      resolve("ult");
+      return;
+    }
+    // The cast already in flight may be sitting in its own tail pause with
+    // nothing queued behind it to justify one — now there is. Wake it so this
+    // ultimate does not wait out a pause invented for a solo cast. See
+    // castUltimate.
+    if (this.ultChainResolver) {
+      const chain = this.ultChainResolver;
+      this.ultChainResolver = null;
+      chain();
+      return;
+    }
+    // Nothing was listening, so something else owns the fight: a cascade the
+    // board is still playing out, a boss beat mid-swing, or the ultimate before
+    // this one. The first two are the whole reason a tap could ever feel dead —
+    // the hero is charged, the card is tapped, and the answer waits for gems to
+    // finish falling. Run the world at ULT_PACE.rush until playerTurn collects
+    // this, and the wait is a few frames instead of a second and a half.
+    //
+    // Never over an ultimate that is already playing: that one is the thing the
+    // player is watching, and fast-forwarding it is not what they asked for.
+    // ultCasting cannot make that distinction — the line above just raised it —
+    // which is what ultInFlight is for.
+    if (!this.ultInFlight) this.rushForUlt();
   }
 
   /* --------------------------------------------------------------- damage */
@@ -2296,6 +2441,13 @@ export class Director {
    * that is enforced and why.
    */
   async playUltimate() {
+    this.ultInFlight = true;
+    // The whole cast at one rate rather than thirty tweens re-timed across four
+    // files. Everything in it — the cut-in, the card, the board wipe, the
+    // spell, the damage number climbing — runs off this clock, so they stay in
+    // step with each other; trimming the cut-in alone would only walk it out of
+    // step with the blast it is a build-up for. See ULT_PACE.cast.
+    this.setUltRate(ULT_PACE.cast);
     try {
       await this.castUltimate();
     } finally {
@@ -2305,6 +2457,10 @@ export class Director {
       // make the party immortal for the rest of the run, over a fight whose
       // clocks had stopped.
       this.setCasting(false);
+      this.ultInFlight = false;
+      // Same argument, same four returns: a rate is as bad a thing to leave
+      // raised as a shield is.
+      this.setUltRate(1);
     }
   }
 
@@ -2417,7 +2573,36 @@ export class Director {
       hud.shout(COPY.ultHeal, 0.5, { fill: 0x9fffc4, from: 1.4 });
     }
 
-    await Promise.all([cleansing, healing, delay(0.4)]);
+    // ULT_PACE.tail is pacing for a cast with nothing behind it — a beat to let
+    // the number land before the board goes quiet. It buys nothing when the
+    // player has already tapped the next hero: that ultimate is queued and
+    // waiting on this very function to return, so the pause would only be a gap
+    // between two casts the player asked for back to back.
+    //
+    // Two ways it gets cut. Either a hero was already queued before the cast
+    // reached here — the ordinary case, the tap having landed seconds ago
+    // during the cut-in — or one is tapped while the pause is running, which is
+    // what the gate is for. Both are needed: the gate alone only catches taps
+    // that arrive inside this window, and the tap that matters is almost never
+    // one of those.
+    //
+    // cleansing and healing are real animation and are let run either way —
+    // and, when a hero is queued, they are no longer *waited* on either. Both
+    // are the tide washing over a party that is about to be washed over again;
+    // holding the next cast behind half a second of green bars filling was the
+    // last gap left between two ultimates, and it was the one the player most
+    // obviously did not ask for. They go on playing under the cut-in that
+    // follows, which is where they belong.
+    const chained = this.ultQueue.length
+      ? Promise.resolve()
+      : new Promise((resolve) => {
+          this.ultChainResolver = resolve;
+        });
+    await Promise.race([
+      Promise.all([cleansing, healing, delay(ULT_PACE.tail)]),
+      chained,
+    ]);
+    this.ultChainResolver = null;
   }
 
   /* -------------------------------------------------------- how it ends */
@@ -3059,6 +3244,10 @@ export class Director {
     if (this.ended) return;
     this.ended = true;
     this.stopIdle();
+    // The last of the three drops, and the one that catches the routes that
+    // never go round playFight's loop again — the hard cap collecting from
+    // Director.run while a rush was in flight. See setUltRate.
+    this.setUltRate(1);
     // The room goes out with the fight — a drone under a store button is a
     // drone nobody asked for. The music does not go out with it: it crosses to
     // the game's lobby theme under both screens, which is the one piece of sound

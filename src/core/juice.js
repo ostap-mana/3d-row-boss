@@ -81,25 +81,70 @@ export function hitStop(strength, duration) {
  * @returns {number} the seconds the world should advance by
  */
 export function warpDt(dt) {
-  if (stopLeft <= 0) return dt;
+  return dt * scale * stopFactor(dt);
+}
+
+/**
+ * How much of a frame the stop in flight is letting through, and age it.
+ *
+ * Split out from warpDt so the time scale below multiplies the stop rather than
+ * being swallowed by its early return: a rush engaged on the same frame as a
+ * landing used to be ignored for as long as the freeze ran.
+ */
+function stopFactor(dt) {
+  if (stopLeft <= 0) return 1;
 
   stopLeft -= dt;
   if (stopLeft <= 0) {
     stopLeft = 0;
     stopFloor = 1;
     stopTotal = 0;
-    return dt;
+    return 1;
   }
 
   // 0 at the moment of impact, 1 as it lets go.
   const t = 1 - stopLeft / stopTotal;
-  if (t <= HOLD) return dt * stopFloor;
+  if (t <= HOLD) return stopFloor;
 
   // cubicOut over the tail: most of the speed is back in the first third of the
   // release, so the world snaps out of it rather than sliding out.
   const k = (t - HOLD) / (1 - HOLD);
   const e = 1 - Math.pow(1 - k, 3);
-  return dt * (stopFloor + (1 - stopFloor) * e);
+  return stopFloor + (1 - stopFloor) * e;
+}
+
+/* ------------------------------------------------------------- time scale */
+
+/**
+ * A standing multiplier on the world clock — the other half of warpDt.
+ *
+ * Hit-stop is a beat: something landed, hold it, let go. This is a *rate*, held
+ * for as long as somebody wants the world to run at it, and it exists for one
+ * thing: the gap between a tap on a charged hero and the ultimate that tap
+ * bought. Everything in the fight animates off this clock — the cascade still
+ * falling, the boss mid-swing, the cut-in itself — so one number moves all of
+ * it at once, and nothing downstream has to learn how to be interrupted.
+ *
+ * Two rates use it, both from the director. A *rush* (ULT_PACE.rush) runs while
+ * a tapped ultimate is stuck behind a cascade the board is still playing: the
+ * remaining animation flushes in a few frames instead of a second and a half,
+ * so the cast starts on the tap rather than whenever the board happens to go
+ * quiet. A *cast* rate (ULT_PACE.cast) runs for the ultimate itself.
+ *
+ * Deliberately not applied to the two clocks main.js ticks on real time — the
+ * cataclysm fuse and the camera shake. A fuse that ran faster because the
+ * player rushed an animation would be charging them for the rush.
+ */
+let scale = 1;
+
+/** @param {number} v 1 = real time, 4 = four times as fast */
+export function setTimeScale(v) {
+  scale = v > 0 ? v : 1;
+}
+
+/** The rate the world is running at. */
+export function timeScale() {
+  return scale;
 }
 
 /** Whether the world clock is currently being held. */
@@ -107,11 +152,19 @@ export function stopped() {
   return stopLeft > 0;
 }
 
-/** Drop any stop in flight — used when the whole fight is rebuilt. */
+/**
+ * Drop any stop in flight — used when the whole fight is rebuilt, and by the
+ * director's ult rush, which must not have to wait out a freeze the last blow
+ * queued.
+ *
+ * The time scale goes with it: a rematch dealt while the previous run was
+ * mid-cast would otherwise open running at the cast's rate.
+ */
 export function clearStop() {
   stopLeft = 0;
   stopTotal = 0;
   stopFloor = 1;
+  scale = 1;
 }
 
 /* --------------------------------------------------------------------- shake */

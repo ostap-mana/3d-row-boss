@@ -79,6 +79,66 @@ const SCRIM = [
 ];
 
 /**
+ * The same wash, on the card nobody wanted.
+ *
+ * Identical curve — 0.9, 0.62, 0.68, 0.94, at the same four stops — because the
+ * composition is not what changed. A loss does not want the arena hidden any
+ * more than a win does, and moving the alphas would be this card quietly
+ * becoming a different card when the result goes the other way. Only the colour
+ * of the darkness moves: rgb(6,5,12), which is a blue-black, becomes an
+ * oxblood one.
+ *
+ * The number is not invented here. `Director.lose` throws a full-screen
+ * 0x3a0606 over the fight the instant the party is wiped — near-black, barely a
+ * red at all until it is the only thing on the screen — and this card is the
+ * next frame after that flash. Continuing its colour is the whole idea: the
+ * wipe stains the room, and the verdict is read in the room it stained. Held
+ * rather than thrown, so it is dropped to about a third of the flash's weight,
+ * and warmed a little towards the floor, where the board the player just lost
+ * is lying.
+ *
+ * Its own cache key, because gradientTexture hands back the first texture ever
+ * built under a name and would otherwise give the loss the win's sky.
+ */
+const SCRIM_LOSS = [
+  [0.0, "rgba(24,5,9,0.9)"],
+  [0.3, "rgba(30,6,10,0.62)"],
+  [0.62, "rgba(36,7,10,0.68)"],
+  [1.0, "rgba(44,8,10,0.94)"],
+];
+
+/**
+ * The red the room is lit by once the fight is lost, and the only thing on this
+ * card that is added rather than laid over.
+ *
+ * A scrim can only ever take light away — it is a dark sheet at an alpha — and a
+ * loss told entirely in subtraction is a loss told by turning the brightness
+ * down. That is the failure the background's own note names: a multiply left
+ * high over dark art gives a black screen with a monster somewhere in it. So the
+ * darkness goes oxblood above, and this puts one light back, which is the pair
+ * the rest of the build tunes together and never separately.
+ *
+ * Weighted to the floor on purpose. The board is at the bottom of the frame and
+ * the board is what just killed the party; the word is in the middle and the
+ * middle is left nearly clear, so the type is read against the darkest, quietest
+ * part of the picture rather than through a glow. The lick at the very top is
+ * the same light hitting the ceiling of the arena — without it the frame reads
+ * as a red bar across the bottom of a black screen rather than as a room.
+ *
+ * Additive, so it survives being drawn over a still that came back almost black:
+ * a normal-blend red over black is a dark red rectangle, and an added one is
+ * light in a dark room. Alpha is carried per stop rather than by the sprite so
+ * the shape of the light is fixed in the texture and the sprite's own alpha is
+ * left free to be the intensity — which is what breathes. See BED_*.
+ */
+const BED_LOSS = [
+  [0.0, "rgba(158,30,22,0.34)"],
+  [0.36, "rgba(120,20,18,0.09)"],
+  [0.66, "rgba(150,24,18,0.16)"],
+  [1.0, "rgba(206,40,26,0.62)"],
+];
+
+/**
  * The still is tinted as well as dimmed, and the dim on its own is not enough.
  *
  * Blurring a board of saturated gems gives back saturated blobs: the shapes go
@@ -92,6 +152,25 @@ const SCRIM = [
  * draw a sprite at all.
  */
 const STILL_TINT = 0x8592ad;
+
+/**
+ * The same still, on a loss.
+ *
+ * The cool grey above is a colour-killer: it pulls a board of saturated gems
+ * towards neutral so a white headline is not sitting in a fruit bowl. This does
+ * the same job in the other direction — the blue and the green come out of the
+ * picture, the red is left in — so the photograph of the fight is not a fight
+ * any more, it is the memory of one, lit by whatever is still burning.
+ *
+ * Kept at roughly the grey's own weight rather than deepened. A tint multiplies,
+ * so every point taken off here is light taken off the arena as well, and the
+ * still is already the darkest thing on the card: 0xb0 of red against the grey's
+ * 0x85 is a picture that is warmer without being dimmer, which is the whole
+ * trick. The green and the blue go to about two-thirds of their cool values,
+ * which is far enough to kill the violet and cyan gems and not so far that the
+ * heroes' armour turns into a silhouette.
+ */
+const STILL_TINT_LOSS = 0xac8076;
 
 /**
  * How many times the still is halved on its way to being the blur.
@@ -147,9 +226,74 @@ const LINE_W = { portrait: 0.44, landscape: 0.26 };
 const FLASH_HOLD = 0.04;
 const FLASH_FADE = 0.55;
 
-/** A win flashes warm white; a loss flashes hot. */
+/**
+ * A win flashes warm white; a loss flashes hot.
+ *
+ * The loss's is redder than it was — 0xffcfc4 was a blush, and a blush over a
+ * card that is now lit oxblood underneath read as the flash and the room
+ * disagreeing about what had happened. Still nearly white at the top of its
+ * curve, because this flash's job is to hide the cut and hand back a card that
+ * is already standing; a red flash is an effect, and there is one of those on
+ * the screen before this. What it does now is leave warm as it goes, so the
+ * last thing the fade puts down is the colour the room keeps.
+ */
 const FLASH_WIN = 0xfff4d8;
-const FLASH_LOSS = 0xffcfc4;
+const FLASH_LOSS = 0xffb5a4;
+
+/**
+ * The light behind the word, on a loss.
+ *
+ * Gold is the win's, and it is the creative's own gold — PLATE_GOLD, the band's
+ * own colour, which is why the bloom reads as the band glowing rather than as a
+ * lamp behind it. A wipe cannot have that: the one warm light left on this card
+ * would be announcing something.
+ *
+ * So it goes to the ember the rest of the loss is lit by. Not the crimson of the
+ * bed below — a saturated red directly behind white type is a halo, and the word
+ * has to stay the hardest edge on the screen — but a burnt orange sitting
+ * between the band's gold and the floor's red, which is what a gold plate looks
+ * like with a fire under it. The same family the end card puts behind its own
+ * defeat art, one screen later.
+ */
+const BLOOM_LOSS = 0xc9502a;
+
+/**
+ * The bed's intensity: what it settles at, how far it breathes either side, and
+ * how fast.
+ *
+ * The breath is the point of the whole layer. A still red is a colour; a red
+ * that swells and falls is a room with something in it, and it is the only thing
+ * on this card that moves once the word has landed. It is deliberately slower
+ * than everything else on screen — 0.9 radians a second against the bloom's 1.8
+ * and the tap line's 2.6 — because the two fast pulses are alive and this one is
+ * meant to read as the fight going out. Around seven seconds a cycle, on a card
+ * held for T.outcomeHold: the player sees it swell once, which is enough to
+ * notice and not enough to look like a loop.
+ *
+ * The swing is 0.05 against a centre of 0.55, so the floor moves by about a
+ * tenth of its own strength. Wider and the card pumps; narrower and it may as
+ * well be a constant on the phones this is judged on.
+ */
+const BED_BASE = 0.3;
+const BED_SWING = 0.045;
+const BED_BREATH = 0.9;
+
+/**
+ * The one hit, and where it lands.
+ *
+ * `sfx.defeat` is started at 0.06 and its braam reaches half power 0.116 s after
+ * that — see the note in `show`, which is where those two numbers were measured
+ * against each other. This puts the light on the same frame: the horn hits, the
+ * room goes up in red, and then it falls back to the bed over the second that
+ * follows and stays there. It is the only moment on the card where the backdrop
+ * is louder than the word, and it is over before the word has finished settling.
+ *
+ * A win has no equivalent and does not want one. Its horn is answered by the
+ * gold bloom behind the band, which is a light on the verdict; this is a light
+ * on the room, and the difference is the difference between the two endings.
+ */
+const BED_HIT = 0.9;
+const BED_HIT_AT = 0.176;
 
 /**
  * How long the card ignores a tap.
@@ -208,6 +352,25 @@ export class OutcomeScreen extends Container {
 
     this.scrim = new Sprite(gradientTexture("outcome-scrim", SCRIM));
     this.addChild(this.scrim);
+
+    /**
+     * The loss's light, built on both endings and paid for by neither.
+     *
+     * Two cached textures and a sprite at alpha zero is nothing — the gradient
+     * is four pixels wide — and building it here rather than on a loss is what
+     * keeps `show` free of a branch that adds a child mid-flight. A win never
+     * raises its alpha, and a sprite at alpha zero is skipped by the renderer.
+     *
+     * Directly over the scrim and under everything else: the light is in the
+     * room, so it is above the darkness that made the room and below the band,
+     * the word, the tap line and the flash. The still goes in under both with
+     * `addChildAt(_, 0)` on `show`, which cannot disturb this.
+     */
+    this.bed = new Sprite(gradientTexture("outcome-bed-loss", BED_LOSS));
+    this.bed.blendMode = "add";
+    this.bed.eventMode = "none";
+    this.bed.alpha = 0;
+    this.addChild(this.bed);
 
     /**
      * The light behind the word.
@@ -342,6 +505,10 @@ export class OutcomeScreen extends Container {
     // whole screen, and it goes back exactly where it was taken from.
     if (this.still) this.still.setSize(w, h);
     this.scrim.setSize(w, h);
+    // The same box as the scrim, for the same reason: the light and the dark are
+    // one wash over the photograph, and a bed measured off the stage would leave
+    // the room lit to the notch and black past it.
+    this.bed.setSize(w, h);
 
     this.flash.clear();
     this.flash.rect(0, 0, w, h);
@@ -427,6 +594,27 @@ export class OutcomeScreen extends Container {
     this.word.text = this.defeat ? COPY.outcomeDefeat : COPY.outcomeVictory;
 
     /**
+     * The room the verdict is read in, and the only place the result is allowed
+     * to change this card's colour.
+     *
+     * The word is white on both endings — it is the one word in the creative
+     * with a face of its own, and a coloured verdict is a verdict competing with
+     * the band it is set in. What carries the loss is everything behind it: the
+     * darkness goes oxblood, the photograph of the fight goes from cool to
+     * burnt, and the light behind the band stops being gold. See SCRIM_LOSS,
+     * STILL_TINT_LOSS and BLOOM_LOSS, and the bed below them.
+     *
+     * Set here rather than in the constructor because this is the first moment
+     * the result is known, and re-set on every `show` rather than once because
+     * the texture swap has to survive a card that is shown, left, and shown
+     * again by a rematch.
+     */
+    this.scrim.texture = this.defeat
+      ? gradientTexture("outcome-scrim-loss", SCRIM_LOSS)
+      : gradientTexture("outcome-scrim", SCRIM);
+    this.bloom.tint = this.defeat ? BLOOM_LOSS : PLATE_GOLD;
+
+    /**
      * The still, taken now and only now.
      *
      * This is the last frame of the fight, and it has to be captured before this
@@ -437,11 +625,14 @@ export class OutcomeScreen extends Container {
       const texture = this.freeze();
       if (texture) {
         this.still = new Sprite(texture);
-        this.still.tint = STILL_TINT;
         // Under the scrim, which is index 0 until this arrives.
         this.addChildAt(this.still, 0);
       }
     }
+    // Outside the block above, so a rematch that comes back to a still taken on
+    // the first run still gets the tint its own result asks for.
+    if (this.still)
+      this.still.tint = this.defeat ? STILL_TINT_LOSS : STILL_TINT;
 
     if (this.layout) this.resize(this.layout);
 
@@ -459,6 +650,7 @@ export class OutcomeScreen extends Container {
     this.card.alpha = 0;
     this.tap.alpha = 0;
     this.bloom.alpha = 0;
+    this.bed.alpha = 0;
     this.flash.alpha = 1;
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
 
@@ -517,6 +709,32 @@ export class OutcomeScreen extends Container {
     });
     tween(this.bloom, { alpha: this.defeat ? 0.3 : 0.42 }, 0.5, { delay: 0.1 });
 
+    /**
+     * The room lights, once, on the horn — and then does not stop being lit.
+     *
+     * Two tweens rather than one because a hit and a bed are different events
+     * that happen to share a number: the first is the braam made visible and is
+     * over in a tenth of a second, the second is what the card looks like for
+     * the rest of its life. Chained by the second's delay rather than by an
+     * await, so a rotation landing between them finds both already queued and
+     * `settle` can kill the pair together.
+     *
+     * The bed lands on BED_BASE exactly, which is the centre `update` breathes
+     * around — see BED_SWING. Anything else and the first frame after the intro
+     * would be a step, which is the wart the gold bloom already has and is not
+     * an argument for a second one.
+     */
+    if (this.defeat) {
+      tween(this.bed, { alpha: BED_HIT }, 0.1, {
+        delay: BED_HIT_AT,
+        ease: Ease.cubicOut,
+      });
+      tween(this.bed, { alpha: BED_BASE }, 0.9, {
+        delay: BED_HIT_AT + 0.1,
+        ease: Ease.cubicOut,
+      });
+    }
+
     await delay(0.62);
     if (!this.introducing) return waiting;
 
@@ -550,6 +768,11 @@ export class OutcomeScreen extends Container {
     });
     killTweensOf(this.bloom);
     this.bloom.alpha = this.defeat ? 0.3 : 0.42;
+    // Both of the bed's tweens, and then the value they were going to arrive at.
+    // A rotation that landed between the hit and the fall would otherwise leave
+    // the room at full brightness for the rest of the card.
+    killTweensOf(this.bed);
+    this.bed.alpha = this.defeat ? BED_BASE : 0;
     // The flash is the one thing a rotation must not preserve: it is half a
     // second of white over the whole screen, and finishing it early is the only
     // sensible reading of "there is nobody watching this arrive".
@@ -602,6 +825,12 @@ export class OutcomeScreen extends Container {
 
     this.bloom.alpha =
       (this.defeat ? 0.26 : 0.36) + Math.sin(this.t * 1.8) * 0.08;
+    // The room breathing, and the loss's only moving part. Guarded rather than
+    // multiplied out because a win's bed is at zero and should cost nothing at
+    // all, not a sine and a write every frame.
+    if (this.defeat) {
+      this.bed.alpha = BED_BASE + Math.sin(this.t * BED_BREATH) * BED_SWING;
+    }
     // On the text and not on the container, so the fade-out on the way off owns
     // an alpha of its own and the two do not fight over the same number.
     this.tapText.alpha = 0.62 + Math.abs(Math.sin(this.t * PULSE)) * 0.38;

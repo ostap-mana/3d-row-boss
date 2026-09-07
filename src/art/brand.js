@@ -25,7 +25,7 @@ import { canvasTexture } from "./textures.js";
 import keyArtUrl from "../assets/brand/key-art.webp";
 import logoUrl from "../assets/brand/logo-invokers.webp";
 import playUrl from "../assets/brand/play-now.webp";
-import retryLineUrl from "../assets/brand/retry-line.webp";
+import retryBossUrl from "../assets/brand/retry-boss.webp";
 import appStoreUrl from "../assets/brand/badge-app-store.webp";
 import googlePlayUrl from "../assets/brand/badge-google-play.webp";
 import pcMacUrl from "../assets/brand/badge-pc-mac.webp";
@@ -37,40 +37,58 @@ export const PLAY_ART = { w: 640, h: 164 };
 export const KEY_ART = { w: 1500, h: 1246 };
 
 /**
- * The RETRY divider, packed by tools/pack-retry-line.mjs.
+ * The RETRY lockup, packed by tools/pack-retry-boss.mjs.
  *
- * The defeat card's way out, and deliberately not a second plate. A warm
- * champagne hairline with a small pale diamond finial off each end, breaking in
- * the middle around the word RETRY under a circular-arrow glyph and carrying a
- * shallow bracket under the label — the same divider vocabulary the outcome
- * screen is built from, with a label in the break instead of a plain notch. See
- * art/outcomeui.js.
+ * The defeat card's way out, painted: the boss leaning out over a cracked
+ * obsidian plate with RETRY cut into it, one claw resting on the word and the
+ * little shaman riding its shoulder. The rematch offered by the thing that took
+ * the fight off the player, which is an argument only a picture can make.
  *
- * It replaced a blue gem plate that wore the PLAY NOW plate's own frame, and
- * the shape is the argument: two lit gem lockups stacked in one column is the
- * card making two offers at the same volume, and this card has exactly one
- * offer. A rule under the store row says "or" without asking for the tap. The
- * plate is still on disk and tools/pack-retry.mjs still makes it; nothing
- * imports it, so it is not bytes in the bundle.
+ * It is the third shape this control has had and the first that is a picture of
+ * the game rather than a piece of furniture. It replaced a hairline rule, which
+ * had replaced a blue gem plate, and both of those were chosen against exactly
+ * this: two lit lockups stacked in one column is the card making two offers at
+ * the same volume, and the card has one offer. That objection has not gone away
+ * — it has been overruled, and the sizing is where the overruling is paid for.
+ * See RETRY_BOSS_W in ui/endcard.js, which holds this to about three quarters of
+ * the CTA plate's width so the pitch still wins the column on width, and only
+ * on width.
  *
- * It is gold now and was chrome with magenta gems for one pass in between. Same
- * argument, one step further: the outcome screen's ornament is this gold, so a
- * chrome rule on the card after it was the only piece of furniture in the
- * creative quoting a different metal. That cut is still on disk as
- * `src/source/endcard/retry-line.png` and is the sharper file by a long way —
- * 1863 px of ink against this one's 444, see the note in the packer — so if the
- * softness at resolution 2 ever reads as a compression artefact, that is the
- * trade being paid for the colour, and it is reversible.
+ * Both older cuts are still on disk and both packers still run —
+ * tools/pack-retry-line.mjs and tools/pack-retry.mjs. Nothing imports either,
+ * so neither is bytes in the bundle.
  *
- * At 12.05 it is a rule and not a button, which is why the card cannot measure
- * it off the PLAY NOW plate the way it measured the old one — see
- * EndCard.fitRetry and RETRY_W. Thinner than the chrome cut's 9.55: that one
- * stood a crest gem clear above the rule and hung a faceted finial off each
- * end, and this one spends its whole height on cap-height type and a bracket
- * that only just clears the baseline. At the width the card gives it that is
- * about four fifths of the depth, which the layout reads straight off this
- * constant and needs no telling about — but the hit box does, and it is grown
- * around the art rather than measured from it. See EndCard.placeRetry.
+ * At 1.38 it is a painting and not a rule, and the difference costs the layout
+ * a second number: fitted to the width the old rule was given it would stand
+ * about nine times as deep, which upright eats the picture and sideways is
+ * taller than the column it is a rung of. So this one is fitted to a width
+ * *and* a ceiling, and hands back the box it settled on. See fitRetryBoss.
+ *
+ * ## Two deliveries, and why the shape moved
+ *
+ * The first cut of this lockup came in at 1.42 on a sheet of white, and had to
+ * be keyed off it — see tools/cut-bg.mjs --glow, and the v1 files still beside
+ * the current source. This is the artist's own matted delivery of the same
+ * lockup: a little taller in proportion, with the word set larger inside the
+ * plate and the boss cropped closer around it. Nothing in the card was written
+ * to 1.42 — the fit asks the constant, and the constant is a transcript of what
+ * the packer printed — so the swap was this number and the packed file.
+ */
+export const RETRY_BOSS_ART = { w: 640, h: 464 };
+
+/**
+ * The RETRY divider, out of the build — and kept only as a measurement.
+ *
+ * `retry-line.webp` is still on disk and tools/pack-retry-line.mjs still makes
+ * it, but nothing imports it any more: the control above replaced it. The
+ * constant stays as the transcript of what that packer printed, the same way
+ * VICTORY_ART and DEFEAT_ART below do, so the rule can be put back by pointing
+ * the card's fit at it rather than by re-deriving its aspect.
+ *
+ * A warm champagne hairline with a small pale diamond finial off each end,
+ * breaking in the middle around the word RETRY under a circular-arrow glyph and
+ * carrying a shallow bracket under the label — the same divider vocabulary the
+ * outcome screen is built from. See art/outcomeui.js.
  */
 export const RETRY_LINE_ART = { w: 1024, h: 85 };
 
@@ -143,7 +161,7 @@ export const PLAY_LABEL_STROKE = 0x3d0511;
 let keyArtTexture = null;
 let logoTexture = null;
 let playTexture = null;
-let retryLineTexture = null;
+let retryBossTexture = null;
 let victoryTexture = null;
 let defeatTexture = null;
 const badgeTextures = {};
@@ -184,9 +202,9 @@ export async function loadBrandArt() {
         playTexture = t;
       })
       .catch(() => {}),
-    decode(retryLineUrl)
+    decode(retryBossUrl)
       .then((t) => {
-        retryLineTexture = t;
+        retryBossTexture = t;
       })
       .catch(() => {}),
     ...BADGES.map((b) =>
@@ -240,14 +258,14 @@ export function playPlateSprite() {
 }
 
 /**
- * The RETRY divider, centred on its own origin, or null if it never decoded.
+ * The RETRY lockup, centred on its own origin, or null if it never decoded.
  *
- * Null is a real answer and the end card is written for it: with no ornament the
+ * Null is a real answer and the end card is written for it: with no painting the
  * control falls back to the drawn pill and the word in type, which is plainer
  * and is still a button that restarts the fight. See EndCard.fitRetry.
  */
-export function retryLineSprite() {
-  return sprite(retryLineTexture);
+export function retryBossSprite() {
+  return sprite(retryBossTexture);
 }
 
 /**
@@ -296,16 +314,37 @@ export function fitPlayPlate(s, w) {
   return h;
 }
 
-/** What the RETRY divider stands to at width `w`. The only height it may take. */
-export function retryLineHeight(w) {
-  return (w * RETRY_LINE_ART.h) / RETRY_LINE_ART.w;
+/** What the RETRY lockup stands to at width `w`. The only height it may take. */
+export function retryBossHeight(w) {
+  return (w * RETRY_BOSS_ART.h) / RETRY_BOSS_ART.w;
 }
 
-/** Size the RETRY divider to `w`, at its own aspect. */
-export function fitRetryLine(s, w) {
-  const h = retryLineHeight(w);
+/**
+ * Size the RETRY lockup into `w` by `maxH`, and report the box it took.
+ *
+ * The only fit on this screen that takes two numbers, and the only one that can
+ * hand back a width other than the one it was given. Every other piece of brand
+ * art here is a wide, shallow thing — a wordmark, a plate, a store badge, a rule
+ * — so a width is the whole question and the aspect answers the rest. This one
+ * is nearly square by comparison, and a width that suits the column can imply a
+ * height the column does not have: sideways there is barely a third of a phone's
+ * short edge for the entire pitch, and this rung asked for more of it than the
+ * wordmark, the plate and the store row together.
+ *
+ * So the ceiling wins when the two disagree, and the width comes back down to
+ * meet it rather than the art being squashed into the box. The caller places
+ * what it is handed, which is why this returns a box and not a height.
+ *
+ * @returns {{w: number, h: number}}
+ */
+export function fitRetryBoss(s, w, maxH) {
+  let h = retryBossHeight(w);
+  if (maxH > 0 && h > maxH) {
+    h = maxH;
+    w = (h * RETRY_BOSS_ART.w) / RETRY_BOSS_ART.h;
+  }
   s.setSize(w, h);
-  return h;
+  return { w, h };
 }
 
 /**
