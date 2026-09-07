@@ -1278,35 +1278,37 @@ export class Director {
   /**
    * How fast the clock on screen runs against the clock the run is on.
    *
-   * Below 1, so the strip drains slower than wall time and thirty of its
-   * seconds fill the thirty-three the run actually has — see DOOM.stretch,
-   * which is where the intent and the tuning are written down.
+   * 1 for all but the last `window` seconds of the countdown, and below 1
+   * inside them — so twenty-seven of the thirty shown seconds are wall time and
+   * the three the run is longer than it admits are all spent on the last three.
+   * See DOOM.stretch, which is where the intent and the tuning are written
+   * down.
    *
-   *     rate(p) = 1 / (1 + k * p^shape)
+   *     rate(u) = 1 / (1 + k * u^shape)
    *
-   * with `p` the fraction of the countdown already spent. The whole of the
-   * arithmetic is `k`, and it is solved rather than tuned: the real time the
-   * clock takes to drain is the integral of 1/rate over the shown seconds,
+   * with `u` running 0 to 1 across the window. The whole of the arithmetic is
+   * `k`, and it is solved rather than tuned: the real time the window takes is
+   * the integral of 1/rate over its shown seconds,
    *
-   *     total + k * total / (shape + 1) = total + extra
+   *     window + k * window / (shape + 1) = window + extra
    *
-   * so k = extra * (shape + 1) / total and the run is exactly `extra` seconds
+   * so k = extra * (shape + 1) / window and the run is exactly `extra` seconds
    * longer than the strip claims, for any shape. Which is what makes the shape
-   * safe to play with: it moves *where* the time is handed out and never how
-   * much of it there is.
+   * safe to play with: it moves *where* inside the window the time is handed
+   * out and never how much of it there is.
    *
-   * Read off `doomLeft` rather than off wall time on purpose. The clock is
-   * armed after the intro and can be held for an ultimate — see holdClock — so
-   * elapsed real time is not a reliable measure of how far through the
-   * countdown the player is, and this has to answer the same rate for the same
-   * reading on the strip whatever the run did to get there.
+   * Read off `doomLeft` rather than off wall time on purpose, and that matters
+   * more here than it did when this was spread across the whole run. The clock
+   * is armed after the intro and can be held for an ultimate — see holdClock —
+   * so elapsed real time says nothing about how close the strip is to zero, and
+   * "the last three seconds" has to mean the last three the player sees.
    */
   doomRate() {
-    const { extra, shape } = DOOM.stretch || {};
-    if (!extra || !this.doomTotal) return 1;
-    const p = Math.max(0, Math.min(1, 1 - this.doomLeft / this.doomTotal));
-    const k = (extra * (shape + 1)) / this.doomTotal;
-    return 1 / (1 + k * Math.pow(p, shape));
+    const { extra, window, shape } = DOOM.stretch || {};
+    if (!extra || !window || this.doomLeft > window) return 1;
+    const u = Math.max(0, Math.min(1, 1 - this.doomLeft / window));
+    const k = (extra * (shape + 1)) / window;
+    return 1 / (1 + k * Math.pow(u, shape));
   }
 
   doomDue() {

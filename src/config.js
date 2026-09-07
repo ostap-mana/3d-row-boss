@@ -1216,31 +1216,54 @@ export const DOOM = {
    * take thirty-three of ours. Nobody counts a countdown against a stopwatch;
    * what they feel is how long they had.
    *
-   * `shape` is where the three seconds are spent, and it is the whole reason
-   * this is a curve rather than a flat 10% slower. The drain rate is
+   * `window` is the whole of the idea and it is the second thing this was
+   * asked for: the stretch is confined to the last `window` seconds of the
+   * countdown and there is none at all before them. Outside the window the
+   * clock is wall time to the frame — twenty-seven true seconds — and inside
+   * it the three are handed over. It was a smooth curve over the whole run
+   * first, and the note it earned was that the extra time should land on the
+   * last few seconds and nowhere else, which is what this is.
    *
-   *     1 / (1 + k * p^shape)     where p is how much of the clock is gone
+   * The drain rate inside the window is
    *
-   * and `k` is solved so the integral comes out at exactly `extra` — see
-   * Director.doomRate, which is four lines and does that solve. At shape 3 the
-   * clock runs true for the first half of the run to within a few hundredths,
-   * and the last of its seconds takes 1.4 of ours. Half the three seconds are
-   * handed out inside the final sixth of the countdown, which is where the
-   * player is either finishing the boss or watching the strip go red — the one
-   * stretch of the creative where a second is worth something.
+   *     1 / (1 + k * u^shape)   with u running 0 -> 1 across the window
    *
-   * Raise `shape` to push the gift later and make it steeper; drop it to 1 and
-   * the extra time spreads evenly and stops being noticeable anywhere. Set
-   * `extra` to 0 and the whole mechanism turns off: the rate is 1, the clock is
-   * wall time again, and only T.hardCap has to come back to 30 with it.
+   * and `k` is solved rather than tuned so the integral comes out at exactly
+   * `extra` — see Director.doomRate, which is five lines and does that solve.
+   * At u = 0 the rate is 1 whatever the shape, so the clock does not step as
+   * it crosses into the window; it leans.
+   *
+   * What the player sees, and the strip prints whole seconds (see Hud.setDoom,
+   * which is where the ceil is), so this is literally how long each digit is
+   * on screen:
+   *
+   *     "3" holds 1.3s      where it would have held 1.0
+   *     "2" holds 2.0s
+   *     "1" holds 2.7s
+   *
+   * Six real seconds for the last three of the countdown. That is deliberately
+   * on the edge of noticeable — a player who is counting would catch the last
+   * one — and the alternative was giving the time back where nobody feels it,
+   * which is the same as not giving it.
+   *
+   * The three knobs, in the order worth reaching for:
+   *
+   *   window  2 puts the whole gift on two digits and the last one holds 3.3s,
+   *           which is the version that was also asked about; 4 or 5 spreads it
+   *           and stops it reading as a reprieve.
+   *   shape   1 leans in linearly. 0 is a flat half-speed across the window and
+   *           steps as it enters. Above 1 the window opens near true speed and
+   *           the last digit takes almost all of it.
+   *   extra   0 turns the whole mechanism off — the rate is 1, the clock is
+   *           wall time again, and only T.hardCap has to come back to 30.
    *
    * What this does NOT touch is what the deadline means. The cataclysm still
    * lands when the strip reads zero, the warnings at DOOM.warnAt still fire on
    * the numbers the player sees, and the mix still leans on the shown clock —
-   * so the last four seconds of tension now play out over five and a half real
-   * ones, which is the ending getting room rather than the ending being slower.
+   * so the panic at 3.5 now plays out over six and a half real seconds, which
+   * is the ending getting room rather than the ending being slower.
    */
-  stretch: { extra: 3, shape: 3 },
+  stretch: { extra: 3, window: 3, shape: 1 },
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
