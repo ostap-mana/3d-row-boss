@@ -1243,7 +1243,8 @@ export class Director {
     this.checkPhase();
 
     if (this.doomLeft > 0) {
-      this.doomLeft = Math.max(0, this.doomLeft - dt);
+      // Shown seconds, not wall seconds — see doomRate and DOOM.stretch.
+      this.doomLeft = Math.max(0, this.doomLeft - dt * this.doomRate());
       this.s.hud.setDoom(this.doomLeft, this.doomTotal);
       // The room tightens with the clock — the one thing in the mix that says
       // something the screen has not already said.
@@ -1272,6 +1273,40 @@ export class Director {
       this.doomResolver = null;
       resolve("doom");
     }
+  }
+
+  /**
+   * How fast the clock on screen runs against the clock the run is on.
+   *
+   * Below 1, so the strip drains slower than wall time and thirty of its
+   * seconds fill the thirty-three the run actually has — see DOOM.stretch,
+   * which is where the intent and the tuning are written down.
+   *
+   *     rate(p) = 1 / (1 + k * p^shape)
+   *
+   * with `p` the fraction of the countdown already spent. The whole of the
+   * arithmetic is `k`, and it is solved rather than tuned: the real time the
+   * clock takes to drain is the integral of 1/rate over the shown seconds,
+   *
+   *     total + k * total / (shape + 1) = total + extra
+   *
+   * so k = extra * (shape + 1) / total and the run is exactly `extra` seconds
+   * longer than the strip claims, for any shape. Which is what makes the shape
+   * safe to play with: it moves *where* the time is handed out and never how
+   * much of it there is.
+   *
+   * Read off `doomLeft` rather than off wall time on purpose. The clock is
+   * armed after the intro and can be held for an ultimate — see holdClock — so
+   * elapsed real time is not a reliable measure of how far through the
+   * countdown the player is, and this has to answer the same rate for the same
+   * reading on the strip whatever the run did to get there.
+   */
+  doomRate() {
+    const { extra, shape } = DOOM.stretch || {};
+    if (!extra || !this.doomTotal) return 1;
+    const p = Math.max(0, Math.min(1, 1 - this.doomLeft / this.doomTotal));
+    const k = (extra * (shape + 1)) / this.doomTotal;
+    return 1 / (1 + k * Math.pow(p, shape));
   }
 
   doomDue() {
@@ -2479,9 +2514,15 @@ export class Director {
     // finish first — a pause between the tap and the payoff, in the one place
     // in the fight where the player has just been promised something loud.
     const spending = card.spend();
-    // Straight into the cut. The card used to be given a beat here for the
-    // border it threw on the tap; with no border on the card there is nothing to
-    // wait for, and the cut arrives on the frame the player tapped.
+    // The card's own animation gets its moment before the cut takes the screen,
+    // and how long that is is the card's to say: a hero whose element has a
+    // burst sheet has an arc to show and the cut lands on its peak, everybody
+    // else keeps the tenth of a second this always waited. See
+    // HeroCard.flareLead and ULT in art/heroes.js — both leads are 0 there, so
+    // this is presently a wait of nothing and the cut still arrives on the frame
+    // the player tapped. It is asked for anyway, because where that beat lives
+    // is the card's business and this is where it is spent.
+    await delay(card.flareLead());
     await cutin.play(index);
     if (this.ended) return;
 

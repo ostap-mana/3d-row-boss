@@ -16,22 +16,22 @@
  *
  * ## What the frame is made of, and why it is made of that
  *
- * The composition is a **portrait**, and nothing is ruled around it. The panel
- * is the hero's own card art, edge to edge: the bust is a painting of a face and
- * shoulders (see art/avatars.js) and it fills the panel the way it fills the
- * tile in the hero row, which is what makes the cut-in the same object the tap
- * was on, thrown at the camera at ten times the size.
+ * The composition is a **card**, and that is the whole of the redesign. This
+ * used to stand a roundel — a circular crop of the hero's face, about a third of
+ * the stage — inside the burst sheet that art/ultborder.js packs, and that sheet
+ * is a *card border*: a tall rectangle of white-hot rim and bloom, drawn for the
+ * tile in the hero row. Hung round a circle it framed nothing. What the player
+ * actually saw was an empty glowing rectangle with a small avatar pasted over
+ * the middle of it — a picture frame with no picture in it.
  *
- * Everything that used to stand *on* that edge has come off, in two passes and
- * for one reason. First the border: a burst sheet out of art/ultborder.js — a
- * tall rectangle of white-hot rim and bloom, packed for the tile in the row —
- * laid on the panel's own line. Then the drawn rim under it, three strokes and
- * two runs of corner ornament. Together they were a picture frame around a
- * picture, and a glowing one at that: the loudest thing in the loudest beat of
- * the creative was its own edge rather than the hero inside it. The hero cards
- * lost the same two things at the same time.
+ * So the thing inside the border is the thing the border was drawn for: the
+ * hero's own card art, edge to edge, at the sheet's own aspect. The bust is a
+ * painting of a face and shoulders (see art/avatars.js) and it fills the panel
+ * the way it fills the tile in the row. The burst sheet then reads as what it
+ * is — the card the player just tapped, blazing — and the cut-in becomes the
+ * same object the tap was on, thrown at the camera at ten times the size.
  *
- * What lights the panel now stands outside it and is not a rectangle:
+ * Around it:
  *
  *   - **rays**, converging on the panel. Concentrated lines are the oldest
  *     device in this genre and they do one job: point at the subject. The set
@@ -56,6 +56,7 @@ import {
 import { heroPortrait } from "../art/heroes.js";
 import { heroBust } from "../art/avatars.js";
 import { glowTexture } from "../art/textures.js";
+import { fitUltBorder, ultBurst, ultBurstTexture } from "../art/ultborder.js";
 import { lerpColor } from "../core/color.js";
 import { tween, delay, killTweensOf, Ease } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -89,11 +90,12 @@ const LEAN = 0.34;
 /**
  * The panel: the hero's card, at the size a cut-in wants it.
  *
- * `aspect` is a card's — 304 by 608, what the ult sheets were packed at — and
- * the bust art is 160 by 328, near enough the same that cover-fitting it is
- * barely a crop. The panel agreeing with the art is the whole point of the
- * number: a box of any other shape crops a painting to a shape it was not
- * painted for.
+ * `aspect` is the burst sheet's own — 304 by 608, a card — and the bust art is
+ * 160 by 328, near enough the same that cover-fitting it is barely a crop. Both
+ * of those are facts about files on disk, and the whole point of this number is
+ * that the panel agrees with them: a box of any other shape puts a rectangular
+ * border round something that is not that rectangle, which is the fault this
+ * replaced.
  *
  * `tall` is the share of the stage's height the panel stands, and it is bound by
  * the width as well — in portrait the stage is half as wide as it is tall, and a
@@ -101,7 +103,7 @@ const LEAN = 0.34;
  *
  * `tilt` is small on purpose. Enough that the panel is a thing thrown into the
  * frame rather than a dialog box centred in it; not so much that the type has to
- * lean with it or the painting starts reading as crooked.
+ * lean with it or the burst border starts reading as crooked.
  */
 const PANEL = {
   aspect: 0.5,
@@ -194,6 +196,17 @@ function hazeAlpha(element) {
 }
 
 /**
+ * Where the burst sheet has got to at the end of each beat.
+ *
+ * Twelve frames of a build, a white-hot peak and a settle, over an arc that is
+ * already a slam, a creep and a punch: the border is asked to hit its peak on
+ * the frame the panel lands, to drift across the hot frames while the panel
+ * creeps in, and to spend the settle being thrown through the camera with
+ * everything else. See `gateTo`, which is all three.
+ */
+const GATE = { land: 0.52, hold: 0.78 };
+
+/**
  * Deterministic scatter.
  *
  * Math.random would re-roll the whole burst on every resize — and resize runs on
@@ -259,6 +272,26 @@ export class CutIn extends Container {
      */
     this.bust = new Container();
     this.addChild(this.bust);
+
+    /**
+     * The burst border, first into the panel so the art is drawn over it.
+     *
+     * The sheet is glow on black and goes on with `add`, so over the top it
+     * would put light into the face. Underneath, the panel's own plate keeps the
+     * painting exactly as painted and the border is only ever what stands around
+     * it — which, the panel being the shape the sheet was packed for, is a rim
+     * on the card's own edge with its bloom hanging outside.
+     */
+    this.gate = new Sprite(Texture.EMPTY);
+    this.gate.anchor.set(0.5);
+    this.gate.blendMode = "add";
+    this.gate.visible = false;
+    this.bust.addChild(this.gate);
+
+    /** Which sheet is on the border, or null for a hero with none. */
+    this.gateArt = null;
+    /** How far through that sheet it is — see `gateTo`. */
+    this.gateDriver = { v: 0 };
 
     /** The dark tile the art is laid on, and the edge it is cut to. */
     this.plateBack = new Graphics();
@@ -349,6 +382,54 @@ export class CutIn extends Container {
 
     // The healer's, like every other thing above that is pointed at a hero: this
     // is whose cut-in it is until a player taps a different card.
+    //
+    // The burst sheets are *not* decoded by the time a CutIn is built any more —
+    // they are the heaviest thing in the creative and they load after the first
+    // frame now, see loadRest() in main.js — so this asks and gets nothing on
+    // the first pass. It is still asked here, because the panel has to be in a
+    // legal state before anything can draw it, and adoptUltArt below is the
+    // other half. `setHero` cannot be relied on to fix it up: it early-returns
+    // when the hero has not changed, and the hero this is pointed at now is the
+    // one whose ultimate might be spent first.
+    this.setGate(HEROES[this.index].element);
+  }
+
+  /**
+   * Re-read the burst sheet, for art that decoded after this was built.
+   *
+   * `setGate` is a pure state assignment — a sheet or null, a visibility and a
+   * texture, no children — so running it a second time is free and safe. The
+   * resize behind it is what `setHero` does for the same reason: the gate is
+   * fitted to the panel in resize(), and a gate that gained its sheet without
+   * one would be a sprite at its texture's own pixel size the first time it was
+   * shown. See loadRest() in main.js.
+   */
+  adoptUltArt() {
+    this.setGate(HEROES[this.index].element);
+    if (this.layout) this.resize(this.layout);
+  }
+
+  /**
+   * Point the border at one element's burst sheet, or at nothing.
+   *
+   * Every shape but the halo, and the halo is refused for what it *is* rather
+   * than for the box it is put on. The other sheets draw a line on the card's
+   * own edge with their bloom outside it, so `fitUltBorder` lands them on the
+   * panel exactly and the card blazes. The halo draws a ring — on a rectangle
+   * twice as tall as it is wide that is an oval hung off the corners, floating
+   * clear of the art on the long sides and cropped by the frame on the short
+   * ones, which is what wind's cut-in came out as the one time this was let
+   * through.
+   *
+   * A hero with no sheet is not left bare: the panel's own rim and the bloom
+   * behind it are drawn in resize() for every hero, and they are the whole of
+   * the border for that one.
+   */
+  setGate(element) {
+    const art = ultBurst(element);
+    this.gateArt = art && art.shape !== "halo" ? art : null;
+    this.gate.visible = !!this.gateArt;
+    if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
   }
 
   /**
@@ -377,6 +458,7 @@ export class CutIn extends Container {
     this.skill.text = hero.skill;
     this.skill.style.fill = GEM_LIGHT[hero.element];
     this.kicker.style.fill = GEM_LIGHT[hero.element];
+    this.setGate(hero.element);
     if (this.layout) this.resize(this.layout);
   }
 
@@ -459,17 +541,63 @@ export class CutIn extends Container {
       });
     }
 
-    // No rim, and no corner ticks either. The panel used to wear three strokes
-    // on its own line — a dark one so it held its edge wherever a ray ran
-    // behind it, the element's colour over that, a hairline of the light inside
-    // both — with two short runs of ornament at opposite corners on top. That is
-    // the same neon rectangle the hero cards were carrying, at ten times the
-    // size, and it came off for the same reason: what the frame is drawn around
-    // is a painting of a face, and the painting is the subject.
-    //
-    // What holds the panel now is what it stands on and what stands around it:
-    // `plateBack` under the art, the foot above, and the burst sheet's own light
-    // outside the edge. Nothing is ruled along it.
+    // And the rim on the card's own line: dark first so the panel holds its edge
+    // wherever a ray runs behind it, the element over that, and a hairline of
+    // the light inside both.
+    this.plateFront.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
+    this.plateFront.stroke({
+      width: Math.max(2, pw * 0.035),
+      color: 0x07050e,
+      alpha: 0.9,
+      alignment: 1,
+    });
+    this.plateFront.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
+    this.plateFront.stroke({
+      width: Math.max(1.5, pw * 0.018),
+      color: GEM_COLORS[el],
+      alignment: 0.5,
+    });
+    this.plateFront.roundRect(
+      -pw / 2 + pw * 0.03,
+      -ph / 2 + pw * 0.03,
+      pw - pw * 0.06,
+      ph - pw * 0.06,
+      rad * 0.7,
+    );
+    this.plateFront.stroke({
+      width: Math.max(1, pw * 0.008),
+      color: GEM_LIGHT[el],
+      alpha: 0.5,
+    });
+
+    // Corner ticks: the one piece of pure ornament in here. Two short runs at
+    // opposite corners, which is what stops the panel reading as a rounded
+    // rectangle with a stroke on it.
+    const tick = pw * 0.26;
+    const inset = pw * 0.09;
+    for (const [sx, sy] of [
+      [-1, -1],
+      [1, 1],
+    ]) {
+      const x = sx * (pw / 2 - inset);
+      const y = sy * (ph / 2 - inset);
+      this.plateFront.moveTo(x - sx * 0, y);
+      this.plateFront.lineTo(x, y - sy * tick);
+      this.plateFront.moveTo(x, y);
+      this.plateFront.lineTo(x - sx * tick, y);
+      this.plateFront.stroke({
+        width: Math.max(2, pw * 0.022),
+        color: GEM_LIGHT[el],
+        alpha: 0.85,
+        cap: "round",
+      });
+    }
+
+    // The burst border, on the card's own line. `fitUltBorder` grows the sprite
+    // by whatever margin the sheet was packed with, so the rim lands on the edge
+    // and the bloom hangs outside it — the same call the hero row makes, on the
+    // same shape, which is the whole reason this reads as that card.
+    if (this.gateArt) fitUltBorder(this.gate, this.gateArt, pw, ph);
 
     this.glow.setSize(pw * 3.4, ph * 1.9);
     this.glow.x = this.bust.x;
@@ -744,6 +872,7 @@ export class CutIn extends Container {
     killTweensOf(this.bust.scale);
     killTweensOf(this.ring);
     killTweensOf(this.ring.scale);
+    killTweensOf(this.gateDriver);
     killTweensOf(this.plate);
     killTweensOf(this.kicker);
     killTweensOf(this.name);
@@ -764,6 +893,8 @@ export class CutIn extends Container {
     this.bust.scale.set(this.bustScale.x, this.bustScale.y);
     this.ring.alpha = 0;
     this.ring.scale.set(1);
+    this.gateDriver.v = 0;
+    if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
     this.plate.alpha = 1;
     this.plate.x = 0;
     this.kicker.alpha = 1;
@@ -772,6 +903,26 @@ export class CutIn extends Container {
     this.name.x = this.textHome;
     this.skill.alpha = 1;
     this.skill.x = this.textHome;
+  }
+
+  /**
+   * Step the border to `v` of the way through its burst, over `dur`.
+   *
+   * A tween on one number with the texture written out of its onUpdate, exactly
+   * as HeroCard.flareUlt drives the same sheet on the card, and for the same
+   * reason: a sheet is not something a frame counter can keep in step with an
+   * arc that is three beats of different lengths, and the driver is the one
+   * thing both ends of a beat can be read off. Resolves immediately for a hero
+   * with no sheet, so play() can await it in line with everything else.
+   */
+  gateTo(v, dur, ease) {
+    if (!this.gateArt) return Promise.resolve();
+    return tween(this.gateDriver, { v }, dur, {
+      ease,
+      onUpdate: () => {
+        this.gate.texture = ultBurstTexture(this.gateArt, this.gateDriver.v);
+      },
+    });
   }
 
   /**
@@ -845,6 +996,10 @@ export class CutIn extends Container {
       tween(this.kicker, { x: textHome }, 0.3, { ease: Ease.expoOut }),
       tween(this.name, { x: textHome }, 0.34, { ease: Ease.expoOut }),
       tween(this.skill, { x: textHome }, 0.4, { ease: Ease.expoOut }),
+      // Linear, alone among these: the build is in the frames the sheet was
+      // packed with, and an ease over the top of it is a second opinion about
+      // where the peak is. Same argument ULT.burst makes on the card.
+      this.gateTo(GATE.land, 0.32, Ease.linear),
     ]);
     if (this.playId !== token) return;
 
@@ -866,6 +1021,10 @@ export class CutIn extends Container {
     tween(this.bust.scale, { x: bs.x * 1.05, y: bs.y * 1.05 }, 0.45, {
       ease: Ease.quadOut,
     });
+    // Across the hold and the recoil both, so the border is still moving into
+    // the frame the punch throws it out on rather than sitting on one for a beat
+    // and a half. Roughly the seven frames a second the sheet was timed to.
+    this.gateTo(GATE.hold, 0.43, Ease.linear);
     await delay(0.34);
     if (this.playId !== token) return;
 
@@ -889,6 +1048,11 @@ export class CutIn extends Container {
       ease: Ease.quadIn,
     });
     tween(this.bust, { alpha: 0 }, 0.16, { delay: 0.1 });
+    // The settle, spent being thrown through the camera. The last frames of the
+    // sheet are the light going out of the border, which on the card is the
+    // whole tail of the tap and here is a thing nobody has time to look at —
+    // which is the point: it leaves with the panel instead of before it.
+    this.gateTo(1, 0.26, Ease.linear);
     tween(this.glow.scale, { x: gs.x * 1.8, y: gs.y * 1.8 }, 0.24, {
       ease: Ease.quadIn,
     });

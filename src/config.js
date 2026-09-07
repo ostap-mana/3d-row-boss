@@ -481,7 +481,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.30 -> 0.85   1.55->1.70   2.52 -> 1.60
+   *     attack      0.30 -> 0.85   1.55->1.70   3.30 -> 1.60
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -539,20 +539,24 @@ export const DIFFICULTY = {
    *       50%   medium >>>   x0.85   13%   38%           41%   OBSIDIAN HIDE
    *       40%   medium       x1.55   23%   30%           28%
    *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
-   *       12%   super hard   x2.52   38%   15%            9%
-   *        0%   super hard   x1.60   24%   11%            6%
+   *       12%   super hard   x27.5   50%   15%            9%
+   *       10%   super hard   x22.0   38%   14%            6%
+   *        0%   super hard   x14.0   24%   11%            6%
    *
-   * That last line is the one place the staircase steps back down, and the step
-   * is now a third of the peak: the wall at 12% is the hardest the boss ever
-   * swings (x21.0) and the golem tires into the kill at x14.0 rather than
-   * peaking on it. See the last keyframe for why — and for the one thing that
-   * has now crossed over, which is that its raw `attack` at the kill is under
-   * what it was throwing back in the medium zone.
+   * Those last three lines are a spike, and the shape is the whole of what the
+   * last quarter now is: the wall at 12% is a needle rather than a shelf — the
+   * hardest the boss ever swings, at x27.5 — and the golem falls off it, steeply
+   * at first and then easing, to x14.0 at the kill. Half the drop is spent in
+   * the two points between 12% and 10%.
    *
-   * The smash on that last line lands for 43% of a hero bar. It is no longer
-   * the biggest swing in the fight — that is the wall's, at 68% — see the last
-   * two keyframes, which are where the 92% it used to be was let out seven
-   * times.
+   * The one thing that crossed over on the way down is at the bottom: the raw
+   * `attack` at the kill is under what the boss was throwing back in the medium
+   * zone. See the last keyframe, which is where that is argued.
+   *
+   * The smash on that last line lands for 43% of a hero bar and the one on the
+   * needle for 89%, which is the hardest single hit the creative has ever
+   * thrown. The ending is where the softening went and the wall is where it was
+   * taken back from; see the last three keyframes.
    *
    * The last two columns are the other half of what the ending is for. An
    * ultimate opens worth slightly more than the best match on the board and
@@ -643,9 +647,9 @@ export const DIFFICULTY = {
      * The schedule the clock floor is measured against, in seconds. Kept level
      * with pace.seconds: they are two readings of the same schedule, and a
      * floor that finished before or after the pace guard's line would be
-     * pulling against it.
+     * pulling against it. Both went 28 -> 31 when the run went 30 -> 33.
      */
-    seconds: 28,
+    seconds: 31,
     /**
      * How far up the curve a completely stalled run is dragged by the clock.
      *
@@ -767,24 +771,31 @@ export const DIFFICULTY = {
       /**
        * THE LAST QUARTER — super hard, and hard in three ways at once.
        *
-       * The golem's damage jumps to half again what the medium zone was
-       * throwing, armour goes to the floor so the board alone cannot finish the
-       * job, and the ceiling puts eleven blocks on a board of twenty-five so
-       * there is barely room to answer. All three land together, which is what
-       * makes this a climax rather than a difficulty setting.
+       * The golem's damage nearly doubles what the medium zone was throwing,
+       * armour goes to the floor so the board alone cannot finish the job, and
+       * the ceiling puts eleven blocks on a board of twenty-five so there is
+       * barely room to answer. All three land together, which is what makes
+       * this a climax rather than a difficulty setting.
        *
-       * `attack` came down here from 2.8 with the pass that put the top of the
-       * curve on x21 — the first pass that could not stay in the tail. The
-       * index this line carries is `attack/0.30` over `resist`, so at 2.8 it
-       * was x23.3. 2.52 is the value that puts it on x21.
+       * THE NEEDLE. This line is the peak of the whole fight and it is drawn as
+       * a spike rather than a shelf: 3.30 is x27.5 on the index the curve is
+       * read by — `attack/0.30` over `resist` — and the two keyframes below it
+       * fall away to x22.0 and then x14.0. Nothing in the run is this hard
+       * before it and nothing is this hard after it.
        *
-       * This line is therefore the peak of the whole fight and no longer a
-       * step on the way to one: the kill was asked down to x19 after it and to
-       * x17 after that, so the last tenth eases off this shelf rather than
-       * climbing past it. That makes the wall arriving here the hardest moment
-       * of the run, which is the beat the zone was written for anyway — raise
-       * this first if the ending has to get its teeth back, and the kill after
-       * it.
+       * The value has been all over the place and the history is the argument.
+       * 2.8 (x23.3) while the whole tail climbed past it; 2.52 (x21.0) when the
+       * top of the curve was asked for at 21 and this had to come down to stop
+       * the tail running backwards off it; 3.30 now, because what was asked for
+       * this time was the *shape* — a needle here and a fall out of it — rather
+       * than a number anywhere.
+       *
+       * So the softening of the last three passes now lives entirely in the
+       * fall, not in the wall. A player who reaches 12% health meets the
+       * hardest swing in the creative — 89% of a hero's bar on a smash — and
+       * then watches the golem come apart over the last tenth. Lower this first
+       * if the spike turns out to wipe parties that had the kill in hand; the
+       * fall below is shaped against it and will follow it down.
        *
        * "Hard even with ultimates" is the standard this was written against,
        * and it is met twice over here. A five-cell step takes 15% off the bar
@@ -793,7 +804,7 @@ export const DIFFICULTY = {
        * whole. Nothing the player owns is a solution to this zone any more; it
        * is a grind, and it is meant to be.
        */
-      { p: 0.88, attack: 2.52, resist: 0.4, obsidian: 8, hold: 11 },
+      { p: 0.88, attack: 3.3, resist: 0.4, obsidian: 8, hold: 11 },
       /**
        * The killing stretch.
        *
@@ -825,27 +836,25 @@ export const DIFFICULTY = {
        * would have carried on down to 1.2% by the killing blow, which is past
        * "a couple of percent" and into "why did I press that".
        *
-       * The boss's temper no longer creeps up through it either — it now runs
-       * the other way. `attack` holds this keyframe's 2.39 (x21.0) and slides
-       * down to the kill's 1.60 (x14.0), so the last tenth is where the golem
-       * tires, and it now tires by a third of the peak where the first pass at
-       * this shape shed a tenth. It used to climb 2.9 to 3.08 and carry the
-       * index from x25.4 to x27.0 with it (3.17 and x27.8 before that, 2.74
-       * and x24.0 after, then flat at x21.0, then slides down to x19.0 and
-       * x17.0), and this line has come down with every one of those passes so
-       * that the tail never ran backwards off it. The descent is deliberate
-       * and it is the only place in the curve where the staircase steps down;
-       * keep this value at or above the kill's if it is ever put back to a
-       * rise.
+       * THE FALL, and its first and steepest two points. `attack` comes off the
+       * needle's 3.30 (x27.5) to 2.51 here (x22.0) and then down to the kill's
+       * 1.60 (x14.0) — so a fifth of the drop is spent in the two points of
+       * health between 12% and 10%, and the remaining tenth of the bar spreads
+       * the rest of it out. That is the shape deliberately: the golem comes off
+       * the wall hard and then goes quietly, rather than sagging at a constant
+       * rate from the moment it peaks.
        *
-       * This is now the keyframe that carries the fight's heaviest *swing* as
-       * well as its steepest slope. 2.39 lands a smash for 65% of a hero bar
-       * and the kill's 1.60 lands one for 43%, so the worst thing that can
-       * happen to a hero happens here and at the wall above, not at the end.
+       * This line's own history is a record of the tail being talked down. It
+       * used to climb 2.9 to 3.08 and carry the index from x25.4 to x27.0
+       * (3.17 and x27.8 before that, 2.74 and x24.0 after, then flat at x21.0,
+       * then slides to x19.0 and x17.0) — every one of those passes moved it
+       * so the tail never ran backwards off the wall above. This pass is the
+       * first to move it *up* on the way to a lower ending, because the wall
+       * went up further.
        *
        * `resist` is still the flat column, which is what the paragraph above
-       * is protecting: how hard the boss hits eases across the last tenth,
-       * how much a player's hit is worth does not move at all.
+       * is protecting: how hard the boss hits falls across the last tenth, how
+       * much a player's hit is worth does not move at all.
        *
        * It also hands the board a little back, and that is the honest cost of
        * flattening here: a five-cell step lands for 14% across the last tenth
@@ -853,7 +862,7 @@ export const DIFFICULTY = {
        * bars of damage now against 1.37, which is about half a second off the
        * fight.
        */
-      { p: 0.9, attack: 2.39, resist: 0.38, obsidian: 8, hold: 12 },
+      { p: 0.9, attack: 2.51, resist: 0.38, obsidian: 8, hold: 12 },
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
@@ -1095,7 +1104,17 @@ export const DIFFICULTY = {
    */
   pace: {
     enabled: true,
-    seconds: 28,
+    /**
+     * 31, and it moved with T.hardCap rather than being retuned.
+     *
+     * This is a schedule in *real* seconds, and it has always sat two seconds
+     * under the deadline so that the guard is still pulling when the deadline
+     * arrives. The run went from 30 to 33 — see T.hardCap and DOOM.stretch —
+     * so this went from 28 to 31 to keep that distance. Read the win-time
+     * table above as a 30 second run's; every figure in it slides about three
+     * seconds later now, and the shape of the distribution does not move.
+     */
+    seconds: 31,
     bite: 3,
     floor: 0.12,
   },
@@ -1179,8 +1198,49 @@ export const DOOM = {
    * had felt the bar move and before the kill, with room for exactly one repeat
    * behind it, so the deadline arrived once as a threat and once as proof it was
    * not a bluff. Put it back at 9 and the mechanic comes back with it.
+   *
+   * ONE CORRECTION TO ALL OF THE ABOVE, and it is the important one now: this
+   * is no longer the length of the run. T.hardCap is 33 and this is 30 — the
+   * clock the player is *shown* — and `stretch` below is what reconciles them.
+   * Everything written above is still true of what the strip says and how the
+   * mode reads it; it is only no longer true of how long the fight lasts.
    */
   seconds: 30,
+  /**
+   * The three seconds the player is given and not told about.
+   *
+   * The run is 33 seconds long (T.hardCap) and the countdown on screen is 30
+   * (`seconds` above). The difference is not a lie the strip tells at any one
+   * moment — the strip is never wrong about how much of *itself* is left — it
+   * is a rate: the clock drains slower than wall time, so thirty of its seconds
+   * take thirty-three of ours. Nobody counts a countdown against a stopwatch;
+   * what they feel is how long they had.
+   *
+   * `shape` is where the three seconds are spent, and it is the whole reason
+   * this is a curve rather than a flat 10% slower. The drain rate is
+   *
+   *     1 / (1 + k * p^shape)     where p is how much of the clock is gone
+   *
+   * and `k` is solved so the integral comes out at exactly `extra` — see
+   * Director.doomRate, which is four lines and does that solve. At shape 3 the
+   * clock runs true for the first half of the run to within a few hundredths,
+   * and the last of its seconds takes 1.4 of ours. Half the three seconds are
+   * handed out inside the final sixth of the countdown, which is where the
+   * player is either finishing the boss or watching the strip go red — the one
+   * stretch of the creative where a second is worth something.
+   *
+   * Raise `shape` to push the gift later and make it steeper; drop it to 1 and
+   * the extra time spreads evenly and stops being noticeable anywhere. Set
+   * `extra` to 0 and the whole mechanism turns off: the rate is 1, the clock is
+   * wall time again, and only T.hardCap has to come back to 30 with it.
+   *
+   * What this does NOT touch is what the deadline means. The cataclysm still
+   * lands when the strip reads zero, the warnings at DOOM.warnAt still fire on
+   * the numbers the player sees, and the mix still leans on the shown clock —
+   * so the last four seconds of tension now play out over five and a half real
+   * ones, which is the ending getting room rather than the ending being slower.
+   */
+  stretch: { extra: 3, shape: 3 },
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
@@ -1517,15 +1577,25 @@ export const T = {
    * it moves every time T.hardCap does. It has now moved three times: 5 when
    * the run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty.
    */
-  banner: 10.0,
+  banner: 11.0,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Thirty seconds, because that is the creative. Everything else in this
-   * file is fitted to it rather than the other way round: DOOM.seconds so the
-   * clock on screen is the length of the thing it is counting, `banner` so the
-   * store button lands a third of the way in, finaleReserve so the death still
-   * gets played, DIFFICULTY.damagePerGem so the boss can be dead before it.
+   * Thirty-three seconds, and the player is shown thirty — see DOOM.stretch,
+   * which is the whole of that trick and the only reason these two numbers are
+   * allowed to disagree. Everything else in this file is fitted to this one
+   * rather than the other way round: `banner` so the store button lands a third
+   * of the way in, finaleReserve so the death still gets played,
+   * DIFFICULTY.damagePerGem so the boss can be dead before it, and
+   * DIFFICULTY.pace.seconds so the guard is still pulling when it arrives.
+   *
+   * The three seconds are a gift and not a retune: nothing about the fight was
+   * made easier to pay for them. What they buy is the one thing the win-rate
+   * table under DIFFICULTY.curve says the run was short of — every bracket
+   * finishing between 26 and 29 seconds against a 30 second cap is a fight
+   * decided in its last beat, and a player who fumbles one swipe in that window
+   * loses to the clock rather than to the boss. Read every figure in that table
+   * as three seconds earlier than the deadline it is now racing.
    *
    * That last one is the thing to know about this number. The damage curve is
    * cut to a dead boss in four or five moves, and moveCost puts a move at 2.8
@@ -1550,7 +1620,7 @@ export const T = {
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 30.0,
+  hardCap: 33.0,
   /** beat after the boss dies before the outcome screen */
   victoryHold: 1.4,
   /**

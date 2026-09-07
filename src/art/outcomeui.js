@@ -19,10 +19,17 @@
  * hairlines run along the edges, and everything between them is a flat vertical
  * gradient. There is nothing in the middle for a stretch to distort.
  *
- * That is also what the game does with it. Its own aspect is 11.25:1, which at
- * a phone's width is a band thirty points deep — no headline fits in that. The
- * shipped card is visibly taller, with a visibly taller chevron, which is this
- * plate pulled vertically. See `fitPlate`.
+ * That is also what the game does with it. The art's own aspect is 11.25:1,
+ * which at a phone's width is a band thirty points deep — no headline fits in
+ * that. The shipped card is visibly taller, with a visibly taller chevron, which
+ * is this plate pulled vertically. See `fitPlate`.
+ *
+ * PLATE_ART is 7.87:1 and not 11.25:1 for that reason and no other. The packer
+ * holds the plate at the source's full 178 rows instead of resampling them down
+ * with the width, because height is the axis the card magnifies and rows thrown
+ * away here come back as a blurred chevron on screen. See tools/pack-outcome-ui
+ * .mjs. Nothing reads this aspect — `fitPlate` is given both dimensions — so it
+ * is a transcript and a note about the pack, not a shape anything obeys.
  */
 
 import { Sprite } from "pixi.js";
@@ -31,7 +38,7 @@ import plateUrl from "../assets/outcome/title-plate.webp";
 import lineUrl from "../assets/outcome/ornament-line.webp";
 
 /** Natural size of the packed art — a transcript of what the packer prints. */
-export const PLATE_ART = { w: 1024, h: 91 };
+export const PLATE_ART = { w: 1400, h: 178 };
 export const LINE_ART = { w: 438, h: 29 };
 
 /**
