@@ -56,17 +56,15 @@ export class StartPrompt extends Container {
         fill: 0xfbf1e4,
         letterSpacing: 3,
         /**
-         * Heavier than the UI's usual outline, and it is doing real work now.
-         * This is the one label in the creative set straight over the board,
-         * and what is behind it is five columns of saturated gem — the busiest
-         * background any type in here has to hold against. The same trick the
-         * hud's own shouts use over the same cells, at the same weight.
+         * No outline — nothing in the build carries one. This is the one label
+         * in the creative set straight over the board, and what is behind it is
+         * five columns of saturated gem, so the shadow is deeper than the rest
+         * of the UI runs: it is the only thing separating the word from them.
          */
-        stroke: { color: 0x1a0714, width: 5, join: "round" },
         dropShadow: {
           color: 0x05030a,
-          alpha: 0.75,
-          blur: 6,
+          alpha: 0.85,
+          blur: 9,
           distance: 0,
           angle: 0,
         },

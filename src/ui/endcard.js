@@ -37,7 +37,6 @@ import {
 import {
   PLAY_FILL,
   PLAY_LABEL,
-  PLAY_LABEL_STROKE,
   PLAY_RIM,
   badgeSprites,
   bannerHeight,
@@ -148,6 +147,30 @@ const BADGE_GAP = 0.28;
  */
 const RETRY_BOSS_W = 0.74;
 const RETRY_BOSS_MAX = 0.22;
+/**
+ * The same ceiling for the card held upright, and the reason it is a second
+ * number.
+ *
+ * The paragraph above says the sideways ceiling always binds and the upright one
+ * never does. That was true and it was the problem: upright the lockup was sized
+ * by width alone off the CTA plate, and on a modern phone it came back a hundred
+ * and sixty-seven points deep — a fifth of the safe box spent on the one control
+ * on this card that is not the offer. It is the rung holding the bottom edge, so
+ * everything measured up from it — the store row, the plate — was pushed that far
+ * up the screen and into the painting.
+ *
+ * Binding it upright at 0.16 does two things with one number, which is why it is
+ * this and not a separate nudge on the block above: the lockup stops being the
+ * biggest thing on the card, and the forty points it gives back are forty points
+ * the plate and the badges drop by, out of the picture and down where a thumb
+ * already is.
+ *
+ * Sideways keeps 0.22. There the column is centred rather than solved off the
+ * bottom edge, so the ceiling is load-bearing for a different reason — see
+ * BANNER_COL_ROOM_RETRY — and lowering it there would buy slack the landscape
+ * column has already been given somewhere else.
+ */
+const RETRY_BOSS_MAX_PORTRAIT = 0.16;
 const RETRY_CLEAR = 0.25;
 const RETRY_PILL_W = 0.64;
 const RETRY_H = 0.56;
@@ -345,7 +368,6 @@ export class EndCard extends Container {
         fill: 0xffe6a8,
         letterSpacing: 4,
         align: "center",
-        stroke: { color: 0x1a0620, width: 5, join: "round" },
       },
     });
     this.outcome.anchor.set(0.5);
@@ -375,7 +397,6 @@ export class EndCard extends Container {
         fill: 0xffffff,
         letterSpacing: 3,
         align: "center",
-        stroke: { color: 0x1a0620, width: 7, join: "round" },
       },
     });
     this.title.anchor.set(0.5);
@@ -391,7 +412,6 @@ export class EndCard extends Container {
         fill: GEM_LIGHT[HEALER],
         letterSpacing: 2.4,
         align: "center",
-        stroke: { color: 0x140720, width: 3, join: "round" },
       },
     });
     this.sub.anchor.set(0.5);
@@ -420,7 +440,6 @@ export class EndCard extends Container {
         fontWeight: "900",
         fill: PLAY_LABEL,
         letterSpacing: 2,
-        stroke: { color: PLAY_LABEL_STROKE, width: 4, join: "round" },
       },
     });
     this.buttonText.anchor.set(0.5);
@@ -481,7 +500,6 @@ export class EndCard extends Container {
         fontWeight: "900",
         fill: RETRY_LABEL,
         letterSpacing: 2.4,
-        stroke: { color: 0x140720, width: 3, join: "round" },
       },
     });
     this.retryText.anchor.set(0.5);
@@ -527,11 +545,6 @@ export class EndCard extends Container {
    */
   fitBrand(maxW, ideal) {
     if (this.logo) return fitLogo(this.logo, maxW);
-    this.title.style.stroke = {
-      color: 0x1a0620,
-      width: Math.max(4, ideal * 0.14),
-      join: "round",
-    };
     fitFont(this.title, maxW, ideal);
     return this.title.height;
   }
@@ -878,8 +891,29 @@ export class EndCard extends Container {
     const { w, h } = s;
     const pad = h * 0.045;
 
-    const badge = this.layoutBadges(Math.min(w * 0.94, 520 * ui), 34 * ui);
-    const bw = Math.min(w * 0.82, 430 * ui);
+    /**
+     * The CTA block's own width, and the reason it is not the card's.
+     *
+     * These three rungs were solved at 94%, 82% and 86% of the safe width, and
+     * on a desktop preview — which is where they were set — that reads as a
+     * confident block. On the phone the creative actually ships to it reads as
+     * furniture that does not fit the room: the store row came out 353 points
+     * across a 393 point screen, which is a twenty point margin either side, and
+     * a painted plate at 82% with a wordmark at 86% over it puts three separate
+     * near-full-width bars down the middle of the card. Nothing was clipped and
+     * everything was oversized, which is the failure that does not show up in a
+     * bounds check.
+     *
+     * The numbers below are set off the phone instead. The row keeps a real
+     * gutter, the plate is narrower than the row it sits over, and the wordmark
+     * stays the widest of the three — the order the card sells in, now with air
+     * around it. The `* ui` ceilings come down with them for the same reason
+     * they exist: they are the same measurement written for a big screen, and a
+     * cap that no longer agrees with the fraction under it is a card that
+     * changes proportion halfway up the size range.
+     */
+    const badge = this.layoutBadges(Math.min(w * 0.84, 460 * ui), 29 * ui);
+    const bw = Math.min(w * 0.7, 360 * ui);
     const bh = this.fitPlay(bw);
 
     /**
@@ -898,7 +932,12 @@ export class EndCard extends Container {
      */
     let foot = s.bottom - pad;
     if (this.retry.visible) {
-      const r = this.fitRetry(bw * RETRY_BOSS_W, bw, bh, h * RETRY_BOSS_MAX);
+      const r = this.fitRetry(
+        bw * RETRY_BOSS_W,
+        bw,
+        bh,
+        h * RETRY_BOSS_MAX_PORTRAIT,
+      );
       const ry = foot - r.h / 2;
       this.placeRetry(s.cx, ry, r.w, r.h);
       foot = ry - r.h / 2 - this.retryClear(h, r.h);
@@ -920,8 +959,8 @@ export class EndCard extends Container {
     }
 
     const logoH = this.fitBrand(
-      Math.min(w * 0.86, 460 * ui),
-      clamp(w * 0.1, 22, 56 * ui),
+      Math.min(w * 0.74, 400 * ui),
+      clamp(w * 0.086, 20, 48 * ui),
     );
     // Off the outcome line when there is one, off the top of the screen when
     // there is not — a shade lower than the headline used to start, so the

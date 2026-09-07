@@ -156,7 +156,6 @@ const BADGES = [
 export const PLAY_FILL = 0xc31839;
 export const PLAY_RIM = 0xf0a33c;
 export const PLAY_LABEL = 0xfbf1e4;
-export const PLAY_LABEL_STROKE = 0x3d0511;
 
 let keyArtTexture = null;
 let logoTexture = null;

@@ -452,7 +452,6 @@ export class OutcomeScreen extends Container {
         fill: 0xf2e6cf,
         letterSpacing: 2.6,
         align: "center",
-        stroke: { color: 0x0b0714, width: 3, join: "round" },
       },
     });
     this.tapText.anchor.set(0.5);

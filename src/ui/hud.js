@@ -15,7 +15,6 @@ import { BossCrest, haveBossCrest } from "../art/crest.js";
 import {
   PLAY_FILL,
   PLAY_LABEL,
-  PLAY_LABEL_STROKE,
   PLAY_RIM,
   fitLogo,
   fitPlayPlate,
@@ -239,8 +238,9 @@ export class Hud extends Container {
      * of the placement: the fill's leading edge is the one thing on this strip
      * that travels, and a reading parked at either end is either always on the
      * red or always on the black. In the middle it is passed by the edge exactly
-     * once a fight, and it is drawn to be read against both — see the stroke in
-     * `resize`, which is the same trick the hero gauges use.
+     * once a fight, and it is drawn to be read against both — white type over
+     * a shadow, the same trick the hero gauges use now that nothing in the
+     * build carries an outline.
      *
      * Added here, after the four bar layers and after the sheen and the tip
      * bloom, so nothing the bar does at run time is drawn over it.
@@ -252,6 +252,13 @@ export class Hud extends Container {
         fontWeight: "900",
         fontSize: 14,
         fill: 0xffffff,
+        dropShadow: {
+          color: 0x1a0503,
+          alpha: 0.85,
+          blur: 4,
+          distance: 0,
+          angle: 0,
+        },
       },
     });
     this.hpLabel.anchor.set(0.5);
@@ -368,7 +375,6 @@ export class Hud extends Container {
         fontWeight: "900",
         fill: PLAY_LABEL,
         letterSpacing: 1.2,
-        stroke: { color: PLAY_LABEL_STROKE, width: 3, join: "round" },
       },
     });
     this.bannerText.anchor.set(0.5);
@@ -389,8 +395,16 @@ export class Hud extends Container {
         fontWeight: "900",
         fill: 0xffffff,
         letterSpacing: 2,
-        stroke: { color: 0x180a1e, width: 6, join: "round" },
         align: "center",
+        // No rim on any type in the build. What holds this one over five
+        // columns of lit gem is the shadow under it.
+        dropShadow: {
+          color: 0x05030a,
+          alpha: 0.75,
+          blur: 7,
+          distance: 0,
+          angle: 0,
+        },
       },
     });
     this.callout.anchor.set(0.5);
@@ -505,18 +519,13 @@ export class Hud extends Container {
     // a lit rim along both long edges, so there is less flat bore in it than
     // its depth suggests.
     //
-    // The outline is what lets one reading sit on two grounds. It is over the
-    // red where the boss still has health and over the near-black track where
-    // he does not, and the fill's edge crosses under it during the fight: white
-    // alone vanishes into the flash, and any dark fill vanishes into the track.
+    // One reading sits on two grounds — over the red where the boss still has
+    // health and over the near-black track where he does not, and the fill's
+    // edge crosses under it during the fight. With the outline gone the shadow
+    // on the style is what keeps the white off the flash.
     const hpSize = Math.max(9, h * 0.72);
     this.hpLabel.style.fontSize = hpSize;
     this.hpLabel.style.letterSpacing = hpSize * 0.02;
-    this.hpLabel.style.stroke = {
-      color: 0x2a0a08,
-      width: Math.max(1.6, hpSize * 0.19),
-      join: "round",
-    };
     this.hpLabel.x = this.barRect.x + this.barRect.w / 2;
     this.hpLabel.y = y + h / 2;
     // Forced: the size just changed, and `printHp` is a no-op while the percent
@@ -524,14 +533,14 @@ export class Hud extends Container {
     this.hpPrinted = -1;
     this.printHp();
 
-    // Kept as a number rather than written straight onto the style: `shout`
-    // rebuilds the stroke per beat to set its colour, and it needs the width
-    // this layout decided on.
-    this.calloutStroke = Math.max(3, 5 * ui);
-    this.callout.style.stroke = {
-      color: 0x180a1e,
-      width: this.calloutStroke,
-      join: "round",
+    // The shout carries no rim. Its shadow scales with the type so a bigger
+    // screen does not print the same 7px blur under twice the letter.
+    this.callout.style.dropShadow = {
+      color: 0x05030a,
+      alpha: 0.75,
+      blur: Math.max(5, 7 * ui),
+      distance: 0,
+      angle: 0,
     };
 
     if (layout.portrait) {
@@ -632,12 +641,6 @@ export class Hud extends Container {
       this.bannerLogo.position.set(logoX, logoY);
     }
 
-    // Set before fitting, not after: the rim is part of what the word measures.
-    this.bannerText.style.stroke = {
-      color: PLAY_LABEL_STROKE,
-      width: Math.max(2, plateH * 0.09),
-      join: "round",
-    };
     fitFont(this.bannerText, plateW * 0.7, Math.max(12, plateH * 0.42));
     this.bannerText.position.set(plateX, plateY);
 
@@ -1107,21 +1110,6 @@ export class Hud extends Container {
     killTweensOf(this.callout.scale);
     this.callout.text = text;
     this.callout.style.fill = o.fill || 0xffffff;
-    /**
-     * The outline, per shout.
-     *
-     * Dark for every attack but one, and that one is why this is an option at
-     * all: the lava breath prints its headline inside its own jet, and light
-     * type with a dark rim needs a ground darker than itself to sit on. Over a
-     * wall of fire there isn't one — the shout came out as grey embossing on
-     * orange. So that beat inverts, dark letters with a hot rim, and the lever
-     * lives here rather than as a special case in the caller.
-     */
-    this.callout.style.stroke = {
-      color: o.stroke === undefined ? 0x180a1e : o.stroke,
-      width: this.calloutStroke || 5,
-      join: "round",
-    };
     this.callout.alpha = 0;
     // Measured at rest — the overshoot below is what it grows from, not what
     // it settles at, and the clearance is about where it settles.
@@ -1184,10 +1172,14 @@ export class Hud extends Container {
         fontWeight: "900",
         fill: o.fill || (tier === 2 ? 0xffe066 : 0xffffff),
         letterSpacing: 0.5,
-        stroke: {
-          color: 0x2b0a12,
-          width: Math.max(3, size * 0.18),
-          join: "round",
+        // Over hero cards and a lit board, and with no rim to hold them:
+        // the shadow is the whole of the separation.
+        dropShadow: {
+          color: 0x1a0308,
+          alpha: 0.8,
+          blur: Math.max(3, size * 0.22),
+          distance: 0,
+          angle: 0,
         },
       },
     });

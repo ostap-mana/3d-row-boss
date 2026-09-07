@@ -2130,17 +2130,13 @@ export class Director {
   async bossBreath(attack, cells) {
     const { boss, hud, vfx, shake, layout } = this.s;
 
-    // Inverted, unlike every other shout in the fight. This is the one printed
-    // inside its own effect — the jet opens across the same band the callout
-    // sits on — and light type with a dark rim needs something darker than
-    // itself behind it. On a wall of fire there is nothing darker, which is how
-    // "LAVA BREATH!" came to read as grey embossing on orange. Dark letters with
-    // a hot rim hold against anything the jet does.
-    hud.shout(attack.shout || COPY.breath, 0.4, {
-      fill: 0x2a0803,
-      stroke: 0xffc46a,
-      from: 1.4,
-    });
+    // The one shout printed inside its own effect — the jet opens across the
+    // same band the callout sits on. It used to invert here, dark letters with
+    // a hot rim, because light type with a dark rim had nothing darker than
+    // itself to sit on over a wall of fire. With outlines gone from the build
+    // there is no rim to invert: white over the shout's own shadow is what
+    // every other beat uses, and it holds over the jet the same way.
+    hud.shout(attack.shout || COPY.breath, 0.4, { from: 1.4 });
     await boss.lavaBreath(0.62);
     if (this.settled()) return;
 

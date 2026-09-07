@@ -691,30 +691,21 @@ export class CutIn extends Container {
     this.name.style.fontSize = fs;
     this.name.style.letterSpacing = fs * 0.085;
     // The banner is not what makes the type readable: the rays run behind it on
-    // the way in and the wash comes up under it on the way out. Both are
-    // answered here rather than by hoping the plate stays put.
-    this.name.style.stroke = {
-      color: 0x0a0512,
-      width: fs * 0.07,
-      join: "round",
-    };
+    // the way in and the wash comes up under it on the way out. With no rim on
+    // the type — nothing in the build has one — the shadow answers both
+    // alone, so it is carried heavier than it was under an outline.
     this.name.style.dropShadow = {
       color: 0x03020a,
-      alpha: 0.7,
+      alpha: 0.85,
       blur: fs * 0.22,
       distance: 0,
       angle: 0,
     };
     this.skill.style.fontSize = fs * 0.4;
     this.skill.style.letterSpacing = fs * 0.06;
-    this.skill.style.stroke = {
-      color: 0x0a0512,
-      width: fs * 0.04,
-      join: "round",
-    };
     this.skill.style.dropShadow = {
       color: 0x03020a,
-      alpha: 0.6,
+      alpha: 0.8,
       blur: fs * 0.1,
       distance: 0,
       angle: 0,

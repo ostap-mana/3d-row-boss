@@ -661,6 +661,16 @@ class Gauge extends Container {
         fontSize: 12,
         fontWeight: "700",
         fill: 0xffffff,
+        // The rim these digits used to carry came off with every other one in
+        // the build; a tight shadow does the same job of holding them against
+        // both the lit paint and the bore past where the reading stops.
+        dropShadow: {
+          color: 0x0a0714,
+          alpha: 0.85,
+          blur: 3,
+          distance: 0,
+          angle: 0,
+        },
       },
     });
     this.label.anchor.set(0.5);
@@ -814,18 +824,9 @@ class Gauge extends Container {
 
     // Cap height is the bore less half a rim at each side, and the type size is
     // whatever puts this face's cap there — see READOUT_TYPE for the whole of
-    // the reasoning, and readoutSize, which is that rule and nothing else. The
-    // outline is half a rim: it exists to hold the digits against both the lit
-    // paint and the near-black bore past where the reading stops, and at a full
-    // rim it was as heavy as the bar's own border and closed the counters in the
-    // 8s.
+    // the reasoning, and readoutSize, which is that rule and nothing else.
     const size = readoutSize(h);
     this.label.style.letterSpacing = size * READOUT_TYPE.track;
-    this.label.style.stroke = {
-      color: 0x0a0714,
-      width: Math.max(0.5, rim * 0.5),
-      join: "round",
-    };
     this.label.text = this.pair ? `${this.value} / ${this.max}` : this.value;
     fitFont(this.label, w * READOUT_TYPE.width, size, 4);
     this.label.y = this.top + h / 2;
@@ -1060,6 +1061,13 @@ export class HeroCard extends Container {
         fontWeight: "800",
         fill: 0xffffff,
         letterSpacing: 0.5,
+        dropShadow: {
+          color: 0x07040e,
+          alpha: 0.85,
+          blur: 4,
+          distance: 0,
+          angle: 0,
+        },
       },
     });
     this.label.anchor.set(0.5);
@@ -1074,7 +1082,13 @@ export class HeroCard extends Container {
         // Bright on a dark card: the previous near-black was invisible.
         fill: GEM_LIGHT[hero.element],
         letterSpacing: 0.6,
-        stroke: { color: 0x08111f, width: 3, join: "round" },
+        dropShadow: {
+          color: 0x08111f,
+          alpha: 0.9,
+          blur: 5,
+          distance: 0,
+          angle: 0,
+        },
       },
     });
     this.readyLabel.anchor.set(0.5);
@@ -1291,20 +1305,10 @@ export class HeroCard extends Container {
     // Sat on the stack rather than placed at a fraction of the card: the name
     // is the top of the block, so it moves with whatever is under it. Solved up
     // with the foot scrim, which is cut to reach past it.
-    this.label.style.stroke = {
-      color: 0x07040e,
-      width: Math.max(1.2, nameSize * 0.16),
-      join: "round",
-    };
     fitFont(this.label, stack.barW, nameSize);
     this.label.y = nameY;
 
     const readySize = Math.max(7, Math.min(h * 0.16, w * 0.21));
-    this.readyLabel.style.stroke = {
-      color: 0x08111f,
-      width: Math.max(2, readySize * 0.22),
-      join: "round",
-    };
     fitFont(this.readyLabel, stack.barW, readySize);
     this.readyLabel.y = nameY;
 
