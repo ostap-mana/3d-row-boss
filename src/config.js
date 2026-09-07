@@ -481,7 +481,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.30 -> 0.85   1.55->1.70   2.52 -> 2.39
+   *     attack      0.30 -> 0.85   1.55->1.70   2.52 -> 2.17
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -540,11 +540,15 @@ export const DIFFICULTY = {
    *       40%   medium       x1.55   23%   30%           28%
    *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
    *       12%   super hard   x2.52   38%   15%            9%
-   *        0%   super hard   x2.39   36%   11%            6%
+   *        0%   super hard   x2.17   33%   11%            6%
    *
-   * The smash on that last line lands for 65% of a hero bar. That is the swing
-   * that ends runs, and it is meant to be — see the last two keyframes, which
-   * are where the 92% it used to be was let out four times.
+   * That last line is the one place the staircase steps back down: the wall at
+   * 12% is the hardest the boss ever swings (x21.0) and the golem tires into
+   * the kill rather than peaking on it. See the last keyframe for why.
+   *
+   * The smash on that last line lands for 59% of a hero bar. That is still the
+   * swing that ends runs — see the last two keyframes, which are where the 92%
+   * it used to be was let out five times.
    *
    * The last two columns are the other half of what the ending is for. An
    * ultimate opens worth slightly more than the best match on the board and
@@ -768,12 +772,14 @@ export const DIFFICULTY = {
        * `attack` came down here from 2.8 with the pass that put the top of the
        * curve on x21 — the first pass that could not stay in the tail. The
        * index this line carries is `attack/0.30` over `resist`, so at 2.8 it
-       * was x23.3 and the two keyframes below it would have been the softest
-       * part of the last quarter rather than the hardest. 2.52 is the value
-       * that puts this line on x21 as well, which is why the whole zone is now
-       * one shelf: the wall still arrives here, it simply stops climbing the
-       * moment it does. Raise this and the tail together, in that order, if
-       * the ending has to get its teeth back.
+       * was x23.3. 2.52 is the value that puts it on x21.
+       *
+       * This line is therefore the peak of the whole fight and no longer a
+       * step on the way to one: the kill was asked down to x19 after it, so
+       * the last tenth eases off this shelf rather than climbing past it. That
+       * makes the wall arriving here the hardest moment of the run, which is
+       * the beat the zone was written for anyway — raise this first if the
+       * ending has to get its teeth back, and the kill after it.
        *
        * "Hard even with ultimates" is the standard this was written against,
        * and it is met twice over here. A five-cell step takes 15% off the bar
@@ -814,16 +820,20 @@ export const DIFFICULTY = {
        * would have carried on down to 1.2% by the killing blow, which is past
        * "a couple of percent" and into "why did I press that".
        *
-       * The boss's temper does not creep through it any more either: `attack`
-       * is flat at 2.39 from here to the kill, so the index the curve is read
-       * by holds at x21.0 across the whole tenth. It used to climb 2.9 to 3.08
-       * and carry the index from x25.4 to x27.0 with it (3.17 and x27.8 before
-       * that, 2.74 and x24.0 after); every time the top of the curve is asked
-       * for lower, holding this line level with the kill rather than under it
-       * is what keeps the tail from running backwards. The last tenth is a
-       * plateau in both columns now — how hard the boss hits and how much a
-       * hit is worth are equally still. Raise the killing blow first if the
-       * ending has to accelerate rather than hold.
+       * The boss's temper no longer creeps up through it either — it now runs
+       * the other way. `attack` holds this keyframe's 2.39 (x21.0) and slides
+       * down to the kill's 2.17 (x19.0), so the last tenth is where the golem
+       * tires. It used to climb 2.9 to 3.08 and carry the index from x25.4 to
+       * x27.0 with it (3.17 and x27.8 before that, 2.74 and x24.0 after, then
+       * flat at x21.0), and this line has come down with every one of those
+       * passes so that the tail never ran backwards off it. The descent is
+       * deliberate this time and it is the only place in the curve where the
+       * staircase steps down; keep this value at or above the kill's if it is
+       * ever put back to a rise.
+       *
+       * `resist` is still the flat column, which is what the paragraph above
+       * is protecting: how hard the boss hits eases across the last tenth,
+       * how much a player's hit is worth does not move at all.
        *
        * It also hands the board a little back, and that is the honest cost of
        * flattening here: a five-cell step lands for 14% across the last tenth
@@ -835,22 +845,27 @@ export const DIFFICULTY = {
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
-       * 3.40 before, then 3.17, then 3.08, then 2.74, and 2.39 now. Measured
-       * on the index the curve is read by — `attack/0.30` over `resist`, which
-       * is what a keyframe is worth against the opening swing — the fight now
-       * tops out at x21.0 where it topped out at x24.0, at x27.0 before that
-       * and at x29.8 to start with. 2.39 is the value that lands the index on
-       * 21.
+       * 3.40 before, then 3.17, then 3.08, then 2.74, then 2.39, and 2.17 now.
+       * Measured on the index the curve is read by — `attack/0.30` over
+       * `resist`, which is what a keyframe is worth against the opening swing
+       * — the kill now lands at x19.0 where it landed at x21.0, x24.0 before
+       * that, and x29.8 to start with. 2.17 is the value that lands the index
+       * on 19.
        *
-       * This is the first of those steps that could not be spent inside the
-       * last tenth at all. x21.0 sits *below* the x23.3 the 0.88 keyframe used
-       * to carry, so moving only the tail would have had the golem swinging
-       * softer as it died than it did at the wall; 0.88 therefore came down to
-       * 2.52 with it and the whole last quarter is one shelf at x21.0. The
-       * fight still steps up off the medium zone into it — everything through
-       * 0.75, where the index is x7.3, is untouched, so the wall is still a
-       * threefold jump when it arrives — it simply stops climbing once it is
-       * up.
+       * This is the first of those steps that does *not* move the top of the
+       * curve, and that is the whole of what is new about it. The ending was
+       * asked down to 19 on its own, so the wall at 0.88 keeps the x21.0 it
+       * was set to and this line falls under it: the fight peaks when the last
+       * quarter arrives and the golem tires into the kill over the final
+       * tenth. Every pass before this one held the tail level or raised it,
+       * on the argument that a boss swinging softer as it dies reads as the
+       * fight giving up — that is now the requested behaviour rather than a
+       * failure mode, and it is worth knowing which of the two you are looking
+       * at before putting it back.
+       *
+       * The climb into the wall is untouched either way: everything through
+       * 0.75, where the index is x7.3, is where it was, so the last quarter is
+       * still a threefold jump when it arrives.
        *
        * `attack` and not `resist`, and the difference is the whole reason this
        * is the number that moved. `resist` is how much of the player's damage
@@ -858,15 +873,15 @@ export const DIFFICULTY = {
        * bracket table above with it; `attack` is only ever how hard the boss
        * hits back. The bar still needs 1.34 bars of damage to empty and an
        * ultimate is still worth its 2.5% down here — nothing about the grind
-       * changed. What changed is that the swing which ends runs takes 65% of a
-       * hero bar rather than the 92% it was first written at, and the rake 36%
+       * changed. What changed is that the swing which ends runs takes 59% of a
+       * hero bar rather than the 92% it was first written at, and the rake 33%
        * rather than 51%.
        *
        * The brackets above were simulated at 3.40, so read them as the floor
        * under this build rather than as its measurement: a softer killing blow
        * can only move a wipe into a win, and it moves nothing else.
        */
-      { p: 1.0, attack: 2.39, resist: 0.38, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 2.17, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
