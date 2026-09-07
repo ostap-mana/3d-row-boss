@@ -11,6 +11,76 @@
       404s, which is silent, and is the case every path in net/cta.js covers.
     -->
     <script src="mraid.js"></script>
+    <!--
+      The `ready` subscription, and the only reason it is here rather than in
+      the bundle with the rest of net/mraid.js: it has to be registered before
+      the SDK fires the event, and the bundle is not running yet when that
+      happens. Measured on a real container, `ready` fired ten milliseconds
+      after the page finished loading — by which point the module graph has
+      only just been evaluated and the creative is still decoding art. The
+      network's own compliance check reads it exactly that way ("never
+      subscribed to ready before it fired"), and a creative that starts
+      regardless is racing the SDK for real: every getter is allowed to lie
+      while the state is `loading`.
+
+      All this does is latch the event. `window.__siegeMraid` is the whole
+      contract with the bundle — `ready` is whether it has fired, `waiting` is
+      what to call when it does — and net/mraid.js queues on it in whenReady.
+      No container is ready by definition, which is the standalone case and
+      the dev server; a page served without this script still works, because
+      whenReady falls back to subscribing itself.
+
+      Nothing in here may throw: it runs before the error handling does.
+    -->
+    <script>
+      (function () {
+        var latch = { ready: false, waiting: [] };
+        window.__siegeMraid = latch;
+
+        function fire() {
+          if (latch.ready) return;
+          latch.ready = true;
+          var queue = latch.waiting;
+          latch.waiting = [];
+          for (var i = 0; i < queue.length; i++) {
+            try {
+              queue[i]();
+            } catch (e) {
+              /* one bad listener must not swallow the rest */
+            }
+          }
+        }
+
+        var m = null;
+        try {
+          m = window.mraid;
+        } catch (e) {
+          /* a cross-origin window.mraid can throw in a hostile frame */
+        }
+        if (!m || typeof m.addEventListener !== "function") {
+          fire();
+          return;
+        }
+
+        // Subscribe first and read the state after, in that order: an SDK
+        // that fires `ready` between the two is caught by the listener, where
+        // one asked the other way round would be missed by both.
+        try {
+          m.addEventListener("ready", fire);
+        } catch (e) {
+          /* a wrapper without addEventListener is a wrapper without events */
+        }
+        try {
+          if (typeof m.getState === "function" && m.getState() !== "loading") {
+            fire();
+          }
+        } catch (e) {
+          // A wrapper that will not say whether it is ready is treated as
+          // ready: late is recoverable, never is not.
+          fire();
+        }
+      })();
+    </script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"

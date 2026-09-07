@@ -53,6 +53,29 @@ export function inContainer() {
 }
 
 /**
+ * The `ready` latch the head set, if this page carried one.
+ *
+ * See the inline script in index.html. It subscribes to `ready` before the
+ * bundle exists, because the SDK fires that event within a few milliseconds
+ * of the page loading and the module graph is only just evaluated by then —
+ * subscribing from here is subscribing after the fact, which is precisely
+ * what the networks' compliance checks fail a creative for.
+ *
+ * `{ ready, waiting }` is the whole of the contract. Absent — a page served
+ * without the head script, which is a build mistake rather than a case worth
+ * supporting, and the dev server before a hard reload — and whenReady falls
+ * back to subscribing itself.
+ */
+function latch() {
+  try {
+    const l = globalThis.__siegeMraid;
+    return l && typeof l === "object" && Array.isArray(l.waiting) ? l : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Run `fn` once the container is ready to be talked to.
  *
  * MRAID has one rule about ordering and this is it: until the state leaves
@@ -71,6 +94,14 @@ export function whenReady(fn) {
     fn();
     return;
   }
+
+  const armed = latch();
+  if (armed) {
+    if (armed.ready) fn();
+    else armed.waiting.push(fn);
+    return;
+  }
+
   try {
     if (typeof m.getState !== "function" || m.getState() !== "loading") {
       fn();
@@ -142,8 +173,8 @@ export function watchViewable(fn) {
     on("viewableChange", (v) => settle(!!v, true));
     on("exposureChange", (pct) => settle(Number(pct) > 0, true));
     // Only the one state that means the ad is going away. The others —
-    // `default`, `expanded`, `resized` — are about the size of the container
-    // and the viewport watcher answers those already.
+    // `default`, `expanded`, `resized` — are about the size of the container,
+    // and that is watchSize's half of the job.
     on("stateChange", (state) => {
       if (state === "hidden") settle(false, true);
     });
@@ -159,6 +190,62 @@ export function watchViewable(fn) {
       seen = true;
     }
     settle(seen, false);
+  });
+}
+
+/**
+ * Tell `fn` when the container says the ad's box changed size.
+ *
+ * @param {(w:number, h:number) => void} fn the container's own numbers, which
+ *   are advisory — the caller re-measures rather than trusting them.
+ *
+ * The creative already watches every size signal the *page* can produce — see
+ * watchViewport, which listens to resize, orientationchange, the visual
+ * viewport, a ResizeObserver on the root and the screen orientation object.
+ * That is what this was left out for, and on most containers it is genuinely
+ * enough.
+ *
+ * It is not enough on all of them, and the case it misses is the one MRAID
+ * invented this event for: an SDK that resizes the ad's own frame from the
+ * native side without the webview reporting a resize into the page. Both
+ * orientations have to work, and on such a container nothing else in the
+ * creative would ever be told that one had become the other. Every network's
+ * compliance check asks for this listener by name for that reason.
+ *
+ * What it does is nudge the measurement rather than take the numbers: `w` and
+ * `h` come from the SDK and describe the frame it just made, which is not
+ * always the box the canvas ended up in, and there is a real measurement one
+ * function call away. Re-measuring on a signal that turns out to be a
+ * duplicate costs a frame; believing a wrong number costs the layout.
+ */
+export function watchSize(fn) {
+  const m = host();
+  if (!m) return;
+
+  const on = (type, handler) => {
+    try {
+      m.addEventListener(type, handler);
+    } catch {
+      /* an SDK without this event is an SDK that never sends it */
+    }
+  };
+
+  const bump = (w, h) => {
+    try {
+      fn(Number(w) || 0, Number(h) || 0);
+    } catch {
+      /* a listener that throws must not take the container down with it */
+    }
+  };
+
+  on("sizeChange", bump);
+  // The state half of the same fact: `expanded` and `resized` are the two
+  // states that arrive with a new box, and an SDK is allowed to announce the
+  // change either way round.
+  on("stateChange", (state) => {
+    if (state === "default" || state === "expanded" || state === "resized") {
+      bump(0, 0);
+    }
   });
 }
 

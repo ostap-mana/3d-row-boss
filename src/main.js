@@ -58,7 +58,7 @@ import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
-import { mraidReport, watchViewable } from "./net/mraid.js";
+import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
 import {
   audioSleep,
   installAudioUnlock,
@@ -522,7 +522,23 @@ async function boot() {
   // It calls back once during construction, which is the call that pins the
   // host and lays out for the settled size — so the relayout() above is only
   // ever laying out for the size the renderer was built with.
-  watchViewport(host, relayout);
+  const viewport = watchViewport(host, relayout);
+
+  /**
+   * And the same signal from the container, which does not always reach the
+   * page as one.
+   *
+   * Every listener the watcher above installs is a page-level event. An SDK
+   * that resizes the ad's frame natively — which is the whole reason MRAID has
+   * a `sizeChange` at all — can change what the creative is being drawn into
+   * without any of them firing, and a rotation on such a container would leave
+   * the fight laid out for the orientation it left. See net/mraid.js.
+   *
+   * `refresh` and not a resize of its own: it starts the same settle loop
+   * every other signal starts, so a container that announces the change and a
+   * device that reports it arrive at one measurement rather than two.
+   */
+  watchSize(() => viewport.refresh());
 
   /**
    * And one more for fullscreen, on top of the settle the watcher starts for it.
