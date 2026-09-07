@@ -481,7 +481,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.30 -> 0.85   1.55->1.70   2.80 -> 3.08
+   *     attack      0.30 -> 0.85   1.55->1.70   2.80 -> 2.74
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -540,11 +540,11 @@ export const DIFFICULTY = {
    *       40%   medium       x1.55   23%   30%           28%
    *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
    *       12%   super hard   x2.80   42%   15%            9%
-   *        0%   super hard   x3.08   46%   11%            6%
+   *        0%   super hard   x2.74   41%   11%            6%
    *
-   * The smash on that last line lands for 83% of a hero bar. That is the swing
+   * The smash on that last line lands for 74% of a hero bar. That is the swing
    * that ends runs, and it is meant to be — see the last keyframe, which is
-   * where the 92% it used to be was let out twice.
+   * where the 92% it used to be was let out three times.
    *
    * The last two columns are the other half of what the ending is for. An
    * ultimate opens worth slightly more than the best match on the board and
@@ -804,12 +804,15 @@ export const DIFFICULTY = {
        * would have carried on down to 1.2% by the killing blow, which is past
        * "a couple of percent" and into "why did I press that".
        *
-       * The boss's temper still creeps through it, but only just: `attack`
-       * runs 2.9 to 3.08 across the stretch. It used to climb to 3.17 and
-       * carry the index the curve is read by from x25.4 to x27.8 with it;
-       * pulled to x27.0 at the kill, the whole tenth is under two tenths of a
-       * multiplier. So the boss's temper is very nearly a plateau here too,
-       * and how much a hit is worth is outright one. Raise the killing blow
+       * The boss's temper does not creep through it any more either: `attack`
+       * is flat at 2.74 from here to the kill, so the index the curve is read
+       * by holds at x24.0 across the whole tenth. It used to climb 2.9 to 3.08
+       * and carry the index from x25.4 to x27.0 with it (3.17 and x27.8 before
+       * that); when the top of the curve was asked for at 24, holding 2.74
+       * from here rather than only at the kill is what kept the tail from
+       * running backwards off the 2.9 that used to sit on this line. The last
+       * tenth is a plateau in both columns now — how hard the boss hits and
+       * how much a hit is worth are equally still. Raise the killing blow
        * first if the ending has to accelerate rather than hold.
        *
        * It also hands the board a little back, and that is the honest cost of
@@ -818,19 +821,25 @@ export const DIFFICULTY = {
        * bars of damage now against 1.37, which is about half a second off the
        * fight.
        */
-      { p: 0.9, attack: 2.9, resist: 0.38, obsidian: 8, hold: 12 },
+      { p: 0.9, attack: 2.74, resist: 0.38, obsidian: 8, hold: 12 },
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
-       * 3.40 before, then 3.17, and 3.08 now, and the whole of what came off
-       * is here rather than spread across the zone: 0.88 and 0.9 are untouched,
-       * so the wall arrives with the same teeth and it is only the very end of
-       * the tail that is softer. Measured on the index the curve is read by —
-       * `attack/0.30` over `resist`, which is what a keyframe is worth against
-       * the opening swing — the fight now tops out at x27.0 where it topped
-       * out at x29.8, and the last tenth rises to it gently from the x25.4
-       * below rather than climbing to thirty. 3.08 is the value that lands the
-       * index on 27; the keyframe above carries what a tail that flat costs.
+       * 3.40 before, then 3.17, then 3.08, and 2.74 now, and what came off is
+       * still confined to the tail: 0.88 is untouched, so the wall arrives
+       * with the same teeth and it is only the last tenth that is softer.
+       * Measured on the index the curve is read by — `attack/0.30` over
+       * `resist`, which is what a keyframe is worth against the opening swing
+       * — the fight now tops out at x24.0 where it topped out at x27.0, and at
+       * x29.8 before that. 2.74 is the value that lands the index on 24.
+       *
+       * This is the first of those steps that could not be spent on the kill
+       * alone. x24.0 sits *below* the x25.4 the 0.9 keyframe used to carry, so
+       * moving only this line would have had the golem swinging softer as it
+       * died; the keyframe above therefore holds 2.74 as well and the tail is
+       * flat at x24.0 rather than rising into it. Everything up to 0.88 —
+       * where the index is x23.3 — is untouched, so the last tenth still steps
+       * up off the wall, it just stops climbing once it is there.
        *
        * `attack` and not `resist`, and the difference is the whole reason this
        * is the number that moved. `resist` is how much of the player's damage
@@ -838,14 +847,15 @@ export const DIFFICULTY = {
        * bracket table above with it; `attack` is only ever how hard the boss
        * hits back. The bar still needs 1.34 bars of damage to empty and an
        * ultimate is still worth its 2.5% down here — nothing about the grind
-       * changed. What changed is that the swing which ends runs takes 83% of a
-       * hero bar rather than 92%, and the rake 46% rather than 51%.
+       * changed. What changed is that the swing which ends runs takes 74% of a
+       * hero bar rather than the 92% it was first written at, and the rake 41%
+       * rather than 51%.
        *
        * The brackets above were simulated at 3.40, so read them as the floor
        * under this build rather than as its measurement: a softer killing blow
        * can only move a wipe into a win, and it moves nothing else.
        */
-      { p: 1.0, attack: 3.08, resist: 0.38, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 2.74, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
@@ -2057,6 +2067,37 @@ export const FONT_TITLE =
  */
 export const FONT_OUTCOME =
   '"Elan ITC Pro", "Hitzone Med", "Hitzone", Georgia, "Times New Roman", serif';
+
+/**
+ * The damage face: the figures that fly off a hit, and nothing else in the game.
+ *
+ * Montserrat Bold Italic, out of the same Invokers Titan Legacy build the rest
+ * of this creative's type comes from — so it is drawn from the game's own set of
+ * faces rather than picked off a foundry to sit next to them. What the build
+ * itself draws with it is not knowable from here; that much is a guess and is
+ * not the argument.
+ *
+ * The argument is what it is for. Every other text here is a label, held level
+ * and read at leisure; a damage number is the one piece of type that is a
+ * consequence of something. It already lands squashed, springs into shape and
+ * scatters a few degrees off upright, and a face that leans 11.3° by design is
+ * that same idea drawn into the letterforms rather than tweened onto them. It is
+ * also the only cut in that set that leans at all, which is what makes it the
+ * obvious one to hand this job.
+ *
+ * The slant is in the outlines, so nothing asks for `fontStyle: "italic"` — see
+ * ui/fonts.js for why that matters on a device that cannot decode the file.
+ *
+ * Hitzone sits directly behind it, which makes the fallback the previous design
+ * rather than a degraded one: the digits print upright in the UI face at 900,
+ * exactly as they did before this constant existed. That also covers the one
+ * sharp edge of the cut — the file carries `0-9 , . - + % ×` and no letters at
+ * all, being 1.7 kB rather than 20. Numbers only. A word set in this list draws
+ * its letters out of Hitzone glyph by glyph, which is survivable but is not a
+ * thing to do on purpose.
+ */
+export const FONT_DAMAGE =
+  '"Montserrat It", "Hitzone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /* ------------------------------------------------------------------ heroes */
 

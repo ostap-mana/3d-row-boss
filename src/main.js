@@ -38,6 +38,7 @@ import { loadHintHand } from "./art/hinthand.js";
 import { loadHintMarks } from "./art/hintmarks.js";
 import { loadHpBarArt } from "./art/hpbar.js";
 import { loadCardBars } from "./art/cardbars.js";
+import { loadReadyCrowns } from "./art/readyfx.js";
 import { Boss, loadBossArt } from "./art/boss.js";
 import { loadBossCrest } from "./art/crest.js";
 import { loadFireArt } from "./art/fire.js";
@@ -163,6 +164,11 @@ async function boot() {
     loadHintMarks(),
     loadHpBarArt(),
     loadCardBars(),
+    // Sixty-seven kilobytes and a megapixel and a half — six flipbooks, one
+    // per element — and the only ones decoded here rather than in loadRest():
+    // a hero can be dealt already charged, so the fire on his caption is art
+    // the opening frame can need. See art/readyfx.js.
+    loadReadyCrowns(),
   ]);
   timing.essential = since();
   initGemTextures(app.renderer);

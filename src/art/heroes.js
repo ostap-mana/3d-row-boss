@@ -34,7 +34,14 @@ import {
   BAR_INSET,
 } from "./cardbars.js";
 import { heroBust, heroRoundel } from "./avatars.js";
-import { glowTexture, gradientTexture } from "./textures.js";
+import { SPELL_BY_ELEMENT, SPELL_TRAVEL_LAST, spellFrames } from "./spells.js";
+import { CROWN_CELL, readyCrownFrames } from "./readyfx.js";
+import {
+  beamTexture,
+  glowTexture,
+  gradientTexture,
+  sparkTexture,
+} from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { rndInt } from "../core/rng.js";
 import {
@@ -787,6 +794,168 @@ class Gauge extends Container {
 export const READY_SCALE = 1.14;
 export const READY_SWING = 0.045;
 
+/**
+ * The arming sequence: what happens on the one frame an ultimate becomes
+ * spendable. See HeroCard.flareReady, which fires all of it together.
+ *
+ * A card that fills used to say READY, stand a seventh taller and start
+ * breathing — and all three of those happen *inside* one tile of six along the
+ * bottom of the screen, none of them is the element, and the loudest of them is
+ * a caption. The thing the player has just earned is the biggest button in the
+ * game and it was announced by a word changing.
+ *
+ * So it is announced five ways at once instead, which is the whole of why this
+ * is a table and not a number. No single one of these carries it: the blast is
+ * detail and dies in half a second, the wash is light with no shape, the rune is
+ * shape with no detail. Together they read as an arrival.
+ *
+ *   splash  the hero's own blast — the art his ultimate throws, out of
+ *           art/spells.js — going off on his face. Free: those sheets are
+ *           already in the bundle for the ultimates themselves. Only the blast
+ *           half is played, frames past SPELL_TRAVEL_LAST, because the first
+ *           half is a bolt in flight and there is nothing here for it to fly
+ *           from.
+ *             size  across, as a fraction of the card's width. Well over one,
+ *                   so the burst breaks past the card's edges instead of
+ *                   sitting inside them — at the card's own width the element
+ *                   reads as a tint on a portrait rather than as an event, and
+ *                   what laps onto a neighbour is additive light, not a box.
+ *                   Cells are square (SPELL_ASPECT), so this is both axes.
+ *             y     up from the card's middle, as a fraction of its height. The
+ *                   portrait is cover-fitted with the crop pushed down
+ *                   (HEAD_BIAS) so the head stays in the tile, which puts the
+ *                   face above centre — a burst centred on the box goes off on
+ *                   a collarbone.
+ *             dur   the whole of it, across five frames.
+ *             grow  how much wider it ends than it started. A blast that holds
+ *                   one size reads as a decal being faded out.
+ *   rune    the board gem this hero charges off, thrown out of the card and
+ *           dissolved — the element's own mark leaving the tile. Also free, and
+ *           deliberately the *board's* bake rather than a new shape: it is the
+ *           gem the player was matching when this happened, so the card is
+ *           answering the move in the move's own vocabulary.
+ *   flash   the ignition, on the wash the card already carries for its swing.
+ *           Light with no shape, under everything that has shape.
+ *   pip     how hard the corner sigil is punched.
+ *   word    what READY is scaled from. Punched rather than faded: the caption
+ *           is the one part of this that was already here, and a word that
+ *           lands is worth more than a word that appears.
+ */
+const READY_FX = {
+  splash: { size: 2.05, y: -0.13, dur: 0.6, grow: 0.3 },
+  rune: { from: 0.86, to: 2.45, dur: 0.5, alpha: 0.95 },
+  wash: { w: 2.4, h: 1.75, alpha: 0.85, dur: 0.42 },
+  pip: 0.42,
+  word: { from: 1.5, dur: 0.44 },
+};
+
+/**
+ * The burn a charged card's caption wears — see `lightReady`, which is this
+ * table and nothing else, and `dressReady`, which cuts all of it to the word.
+ *
+ * READY is the label on the biggest button in the game, and it was a small
+ * bright word sat on a busy portrait. flareReady announces the *moment* an
+ * ultimate arms and is gone in half a second; after that the card has to keep
+ * saying "spend me" for as long as it is spendable, and a caption swap does not
+ * say it. So the word catches fire and stays on fire until it is spent.
+ *
+ * Two things burn, and between them they are the whole effect:
+ *
+ *   crown  a row standing on the caption, each one a real flipbook out of the
+ *          shipped game's own effects — see art/readyfx.js — and a *different*
+ *          flipbook per hero, because an element is a shape before it is a
+ *          colour. Ricklow's rises in licks and breaks into tongues, Selisa's
+ *          throws a splash, Quinnto's boils up in leaf-shaped lobes, Taranis's
+ *          cracks in bolts, Silanth's curls up as dark wisps, Arissa's is a gust
+ *          with static in it. Not a glow doing an impression of any of them: the
+ *          shapes have edges, and edges are the whole difference between a word
+ *          that is burning and a word with a light behind it.
+ *
+ *          Every one runs its element's frames a fraction of a cycle apart, so
+ *          the row never goes out together and never catches together. One
+ *          sprite each, all on one texture, all additive.
+ *            licks   how many stand along the word
+ *            h       how tall one is, as a multiple of the caption's own height.
+ *                    Width follows from CROWN_CELL.aspect — every element is
+ *                    packed into one cell at its own proportions, so a bolt
+ *                    arrives narrow and a splash arrives wide without either
+ *                    being stretched to fit a word.
+ *            spread  how much of the word's width the row covers
+ *            root    how far the licks are planted *into* the word, as a
+ *                    fraction of its height. Zero stands them on the cap line,
+ *                    where fire reads as a hat sitting on top of a word; a third
+ *                    of the way down, with the caption drawn over their feet,
+ *                    reads as the letters themselves alight.
+ *            fps     the flipbook's own rate
+ *
+ *   comet  the pass: a head and a tapering trail that come round the word every
+ *          few seconds and are gone. The crown says *on fire*; this says *ready
+ *          now*, because a loop is wallpaper after ten seconds and an event that
+ *          arrives on a beat never is. It orbits rather than crosses — an ellipse
+ *          on the caption's own box, under the word on the way out and over it on
+ *          the way back — so the effect keeps belonging to the word instead of
+ *          flying past it.
+ *            every  seconds between passes, and `dur` is how long one takes.
+ *                   Staggered by card index, so a row of charged heroes is not
+ *                   a chorus line.
+ *            rx,ry  the orbit, as fractions of the caption's width and height
+ *            head   the head's size, against the caption's height
+ *            trail  how many segments behind it, over `span` of a turn
+ *
+ * Under both, unchanged: `core`, a tight pale bed that keeps the letters
+ * legible against their own fire and is the whole of the burn on the frame the
+ * sheet has not decoded yet, and `word`, the caption drawn a second time
+ * additively over itself so the glyphs glow rather than only being lit.
+ *
+ * Everything is additive and everything is driven off one number, `readyLit`,
+ * so the whole thing lights, breathes and dies as a single object:
+ *
+ *   breath   the slow swell of the light. Shallow, because the fire carries the
+ *            movement now and a second clock under a flipbook is two clocks
+ *            fighting.
+ *   flicker  a fast, shallow tremor on top of it. Torchlight, not a strobe.
+ *   swell    how much the burn breathes with it. Inwards only — see lightReady:
+ *            the caption is the edge and nothing here crosses it.
+ *   ignite   what `readyLit` is thrown to on the frame the ultimate arms,
+ *            before it settles back to 1 — the overdrive under flareReady.
+ *   ceiling  where that drive is clamped.
+ *   type     the caption's own ink, all of it a fraction of its type size:
+ *            `stroke` is the element-dark contour that keeps the word legible
+ *            while it is sat in its own fire, `blur` the coloured halo baked
+ *            into the glyphs, `pad` the room the text texture is given for that
+ *            halo — a blur wider than its padding is a glow with a square cut
+ *            off it.
+ */
+const READY_GLOW = {
+  crown: {
+    licks: 5,
+    h: 1.2,
+    narrow: 0.62,
+    spread: 0.94,
+    root: 0.2,
+    fps: 13,
+    alpha: 0.6,
+  },
+  comet: {
+    every: 2.1,
+    dur: 0.66,
+    rx: 0.5,
+    ry: 0.7,
+    head: 0.5,
+    trail: 7,
+    span: 0.22,
+    alpha: 0.95,
+  },
+  core: { w: 1, h: 1, alpha: 0.16 },
+  word: { alpha: 0.8, scale: 1.06, blur: 1.15, pad: 1.6 },
+  breath: { rate: 5.6, depth: 0.22, phase: 0.85 },
+  flicker: { rate: 14.7, depth: 0.07 },
+  swell: 0.42,
+  ignite: 1.85,
+  ceiling: 1.3,
+  type: { stroke: 0.13, blur: 0.55, pad: 1.05 },
+};
+
 export class HeroCard extends Container {
   /**
    * @param {object} hero the roster entry — see HEROES
@@ -895,6 +1064,81 @@ export class HeroCard extends Container {
     this.addChild(this.burn);
 
     /**
+     * Where the arming burst is played — see `splashElement`.
+     *
+     * An empty container rather than a sprite, because the burst exists for
+     * half a second every few matches and a card should not carry an invisible
+     * sheet the rest of the time. What it buys is the z-slot: above the portrait
+     * and the two washes, below the gauges, the sigil and the type. The element
+     * is allowed to break over the hero's face and is not allowed to break over
+     * the number telling the player how much health he has left.
+     */
+    this.ultFx = new Container();
+    this.addChild(this.ultFx);
+
+    /**
+     * The flames standing on a charged card's caption. See READY_GLOW.crown.
+     *
+     * Anchored bottom-centre, because that is what the art is: the flipbook
+     * catches on the floor of its cell and rises out of it, so a lick's origin
+     * is its foot and nothing else would keep the fire planted while it grows.
+     *
+     * Tinted a third of the way from the element's own colour towards its pale
+     * end. The saturated hue alone is a flat cut-out at this size — anything
+     * burning is white where it is hottest — and the pale end alone is not the
+     * element any more. Additive on top of that does the rest: where two of
+     * these overlap they go white by themselves, which is exactly where a fire
+     * is brightest.
+     *
+     * Built with no texture. The sheets are decoded with the essentials — see
+     * art/readyfx.js — but a build shipped without this hero's is a card that
+     * burns on its glow alone rather than a card that throws.
+     */
+    this.readyCrown = [];
+    for (let i = 0; i < READY_GLOW.crown.licks; i++) {
+      const lick = new Sprite();
+      lick.anchor.set(0.5, 1);
+      lick.blendMode = "add";
+      lick.tint = lerpColor(
+        GEM_COLORS[hero.element],
+        GEM_LIGHT[hero.element],
+        0.34,
+      );
+      lick.alpha = 0;
+      this.addChild(lick);
+      this.readyCrown.push(lick);
+    }
+
+    /**
+     * How much bigger than its neighbours each lick burns, and it is a table
+     * rather than a call to the rng for one reason: a card is rebuilt on nothing
+     * and re-laid out on every resize, and a fire whose licks changed height
+     * when the phone was turned would be a fire nobody believed. Deterministic,
+     * unequal, and different from the card next door because the row's index is
+     * in it.
+     */
+    this.lickSize = this.readyCrown.map(
+      (_, i) => 0.78 + 0.3 * (1 + Math.sin(i * 2.399 + index * 1.7)),
+    );
+
+    this.readyCore = new Sprite(glowTexture());
+    this.readyCore.anchor.set(0.5);
+    this.readyCore.blendMode = "add";
+    this.readyCore.tint = GEM_LIGHT[hero.element];
+    this.readyCore.alpha = 0;
+    this.addChild(this.readyCore);
+
+    /**
+     * How lit the caption is: 0 dark, 1 burning, and briefly past 1 on the
+     * frame it arms — see READY_GLOW.ignite. An object rather than a number so
+     * the tweens in setReady and flareReady can drive it, and read once a frame
+     * by lightReady, which is the only thing that touches the three layers'
+     * alphas. One owner, so a card that arms while an older fade is still
+     * running does not end up with two.
+     */
+    this.readyLit = { v: 0 };
+
+    /**
      * The two gauges, health over charge — see the Gauge above, which is the
      * whole of what either one is.
      *
@@ -947,18 +1191,93 @@ export class HeroCard extends Container {
         // Bright on a dark card: the previous near-black was invisible.
         fill: GEM_LIGHT[hero.element],
         letterSpacing: 0.6,
+        // The contour is the element's own dark rather than the old near-black
+        // ink, and the shadow is the element's own colour rather than a shadow:
+        // the word is sat in the middle of the light it is throwing, so what it
+        // needs from these two is an edge to be read against and a halo to be
+        // read as burning. Both are re-cut in dressReady off the size the
+        // caption actually fits at — what is here is the pair for the 18pt it
+        // is declared at, and no card is 18pt.
+        stroke: { color: GEM_DARK[hero.element], width: 2, join: "round" },
         dropShadow: {
-          color: 0x08111f,
-          alpha: 0.9,
-          blur: 5,
+          color: GEM_COLORS[hero.element],
+          alpha: 1,
+          blur: 13,
           distance: 0,
           angle: 0,
         },
+        padding: 19,
       },
     });
     this.readyLabel.anchor.set(0.5);
     this.readyLabel.alpha = 0;
     this.addChild(this.readyLabel);
+
+    /**
+     * The caption again, additively, over itself — the glyph-shaped half of the
+     * burn. See READY_GLOW.word.
+     *
+     * A second Text rather than a blur filter on the first: this creative runs
+     * on whatever GPU the ad network's webview hands it, and a filter per card
+     * is a render target per card, every frame, for six cards. Two text
+     * textures baked once at layout are free beside that — and it is the same
+     * word at the same size, so it registers on the original exactly.
+     */
+    this.readyBloom = new Text({
+      text: "READY",
+      style: {
+        fontFamily: FONT,
+        fontSize: 18,
+        fontWeight: "900",
+        fill: GEM_LIGHT[hero.element],
+        letterSpacing: 0.6,
+        dropShadow: {
+          color: GEM_COLORS[hero.element],
+          alpha: 1,
+          blur: 21,
+          distance: 0,
+          angle: 0,
+        },
+        padding: 29,
+      },
+    });
+    this.readyBloom.anchor.set(0.5);
+    this.readyBloom.blendMode = "add";
+    this.readyBloom.alpha = 0;
+    this.addChild(this.readyBloom);
+
+    /**
+     * The comet that comes round the caption every couple of seconds — the
+     * trail first and the head over it, which is the only order that reads as
+     * one object. See READY_GLOW.comet.
+     *
+     * Over the word rather than behind it, unlike the crown: this one passes in
+     * front on its way round, and a streak that vanished behind the letters
+     * would read as two streaks. The trail is beamTexture — a soft bar, bright
+     * in the middle, out at both ends — laid chord by chord along the orbit and
+     * turned to it, which is how a curve is drawn out of straight sprites
+     * without a mesh.
+     *
+     * Pale, not saturated: this is the spark off the fire, and GEM_LIGHT is
+     * near enough white to read as one on any card.
+     */
+    this.cometTrail = [];
+    for (let i = 0; i < READY_GLOW.comet.trail; i++) {
+      const seg = new Sprite(beamTexture());
+      seg.anchor.set(0.5);
+      seg.blendMode = "add";
+      seg.tint = GEM_LIGHT[hero.element];
+      seg.alpha = 0;
+      this.addChild(seg);
+      this.cometTrail.push(seg);
+    }
+
+    this.cometHead = new Sprite(sparkTexture());
+    this.cometHead.anchor.set(0.5);
+    this.cometHead.blendMode = "add";
+    this.cometHead.tint = GEM_LIGHT[hero.element];
+    this.cometHead.alpha = 0;
+    this.addChild(this.cometHead);
 
     this.eventMode = "static";
     this.cursor = "pointer";
@@ -987,6 +1306,12 @@ export class HeroCard extends Container {
     if (this.ready) {
       this.readyLabel.alpha = 1;
       this.label.alpha = 0;
+      // Lit, not igniting. The burn is a *state* — it says this ultimate is
+      // spendable — so the card that opens the fight charged wears it from the
+      // first frame, exactly as it already wears the caption and the height.
+      // What it skips is the ignition over the top of it, which is an event and
+      // has nothing to announce on a page the player has not touched yet.
+      this.readyLit.v = 1;
       this.pulsing = true;
       this.scale.set(READY_SCALE);
     }
@@ -1079,8 +1404,13 @@ export class HeroCard extends Container {
     this.label.y = nameY;
 
     const readySize = Math.max(7, Math.min(h * 0.16, w * 0.21));
-    fitFont(this.readyLabel, stack.barW, readySize);
     this.readyLabel.y = nameY;
+    // The caption is fitted first and everything that burns is cut to what it
+    // fitted to — see dressReady. Fitted before the ink is re-cut rather than
+    // after, because fitFont measures the text it is handed and a fatter stroke
+    // is a wider word: sizing the stroke off the fitted size and then fitting
+    // again is a loop that walks the caption down a point on every resize.
+    this.dressReady(fitFont(this.readyLabel, stack.barW, readySize));
 
     const { barW, hpH, manaH, manaReads, hpY, manaY } = stack;
     // Both gauges print their maximums or neither does, and the health bar is the
@@ -1105,6 +1435,97 @@ export class HeroCard extends Container {
 
     this.drawHpBar();
     this.drawCharge();
+  }
+
+  /**
+   * Cut the caption's burn to the caption. See READY_GLOW.
+   *
+   * Everything here is a fraction of one number — the type size READY actually
+   * landed on, which on the narrowest phone this ships to is about half what it
+   * is on a tablet. A stroke, a blur and a wash authored in points would be a
+   * hairline round a huge word on one and a smear round a tiny one on the
+   * other; authored as multiples of the word they are drawn on, they are the
+   * same picture at both ends.
+   *
+   * Called from resize only. Restyling a Text rebakes its texture, so this is
+   * deliberately off the frame path — what runs every frame is lightReady,
+   * which writes alphas and scales and nothing else.
+   *
+   * @param {number} size the caption's fitted type size, in points
+   */
+  dressReady(size) {
+    const el = this.hero.element;
+    const t = READY_GLOW.type;
+
+    this.readyLabel.style.stroke = {
+      color: GEM_DARK[el],
+      width: Math.max(1, size * t.stroke),
+      join: "round",
+    };
+    this.readyLabel.style.dropShadow = {
+      color: GEM_COLORS[el],
+      alpha: 1,
+      blur: size * t.blur,
+      distance: 0,
+      angle: 0,
+    };
+    this.readyLabel.style.padding = size * t.pad;
+
+    const word = READY_GLOW.word;
+    this.readyBloom.style.fontSize = size;
+    this.readyBloom.style.dropShadow = {
+      color: GEM_COLORS[el],
+      alpha: 1,
+      blur: size * word.blur,
+      distance: 0,
+      angle: 0,
+    };
+    this.readyBloom.style.padding = size * word.pad;
+    this.readyBloom.y = this.readyLabel.y;
+
+    // The caption's own box, which is what everything that burns is cut to.
+    // Measured off the Text rather than guessed from the type size: READY is
+    // fitted to the card it landed on — see resize — so its width is the one
+    // number here that no formula knows, and its height is the face's ascent
+    // and descent rather than the point size it was asked for.
+    //
+    // Divided by the live scale because it may not be 1: the arming punch
+    // throws the caption out at half again its size, and a resize that lands
+    // mid-punch would otherwise read a word half again too wide and cut the
+    // fire to it for the rest of the fight.
+    const wordW = this.readyLabel.width / (this.readyLabel.scale.x || 1);
+    const wordH = this.readyLabel.height / (this.readyLabel.scale.y || 1);
+
+    // Rest sizes, held rather than only written. lightReady breathes all of
+    // this off the beat every frame, and a thing that grows from wherever it
+    // happens to be grows without end — and the fire cels are re-sized there in
+    // any case, because a sprite built with no texture has no size to set until
+    // the sheet lands.
+    this.coreW = wordW * READY_GLOW.core.w;
+    this.coreH = wordH * READY_GLOW.core.h;
+    this.readyCore.setSize(this.coreW, this.coreH);
+    this.readyCore.y = this.readyLabel.y;
+
+    // The crown: one lick's size, and where the row of them is planted. The
+    // width comes off the sheet's own aspect rather than off the word, so a
+    // flame is never a flame squashed sideways to fit a caption.
+    const crown = READY_GLOW.crown;
+    this.lickH = wordH * crown.h;
+    this.lickW = this.lickH * CROWN_CELL.aspect * crown.narrow;
+    const foot = this.readyLabel.y - wordH * (0.5 - crown.root);
+    const n = this.readyCrown.length;
+    for (let i = 0; i < n; i++) {
+      const lick = this.readyCrown[i];
+      lick.x = (n === 1 ? 0 : i / (n - 1) - 0.5) * wordW * crown.spread;
+      lick.y = foot;
+    }
+
+    // The comet's orbit, on the caption's own box.
+    const comet = READY_GLOW.comet;
+    this.cometRx = wordW * comet.rx;
+    this.cometRy = wordH * comet.ry;
+    this.cometHeadSize = wordH * comet.head;
+    this.cometTrailW = wordH * 0.19;
   }
 
   /**
@@ -1167,6 +1588,159 @@ export class HeroCard extends Container {
     );
   }
 
+  /**
+   * The whole arming sequence, fired together. See READY_FX.
+   *
+   * Order is z-order, bottom up: the wash has no shape and goes under, the rune
+   * and the blast have shape and go over it, and the two pieces of the card that
+   * were already there — the pip and the caption — are punched last so they land
+   * on top of light that is already up.
+   *
+   * Every layer is independent and every layer is optional. The blast needs
+   * deferred art and the rune needs the board's bakes; either can be missing on
+   * a slow first second, and what is left is still louder than the caption swap
+   * this replaced. Nothing here is on the path of the tap that spends the
+   * ultimate — it is all announcement.
+   */
+  flareReady() {
+    if (!this.cardW) return;
+
+    this.washElement();
+    this.throwRune();
+    this.splashElement();
+
+    // `base` off the live scale: both of these are sized with setSize, which
+    // writes scale, so their resting scale is whatever the last resize made it
+    // and never 1. punch() would otherwise snap them to a sixth of their size.
+    punch(this.sigil, READY_FX.pip, 0.5, { base: this.sigil.scale.x });
+
+    // The burn arrives over-driven and settles into its resting brightness, so
+    // the caption's standing light has a flashbulb on the front of it instead of
+    // fading up into one. Longer than the punch on the word below on purpose:
+    // the pop is the impact, the light is what the impact leaves behind.
+    killTweensOf(this.readyLit);
+    this.readyLit.v = READY_GLOW.ignite;
+    tween(this.readyLit, { v: 1 }, 0.55, { ease: Ease.quadOut });
+
+    killTweensOf(this.readyLabel.scale);
+    this.readyLabel.scale.set(READY_FX.word.from);
+    tween(this.readyLabel.scale, { x: 1, y: 1 }, READY_FX.word.dur, {
+      ease: Ease.backOut,
+    });
+  }
+
+  /**
+   * The ignition: one bright wash over the tile, snapped up and let go.
+   *
+   * Its own sprite rather than the `aura` the card already carries, for two
+   * reasons. It is tinted out of GEM_LIGHT and not GEM_COLORS — the pale end of
+   * the element, near enough white to lift a card whatever colour the card is,
+   * where the saturated tint is additive purple on a purple tile and reads as
+   * almost nothing on Silanth. And `strike` owns that sprite: a hero very often
+   * swings on the same match that fills him, and two owners snapping one alpha
+   * inside the same frame is the flicker that comment warns about.
+   *
+   * This is deliberately not the standing halo that came off the charged card.
+   * Six tiles glowing for as long as they were full was the brightest thing on a
+   * screen whose subject is the boss; four tenths of a second on the one tile
+   * that just changed is the opposite of that — it is what makes the change
+   * findable at the size these cards actually are.
+   */
+  washElement() {
+    const s = new Sprite(glowTexture());
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = GEM_LIGHT[this.hero.element];
+    s.y = this.cardH * READY_FX.splash.y;
+    this.ultFx.addChild(s);
+
+    const { w, h, alpha, dur } = READY_FX.wash;
+    tweenValue(0, 1, dur, (p) => {
+      // Opens a little as it goes, so the light is leaving rather than dimming.
+      const k = 1 + p * 0.3;
+      s.setSize(this.cardW * w * k, this.cardH * h * k);
+      // Squared, so most of it is gone in the first third: this is the flash on
+      // the front of the sequence, not the light the rest of it is read through.
+      s.alpha = alpha * (1 - p) * (1 - p);
+    }).then(() => s.destroy());
+  }
+
+  /**
+   * Throw the element's own gem out of the card and dissolve it.
+   *
+   * The board's bake, at the size the card is, opened out past it and faded —
+   * the shape half of the arrival, against the blast's detail and the wash's
+   * light. Additive, so the gem's dark body drops out and only its rune and rim
+   * travel; drawn normally this would be a grey disc sliding off a portrait.
+   *
+   * @returns {boolean} whether the board's art was there to throw
+   */
+  throwRune() {
+    const tex = gemTexture(this.hero.element);
+    if (!tex || !this.cardW) return false;
+
+    const s = new Sprite(tex);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.y = this.cardH * READY_FX.splash.y;
+    this.ultFx.addChild(s);
+
+    const { from, to, dur, alpha } = READY_FX.rune;
+    tweenValue(0, 1, dur, (p) => {
+      // Eased out, so it leaves fast and thins slowly — a gem opening at a
+      // constant rate reads as a circle being scaled, which is what it is.
+      const e = 1 - (1 - p) * (1 - p);
+      const d = this.cardW * (from + (to - from) * e);
+      s.setSize(d, d);
+      s.alpha = alpha * (1 - p) * (1 - p);
+    }).then(() => s.destroy());
+
+    return true;
+  }
+
+  /**
+   * Break the hero's element over his portrait. See READY_FX.splash.
+   *
+   * Sized and placed here rather than in resize() because it is built per shot
+   * and there is never one waiting for the next layout. It rides inside the
+   * card, so the pop `setReady` throws and the pulse that follows carry it —
+   * which is the point of it being on the card rather than in the vfx field: a
+   * burst that stayed put while the tile grew under it would read as two
+   * separate things happening at once.
+   *
+   * @returns {boolean} whether there was a sheet to play
+   */
+  splashElement() {
+    // Deferred art — see the loader in main.js. A card that charges before the
+    // sheets land keeps the READY caption, the pop and the pulse, and simply
+    // does not get the element; nothing here is load-bearing for the tap.
+    const frames = spellFrames(SPELL_BY_ELEMENT[this.hero.element]);
+    if (!frames || !this.cardW) return false;
+    // The landing, not the throw. `slice` and not an index walk, so this reads
+    // the same as art/spells.js's own split of the grid.
+    const blast = frames.slice(SPELL_TRAVEL_LAST + 1);
+    if (!blast.length) return false;
+
+    const s = new Sprite(blast[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.y = this.cardH * READY_FX.splash.y;
+    this.ultFx.addChild(s);
+
+    const size = this.cardW * READY_FX.splash.size;
+    tweenValue(0, 1, READY_FX.splash.dur, (p) => {
+      s.texture = blast[Math.min(blast.length - 1, (p * blast.length) | 0)];
+      const d = size * (1 + p * READY_FX.splash.grow);
+      s.setSize(d, d);
+      // Only the tail, and only a little: these frames already thin out to
+      // almost nothing by the last one, so this is here to stop the embers
+      // being cut off rather than to do the fading itself.
+      s.alpha = p < 0.72 ? 1 : 1 - (p - 0.72) / 0.28;
+    }).then(() => s.destroy());
+
+    return true;
+  }
+
   setReady(on) {
     this.ready = on;
     // The charge's fallback colour brightens with `ready`, so it is redrawn from
@@ -1174,13 +1748,26 @@ export class HeroCard extends Container {
     this.drawCharge();
     tween(this.readyLabel, { alpha: on ? 1 : 0 }, 0.2);
     tween(this.label, { alpha: on ? 0 : 1 }, 0.2);
-    // A charged card carries no light of its own and no border either. It says
-    // READY, it stands taller and it breathes on its own scale — the halo off
-    // the border, the ring the tap threw and the wash over the portrait are all
-    // gone, and what is left is read against the arena instead of through a
-    // bloom.
+    // The burn comes up with the word and goes out with it. Killed first,
+    // because a hero can be spent and recharged inside a couple of seconds and
+    // two tweens on one number is a flicker nobody authored. On the way up this
+    // is immediately overtaken by flareReady's ignition, which is the point:
+    // what is here is the fallback the state change carries on its own.
+    killTweensOf(this.readyLit);
+    tween(this.readyLit, { v: on ? 1 : 0 }, on ? 0.22 : 0.2);
+    // A charged card still carries no *standing* light and no border: it says
+    // READY, it stands taller and it breathes on its own scale, and the halo
+    // that used to burn off the border for as long as the card was full is gone.
+    // Six tiles blooming at once under the board was the brightest thing on a
+    // screen whose subject is the boss, and that has not changed. What arrived
+    // instead is all in the half second the card *changes* — see flareReady.
     if (on) {
       sfx.charged(this.hero.element);
+      // The element arriving on the card, on the same frame as the sound that
+      // announces it. Only from here, which is what keeps it an event: a hero
+      // *dealt* charged takes the other path at the end of the constructor and
+      // deliberately skips everything that only makes sense as one.
+      this.flareReady();
       // Pop first, then hand the scale over to the idle pulse in update().
       tween(this.scale, { x: READY_SCALE, y: READY_SCALE }, 0.32, {
         ease: Ease.backOut,
@@ -1419,6 +2006,8 @@ export class HeroCard extends Container {
       this.hpGauge.alpha = 1;
     }
 
+    this.lightReady();
+
     if (!this.pulsing) return;
     this.pulseT += dt;
     const beat = Math.sin(this.pulseT * 6.5);
@@ -1427,6 +2016,183 @@ export class HeroCard extends Container {
     // are gone: six cards blooming under the board was the brightest thing on a
     // screen whose subject is the boss.
     this.scale.set(READY_SCALE * (1 + beat * READY_SWING));
+  }
+
+  /**
+   * Burn the caption of a charged card, once a frame. See READY_GLOW.
+   *
+   * Run off the card's own clock rather than off `pulseT`, which the ready
+   * pulse restarts every time a card arms: the light is a fire, and a fire does
+   * not start its stroke again because something happened. It also keeps the
+   * row out of step with itself — the phase offset is the card's index, so six
+   * charged cards shimmer along the row instead of pumping as one.
+   *
+   * Nothing here allocates and nothing here rebakes a texture: three alphas,
+   * two sizes and a scale. The early-out is the ordinary case — most of the row
+   * is dark most of the fight — and it deliberately lets one last frame through
+   * after the light reaches zero, so the layers are left at zero rather than at
+   * whatever the final frame of the fade happened to write.
+   */
+  lightReady() {
+    const lit = this.readyLit.v;
+    if (!this.cardW || (lit <= 0 && this.readyCore.alpha === 0)) return;
+
+    const g = READY_GLOW;
+    const ph = this.index * g.breath.phase;
+    const breath = 0.5 + 0.5 * Math.sin(this.t * g.breath.rate + ph);
+    const flick = Math.sin(this.t * g.flicker.rate + ph * 1.7);
+    const heat = Math.max(
+      0,
+      Math.min(
+        g.ceiling,
+        lit *
+          (1 -
+            g.breath.depth +
+            g.breath.depth * breath +
+            g.flicker.depth * flick),
+      ),
+    );
+
+    this.readyCore.alpha = Math.min(1, g.core.alpha * heat);
+    this.readyBloom.alpha = Math.min(1, g.word.alpha * heat);
+
+    // Alpha on its own reads as a decal being dimmed, so the burn opens and
+    // closes with the stroke as well — inwards only. The rest size is the word
+    // itself and the word is the edge this is not allowed to cross, so the
+    // ignition's overdrive is spent on light rather than on size.
+    const swell = Math.min(1, 1 + (heat - 1) * g.swell);
+    this.readyCore.setSize(this.coreW * swell, this.coreH * swell);
+
+    // The crown. Every lick runs its element's own frames, spaced a whole
+    // fraction of the loop apart so the row is never all alight or all out, and
+    // every other one is mirrored so five copies of one flipbook do not read as
+    // a stencil repeated five times.
+    //
+    // The count comes off the sheet rather than a constant: the bolt is eight
+    // frames and the rest are sixteen — see art/readyfx.js — so lightning runs
+    // its loop in half the time, which is the right speed for lightning and is
+    // not something this has to be told.
+    const flame = this.crownArt();
+    if (flame) {
+      const c = g.crown;
+      const n = flame.length;
+      const count = this.readyCrown.length;
+      for (let i = 0; i < count; i++) {
+        const lick = this.readyCrown[i];
+        const step = this.t * c.fps + (i * n) / count + ph * 2.3;
+        lick.texture = flame[Math.floor(((step % n) + n) % n)];
+        const k = this.lickSize[i] * swell;
+        lick.setSize(this.lickW * k, this.lickH * k);
+        // After the size, never before: setSize *is* the scale in Pixi, so a
+        // flip written first is a flip thrown away.
+        if (i % 2) lick.scale.x = -lick.scale.x;
+        lick.alpha = Math.min(1, c.alpha * heat);
+      }
+    }
+
+    this.sweepComet(heat);
+
+    // The bloom rides the caption's own scale rather than one of its own: the
+    // arming punch throws the word out at half again its size, and a bloom that
+    // stayed put would be a coloured shadow sliding out from under it.
+    this.readyBloom.scale.set(
+      this.readyLabel.scale.x * g.word.scale,
+      this.readyLabel.scale.y * g.word.scale,
+    );
+  }
+
+  /**
+   * The hero's own element, banded for the caption — or null until it decodes.
+   *
+   * Asked for every frame the card is lit and cached the first time it answers,
+   * which is the same bargain splashElement makes with the same sheets: they
+   * land a second or two into the fight, whenever core/idle.js gets to them, and
+   * until they do a charged card burns on its core alone. Nothing waits and
+   * nothing is scheduled — the card simply picks the art up on the frame it
+   * exists.
+   */
+  /**
+   * This hero's own crown frames — or null, while the sheet is missing.
+   *
+   * Cached the first time it answers, because it is asked for on every frame a
+   * card is lit and a lookup through two objects to reach the same array is a
+   * lookup nobody needs sixty times a second.
+   */
+  crownArt() {
+    if (!this.crownFrames) {
+      this.crownFrames = readyCrownFrames(this.hero.element);
+    }
+    return this.crownFrames;
+  }
+
+  /**
+   * Run the comet round the caption. See READY_GLOW.comet.
+   *
+   * One pass every couple of seconds and dark in between, which is the point of
+   * it: the crown burns without stopping and anything that never stops stops
+   * being seen, so this is the beat that keeps pulling the eye back. The card's
+   * index is added to the clock, so six charged heroes sweep one after another
+   * rather than together.
+   *
+   * The trail is drawn chord by chord: each segment is stretched between two
+   * points on the orbit and turned to face along them, which draws a curve out
+   * of straight sprites and, unlike a fixed length per segment, cannot leave
+   * gaps when the ellipse is wider than it is tall. It tapers twice over — in
+   * width and in alpha — because a trail of even bars is a worm.
+   *
+   * @param {number} heat the caption's own drive, so the comet dies with the
+   *   rest of the burn when the ultimate is spent
+   */
+  sweepComet(heat) {
+    const c = READY_GLOW.comet;
+    const clock = this.t + this.index * 0.41;
+    const p = (clock % c.every) / c.dur;
+
+    if (p > 1) {
+      // Between passes. Written once and only when something is still lit,
+      // rather than every frame for a card that has been dark for a second.
+      if (this.cometHead.alpha !== 0) {
+        this.cometHead.alpha = 0;
+        for (const seg of this.cometTrail) seg.alpha = 0;
+      }
+      return;
+    }
+
+    // In at the start and out at the end. A comet that appears at full brightness
+    // is a comet that was cut in, and one that vanishes at full brightness is a
+    // dropped frame.
+    const fade = Math.max(0, Math.min(1, p / 0.14, (1 - p) / 0.24));
+    const lit = c.alpha * fade * heat;
+
+    // A whole turn per pass, starting at the caption's left shoulder: under the
+    // word on the way out, over it on the way back.
+    const head = Math.PI * (1 - 2 * p);
+    const step = (c.span * 2 * Math.PI) / c.trail;
+    const at = (a) => [
+      Math.cos(a) * this.cometRx,
+      this.readyLabel.y + Math.sin(a) * this.cometRy,
+    ];
+
+    const h = at(head);
+    this.cometHead.position.set(h[0], h[1]);
+    this.cometHead.setSize(this.cometHeadSize, this.cometHeadSize);
+    this.cometHead.alpha = Math.min(1, lit);
+
+    for (let k = 0; k < this.cometTrail.length; k++) {
+      const a = at(head + k * step);
+      const b = at(head + (k + 1) * step);
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      const taper = 1 - k / this.cometTrail.length;
+      const seg = this.cometTrail[k];
+      seg.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      // A little over the chord, so consecutive segments overlap into one
+      // streak instead of a dotted line.
+      seg.setSize(this.cometTrailW * taper, Math.hypot(dx, dy) * 1.25);
+      // The bar's own long axis is y, so it is turned a quarter past the chord.
+      seg.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+      seg.alpha = Math.min(1, lit * taper * taper);
+    }
   }
 }
 

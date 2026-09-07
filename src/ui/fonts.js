@@ -3,32 +3,40 @@
  *
  * This creative ran on the system stack, then on two faces borrowed from
  * Google, and now on the type the game it is advertising is actually set in.
- * Both faces here are Hitzone, taken out of the Invokers Titan Legacy build —
- * two cuts, because the game ships two and gives them two different jobs:
+ * All three faces here come out of the Invokers Titan Legacy build. The two
+ * Hitzone cuts also do the job the build itself gives them; the third is put to
+ * a job of this creative's choosing:
  *
- *   Hitzone      the UI. Everything the game labels rather than announces: the
- *                hero names, MATCH TO ATTACK, the readouts in the HP bars. This
- *                is the cut the build sets its own interface in.
- *   Hitzone Med  the three places the fight is announced rather than labelled:
- *                the boss's name, the hero's name on an ultimate, the end
- *                card's headline. The build reserves this cut for the titles it
- *                draws on gold, and so does this.
+ *   Hitzone        the UI. Everything the game labels rather than announces:
+ *                  the hero names, MATCH TO ATTACK, the readouts in the HP
+ *                  bars. This is the cut the build sets its interface in.
+ *   Hitzone Med    the three places the fight is announced rather than
+ *                  labelled: the boss's name, the hero's name on an ultimate,
+ *                  the end card's headline. The build reserves this cut for the
+ *                  titles it draws on gold, and so does this.
+ *   Montserrat It  the damage numbers, and only those. Bold Italic, because a
+ *                  figure thrown off a hit is the one piece of type in the
+ *                  fight that is a consequence rather than a label, and this is
+ *                  the one cut in the build's set that leans.
  *
- * They are registered as two families rather than as two weights of one, and
- * that is what makes the split hold: `FONT` names the first and `FONT_TITLE`
- * the second, so a request at any weight lands on a real file instead of on the
- * browser's guess at a heavier version of the other one. See config.js.
+ * They are registered as three families rather than as weights and styles of
+ * one, and that is what makes the split hold: `FONT` names the first,
+ * `FONT_TITLE` the second and `FONT_DAMAGE` the third, so a request at any
+ * weight lands on a real file instead of on the browser's guess at a heavier or
+ * slanted version of one of the others. See config.js.
  *
- * Subset to Latin-1 — the range this creative draws, and nothing past it — at a
- * little under twenty kilobytes a cut, down from around 218 kB of TrueType. The
- * full faces carry Cyrillic as well; where they came from and how they were cut
- * is in README-hitzone.md, next to the files.
+ * The Hitzone cuts are subset to Latin-1 — the range this creative draws, and
+ * nothing past it — at a little under twenty kilobytes each, down from around
+ * 218 kB of TrueType; Montserrat, which draws digits and nothing else, is 1.7
+ * kB. The full faces carry Cyrillic as well; where they came from and how they
+ * were cut is in README-hitzone.md, next to the files.
  *
  * Elan ITC Pro is still wired below and still has no bytes here. It sits behind
- * Hitzone in the two general family lists, but heads a third: FONT_OUTCOME, the
- * VICTORY/DEFEAT word on the outcome card. A licensed cut dropped into this
- * folder is therefore drawn on that card the moment it lands, and nowhere else
- * until FONT and FONT_TITLE are re-ordered too.
+ * Hitzone in the two general family lists, but heads one of its own:
+ * FONT_OUTCOME, the VICTORY/DEFEAT word on the outcome card. A licensed cut
+ * dropped into this folder is therefore drawn on that card the moment it lands,
+ * and nowhere else until FONT and FONT_TITLE are re-ordered too. FONT_DAMAGE
+ * does not name it at all — a text serif is not what a hit prints in.
  *
  * Never rejects. A device that cannot decode a WOFF2 keeps the system stack
  * that is still the tail of every family list in config.js, and the layout is
@@ -38,6 +46,7 @@
 
 import hitzoneUrl from "../assets/fonts/hitzone-400.woff2";
 import hitzoneMedUrl from "../assets/fonts/hitzone-500.woff2";
+import montserratItUrl from "../assets/fonts/montserrat-700i.woff2";
 
 /**
  * Elan ITC Pro — asked for by name, and the only face here that cannot ship.
@@ -144,6 +153,32 @@ function elanFaces() {
 const FACES = [
   { family: "Hitzone", url: hitzoneUrl, weight: "100 900" },
   { family: "Hitzone Med", url: hitzoneMedUrl, weight: "100 900" },
+  /**
+   * Montserrat Bold Italic — the digits that fly off a hit, and nothing else.
+   *
+   * Third family, same reason as the first two: named rather than weighted, so
+   * FONT_DAMAGE lands on this file and the UI's own 900s never do. It comes out
+   * of the same Invokers build as Hitzone, which is embedded there as plain
+   * TrueType with its own licence beside it — and that licence is the
+   * difference: Montserrat is OFL and can actually ship, where Hitzone still
+   * cannot. See OFL-Montserrat.txt and README-montserrat.md in that folder.
+   *
+   * Registered `normal` although the outlines lean 11.3° by design. The slant
+   * is drawn, not requested: declaring it italic would oblige every caller to
+   * ask for `fontStyle: "italic"`, and on a device that failed to decode this
+   * file that request would land on Hitzone and be *synthesised* — the fallback
+   * would arrive sheared when the real face is not. Left at `normal`, a hit
+   * that cannot load Montserrat prints upright Hitzone, which is precisely the
+   * previous design rather than a broken version of this one.
+   *
+   * Cut to seventeen glyphs — `0-9 , . - + % ×` and the space — because that is
+   * every character `comma()` and the sign can produce. 1.7 kB, against 20 kB
+   * for a Latin-1 cut and 202 kB of TrueType. It carries no letters at all: a
+   * caller who sets a word in this family gets its digits and per-glyph
+   * fallback for the rest, which is why FONT_DAMAGE names numbers and the two
+   * general lists in config.js do not name Montserrat at all.
+   */
+  { family: "Montserrat It", url: montserratItUrl, weight: "100 900" },
   ...elanFaces(),
 ];
 

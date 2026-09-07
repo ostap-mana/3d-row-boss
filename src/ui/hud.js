@@ -6,7 +6,14 @@
  */
 
 import { Container, Graphics, Sprite, Text, Rectangle, Texture } from "pixi.js";
-import { BOSS_NAME, COPY, DOOM, FONT, FONT_TITLE } from "../config.js";
+import {
+  BOSS_NAME,
+  COPY,
+  DOOM,
+  FONT,
+  FONT_DAMAGE,
+  FONT_TITLE,
+} from "../config.js";
 import { tween, delay, Ease, killTweensOf } from "../core/tween.js";
 import { lerpColor } from "../core/color.js";
 import { hpBarShape, hpBarPaint, HP_FRAME } from "../art/hpbar.js";
@@ -1167,7 +1174,8 @@ export class Hud extends Container {
     const label = new Text({
       text: (o.sign === undefined ? "" : o.sign) + comma(value),
       style: {
-        fontFamily: FONT,
+        // The one face in the game that leans. See FONT_DAMAGE in config.js.
+        fontFamily: FONT_DAMAGE,
         fontSize: size,
         fontWeight: "900",
         fill: o.fill || (tier === 2 ? 0xffe066 : 0xffffff),
@@ -1181,6 +1189,25 @@ export class Hud extends Container {
           distance: 0,
           angle: 0,
         },
+        /**
+         * Room around the ink, which Pixi does not work out for itself.
+         *
+         * `_getFinalPadding` takes the larger of this and the filter padding
+         * and knows nothing about `dropShadow`, so at the default of zero the
+         * text canvas is exactly the measured box: this shadow's blur has been
+         * clipped flat against all four edges the whole time.
+         *
+         * A slanted face is what makes it worth fixing rather than noting. The
+         * bottom left of a 2, a 3 or a 5 sits up to 0.034 em *before* the pen —
+         * about a pixel at the base tier-two size, and more once `layout.ui`
+         * and the text resolution have multiplied it — and every figure that is
+         * not a hero's "-N" opens on a digit. Pixi measures the right-hand
+         * overhang (it takes `actualBoundingBoxRight` over the advance) but
+         * draws from x = padding regardless, so the left is on us.
+         * Padding is applied to both sides and the anchor is a fraction of the
+         * result, so the figure stays centred on the thing it flew off.
+         */
+        padding: Math.ceil(size * 0.25),
       },
     });
     label.anchor.set(0.5);
