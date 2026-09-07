@@ -2,10 +2,9 @@
  * Painted plates behind the hero cards.
  *
  * Three roundels' worth of art in src/assets/cards — a dark rim, a shaft of light
- * up the middle, and a 128x171 frame that happens to be the exact aspect of a
- * hero card. They replace the flat rounded rectangle each card used to draw for
- * itself; the portrait, the frame, the bars and the ready glow all still sit on
- * top and are untouched.
+ * up the middle, and a 128x171 panel that happens to be the exact aspect of a
+ * hero card. They replace the flat rectangle each card draws for itself; the
+ * portrait, the bars and the captions all still sit on top and are untouched.
  *
  * The three files are named for the colour they are painted, not the element
  * they end up on — `plate-blue.webp` carries WATER and NATURE both, and the tint
@@ -42,38 +41,22 @@ const CARD_PLATE = {
   [WIND]: { url: blueUrl, tint: 0xffffff },
 };
 
-/** Corner radius as a fraction of the short side — HeroCard.resize's own. */
-const RADIUS = 0.18;
-
 const plates = {};
 
 /**
- * Bake one plate: the art, clipped to the card's corner radius.
+ * Bake one plate.
  *
- * Two of the three files carry no alpha channel at all — their rounded corners
- * are painted black rather than cut out — so handed straight to a Sprite they
- * would poke black nubs out through the card's frame stroke. Clipping here
- * gives every plate the silhouette the card already draws, whatever the file
- * arrived with.
+ * Straight through now. This used to clip the art to the card's corner radius,
+ * because two of the three files carry no alpha channel — their rounded corners
+ * are painted black rather than cut out — and unclipped they poked black nubs
+ * past the card's rounded edge. The card has square corners and no border, so
+ * what the file was painted with is the silhouette the card wants.
  */
-function clippedTexture(img) {
-  const w = img.width;
-  const h = img.height;
-  const r = Math.min(w, h) * RADIUS;
+function plateTexture(img) {
   const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext("2d");
-  // arcTo rather than roundRect: the creative has to survive old WebViews.
-  ctx.beginPath();
-  ctx.moveTo(r, 0);
-  ctx.arcTo(w, 0, w, h, r);
-  ctx.arcTo(w, h, 0, h, r);
-  ctx.arcTo(0, h, 0, 0, r);
-  ctx.arcTo(0, 0, w, 0, r);
-  ctx.closePath();
-  ctx.clip();
-  ctx.drawImage(img, 0, 0);
+  c.width = img.width;
+  c.height = img.height;
+  c.getContext("2d").drawImage(img, 0, 0);
   return canvasTexture(c);
 }
 
@@ -81,7 +64,7 @@ function clippedTexture(img) {
  * Decode the plates before the first card is built.
  *
  * Never rejects: a card whose plate fails to decode falls back to the drawn
- * rounded rectangle underneath it, so the row is always complete.
+ * rectangle underneath it, so the row is always complete.
  */
 export async function loadCardPlates() {
   const urls = [...new Set(Object.values(CARD_PLATE).map((p) => p.url))];
@@ -91,7 +74,7 @@ export async function loadCardPlates() {
         const img = new Image();
         img.src = url;
         await img.decode();
-        plates[url] = clippedTexture(img);
+        plates[url] = plateTexture(img);
       } catch {
         /* the card's own rounded rectangle stands in */
       }

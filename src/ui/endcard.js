@@ -159,18 +159,29 @@ const RETRY_BOSS_MAX = 0.22;
  * everything measured up from it — the store row, the plate — was pushed that far
  * up the screen and into the painting.
  *
- * Binding it upright at 0.16 does two things with one number, which is why it is
- * this and not a separate nudge on the block above: the lockup stops being the
- * biggest thing on the card, and the forty points it gives back are forty points
- * the plate and the badges drop by, out of the picture and down where a thumb
- * already is.
+ * Binding it upright does two things with one number, which is why it is this
+ * and not a separate nudge on the block above: the lockup stops being the
+ * biggest thing on the card, and every point it gives back is a point the plate
+ * and the badges drop by, out of the picture and down where a thumb already is.
+ *
+ * 0.13, and the exact value is set against the painting rather than against the
+ * lockup. The plate has to clear the bottom bezel of the phone in the key art,
+ * which on a tall portrait screen sits at a *fixed* height: the painting is
+ * cover-fitted, so on any screen taller than the art is the fit comes out
+ * exactly one screen deep and the vertical aim in fitKeyArt clamps dead centre —
+ * `clear.y` moves and the picture does not follow it. That is what makes this
+ * solvable at all. The bezel lands near 62% of the screen, the plate is measured
+ * up from the bottom edge through this lockup, and 0.13 is the ceiling at which
+ * the plate's top edge comes out below the bezel instead of across the hero's
+ * hammer. Lower it further and the lockup stops reading as a painting; raise it
+ * and the CTA climbs back into the picture.
  *
  * Sideways keeps 0.22. There the column is centred rather than solved off the
  * bottom edge, so the ceiling is load-bearing for a different reason — see
  * BANNER_COL_ROOM_RETRY — and lowering it there would buy slack the landscape
  * column has already been given somewhere else.
  */
-const RETRY_BOSS_MAX_PORTRAIT = 0.16;
+const RETRY_BOSS_MAX_PORTRAIT = 0.13;
 const RETRY_CLEAR = 0.25;
 const RETRY_PILL_W = 0.64;
 const RETRY_H = 0.56;
@@ -913,7 +924,7 @@ export class EndCard extends Container {
      * changes proportion halfway up the size range.
      */
     const badge = this.layoutBadges(Math.min(w * 0.84, 460 * ui), 29 * ui);
-    const bw = Math.min(w * 0.7, 360 * ui);
+    const bw = Math.min(w * 0.64, 330 * ui);
     const bh = this.fitPlay(bw);
 
     /**

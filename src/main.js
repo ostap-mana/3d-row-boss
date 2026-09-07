@@ -30,8 +30,6 @@ import { reseed } from "./core/rng.js";
 import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
-import { loadCardFrame } from "./art/cardframe.js";
-import { loadUltBorders } from "./art/ultborder.js";
 import { loadBoardFrame } from "./art/boardframe.js";
 import { loadBrandArt } from "./art/brand.js";
 import { loadOutcomeUi } from "./art/outcomeui.js";
@@ -160,7 +158,6 @@ async function boot() {
     loadBossCrest(),
     loadGemPopArt(),
     loadCardPlates(),
-    loadCardFrame(),
     loadHeroAvatars(),
     loadHintHand(),
     loadHintMarks(),
@@ -1243,30 +1240,27 @@ async function boot() {
    *
    * Thirty megapixels used to go through the main thread before anything was
    * drawn — a hundred and twenty megabytes of RGBA, on a phone, between the file
-   * being parsed and the golem being on screen. Twenty-three of those thirty are
-   * in this list, and none of it can be wanted in the first seconds of the
-   * fight: a hero has to charge before a border can play, a match has to land
-   * before a spell can be thrown, and the boss has to reach for his fire.
+   * being parsed and the golem being on screen. Sixteen of those thirty were the
+   * twelve ult border sheets, and they are gone from the creative entirely now
+   * that nothing wears a border; what is left in this list cannot be wanted in
+   * the first seconds of the fight either — a match has to land before a spell
+   * can be thrown, and the boss has to reach for his fire.
    *
-   * The reason this is safe now and was not before is *when* it runs, not that
-   * it runs late. Loading an ult sheet on the first hero to fill was rejected
-   * for a good reason — that hero fills mid-fight, and six sheets decoding while
-   * the board is cascading is a hitch on the one beat that has to land. This
-   * does not wait for the fill. It runs in the window between the first frame
-   * and the player's first touch, which is dead time by construction: nothing
-   * moves until `firstTouch` resolves, the doom clock has not started, and the
-   * board is standing still under a caption asking to be tapped. And it runs a
-   * sheet to a frame rather than all of them to one task, so even a player who
-   * taps instantly gets long frames rather than a stall. See core/idle.js.
+   * The reason this is safe is *when* it runs, not that it runs late. It runs in
+   * the window between the first frame and the player's first touch, which is
+   * dead time by construction: nothing moves until `firstTouch` resolves, the
+   * doom clock has not started, and the board is standing still under a caption
+   * asking to be tapped. And it runs a sheet to a frame rather than all of them
+   * to one task, so even a player who taps instantly gets long frames rather
+   * than a stall. See core/idle.js.
    *
    * Not awaited, and every loader in it is written to be missable: the pieces
-   * that grab their art at construction are all in the list above, and these
-   * three are asked for at the moment they are used — `spellFrames` and
-   * `fireFrames` each answer null and each has a fallback behind it. The
-   * ult sheets are the one exception, because a card builds its border sprite in
-   * its constructor, so the row is told to pick them up. See HeroCard.adoptUltArt.
+   * that grab their art at construction are all in the list above, and these two
+   * are asked for at the moment they are used — `spellFrames` and `fireFrames`
+   * each answer null and each has a fallback behind it. Nothing here has a
+   * hand-off at the end of it any more; the ult sheets were the one that did.
    *
-   * The hint marks used to be the fourth. They came out because the lesson does
+   * The hint marks used to be in here too. They came out because the lesson does
    * not wait for this window — the opening hint is on the creative's very first
    * frame, cold, and the marks were the *last* decode in this list, behind the
    * ult sheets — so the one pass every impression is guaranteed to see was the
@@ -1282,20 +1276,10 @@ async function boot() {
     await nextFrame();
     await nextFrame();
 
-    // Heaviest first. Each of these paces itself internally, so the order is
-    // about which fallback is retired soonest rather than about the frame
-    // budget — and the border is both the biggest and the one with a hand-off
-    // at the end of it.
-    try {
-      await loadUltBorders();
-      // Both ends of the tap's hand-off: the six cards, and the panel the
-      // cut-in throws up in their place. Each is a card that built its border
-      // sprite before the sheets existed.
-      scene.heroRow.adoptUltArt();
-      scene.cutin.adoptUltArt();
-    } catch {
-      /* every card keeps the border it was built without */
-    }
+    // The twelve ult border sheets used to be read here, and they were the
+    // heaviest thing in the creative — sixteen of the thirty megapixels it
+    // decoded. Nothing wears them now: neither the hero cards nor the cut-in's
+    // panel has a border round it, so they are not loaded and not shipped.
     for (const load of [loadSpellArt, loadFireArt]) {
       try {
         await load();

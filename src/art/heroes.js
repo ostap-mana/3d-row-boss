@@ -28,19 +28,6 @@ import {
 import { drawGemShape, gemTexture } from "./gems.js";
 import { cardPlate } from "./plates.js";
 import {
-  cardFrameSprite,
-  cardFrameRadius,
-  cardFrameClip,
-  fitCardFrame,
-} from "./cardframe.js";
-import {
-  ultBorder,
-  ultBurst,
-  ultLoopTexture,
-  ultBurstTexture,
-  fitUltBorder,
-} from "./ultborder.js";
-import {
   barTroughTexture,
   manaPaintTexture,
   hpPaintTexture,
@@ -132,52 +119,6 @@ const FOOT_BAND = 0.46;
  *                was the latter.
  */
 const SIGIL = { k: 0.32, min: 13, max: 30, gap: 0.085 };
-
-/**
- * The animated border a charged card wears, and the flare it throws when the
- * ultimate is actually spent — see art/ultborder.js, which owns the art and the
- * geometry. These four numbers are only how loudly the card wears it.
- *
- * `alpha` is the one worth arguing about, because the card used to carry light
- * of its own and it was taken off: a wash over the portrait and a halo off the
- * border, breathing on the ready pulse, six of them under a board whose subject
- * is the boss. What comes back here is deliberately not that. It is only on the
- * border, it is only on a card the player can actually spend, and at 0.85 over
- * a sheet that is already hot along its own line the border reads as lit rather
- * than as blooming. Turn it down here if a row with two charged cards in it ever
- * pulls the eye off the fight; there is nothing else to tune.
- *
- * The tap is either of the next two, depending on what art the element has.
- *
- * `burst` is the good one: a sheet of its own — a build, a white-hot peak and a
- * settle — played once, straight through. `lead` is what the cut-in waits for
- * before it takes the screen, and it is the only number here the *fight* can
- * feel.
- *
- * Both leads are 0, and that is a deliberate reversal. The burst's was 0.42 so
- * that the cut would land on the sheet's white-hot peak rather than over its
- * first two frames, which is a good argument about the art and the wrong answer
- * for the fight: it is four tenths of a second between the player's tap and
- * anything taking the screen, on the one input in the creative sold as
- * instant. The sheet is not lost — it plays on under the cut-in's wash, which
- * fades up over its first fifth of a second rather than cutting to black — and
- * what the player gets back is the cut arriving on the frame they tapped.
- * Restore 0.42 here if the peak is ever wanted back; nothing else has to move.
- *
- * `flare` is the fallback for the four elements with no burst sheet: `rate`
- * spins the loop's own frames faster and `grow` throws them outwards,
- * which is what the still set needed a second painted file for — see the burst
- * in art/frameaura.js. See `flareLead`, which is what the director asks, and
- * Director.castUltimate, which asks it — and ULT_PACE in config.js, which is
- * the rest of the same tuning.
- */
-const ULT = {
-  alpha: 0.85,
-  in: 0.26,
-  out: 0.22,
-  burst: { grow: 1.06, dur: 0.62, lead: 0, tail: 0.72 },
-  flare: { grow: 1.18, rate: 2.6, dur: 0.3, lead: 0 },
-};
 
 /** element -> drawn-shape fallback, baked at most once each */
 const sigils = {};
@@ -837,11 +778,11 @@ class Gauge extends Container {
  * What a charged card stands at, and how far it swings either side of that.
  *
  * Exported because it is the card's own size and something else has to draw
- * round it: the ult lesson puts a frame on a hero the moment they charge, and a
- * frame measured off the layout box would sit inside the card rather than round
- * it — a ready card is a seventh larger than its slot before the pulse is even
- * counted. See Coach.drawCard, which sizes itself off the peak so the card
- * never pokes out of the thing framing it.
+ * round it: the ult lesson puts its teaching mark on a hero the moment they
+ * charge, and a mark measured off the layout box would sit inside the card
+ * rather than round it — a ready card is a seventh larger than its slot before
+ * the pulse is even counted. See Coach.drawCard, which sizes itself off the
+ * peak so the card never pokes out of the thing pointing at it.
  */
 export const READY_SCALE = 1.14;
 export const READY_SWING = 0.045;
@@ -954,82 +895,6 @@ export class HeroCard extends Container {
     this.addChild(this.burn);
 
     /**
-     * The painted frame in the hero's own colour — see art/cardframe.js. Above
-     * the art and the strike flash, because it is the card's edge: those wash
-     * over the portrait, not over the border that holds it.
-     */
-    this.frameArt = cardFrameSprite(hero.element);
-    if (this.frameArt) this.addChild(this.frameArt);
-
-    /**
-     * The animated border, over the painted one and under everything the card
-     * says in words.
-     *
-     * Over the frame because it is the frame's own light: the drawn line is what
-     * the file's own line is baked on top of — see the pads in art/ultborder.js
-     * — and laid underneath it the border would be a glow with a flat outline
-     * ruled through the middle of it. Under the gauges, the sigil and the two
-     * captions because those are inside the tile and this is the edge of it.
-     *
-     * Null for an element whose sheet has not been packed, which is the whole of
-     * the fallback: that card is the card it was before this existed. Every
-     * reference is guarded for that reason, `update` included.
-     */
-    this.ultArt = ultBorder(hero.element);
-    this.ultBurstArt = ultBurst(hero.element);
-    /**
-     * Which of the two the sprite is currently wearing, because the sprite is
-     * *sized* by it. The two sheets need not be the same shape — water's burst
-     * came in on the card's own geometry and fire's came off the halo shelf,
-     * whose margin is nearly three times as wide — so switching sheets is a
-     * texture and a re-fit, never a texture alone. See fitUltBorder.
-     */
-    this.ultShown = this.ultArt || this.ultBurstArt;
-    this.ultBorder = null;
-    /** The loop's own clock, its rate, and how far the tap has thrown it. */
-    this.ultT = 0;
-    this.ultRate = 1;
-    this.ultGrow = 1;
-    /** Whether the loop is stepping, and whether the tap owns the sprite. */
-    this.ultLit = false;
-    this.ultFlaring = false;
-    /** Which pass of the border owns the sprite — see dimUlt for what for. */
-    this.ultToken = 0;
-    /** The tap's 0..1, on its own object so killTweensOf can reach it. */
-    this.ultDriver = { v: 0 };
-    if (this.ultShown) {
-      this.ultBorder = new Sprite(this.ultShown.frames[0]);
-      this.ultBorder.anchor.set(0.5);
-      this.ultBorder.blendMode = "add";
-      this.ultBorder.alpha = 0;
-      this.ultBorder.visible = false;
-      this.addChild(this.ultBorder);
-    } else {
-      /**
-       * Where the border would have gone, kept for a sheet that lands late.
-       *
-       * The twelve ult sheets are sixteen of the thirty megapixels this creative
-       * decodes, and none of them can be needed until a hero charges — so they
-       * are decoded after the first frame is on screen rather than before it.
-       * See the deferred pass in main.js.
-       *
-       * The index is the whole of what that costs. This sprite's place in the
-       * child list is the point of it: it goes under the frame, the gauges, the
-       * sigil and the captions, and a border appended once those exist is a glow
-       * laid over the readouts instead of behind them. Everything added after
-       * this branch is added unconditionally, so the length here is the slot,
-       * exactly, whether or not the art ever turns up. See adoptUltArt.
-       */
-      this.ultSlot = this.children.length;
-    }
-
-    // Still here with the art in place: it draws the charge rule, and the
-    // rounded stroke it used to draw for the whole card is the fallback for a
-    // device that could not decode the frame.
-    this.frame = new Graphics();
-    this.addChild(this.frame);
-
-    /**
      * The two gauges, health over charge — see the Gauge above, which is the
      * whole of what either one is.
      *
@@ -1045,9 +910,9 @@ export class HeroCard extends Container {
     this.addChild(this.manaGauge);
 
     /**
-     * The element sigil, over the frame rather than under it: it sits in the
-     * corner of the card, and tucked beneath the art it would be a gem half
-     * eaten by a neon edge.
+     * The element sigil, over the art rather than under it: it sits in the
+     * corner of the card, and tucked beneath the bust it would be a gem half
+     * eaten by a shoulder.
      */
     this.sigil = new Sprite(elementSigil(hero.element));
     this.sigil.anchor.set(0.5);
@@ -1115,8 +980,8 @@ export class HeroCard extends Container {
      * only make sense as *events*: the charge sound, which would fire into a
      * page the player has not touched yet and which the audio unlock would
      * swallow anyway, and the pop, which is a card *arriving* at full rather
-     * than one that started there. The frame and the charge rule are not drawn
-     * here either — resize() draws both, and a card has no size until it runs.
+     * than one that started there. The charge rule is not drawn here either —
+     * resize() draws it, and a card has no size until it runs.
      */
     this.ready = this.charge >= 1;
     if (this.ready) {
@@ -1124,82 +989,7 @@ export class HeroCard extends Container {
       this.label.alpha = 0;
       this.pulsing = true;
       this.scale.set(READY_SCALE);
-      // Lit rather than fading in, for the same reason the pop is skipped: this
-      // card did not arrive at full, it started there. Its size is resize()'s,
-      // like the frame's and the charge rule's.
-      if (this.ultBorder && this.ultArt) {
-        this.ultLit = true;
-        this.ultBorder.visible = true;
-        this.ultBorder.alpha = ULT.alpha;
-      }
     }
-  }
-
-  /**
-   * Take the ult art on, for a sheet that decoded after this card was built.
-   *
-   * The deferred half of the boot reads the twelve ult sheets once the fight is
-   * already on screen — see main.js — so a card built before that has no border
-   * and no sprite to put one on. This is the other end of that: the art is
-   * re-read, the sprite is made, and it goes in at the slot the constructor kept
-   * for it rather than on top of the readouts.
-   *
-   * Two guards and both are the same guard: a card that already has a sprite has
-   * nothing to adopt, and a card whose element was never packed has nothing to
-   * adopt either. Between them, calling this on every card whenever a sheet
-   * lands is safe and cheap, which is why the row simply does.
-   *
-   * A card that is *already* charged is lit from here, and that is not the edge
-   * case it reads as — it is the opening. DIFFICULTY.chargeStart deals the demo
-   * hero at full, so applyReadyState runs in the constructor, a frame before any
-   * sheet exists, and its `if (this.ultBorder && this.ultArt)` finds neither. It
-   * set `ultLit` while the sheets were decoded ahead of the first frame; since
-   * they moved behind it, nothing lit that card until it had been spent and
-   * charged again. Which is to say the one card the hint hand points at stood
-   * there charged and dark for the whole of the demo.
-   */
-  adoptUltArt() {
-    if (this.ultBorder || this.ultSlot === undefined) return;
-
-    const art = ultBorder(this.hero.element);
-    const burst = ultBurst(this.hero.element);
-    if (!art && !burst) return;
-
-    this.ultArt = art;
-    this.ultBurstArt = burst;
-    this.ultShown = art || burst;
-
-    this.ultBorder = new Sprite(this.ultShown.frames[0]);
-    this.ultBorder.anchor.set(0.5);
-    this.ultBorder.blendMode = "add";
-    this.ultBorder.alpha = 0;
-    this.ultBorder.visible = false;
-    this.addChildAt(this.ultBorder, this.ultSlot);
-    this.ultSlot = undefined;
-
-    // Fitted here rather than left to the next relayout: the row is laid out
-    // once at boot and then only when the window moves, so a border that waited
-    // for a resize would be a sprite at its texture's own pixel size until the
-    // phone was turned over. `cardW` is set by the first resize, which has
-    // already run by the time any of this is reached.
-    if (this.cardW) {
-      fitUltBorder(
-        this.ultBorder,
-        this.ultShown,
-        this.cardW,
-        this.cardH,
-        this.ultGrow,
-      );
-    }
-
-    // Through lightUlt rather than by hand, so what goes on is the loop at the
-    // loop's own size — `ultShown` above is the burst for any element that
-    // shipped one without a loop, and lightUlt is the one place that knows to
-    // wear the other. `ultFlaring` cannot be set on a card that had no sprite
-    // until three lines ago, because flareUlt returns on exactly that; it is
-    // checked anyway, because the rule in this file is that the sprite has one
-    // owner, not that this path happens to reach it first.
-    if (this.ready && !this.ultFlaring) this.lightUlt();
   }
 
   resize(w, h) {
@@ -1208,22 +998,16 @@ export class HeroCard extends Container {
     this.hitArea = new Rectangle(-w / 2, -h / 2, w, h);
 
     const el = this.hero.element;
-    // The card's corner is the frame's corner: the fill, the portrait, the plate
-    // and the border are all one rounded rectangle or the corners show it. `r`
-    // rounds the fill and `clip` is where the art stops, and they are now the
-    // same rectangle to the pixel — see cardFrameClip, which is where the two
-    // were reconciled and why they had to be.
-    const r = this.frameArt ? cardFrameRadius(h) : Math.min(w, h) * 0.18;
-    const clip = this.frameArt
-      ? cardFrameClip(w, h)
-      : { x: -w / 2, y: -h / 2, w, h, r };
-
-    if (this.frameArt) fitCardFrame(this.frameArt, w, h);
+    // The card is its own box and nothing else: no border round it, and square
+    // corners rather than rounded ones. `clip` is where the art stops, which is
+    // now the card's edge exactly — the fill, the portrait and the plate all
+    // end on the same four straight lines.
+    const clip = { x: -w / 2, y: -h / 2, w, h };
 
     this.bg.clear();
-    this.bg.roundRect(-w / 2, -h / 2, w, h, r);
+    this.bg.rect(-w / 2, -h / 2, w, h);
     this.bg.fill({ color: 0x120b1e });
-    this.bg.roundRect(-w / 2, -h / 2, w, h * 0.55, r);
+    this.bg.rect(-w / 2, -h / 2, w, h * 0.55);
     this.bg.fill({ color: GEM_DARK[el], alpha: 0.45 });
 
     // The plate is baked at the card's own aspect, so this is a fit, not a
@@ -1265,18 +1049,11 @@ export class HeroCard extends Container {
     this.footScrim.y = h / 2;
 
     this.artMask.clear();
-    this.artMask.roundRect(clip.x, clip.y, clip.w, clip.h, clip.r);
+    this.artMask.rect(clip.x, clip.y, clip.w, clip.h);
     this.artMask.fill({ color: 0xffffff });
 
     this.aura.setSize(w * 1.9, h * 1.9);
     this.burn.setSize(w * 2.1, h * 2.1);
-
-    // Laid on the card's own box, margin hanging outside it — the same contract
-    // the frame above is laid on. Sized by whichever sheet is on the sprite, and
-    // `ultGrow` is carried through so a resize landing inside the tap does not
-    // snap the throw back to the card.
-    if (this.ultBorder)
-      fitUltBorder(this.ultBorder, this.ultShown, w, h, this.ultGrow);
 
     // Off the short side, so the pip is the same size on a card held either way.
     // The gem carries the board's own padding inside its texture, so the circle
@@ -1287,17 +1064,10 @@ export class HeroCard extends Container {
     );
     this.sigil.setSize(sig, sig);
 
-    // Sat in from the inside of the border rather than in from the card's box,
-    // and by a gap wide enough that the corner is allowed to be a corner.
-    //
-    // Both halves of that are the same complaint. The pip was laid out against
-    // `-w / 2`, which is the *outer* edge of the frame, so the line and its
-    // radius were spent out of the gem's own clearance and the arc had a roundel
-    // sitting in it. Measured off `clip` — the rounded rectangle the border
-    // draws round, see cardFrameClip — the gap is the gap whatever the frame is
-    // doing at that size, and the widened SIGIL.gap is what makes it read as
-    // one: the top left corner is now frame and card, with the gem beginning
-    // after both.
+    // Sat in from the card's corner by a gap wide enough that the corner is
+    // allowed to be a corner. Measured off `clip`, which is that corner — the
+    // pip used to be laid out against the outer edge of a border and had the
+    // line and its radius eating the clearance it was given.
     const pad = Math.max(2.5, Math.min(w, h) * SIGIL.gap);
     this.sigil.x = clip.x + sig / 2 + pad;
     this.sigil.y = clip.y + sig / 2 + pad;
@@ -1333,7 +1103,6 @@ export class HeroCard extends Container {
     this.hpGauge.place(hpY, barW, hpH);
     this.manaGauge.place(manaY, barW, manaH);
 
-    this.drawFrame();
     this.drawHpBar();
     this.drawCharge();
   }
@@ -1398,49 +1167,20 @@ export class HeroCard extends Container {
     );
   }
 
-  drawFrame() {
-    const w = this.cardW;
-    const h = this.cardH;
-    const el = this.hero.element;
-    const g = this.frame;
-
-    g.clear();
-    if (!this.frameArt) {
-      // No art: the drawn edge the card shipped with, which says the same thing
-      // in one stroke — thicker and in the element's colour once charged.
-      const r = Math.min(w, h) * 0.18;
-      g.roundRect(-w / 2, -h / 2, w, h, r);
-      g.stroke({
-        width: this.ready ? Math.max(2.5, w * 0.055) : Math.max(1.5, w * 0.028),
-        color: this.ready ? GEM_LIGHT[el] : 0x3a2a52,
-        alpha: this.ready ? 1 : 0.9,
-      });
-    }
-
-    // The charge is the other gauge's business now — see drawCharge. It lived
-    // here while it was a rule drawn along the frame's own edge, and a bar with
-    // numbers in it is not trim on a border.
-  }
-
   setReady(on) {
     this.ready = on;
-    this.drawFrame();
     // The charge's fallback colour brightens with `ready`, so it is redrawn from
     // here as well as from its own tween.
     this.drawCharge();
     tween(this.readyLabel, { alpha: on ? 1 : 0 }, 0.2);
     tween(this.label, { alpha: on ? 0 : 1 }, 0.2);
-    // A charged card carries no light of its own. It says READY, it stands
-    // taller and it breathes on its own scale — the halo off the border, the
-    // ring the tap threw and the wash over the portrait are all gone, and what
-    // is left is read against the arena instead of through a bloom.
+    // A charged card carries no light of its own and no border either. It says
+    // READY, it stands taller and it breathes on its own scale — the halo off
+    // the border, the ring the tap threw and the wash over the portrait are all
+    // gone, and what is left is read against the arena instead of through a
+    // bloom.
     if (on) {
       sfx.charged(this.hero.element);
-      // The one light a charged card carries, and it is on the border rather
-      // than over the portrait — see ULT and art/ultborder.js. It needs no
-      // breath of its own: the sprite is a child of the card, so the ready pulse
-      // below already swells the border with everything else on the tile.
-      this.lightUlt();
       // Pop first, then hand the scale over to the idle pulse in update().
       tween(this.scale, { x: READY_SCALE, y: READY_SCALE }, 0.32, {
         ease: Ease.backOut,
@@ -1452,162 +1192,8 @@ export class HeroCard extends Container {
       });
     } else {
       this.pulsing = false;
-      this.dimUlt();
       tween(this.scale, { x: 1, y: 1 }, 0.25);
     }
-  }
-
-  /* ------------------------------------------------------ the animated border */
-
-  /**
-   * Light the border and start it moving.
-   *
-   * The clock is not reset. Twelve frames ping-ponged is three seconds of cycle
-   * and a card can charge, be spent and charge again inside that, so a border
-   * that restarted from frame one every time would put the same two frames of
-   * fire under every callout in the fight. Where the loop happens to be is
-   * nobody's business but its own.
-   */
-  lightUlt() {
-    const s = this.ultBorder;
-    if (!s || !this.ultArt) return;
-    // Whatever the last tap threw is over: this card is charged again.
-    this.ultToken++;
-    killTweensOf(this.ultDriver);
-    killTweensOf(s);
-    this.ultFlaring = false;
-    this.ultRate = 1;
-    this.ultGrow = 1;
-    this.ultLit = true;
-    this.wearUlt(this.ultArt);
-    s.visible = true;
-    tween(s, { alpha: ULT.alpha }, ULT.in);
-  }
-
-  /**
-   * Put one of the two sheets on the sprite, texture and size together.
-   *
-   * Its own two lines because they cannot be separated: the sheets are not
-   * guaranteed to share a geometry, so a texture swap without the re-fit under
-   * it lays fire's burst — a hairline in a bloom half a card wide — on the box
-   * cut for a solid line with a 13% margin, and the light lands a tenth of a
-   * card inside the border.
-   */
-  wearUlt(art) {
-    this.ultShown = art;
-    this.ultBorder.texture = art.frames[0];
-    if (this.cardW)
-      fitUltBorder(this.ultBorder, art, this.cardW, this.cardH, this.ultGrow);
-  }
-
-  /**
-   * Take it off: spent, knocked down, or drained by anything else that clears
-   * `ready`.
-   *
-   * A no-op while the tap's flare is running, and that is the whole reason these
-   * are three methods rather than one flag. `spend` flares and then immediately
-   * clears `ready`, which comes back through here — and two owners on one alpha
-   * do not cooperate: updateTweens walks its list backwards, so of two tweens on
-   * the same property the one added *first* is written last and wins. The fade
-   * would therefore have beaten the flare it was added on top of, and the tap
-   * would have thrown a border that was already going out.
-   */
-  dimUlt(dur) {
-    const s = this.ultBorder;
-    if (!s || this.ultFlaring) return;
-    const id = ++this.ultToken;
-    killTweensOf(s);
-    tween(s, { alpha: 0 }, dur === undefined ? ULT.out : dur).then(() => {
-      // The token, not the alpha. A killed tween still resolves — that is the
-      // engine's contract, so nothing awaiting one can deadlock — so a card that
-      // charged again mid-fade lands here anyway, and reading the alpha would
-      // hide the border it has just lit out from under it.
-      if (id !== this.ultToken) return;
-      s.visible = false;
-      this.ultLit = false;
-    });
-  }
-
-  /**
-   * The tap that spends the ultimate: the border thrown outwards and spun.
-   *
-   * One driver rather than three tweens, because the three have to agree on
-   * where they are: the size is written through fitUltBorder — a Sprite's width
-   * *is* its scale in Pixi, so this cannot be a scale tween — the alpha rides
-   * the same curve, and the rate falls back to 1 across it so that the frames
-   * slow as the light goes rather than stopping with it.
-   *
-   * Fired and forgotten. `spend` is awaited by the director and its own beats
-   * are the card's punch and its draining bar; a border still burning out is not
-   * something the fight should be waiting on.
-   */
-  flareUlt() {
-    const s = this.ultBorder;
-    if (!s) return;
-    const id = ++this.ultToken;
-    killTweensOf(this.ultDriver);
-    killTweensOf(s);
-    this.ultFlaring = true;
-    s.visible = true;
-    s.alpha = 1;
-    this.ultDriver.v = 0;
-    this.ultGrow = 1;
-
-    const burst = this.ultBurstArt;
-    const beat = burst ? ULT.burst : ULT.flare;
-    // The burst is driven frame by frame from here, so the loop in `update` has
-    // to keep its hands off the texture; the spin *is* the loop, faster.
-    this.ultLit = !burst;
-    if (burst) this.wearUlt(burst);
-
-    tween(this.ultDriver, { v: 1 }, beat.dur, {
-      // Linear through a burst and eased out of a spin. A sheet whose
-      // frames are a build and a peak has its own timing in it, and an ease
-      // over the top of that is a second opinion about when the peak is.
-      ease: burst ? Ease.linear : Ease.quadOut,
-      onUpdate: () => {
-        const p = this.ultDriver.v;
-        this.ultGrow = 1 + (beat.grow - 1) * p;
-        if (burst) {
-          s.texture = ultBurstTexture(burst, p);
-          // Only the tail fades, for the same reason Vfx.bossSwing's does: an
-          // effect that starts dying on the frame it lands never reads as
-          // having landed.
-          s.alpha = p < beat.tail ? 1 : 1 - (p - beat.tail) / (1 - beat.tail);
-        } else {
-          this.ultRate = beat.rate + (1 - beat.rate) * p;
-          s.alpha = 1 - p;
-        }
-        if (this.cardW)
-          fitUltBorder(s, this.ultShown, this.cardW, this.cardH, this.ultGrow);
-      },
-    }).then(() => {
-      // A card charged again inside the tap owns the sprite — same reason the
-      // fade above checks the token rather than what it can see.
-      if (id !== this.ultToken) return;
-      this.ultFlaring = false;
-      this.ultLit = false;
-      this.ultRate = 1;
-      this.ultGrow = 1;
-      s.visible = false;
-      s.alpha = 0;
-      // Back on the loop, so the next charge lights the sheet it should and at
-      // the size that sheet wants.
-      if (this.ultArt) this.wearUlt(this.ultArt);
-    });
-  }
-
-  /**
-   * How long the tap's own animation wants before the cut-in takes the screen.
-   *
-   * Asked rather than assumed, because the answer is per hero: an element with a
-   * burst sheet has an arc to show and wants the cut to land on its peak, and
-   * one without has a tenth of a second of flare and wants the cut immediately,
-   * exactly as the fight ran before any of this art existed. See
-   * Director.castUltimate, which awaits it, and ULT.
-   */
-  flareLead() {
-    return (this.ultBurstArt && this.ultBorder ? ULT.burst : ULT.flare).lead;
   }
 
   /**
@@ -1706,9 +1292,6 @@ export class HeroCard extends Container {
   /** Spent: drain the bar and drop back to a normal card. */
   async spend() {
     this.charge = 0;
-    // Before setReady, which is what clears `ready` and would otherwise fade the
-    // border out from under the flare — see dimUlt, which stands aside for it.
-    this.flareUlt();
     this.driveCharge(0, 0.5);
     this.setReady(false);
     await tween(this.scale, { x: 0.88, y: 0.88 }, 0.1);
@@ -1828,19 +1411,6 @@ export class HeroCard extends Container {
   update(dt) {
     this.t += dt;
 
-    // The border's flipbook, stepped only while there is one lit. A window onto
-    // one texture per frame — see art/ultborder.js — so this is an assignment
-    // and not a texture swap: six cards stepping their own borders stay in the
-    // same batch as everything else on the card.
-    if (this.ultLit && this.ultBorder && this.ultShown === this.ultArt) {
-      this.ultT += dt;
-      this.ultBorder.texture = ultLoopTexture(
-        this.ultArt,
-        this.ultT,
-        this.ultRate,
-      );
-    }
-
     // Blink the strip once a hero is in real trouble — on a card this small
     // the colour change alone is not enough to catch a thumb-height glance.
     if (this.critical) {
@@ -1945,17 +1515,6 @@ export class HeroRow extends Container {
 
   update(dt) {
     this.cards.forEach((c) => c.update(dt));
-  }
-
-  /**
-   * Hand the late ult sheets to whichever cards were built without them.
-   *
-   * Called once by the deferred boot pass in main.js, and a no-op on every card
-   * that already has its border — see HeroCard.adoptUltArt, which is written to
-   * be safe to call on all six whatever state they are in.
-   */
-  adoptUltArt() {
-    this.cards.forEach((c) => c.adoptUltArt());
   }
 
   /** "all", "lowest" or a list of indices -> the cards that eat the full hit. */

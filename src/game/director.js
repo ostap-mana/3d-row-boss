@@ -2479,12 +2479,9 @@ export class Director {
     // finish first — a pause between the tap and the payoff, in the one place
     // in the fight where the player has just been promised something loud.
     const spending = card.spend();
-    // The card's own animation gets its moment before the cut takes the screen,
-    // and how long that is is the card's to say: a hero whose element has a
-    // burst sheet has an arc to show and the cut lands on its peak, everybody
-    // else keeps the tenth of a second this always waited. See
-    // HeroCard.flareLead and ULT in art/heroes.js.
-    await delay(card.flareLead());
+    // Straight into the cut. The card used to be given a beat here for the
+    // border it threw on the tap; with no border on the card there is nothing to
+    // wait for, and the cut arrives on the frame the player tapped.
     await cutin.play(index);
     if (this.ended) return;
 
