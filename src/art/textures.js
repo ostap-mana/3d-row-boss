@@ -187,3 +187,30 @@ export function gradientTexture(key, stops) {
   gradientCache[key] = canvasTexture(c);
   return gradientCache[key];
 }
+
+const rampCache = {};
+/**
+ * The same thing lying down: a horizontal multi-stop gradient, stretched to
+ * fill whatever it is put behind.
+ *
+ * Its own function rather than an axis argument on the one above, because the
+ * two are used for opposite jobs and the cache keys must not collide. The
+ * vertical one paints colour down a bar; this one paints *alpha along* a band —
+ * white with a ramp in the alpha channel, so a sprite wearing it can be tinted
+ * to any colour and keeps the fade. See the outcome card's verdict band, which
+ * is three of those sprites and no bitmap.
+ *
+ * @param {Array<[number, string]>} stops offset + css colour
+ */
+export function rampTexture(key, stops) {
+  if (rampCache[key]) return rampCache[key];
+  const w = 256;
+  const c = makeCanvas(w, 4);
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, 0, w, 0);
+  stops.forEach((s) => g.addColorStop(s[0], s[1]));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, 4);
+  rampCache[key] = canvasTexture(c);
+  return rampCache[key];
+}

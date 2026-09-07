@@ -39,6 +39,24 @@ import lineUrl from "../assets/outcome/ornament-line.webp";
 
 /** Natural size of the packed art — a transcript of what the packer prints. */
 export const PLATE_ART = { w: 1400, h: 178 };
+
+/**
+ * Where the gold hairline actually is inside the bitmap, as shares of its
+ * height — measured off the file rather than guessed at.
+ *
+ * The plate is 1400 by 178 and the two rules sit at rows 22-25 and 152-155: a
+ * four-pixel line whose centre is 13.2% in from its own edge, symmetric top to
+ * bottom. The eighth of the plate outside each of them is not empty — it is the
+ * bloom the line is drawn into, and it is what makes the frame look lit rather
+ * than ruled.
+ *
+ * This is exported because anything laid *inside* the frame has to know where
+ * the frame is, and 13.2% is not a number anyone would arrive at by eye: the
+ * verdict band was inset a flat 10% for several revisions and hung over the
+ * gold on both edges the whole time. See the insets in ui/outcome.js, which are
+ * derived from this and not from a fraction that looked about right.
+ */
+export const PLATE_RULE = { at: 23.5 / 178, thick: 4 / 178 };
 export const LINE_ART = { w: 438, h: 29 };
 
 /**

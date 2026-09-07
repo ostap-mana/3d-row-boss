@@ -50,14 +50,16 @@
 import { Container, Graphics, Rectangle, Sprite, Text } from "pixi.js";
 import { COPY, FONT, FONT_OUTCOME, T } from "../config.js";
 import {
+  PLATE_ART,
   PLATE_FILL,
   PLATE_GOLD,
+  PLATE_RULE,
   fitLine,
   fitPlate,
   lineSprite,
   plateSprite,
 } from "../art/outcomeui.js";
-import { glowTexture, gradientTexture } from "../art/textures.js";
+import { glowTexture, gradientTexture, rampTexture } from "../art/textures.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
@@ -70,72 +72,20 @@ import { fitFont } from "./text.js";
  * darkens the top and the bottom of the frame rather than the middle, which is
  * where the band goes. Flat, the same amount of darkening either hides the arena
  * or fails to hold the type.
+ *
+ * Neutral, and the same wash on both endings. It was a blue-black on a win and
+ * an oxblood on a loss, and the loss also had a red light added under it — a
+ * whole room repainted by the result. That was asked off: what is behind the
+ * verdict now is the fight, blurred and darkened, and nothing else. The colour
+ * of the ending lives on the band and only on the band, which is where the game
+ * itself puts it. The alpha curve is untouched, because the composition was
+ * never what was wrong with it.
  */
 const SCRIM = [
-  [0.0, "rgba(6,5,12,0.9)"],
-  [0.3, "rgba(6,5,12,0.62)"],
-  [0.62, "rgba(6,5,12,0.68)"],
-  [1.0, "rgba(6,5,12,0.94)"],
-];
-
-/**
- * The same wash, on the card nobody wanted.
- *
- * Identical curve — 0.9, 0.62, 0.68, 0.94, at the same four stops — because the
- * composition is not what changed. A loss does not want the arena hidden any
- * more than a win does, and moving the alphas would be this card quietly
- * becoming a different card when the result goes the other way. Only the colour
- * of the darkness moves: rgb(6,5,12), which is a blue-black, becomes an
- * oxblood one.
- *
- * The number is not invented here. `Director.lose` throws a full-screen
- * 0x3a0606 over the fight the instant the party is wiped — near-black, barely a
- * red at all until it is the only thing on the screen — and this card is the
- * next frame after that flash. Continuing its colour is the whole idea: the
- * wipe stains the room, and the verdict is read in the room it stained. Held
- * rather than thrown, so it is dropped to about a third of the flash's weight,
- * and warmed a little towards the floor, where the board the player just lost
- * is lying.
- *
- * Its own cache key, because gradientTexture hands back the first texture ever
- * built under a name and would otherwise give the loss the win's sky.
- */
-const SCRIM_LOSS = [
-  [0.0, "rgba(24,5,9,0.9)"],
-  [0.3, "rgba(30,6,10,0.62)"],
-  [0.62, "rgba(36,7,10,0.68)"],
-  [1.0, "rgba(44,8,10,0.94)"],
-];
-
-/**
- * The red the room is lit by once the fight is lost, and the only thing on this
- * card that is added rather than laid over.
- *
- * A scrim can only ever take light away — it is a dark sheet at an alpha — and a
- * loss told entirely in subtraction is a loss told by turning the brightness
- * down. That is the failure the background's own note names: a multiply left
- * high over dark art gives a black screen with a monster somewhere in it. So the
- * darkness goes oxblood above, and this puts one light back, which is the pair
- * the rest of the build tunes together and never separately.
- *
- * Weighted to the floor on purpose. The board is at the bottom of the frame and
- * the board is what just killed the party; the word is in the middle and the
- * middle is left nearly clear, so the type is read against the darkest, quietest
- * part of the picture rather than through a glow. The lick at the very top is
- * the same light hitting the ceiling of the arena — without it the frame reads
- * as a red bar across the bottom of a black screen rather than as a room.
- *
- * Additive, so it survives being drawn over a still that came back almost black:
- * a normal-blend red over black is a dark red rectangle, and an added one is
- * light in a dark room. Alpha is carried per stop rather than by the sprite so
- * the shape of the light is fixed in the texture and the sprite's own alpha is
- * left free to be the intensity — which is what breathes. See BED_*.
- */
-const BED_LOSS = [
-  [0.0, "rgba(158,30,22,0.34)"],
-  [0.36, "rgba(120,20,18,0.09)"],
-  [0.66, "rgba(150,24,18,0.16)"],
-  [1.0, "rgba(206,40,26,0.62)"],
+  [0.0, "rgba(8,8,9,0.9)"],
+  [0.3, "rgba(8,8,9,0.62)"],
+  [0.62, "rgba(8,8,9,0.68)"],
+  [1.0, "rgba(8,8,9,0.94)"],
 ];
 
 /**
@@ -144,33 +94,14 @@ const BED_LOSS = [
  * Blurring a board of saturated gems gives back saturated blobs: the shapes go
  * but the colour does not, and five columns of pure red, green and violet under
  * a white headline is a headline sitting in a fruit bowl. A multiply pulls the
- * whole picture towards this cool grey, which takes the punch out of the gems
+ * whole picture towards a neutral grey, which takes the punch out of the gems
  * without touching the arena above them, where the paint is already muted.
  *
  * A tint and not a filter, for the same reason there is no BlurFilter here: it
  * is a vertex colour, it costs nothing, and it works on every device that can
  * draw a sprite at all.
  */
-const STILL_TINT = 0x8592ad;
-
-/**
- * The same still, on a loss.
- *
- * The cool grey above is a colour-killer: it pulls a board of saturated gems
- * towards neutral so a white headline is not sitting in a fruit bowl. This does
- * the same job in the other direction — the blue and the green come out of the
- * picture, the red is left in — so the photograph of the fight is not a fight
- * any more, it is the memory of one, lit by whatever is still burning.
- *
- * Kept at roughly the grey's own weight rather than deepened. A tint multiplies,
- * so every point taken off here is light taken off the arena as well, and the
- * still is already the darkest thing on the card: 0xb0 of red against the grey's
- * 0x85 is a picture that is warmer without being dimmer, which is the whole
- * trick. The green and the blue go to about two-thirds of their cool values,
- * which is far enough to kill the violet and cyan gems and not so far that the
- * heroes' armour turns into a silhouette.
- */
-const STILL_TINT_LOSS = 0xac8076;
+const STILL_TINT = 0x9a9aa0;
 
 /**
  * How many times the still is halved on its way to being the blur.
@@ -205,6 +136,153 @@ export const FREEZE_STEPS = 3;
  * deliberate stretch in this creative. See art/outcomeui.js for why the art
  * allows it and nothing else does.
  */
+/**
+ * THE VERDICT BAND'S OWN COLOUR, and it is the one thing on this card that the
+ * result is allowed to repaint.
+ *
+ * Read off the shipped game's own outcome windows rather than invented: the
+ * band behind VICTORY is a green wash with a brighter green hairline top and
+ * bottom, and the one behind DEFEAT is the same shape in dark red. Both fade to
+ * nothing at either end, which is why they read as a stroke of colour laid
+ * across the plate rather than as a box sitting on it.
+ *
+ * `fill` is the wash and `edge` the hairline. Exact values off the source:
+ * 415.8 x 84.23 at a 2.13 border, which is where BAND_EDGE below comes from —
+ * the hairline is 2.5% of the band's height, not a fixed number of points, so
+ * it stays a hairline on a tablet and does not disappear on a phone.
+ *
+ * The plate stays underneath all of it. It is the game's own art and it carries
+ * the chevron and the soft ends; this is a coat of paint on it, at 90% so the
+ * navy still tells underneath and the band has some depth to it.
+ */
+const BAND = {
+  victory: { fill: 0x266825, edge: 0x43c750 },
+  defeat: { fill: 0x6b3030, edge: 0xc74343 },
+};
+const BAND_EDGE = 2.13 / 84.23;
+const BAND_ALPHA = 0.9;
+
+/**
+ * How much wider than its word the band is cut.
+ *
+ * The source is 415.8 across with VICTORY set inside it, which is about half as
+ * much band again as there is word — so 1.5, and the fades at either end land
+ * in that margin rather than over the type.
+ *
+ * There is a floor under it in `resize` as well, at two and a half times the
+ * band's own height. A four-letter verdict in another language would otherwise
+ * come out as a colour swatch rather than a label, and the plate's ornament
+ * needs somewhere to sit.
+ */
+const BAND_PAD = 1.5;
+
+/**
+ * How far the colour sits below the plate's own centre line, as a share of the
+ * band's height.
+ *
+ * An optical correction and not a layout one. The verdict is set in capitals
+ * and capitals have no descenders, so the glyphs fill the top of their own text
+ * box and leave the space at the bottom empty. A band centred on that box is
+ * geometrically right and looks high: there is more colour under the word than
+ * over it, and the eye reads the strip as having ridden up off the type.
+ *
+ * ZERO NOW, and the reason is worth keeping rather than the number. The drop
+ * went 0.06, then 0.03, then off, because each look at it said the same thing
+ * in a smaller voice: the top line wants to be higher. It ends where that
+ * argument does — with the colour reaching the gold on both edges and no offset
+ * at all between them.
+ *
+ * What killed it is that the correction was answering the wrong question. The
+ * word does sit high in its own box, but the band is not hung off the word — it
+ * is hung off the plate, and the plate's two rules are symmetric. Pulling the
+ * colour down inside a symmetric frame does not centre it on anything; it just
+ * opens a gap above and closes one below.
+ *
+ * Left in place, at zero, because it is the one knob that can separate the two
+ * edges: the drop only ever shortens the band from above, so a positive value
+ * lowers the top line and never moves the bottom one.
+ */
+const BAND_DROP = 0;
+
+/**
+ * The plate's own proportion, and the widest the card will let it get.
+ *
+ * The chevron is the reason this exists. It is drawn on the centre of each
+ * hairline at a right angle, and a right angle only survives if the bitmap is
+ * carrying its own aspect: at 6.74:1 against the art's 7.87:1 — which is what a
+ * box-fitted plate came out at in a landscape window — the two arms close from
+ * 90 degrees to about 81, and it reads as a spike rather than as an ornament.
+ *
+ * So the width is taken from the height rather than from the stage, and the
+ * plate is drawn at PLATE_ART's ratio whatever box it is handed. The header of
+ * art/outcomeui.js licenses a vertical stretch on this bitmap and it is right
+ * that nothing between the hairlines suffers from one — but the ornament sits
+ * *on* a hairline, and that is what the licence did not cover.
+ *
+ * `PLATE_MAX_W` is the one thing that can still take the aspect away, and it is
+ * there to keep the ornament on screen. The chevron sits about a sixth in from
+ * each end, so at 1.35 screens wide it lands just inside the frame; past that
+ * the plate would be all hairline and the card would lose the ornament
+ * altogether. A tall narrow phone is where that bites — the box wants a band
+ * three and a half times as wide as it is tall and the art is nearly eight — and
+ * there the plate is still squeezed, just by a good deal less than it was.
+ */
+const PLATE_ASPECT = PLATE_ART.w / PLATE_ART.h;
+const PLATE_MAX_W = 1.35;
+
+/**
+ * A little past the art's own ratio, so the gold runs further out.
+ *
+ * The aspect above is what keeps the chevron at the right angle it is drawn at,
+ * and this is a deliberate few per cent off it — asked for, and worth writing
+ * the cost down: stretching the plate horizontally *opens* the ornament rather
+ * than closing it, so 1.06 takes the arms from 90 degrees to about 93. That is
+ * inside the noise where the squeeze this replaced was not — it had them at 81,
+ * which reads as a spike.
+ *
+ * What it buys is the hairline reaching nearer the frame's edge, which is what
+ * the shipped card looks like. Past about 1.15 the angle starts reading as a
+ * flat vee and the ornament stops being one, so that is the ceiling on this.
+ */
+const PLATE_STRETCH = 1.06;
+
+/**
+ * How far the colour is held clear of the gold's inner edge.
+ *
+ * The inset itself is not a taste decision and is not written here: it comes
+ * off PLATE_RULE, which is where the hairline actually is in the bitmap —
+ * 13.2% in, plus half of the line's own four-pixel thickness. Everything above
+ * that is the frame; the colour starts below it.
+ *
+ * This is the only part of it that is a judgement: the daylight left between
+ * the gold and the colour. Zero, so the two meet — the wash begins on the row
+ * the hairline ends on, and the frame reads as one piece rather than as a
+ * coloured strip parked inside a gold one.
+ *
+ * Zero is flush and not overlapping, which is the whole point of deriving the
+ * inset instead of guessing it: PLATE_RULE.at is the line's centre and half its
+ * thickness is added on, so this starts at the line's inner boundary exactly.
+ * The band overhung the gold on both edges for several revisions because the
+ * inset was a flat tenth — a number picked by eye, against a line nobody had
+ * measured. Raise this if a seam ever needs opening; leave the derivation alone.
+ */
+const BAND_CLEAR = 0;
+
+/**
+ * Where the wash fades in and out along the band.
+ *
+ * The source's gradient runs transparent, opaque, opaque, transparent, and the
+ * only thing left to choose is how much of each end the fade eats. An eighth,
+ * which is enough that the ends are gone before the plate's own ornament starts
+ * and not so much that the middle stops reading as flat.
+ */
+const BAND_RAMP = [
+  [0, "rgba(255,255,255,0)"],
+  [0.14, "rgba(255,255,255,1)"],
+  [0.86, "rgba(255,255,255,1)"],
+  [1, "rgba(255,255,255,0)"],
+];
+
 const PLATE_W = { portrait: 1.06, landscape: 0.78 };
 const PLATE_H = { portrait: 0.145, landscape: 0.22 };
 
@@ -256,44 +334,6 @@ const FLASH_LOSS = 0xffb5a4;
  * defeat art, one screen later.
  */
 const BLOOM_LOSS = 0xc9502a;
-
-/**
- * The bed's intensity: what it settles at, how far it breathes either side, and
- * how fast.
- *
- * The breath is the point of the whole layer. A still red is a colour; a red
- * that swells and falls is a room with something in it, and it is the only thing
- * on this card that moves once the word has landed. It is deliberately slower
- * than everything else on screen — 0.9 radians a second against the bloom's 1.8
- * and the tap line's 2.6 — because the two fast pulses are alive and this one is
- * meant to read as the fight going out. Around seven seconds a cycle, on a card
- * held for T.outcomeHold: the player sees it swell once, which is enough to
- * notice and not enough to look like a loop.
- *
- * The swing is 0.05 against a centre of 0.55, so the floor moves by about a
- * tenth of its own strength. Wider and the card pumps; narrower and it may as
- * well be a constant on the phones this is judged on.
- */
-const BED_BASE = 0.3;
-const BED_SWING = 0.045;
-const BED_BREATH = 0.9;
-
-/**
- * The one hit, and where it lands.
- *
- * `sfx.defeat` is started at 0.06 and its braam reaches half power 0.116 s after
- * that — see the note in `show`, which is where those two numbers were measured
- * against each other. This puts the light on the same frame: the horn hits, the
- * room goes up in red, and then it falls back to the bed over the second that
- * follows and stays there. It is the only moment on the card where the backdrop
- * is louder than the word, and it is over before the word has finished settling.
- *
- * A win has no equivalent and does not want one. Its horn is answered by the
- * gold bloom behind the band, which is a light on the verdict; this is a light
- * on the room, and the difference is the difference between the two endings.
- */
-const BED_HIT = 0.9;
-const BED_HIT_AT = 0.176;
 
 /**
  * How long the card ignores a tap.
@@ -366,11 +406,6 @@ export class OutcomeScreen extends Container {
      * the word, the tap line and the flash. The still goes in under both with
      * `addChildAt(_, 0)` on `show`, which cannot disturb this.
      */
-    this.bed = new Sprite(gradientTexture("outcome-bed-loss", BED_LOSS));
-    this.bed.blendMode = "add";
-    this.bed.eventMode = "none";
-    this.bed.alpha = 0;
-    this.addChild(this.bed);
 
     /**
      * The light behind the word.
@@ -407,6 +442,34 @@ export class OutcomeScreen extends Container {
 
     this.plate = plateSprite();
     if (this.plate) this.card.addChild(this.plate);
+
+    /**
+     * The verdict's own colour, laid over the plate — see BAND.
+     *
+     * Three sprites and not one nine-slice, because the wash and the two
+     * hairlines fade along the same curve but are three different heights, and
+     * a single stretched bitmap would have had to carry the hairline positions
+     * baked into it — which is the one thing that cannot survive a band whose
+     * height is a fraction of the screen.
+     *
+     * White art, tinted. A tint on white is exact, so the hexes read off the
+     * game land on screen as themselves rather than as themselves multiplied by
+     * whatever the texture happened to be.
+     *
+     * Above the plate and below the word: it is paint on the plate, and the
+     * word is the hardest edge on the card and stays on top of everything.
+     */
+    const ramp = rampTexture("outcome-band", BAND_RAMP);
+    this.bandWash = new Sprite(ramp);
+    this.bandTop = new Sprite(ramp);
+    this.bandBottom = new Sprite(ramp);
+    this.bandParts = [this.bandWash, this.bandTop, this.bandBottom];
+    this.bandParts.forEach((s) => {
+      s.anchor.set(0.5);
+      s.alpha = BAND_ALPHA;
+      this.card.addChild(s);
+    });
+    this.paintBand();
 
     /**
      * The word.
@@ -504,10 +567,6 @@ export class OutcomeScreen extends Container {
     // whole screen, and it goes back exactly where it was taken from.
     if (this.still) this.still.setSize(w, h);
     this.scrim.setSize(w, h);
-    // The same box as the scrim, for the same reason: the light and the dark are
-    // one wash over the photograph, and a bed measured off the stage would leave
-    // the room lit to the notch and black past it.
-    this.bed.setSize(w, h);
 
     this.flash.clear();
     this.flash.rect(0, 0, w, h);
@@ -515,11 +574,34 @@ export class OutcomeScreen extends Container {
 
     /* ------------------------------------------------------------- the band */
 
-    const pw = s.w * PLATE_W[key];
+    const room = s.w * PLATE_W[key];
     const ph = clamp(s.h * PLATE_H[key], 52 * ui, 150 * ui);
     const cy = s.y + s.h * PLATE_Y[key];
 
     this.card.position.set(s.cx, cy);
+
+    fitFont(this.word, room * 0.62, ph * 0.54);
+    this.word.position.set(0, 0);
+
+    /**
+     * THE PLATE KEEPS ITS OWN WIDTH, and this is the line that has to be read
+     * before either of the two below it is touched.
+     *
+     * art/outcomeui.js gives this bitmap one licence and one only: it may be
+     * stretched *vertically*. Everything between its two hairlines is a flat
+     * vertical gradient, so pulling it taller distorts nothing. Its width is a
+     * different matter — the gold chevron sits on the centre of each hairline,
+     * and squeezing the plate horizontally squeezes the chevron with it, which
+     * closes an ornament drawn at a right angle into a spike. It was cut to the
+     * word's width for one revision and that is exactly what happened to it.
+     *
+     * So the plate is the frame, drawn at its own proportion — see
+     * PLATE_ASPECT, which is where the chevron's right angle is protected — and
+     * it is the *colour* that is cut to the word, inside the frame, which is
+     * where it was asked to be. `room` is no longer the plate's width; it is
+     * only the ceiling on the type.
+     */
+    const pw = Math.min(ph * PLATE_ASPECT * PLATE_STRETCH, s.w * PLATE_MAX_W);
 
     if (this.plate) {
       fitPlate(this.plate, pw, ph);
@@ -528,14 +610,60 @@ export class OutcomeScreen extends Container {
       this.drawBand(pw, ph);
     }
 
-    // Inside the flat middle of the band, with the hairlines and their chevrons
-    // left clear: the plate's ornament reaches about a sixth of the way in from
-    // each edge, and a word set across it is a word with a spike through it.
-    fitFont(this.word, pw * 0.62, ph * 0.54);
-    this.word.position.set(0, 0);
+    /**
+     * The verdict's colour, inside the frame the plate draws.
+     *
+     * Two insets, and they are different jobs. Across, the wash is the length of
+     * the word and a half — see BAND_PAD — so it reads as a label around the
+     * verdict rather than as a stripe across the screen. Down, it stops clear of
+     * the plate's own gold hairlines, so the frame is still a frame: the gold
+     * runs the full width above and below the colour, and the two chevrons on it
+     * stay uncovered and undistorted.
+     *
+     * The coloured hairlines therefore bound the wash and not the plate. Gold
+     * outside, the ending's colour inside.
+     */
+    const edge = Math.max(1, ph * BAND_EDGE);
+    // The gold's inner edge, off the art — see PLATE_RULE — and the daylight
+    // under it. Symmetric, because the plate's two rules are.
+    const clear = ph * (PLATE_RULE.at + PLATE_RULE.thick / 2 + BAND_CLEAR);
+    const head = clear;
+    const foot = clear;
+    const bw = clamp(this.word.width * BAND_PAD, ph * 2.4, pw);
 
+    /**
+     * The drop is taken off the top and never added to the bottom.
+     *
+     * BAND_DROP used to move all three sprites down together, which is the
+     * obvious reading of "put it lower" and the wrong one: the bottom hairline
+     * went with them and crossed the plate's gold, so the colour hung out of the
+     * frame it is supposed to sit in. The bottom is the edge that cannot move.
+     *
+     * So the band is shortened from above instead. Its floor stays where the
+     * inset put it, its ceiling comes down by the drop, and what is left is a
+     * strip whose weight sits low in the frame — which is what the eye was
+     * asking for. The gap above the colour is now about twice the gap below it,
+     * and both are gold.
+     */
+    const drop = ph * BAND_DROP;
+    const top = head + drop;
+    const bh = Math.max(edge * 4, ph - top - foot);
+    // Half the difference, because the two edges are inset by different amounts.
+    const mid = (top - foot) / 2;
+
+    this.bandWash.setSize(bw, bh);
+    this.bandWash.y = mid;
+    this.bandTop.setSize(bw, edge);
+    this.bandTop.y = mid - bh / 2 + edge / 2;
+    this.bandBottom.setSize(bw, edge);
+    this.bandBottom.y = mid + bh / 2 - edge / 2;
+
+    // Off the colour and not off the plate. The bloom is the light behind the
+    // verdict, and the plate is now as wide as its own art wants to be rather
+    // than as wide as the card — a glow measured off it would be a wash across
+    // the whole frame instead of a lamp behind one word.
     this.bloom.position.set(s.cx, cy);
-    this.bloom.setSize(Math.max(80, pw * 0.8), Math.max(80, ph * 3.4));
+    this.bloom.setSize(Math.max(80, bw * 1.15), Math.max(80, ph * 3.4));
 
     /* --------------------------------------------------------- the tap line */
 
@@ -559,6 +687,20 @@ export class OutcomeScreen extends Container {
     // The card just moved. Anything still flying towards where it used to be has
     // to be told, or it will spend the next half second putting it back.
     if (this.introducing) this.settle();
+  }
+
+  /**
+   * Put the verdict's colour on the band. See BAND.
+   *
+   * Called from `show`, once the result is known, and from the constructor so
+   * that a card laid out before it is shown is never a white band waiting to be
+   * told what it is.
+   */
+  paintBand() {
+    const c = BAND[this.defeat ? "defeat" : "victory"];
+    this.bandWash.tint = c.fill;
+    this.bandTop.tint = c.edge;
+    this.bandBottom.tint = c.edge;
   }
 
   /**
@@ -591,6 +733,7 @@ export class OutcomeScreen extends Container {
   async show(outcome) {
     this.defeat = outcome === "defeat";
     this.word.text = this.defeat ? COPY.outcomeDefeat : COPY.outcomeVictory;
+    this.paintBand();
 
     /**
      * The room the verdict is read in, and the only place the result is allowed
@@ -598,19 +741,19 @@ export class OutcomeScreen extends Container {
      *
      * The word is white on both endings — it is the one word in the creative
      * with a face of its own, and a coloured verdict is a verdict competing with
-     * the band it is set in. What carries the loss is everything behind it: the
-     * darkness goes oxblood, the photograph of the fight goes from cool to
-     * burnt, and the light behind the band stops being gold. See SCRIM_LOSS,
-     * STILL_TINT_LOSS and BLOOM_LOSS, and the bed below them.
+     * the band it is set in. What used to carry the loss was everything behind
+     * it: the darkness went oxblood, the photograph of the fight went from cool
+     * to burnt, and a red light was added under the whole frame.
+     *
+     * None of that is here any more. The room is the fight, blurred and
+     * darkened, and it is the same room whichever way the fight went — see
+     * SCRIM. The result is told by the band's colour and by the light behind
+     * it, and by nothing else on the card.
      *
      * Set here rather than in the constructor because this is the first moment
      * the result is known, and re-set on every `show` rather than once because
-     * the texture swap has to survive a card that is shown, left, and shown
-     * again by a rematch.
+     * a card can be shown, left, and shown again by a rematch.
      */
-    this.scrim.texture = this.defeat
-      ? gradientTexture("outcome-scrim-loss", SCRIM_LOSS)
-      : gradientTexture("outcome-scrim", SCRIM);
     this.bloom.tint = this.defeat ? BLOOM_LOSS : PLATE_GOLD;
 
     /**
@@ -630,8 +773,7 @@ export class OutcomeScreen extends Container {
     }
     // Outside the block above, so a rematch that comes back to a still taken on
     // the first run still gets the tint its own result asks for.
-    if (this.still)
-      this.still.tint = this.defeat ? STILL_TINT_LOSS : STILL_TINT;
+    if (this.still) this.still.tint = STILL_TINT;
 
     if (this.layout) this.resize(this.layout);
 
@@ -649,7 +791,6 @@ export class OutcomeScreen extends Container {
     this.card.alpha = 0;
     this.tap.alpha = 0;
     this.bloom.alpha = 0;
-    this.bed.alpha = 0;
     this.flash.alpha = 1;
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
 
@@ -708,32 +849,6 @@ export class OutcomeScreen extends Container {
     });
     tween(this.bloom, { alpha: this.defeat ? 0.3 : 0.42 }, 0.5, { delay: 0.1 });
 
-    /**
-     * The room lights, once, on the horn — and then does not stop being lit.
-     *
-     * Two tweens rather than one because a hit and a bed are different events
-     * that happen to share a number: the first is the braam made visible and is
-     * over in a tenth of a second, the second is what the card looks like for
-     * the rest of its life. Chained by the second's delay rather than by an
-     * await, so a rotation landing between them finds both already queued and
-     * `settle` can kill the pair together.
-     *
-     * The bed lands on BED_BASE exactly, which is the centre `update` breathes
-     * around — see BED_SWING. Anything else and the first frame after the intro
-     * would be a step, which is the wart the gold bloom already has and is not
-     * an argument for a second one.
-     */
-    if (this.defeat) {
-      tween(this.bed, { alpha: BED_HIT }, 0.1, {
-        delay: BED_HIT_AT,
-        ease: Ease.cubicOut,
-      });
-      tween(this.bed, { alpha: BED_BASE }, 0.9, {
-        delay: BED_HIT_AT + 0.1,
-        ease: Ease.cubicOut,
-      });
-    }
-
     await delay(0.62);
     if (!this.introducing) return waiting;
 
@@ -767,11 +882,6 @@ export class OutcomeScreen extends Container {
     });
     killTweensOf(this.bloom);
     this.bloom.alpha = this.defeat ? 0.3 : 0.42;
-    // Both of the bed's tweens, and then the value they were going to arrive at.
-    // A rotation that landed between the hit and the fall would otherwise leave
-    // the room at full brightness for the rest of the card.
-    killTweensOf(this.bed);
-    this.bed.alpha = this.defeat ? BED_BASE : 0;
     // The flash is the one thing a rotation must not preserve: it is half a
     // second of white over the whole screen, and finishing it early is the only
     // sensible reading of "there is nobody watching this arrive".
@@ -824,12 +934,6 @@ export class OutcomeScreen extends Container {
 
     this.bloom.alpha =
       (this.defeat ? 0.26 : 0.36) + Math.sin(this.t * 1.8) * 0.08;
-    // The room breathing, and the loss's only moving part. Guarded rather than
-    // multiplied out because a win's bed is at zero and should cost nothing at
-    // all, not a sine and a write every frame.
-    if (this.defeat) {
-      this.bed.alpha = BED_BASE + Math.sin(this.t * BED_BREATH) * BED_SWING;
-    }
     // On the text and not on the container, so the fade-out on the way off owns
     // an alpha of its own and the two do not fight over the same number.
     this.tapText.alpha = 0.62 + Math.abs(Math.sin(this.t * PULSE)) * 0.38;
