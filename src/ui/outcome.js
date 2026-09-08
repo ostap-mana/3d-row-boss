@@ -2,9 +2,9 @@
  * The outcome card — the fight's verdict, the way the game itself gives it.
  *
  * The game does not stop a fight and put a scoreboard over it. It freezes the
- * frame, blurs it, flashes, and lays one word inside a thin gold band with a
- * line under it asking to be tapped. That is the whole card, and it is over in
- * three seconds. This is that card.
+ * frame, flashes, and lays one word inside a thin gold band with a line under it
+ * asking to be tapped. That is the whole card, and it is over in three seconds.
+ * This is that card.
  *
  * It replaced a screen that had a painted plaque, four counted statistics, a
  * row of six hero portraits and two store-styled buttons on it. All of that is
@@ -17,28 +17,44 @@
  *
  * Four things, and two of them cost nothing:
  *
- *   the fight itself   frozen and blurred — see `freeze` and the note below
+ *   the fight itself   frozen sharp — see `freeze` and the note below
  *   the flash          drawn: one filled rectangle
- *   the band + word    S_ScreenTitleBackground out of the build, plus type
+ *   the band + word    one finished banner per ending — see art/outcomeui.js
  *   the tap line       S_TitleOrnamentLine out of the build, plus type
  *
  * Nineteen kilobytes of new art, and it takes forty-two out: the two result
  * skies this screen used to be set against are gone, because the backdrop is
  * now the fight the player was looking at a frame ago.
  *
- * ## The blur, and why there is no BlurFilter in it
+ * ## There is no blur on this card
  *
- * The frozen frame is halved three times and drawn back at full size. Linear
- * sampling does the rest — a 49-pixel-wide still stretched across a phone is a
- * gaussian blur in everything but name, and it costs four one-off textures and
- * no per-frame work at all. See FREEZE_STEPS for why it is halved rather than
- * scaled down in one go.
+ * There was, and it is off. The backdrop is the frozen frame at the resolution
+ * the renderer drew it at — texel for pixel, no downsample, no stretch, no
+ * filter. What is behind the verdict is the position the player just won or
+ * lost, legible, and that is the whole of the argument: this card freezes the
+ * frame instead of painting a sky precisely so the player sees the fight they
+ * had, and every bit of softness spends some of that.
  *
- * A real BlurFilter would be a full-screen shader pass every frame, on the one
- * screen in the creative that runs while the webview is also decoding an end
- * card, and it is the kind of thing that shows up as a dropped frame on exactly
- * the cheap hardware a playable has to survive. The cheap version is also
- * closer to the shipped card, which is blurred heavily rather than softly.
+ * Two things had to go for it to be sharp, and only one of them was the blur
+ * proper. FREEZE_STEPS and FREEZE_LIFT below are the pyramid — halve the still
+ * a few times, double it back up, and the linear sampling on the way is the
+ * blur — and both are zero, so `freezeFight` runs no passes at all. The second
+ * was quieter: the still used to be photographed at one device pixel per CSS
+ * pixel and then drawn over a window rendered at two, which is a 2x bilinear
+ * stretch and reads as blur whatever the pyramid is set to. See the resolution
+ * note in `freezeFight` in main.js.
+ *
+ * The machinery is left in place rather than deleted, because FREEZE_STEPS is a
+ * number that has moved four times. If the word ever stops holding against a
+ * sharp board, the knobs are STILL_TINT and SCRIM first — they are what carry
+ * the type now — and a halving here third.
+ *
+ * If a blur is ever wanted back, it is still not a BlurFilter: that is a
+ * full-screen shader pass every frame, on the one screen in the creative that
+ * runs while the webview is also decoding an end card, and it is the kind of
+ * thing that shows up as a dropped frame on exactly the cheap hardware a
+ * playable has to survive. The pyramid is the cheap version and it is why it is
+ * still here.
  *
  * ## How it ends
  *
@@ -50,16 +66,16 @@
 import { Container, Graphics, Rectangle, Sprite, Text } from "pixi.js";
 import { COPY, FONT, FONT_OUTCOME, T } from "../config.js";
 import {
-  PLATE_ART,
   PLATE_FILL,
   PLATE_GOLD,
-  PLATE_RULE,
+  VERDICT_ART,
+  aimVerdict,
   fitLine,
-  fitPlate,
+  fitVerdict,
   lineSprite,
-  plateSprite,
+  verdictSprite,
 } from "../art/outcomeui.js";
-import { glowTexture, gradientTexture, rampTexture } from "../art/textures.js";
+import { glowTexture, gradientTexture } from "../art/textures.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
@@ -106,185 +122,130 @@ const STILL_TINT = 0x9a9aa0;
 /**
  * How many times the still is halved on its way to being the blur.
  *
- * Three, so the frame comes back at an eighth of its own size — on the reference
- * phone a 49 by 106 pixel picture, drawn back across 390 by 844 points.
+ * ZERO — the blur is off, and the card's backdrop is the frozen frame at the
+ * size it was taken. `freezeFight` runs no pyramid at all at this value: the
+ * loop does not execute, the lift below is clamped to nothing, and the texture
+ * the card holds is the photograph.
  *
- * Halved rather than scaled straight down in one step, and that is the whole of
- * why this is a count and not a fraction. One bilinear pass from full size to an
- * eighth samples one pixel in sixty-four and throws the other sixty-three away,
- * which is not a blur, it is aliasing — a gem grid comes back as a crunchy moiré
- * of itself. Halving averages every pixel into the next level down, three times,
- * which is a box pyramid and is what a blur actually is.
+ * It has been 3, then 2, and is now none. The argument that took it down each
+ * time is the same one that finally took it off: what is behind the verdict is
+ * supposed to be *the fight the player just had* — that is the entire reason
+ * this card freezes the frame instead of painting a sky — and every halving
+ * spends some of that. At three it was grey soup. At two the arena was a room
+ * again but the board was still mush. At none the player sees the position they
+ * lost, which is the most that argument can ask for.
  *
- * Two halvings leave the board legible enough to compete with the word over it;
- * four stop the arena reading as an arena at all.
+ * What it costs is the thing the blur was doing for the type: a sharp board
+ * under a white headline competes with it, and the gems are the busiest, most
+ * saturated thing this creative owns. STILL_TINT and SCRIM are now carrying
+ * that alone — the tint pulls the gems towards neutral and the scrim darkens
+ * the frame top and bottom. If the word ever stops holding against the picture,
+ * those two are the knobs, and putting a halving back here is the third.
+ *
+ * The pyramid itself is left intact in main.js rather than deleted, because
+ * this is a number that has moved four times. One is a light blur and costs a
+ * quarter-size texture; see FREEZE_LIFT for how the way back up is drawn.
  *
  * Exported because main.js is what takes the still — see `freezeFight` there.
  */
-export const FREEZE_STEPS = 3;
+export const FREEZE_STEPS = 0;
 
 /**
- * The band's box: a share of the stage's width, and a share of its height.
+ * How many of those halvings are undone again before the card is handed the
+ * still.
  *
- * Wider than the stage upright, on purpose. The plate's art fades to nothing at
- * each end — see art/outcomeui.js — and running it past the edge is what puts
- * that fade off screen and leaves two hairlines crossing the whole frame, which
- * is what the shipped card looks like. Contained inside the stage instead, the
- * card reads as a label parked in the middle of the screen.
+ * ZERO, because FREEZE_STEPS is: there is nothing to climb back up from, and
+ * `freezeFight` clamps this to the number of halvings that actually happened.
+ * Everything below is about what this is for when the blur is switched back on
+ * — put a halving in above and put a 1 here with it.
  *
- * The height is a share rather than the art's own aspect, and it is the one
- * deliberate stretch in this creative. See art/outcomeui.js for why the art
- * allows it and nothing else does.
+ * This is the other half of the backdrop's fix, and it is the half that was not
+ * a matter of taste. A small still handed straight to a full screen sprite is
+ * one bilinear stretch, and a bilinear stretch is a tent filter as wide as the
+ * stretch: blow a picture up eight times in one pass and every source texel
+ * arrives as a diamond with a hard crease along its edges, which the eye reads
+ * as blocks and not as blur. That is what this card's backdrop was — not too
+ * blurred so much as badly *drawn* — and no amount of tuning FREEZE_STEPS fixes
+ * it, because the lattice is a property of the last stretch whatever is being
+ * stretched. Doubling in steps runs the tent over a picture that has already had
+ * one, and tents stacked on tents converge on a gaussian.
+ *
+ * One and not two, so the texture the card keeps is a quarter of the pixels a
+ * full size one would be. The last doubling still happens on screen, and by then
+ * it is a 2x on a picture with no half-size detail left in it to break — which
+ * is exactly what was not true of the 8x. Lifting the whole way is the honest
+ * version and costs a full screen texture held for the life of the card to look
+ * the same.
+ *
+ * Never more than FREEZE_STEPS: there is nothing above the size it was taken at
+ * to climb back to. `freezeFight` clamps it.
  */
+export const FREEZE_LIFT = 0;
+
 /**
- * THE VERDICT BAND'S OWN COLOUR, and it is the one thing on this card that the
- * result is allowed to repaint.
+ * THE FALLBACK BAND'S COLOUR, and that is now all this pair is for.
  *
- * Read off the shipped game's own outcome windows rather than invented: the
- * band behind VICTORY is a green wash with a brighter green hairline top and
- * bottom, and the one behind DEFEAT is the same shape in dark red. Both fade to
- * nothing at either end, which is why they read as a stroke of colour laid
- * across the plate rather than as a box sitting on it.
+ * Read off the shipped game's own outcome windows rather than invented: the band
+ * behind VICTORY is a green wash with a brighter green hairline top and bottom,
+ * and the one behind DEFEAT is the same shape in dark red. `fill` is the wash
+ * and `edge` the hairline.
  *
- * `fill` is the wash and `edge` the hairline. Exact values off the source:
- * 415.8 x 84.23 at a 2.13 border, which is where BAND_EDGE below comes from —
- * the hairline is 2.5% of the band's height, not a fixed number of points, so
- * it stays a hairline on a tablet and does not disappear on a phone.
+ * These used to be paint on the screen. The card built its verdict out of the
+ * game's title plate with three tinted gradient sprites laid inside its
+ * hairlines, and this was the one thing the result was allowed to repaint. The
+ * banners in art/outcomeui.js are finished art — plate, wash, both hairlines,
+ * both chevrons and the word, in one bitmap — so there is nothing left on screen
+ * for a tint to reach.
  *
- * The plate stays underneath all of it. It is the game's own art and it carries
- * the chevron and the soft ends; this is a coat of paint on it, at 90% so the
- * navy still tells underneath and the band has some depth to it.
+ * What still reads them is the band the card draws for itself when no banner
+ * decoded, and drawing that in the ending's colour rather than in plain navy is
+ * worth the two lines: a device that cannot read a webp still gets green under
+ * VICTORY and red under DEFEAT. See drawBand.
+ *
+ * Both values are the source hues scaled until their luminance matches — green
+ * carries most of its own, so 0x43c750 came out at 162 on the 709 curve against
+ * the red's 95, and the two endings landed at visibly different weights.
  */
 const BAND = {
-  victory: { fill: 0x266825, edge: 0x43c750 },
+  victory: { fill: 0x1b4a1a, edge: 0x27752f },
   defeat: { fill: 0x6b3030, edge: 0xc74343 },
 };
+
+/**
+ * The coloured hairline's thickness, as a share of the band's height.
+ *
+ * Off the source: 415.8 by 84.23 at a 2.13 border. A share and not a fixed
+ * number of points, so it stays a hairline on a tablet and does not vanish on a
+ * phone.
+ */
 const BAND_EDGE = 2.13 / 84.23;
 const BAND_ALPHA = 0.9;
 
 /**
- * How much wider than its word the band is cut.
+ * The banner's width, as a share of the safe box — and the ceiling on the
+ * height that width implies.
  *
- * The source is 415.8 across with VICTORY set inside it, which is about half as
- * much band again as there is word — so 1.5, and the fades at either end land
- * in that margin rather than over the type.
+ * Width is the only thing there is left to choose. The banner is 3.068:1 with
+ * the word painted inside it, and art/outcomeui.js gives it no licence to be
+ * anything else: it takes a width and gives back its own height. See
+ * VERDICT_ART and `fitVerdict`.
  *
- * There is a floor under it in `resize` as well, at two and a half times the
- * band's own height. A four-letter verdict in another language would otherwise
- * come out as a colour swatch rather than a label, and the plate's ornament
- * needs somewhere to sit.
+ * The plate this replaced was 11.24:1 and was pulled into whatever box the card
+ * handed it — 1.06 of the stage upright, deliberately wider than the screen, so
+ * its fades ran off both edges and left two hairlines crossing the frame. That
+ * does not carry over. Run a banner past the edge and it loses a chevron and
+ * then the word, so it is contained instead: 0.92 upright leaves a margin for
+ * the fades to die in, which is what the art is drawn to do.
+ *
+ * The height is a cap and not a target, and upright it never bites — 0.92 of a
+ * 390-point phone comes back 117 points tall against a cap of 117, which is the
+ * height the stretched plate was given and is not a coincidence. Laid on its
+ * side the stage is wide and short, and a band at 0.92 of it would be a third of
+ * the screen; past the cap the width is taken back off the height, so the aspect
+ * survives and the band gets smaller instead of squarer.
  */
-const BAND_PAD = 1.5;
-
-/**
- * How far the colour sits below the plate's own centre line, as a share of the
- * band's height.
- *
- * An optical correction and not a layout one. The verdict is set in capitals
- * and capitals have no descenders, so the glyphs fill the top of their own text
- * box and leave the space at the bottom empty. A band centred on that box is
- * geometrically right and looks high: there is more colour under the word than
- * over it, and the eye reads the strip as having ridden up off the type.
- *
- * ZERO NOW, and the reason is worth keeping rather than the number. The drop
- * went 0.06, then 0.03, then off, because each look at it said the same thing
- * in a smaller voice: the top line wants to be higher. It ends where that
- * argument does — with the colour reaching the gold on both edges and no offset
- * at all between them.
- *
- * What killed it is that the correction was answering the wrong question. The
- * word does sit high in its own box, but the band is not hung off the word — it
- * is hung off the plate, and the plate's two rules are symmetric. Pulling the
- * colour down inside a symmetric frame does not centre it on anything; it just
- * opens a gap above and closes one below.
- *
- * Left in place, at zero, because it is the one knob that can separate the two
- * edges: the drop only ever shortens the band from above, so a positive value
- * lowers the top line and never moves the bottom one.
- */
-const BAND_DROP = 0;
-
-/**
- * The plate's own proportion, and the widest the card will let it get.
- *
- * The chevron is the reason this exists. It is drawn on the centre of each
- * hairline at a right angle, and a right angle only survives if the bitmap is
- * carrying its own aspect: at 6.74:1 against the art's 7.87:1 — which is what a
- * box-fitted plate came out at in a landscape window — the two arms close from
- * 90 degrees to about 81, and it reads as a spike rather than as an ornament.
- *
- * So the width is taken from the height rather than from the stage, and the
- * plate is drawn at PLATE_ART's ratio whatever box it is handed. The header of
- * art/outcomeui.js licenses a vertical stretch on this bitmap and it is right
- * that nothing between the hairlines suffers from one — but the ornament sits
- * *on* a hairline, and that is what the licence did not cover.
- *
- * `PLATE_MAX_W` is the one thing that can still take the aspect away, and it is
- * there to keep the ornament on screen. The chevron sits about a sixth in from
- * each end, so at 1.35 screens wide it lands just inside the frame; past that
- * the plate would be all hairline and the card would lose the ornament
- * altogether. A tall narrow phone is where that bites — the box wants a band
- * three and a half times as wide as it is tall and the art is nearly eight — and
- * there the plate is still squeezed, just by a good deal less than it was.
- */
-const PLATE_ASPECT = PLATE_ART.w / PLATE_ART.h;
-const PLATE_MAX_W = 1.35;
-
-/**
- * A little past the art's own ratio, so the gold runs further out.
- *
- * The aspect above is what keeps the chevron at the right angle it is drawn at,
- * and this is a deliberate few per cent off it — asked for, and worth writing
- * the cost down: stretching the plate horizontally *opens* the ornament rather
- * than closing it, so 1.06 takes the arms from 90 degrees to about 93. That is
- * inside the noise where the squeeze this replaced was not — it had them at 81,
- * which reads as a spike.
- *
- * What it buys is the hairline reaching nearer the frame's edge, which is what
- * the shipped card looks like. Past about 1.15 the angle starts reading as a
- * flat vee and the ornament stops being one, so that is the ceiling on this.
- */
-const PLATE_STRETCH = 1.06;
-
-/**
- * How far the colour is held clear of the gold's inner edge.
- *
- * The inset itself is not a taste decision and is not written here: it comes
- * off PLATE_RULE, which is where the hairline actually is in the bitmap —
- * 13.2% in, plus half of the line's own four-pixel thickness. Everything above
- * that is the frame; the colour starts below it.
- *
- * This is the only part of it that is a judgement: the daylight left between
- * the gold and the colour. Zero, so the two meet — the wash begins on the row
- * the hairline ends on, and the frame reads as one piece rather than as a
- * coloured strip parked inside a gold one.
- *
- * Zero is flush and not overlapping, which is the whole point of deriving the
- * inset instead of guessing it: PLATE_RULE.at is the line's centre and half its
- * thickness is added on, so this starts at the line's inner boundary exactly.
- * The band overhung the gold on both edges for several revisions because the
- * inset was a flat tenth — a number picked by eye, against a line nobody had
- * measured. Raise this if a seam ever needs opening; leave the derivation alone.
- */
-const BAND_CLEAR = 0;
-
-/**
- * Where the wash fades in and out along the band.
- *
- * The source's gradient runs transparent, opaque, opaque, transparent, and the
- * only thing left to choose is how much of each end the fade eats. An eighth,
- * which is enough that the ends are gone before the plate's own ornament starts
- * and not so much that the middle stops reading as flat.
- */
-const BAND_RAMP = [
-  [0, "rgba(255,255,255,0)"],
-  [0.14, "rgba(255,255,255,1)"],
-  [0.86, "rgba(255,255,255,1)"],
-  [1, "rgba(255,255,255,0)"],
-];
-
-const PLATE_W = { portrait: 1.06, landscape: 0.78 };
-const PLATE_H = { portrait: 0.145, landscape: 0.22 };
+const VERDICT_W = { portrait: 0.92, landscape: 0.46 };
+const VERDICT_H = { portrait: 0.15, landscape: 0.24 };
 
 /** Where the band sits down the stage, and where the tap line sits under it. */
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
@@ -436,43 +397,39 @@ export class OutcomeScreen extends Container {
     this.card = new Container();
     this.addChild(this.card);
 
-    /** Drawn, and only ever reached when the plate did not decode. */
+    /** Drawn, and only ever reached when no banner decoded. See drawBand. */
     this.band = new Graphics();
     this.card.addChild(this.band);
 
-    this.plate = plateSprite();
-    if (this.plate) this.card.addChild(this.plate);
-
     /**
-     * The verdict's own colour, laid over the plate — see BAND.
+     * The verdict, whole, in one bitmap.
      *
-     * Three sprites and not one nine-slice, because the wash and the two
-     * hairlines fade along the same curve but are three different heights, and
-     * a single stretched bitmap would have had to carry the hairline positions
-     * baked into it — which is the one thing that cannot survive a band whose
-     * height is a fraction of the screen.
+     * Plate, wash, both hairlines, both chevrons and the word — see
+     * art/outcomeui.js. One sprite built on the win and re-aimed on a loss,
+     * because a rematch can show this card twice and swapping a texture is free
+     * where adding and removing a child mid-flight is a thing that can go wrong.
      *
-     * White art, tinted. A tint on white is exact, so the hexes read off the
-     * game land on screen as themselves rather than as themselves multiplied by
-     * whatever the texture happened to be.
-     *
-     * Above the plate and below the word: it is paint on the plate, and the
-     * word is the hardest edge on the card and stays on top of everything.
+     * What it replaced was four pieces held in register: the game's title plate
+     * stretched into a box, three tinted gradient sprites laid inside its
+     * hairlines to make the ending's colour, and the verdict set in type over
+     * the lot — each of them re-solved against the others on every aspect ratio
+     * a phone has. A finished bitmap has no registration problem, and the
+     * arithmetic that used to be `resize` went with it.
      */
-    const ramp = rampTexture("outcome-band", BAND_RAMP);
-    this.bandWash = new Sprite(ramp);
-    this.bandTop = new Sprite(ramp);
-    this.bandBottom = new Sprite(ramp);
-    this.bandParts = [this.bandWash, this.bandTop, this.bandBottom];
-    this.bandParts.forEach((s) => {
-      s.anchor.set(0.5);
-      s.alpha = BAND_ALPHA;
-      this.card.addChild(s);
-    });
-    this.paintBand();
+    this.verdict = verdictSprite(false);
+    if (this.verdict) this.card.addChild(this.verdict);
+
+    /** Whether the banner is showing the ending it was asked for. See `aim`. */
+    this.painted = false;
 
     /**
-     * The word.
+     * The word, set in type — and normally not on screen at all.
+     *
+     * The banner has the verdict painted into it, in the face the artist set it
+     * in, so this is hidden the moment one decodes. What it is for is the device
+     * that could read none of them: the drawn band needs something to say, and a
+     * card that came up as a coloured stripe with no word on it is worse than no
+     * card at all. `aim` is what raises and lowers it.
      *
      * White, and the only text in the creative with a face of its own — see
      * FONT_OUTCOME, which asks for Elan ITC Pro first and falls through to
@@ -500,6 +457,9 @@ export class OutcomeScreen extends Container {
     });
     this.word.anchor.set(0.5);
     this.card.addChild(this.word);
+    // Both of the above exist now, so the card can be told which of the two it
+    // is showing. A layout can arrive before `show` does.
+    this.aim();
 
     /* -------------------------------------------------------- the tap line */
 
@@ -574,96 +534,56 @@ export class OutcomeScreen extends Container {
 
     /* ------------------------------------------------------------- the band */
 
-    const room = s.w * PLATE_W[key];
-    const ph = clamp(s.h * PLATE_H[key], 52 * ui, 150 * ui);
     const cy = s.y + s.h * PLATE_Y[key];
-
     this.card.position.set(s.cx, cy);
 
-    fitFont(this.word, room * 0.62, ph * 0.54);
-    this.word.position.set(0, 0);
-
     /**
-     * THE PLATE KEEPS ITS OWN WIDTH, and this is the line that has to be read
-     * before either of the two below it is touched.
+     * WIDTH IS THE ONLY THING THIS DECIDES, and that is the whole of the band's
+     * layout now.
      *
-     * art/outcomeui.js gives this bitmap one licence and one only: it may be
-     * stretched *vertically*. Everything between its two hairlines is a flat
-     * vertical gradient, so pulling it taller distorts nothing. Its width is a
-     * different matter — the gold chevron sits on the centre of each hairline,
-     * and squeezing the plate horizontally squeezes the chevron with it, which
-     * closes an ornament drawn at a right angle into a spike. It was cut to the
-     * word's width for one revision and that is exactly what happened to it.
+     * The banner is finished art with the word painted inside it, so it takes a
+     * width and gives back the height its own aspect implies — see VERDICT_ART
+     * and `fitVerdict`. What stood here was the arithmetic of holding four
+     * pieces registered against each other inside a stretched plate: an aspect
+     * to protect the chevron's right angle, a ceiling to keep the chevron on
+     * screen, a horizontal stretch to run the gold further out, and an inset
+     * derived off the plate's own hairline so the colour met the gold and did
+     * not cross it. None of it survives the art being one bitmap, and none of it
+     * is missed.
      *
-     * So the plate is the frame, drawn at its own proportion — see
-     * PLATE_ASPECT, which is where the chevron's right angle is protected — and
-     * it is the *colour* that is cut to the word, inside the frame, which is
-     * where it was asked to be. `room` is no longer the plate's width; it is
-     * only the ceiling on the type.
+     * The cap is the one thing that can still take the width off its own share.
+     * See VERDICT_H — it is landscape that needs it.
      */
-    const pw = Math.min(ph * PLATE_ASPECT * PLATE_STRETCH, s.w * PLATE_MAX_W);
-
-    if (this.plate) {
-      fitPlate(this.plate, pw, ph);
-      this.band.clear();
-    } else {
-      this.drawBand(pw, ph);
+    const cap = clamp(s.h * VERDICT_H[key], 52 * ui, 150 * ui);
+    let pw = s.w * VERDICT_W[key];
+    let ph = (pw * VERDICT_ART.h) / VERDICT_ART.w;
+    if (ph > cap) {
+      ph = cap;
+      pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
-    /**
-     * The verdict's colour, inside the frame the plate draws.
-     *
-     * Two insets, and they are different jobs. Across, the wash is the length of
-     * the word and a half — see BAND_PAD — so it reads as a label around the
-     * verdict rather than as a stripe across the screen. Down, it stops clear of
-     * the plate's own gold hairlines, so the frame is still a frame: the gold
-     * runs the full width above and below the colour, and the two chevrons on it
-     * stay uncovered and undistorted.
-     *
-     * The coloured hairlines therefore bound the wash and not the plate. Gold
-     * outside, the ending's colour inside.
-     */
-    const edge = Math.max(1, ph * BAND_EDGE);
-    // The gold's inner edge, off the art — see PLATE_RULE — and the daylight
-    // under it. Symmetric, because the plate's two rules are.
-    const clear = ph * (PLATE_RULE.at + PLATE_RULE.thick / 2 + BAND_CLEAR);
-    const head = clear;
-    const foot = clear;
-    const bw = clamp(this.word.width * BAND_PAD, ph * 2.4, pw);
+    if (this.painted) {
+      // Taken back off `fitVerdict` rather than trusted: `ph` above and the
+      // height the art module works out are the same division done in two files,
+      // and the bloom below is hung off whichever one actually drew.
+      ph = fitVerdict(this.verdict, pw);
+      this.verdict.position.set(0, 0);
+      this.band.clear();
+    } else {
+      // Nothing decoded for this ending. The card draws its own band, and the
+      // word — painted into the art, and hidden whenever there is art — is the
+      // type that goes in it. See drawBand and `aim`.
+      this.drawBand(pw, ph);
+      fitFont(this.word, pw * 0.62, ph * 0.54);
+      this.word.position.set(0, 0);
+    }
 
-    /**
-     * The drop is taken off the top and never added to the bottom.
-     *
-     * BAND_DROP used to move all three sprites down together, which is the
-     * obvious reading of "put it lower" and the wrong one: the bottom hairline
-     * went with them and crossed the plate's gold, so the colour hung out of the
-     * frame it is supposed to sit in. The bottom is the edge that cannot move.
-     *
-     * So the band is shortened from above instead. Its floor stays where the
-     * inset put it, its ceiling comes down by the drop, and what is left is a
-     * strip whose weight sits low in the frame — which is what the eye was
-     * asking for. The gap above the colour is now about twice the gap below it,
-     * and both are gold.
-     */
-    const drop = ph * BAND_DROP;
-    const top = head + drop;
-    const bh = Math.max(edge * 4, ph - top - foot);
-    // Half the difference, because the two edges are inset by different amounts.
-    const mid = (top - foot) / 2;
-
-    this.bandWash.setSize(bw, bh);
-    this.bandWash.y = mid;
-    this.bandTop.setSize(bw, edge);
-    this.bandTop.y = mid - bh / 2 + edge / 2;
-    this.bandBottom.setSize(bw, edge);
-    this.bandBottom.y = mid + bh / 2 - edge / 2;
-
-    // Off the colour and not off the plate. The bloom is the light behind the
-    // verdict, and the plate is now as wide as its own art wants to be rather
-    // than as wide as the card — a glow measured off it would be a wash across
-    // the whole frame instead of a lamp behind one word.
+    // Off the word's own extent inside the banner rather than off the whole of
+    // it: the bloom is a lamp behind the verdict, and a banner fades to nothing
+    // at both ends — a glow measured off the full width would be a wash across
+    // the frame instead of a light behind one word.
     this.bloom.position.set(s.cx, cy);
-    this.bloom.setSize(Math.max(80, bw * 1.15), Math.max(80, ph * 3.4));
+    this.bloom.setSize(Math.max(80, pw * 0.62), Math.max(80, ph * 3.4));
 
     /* --------------------------------------------------------- the tap line */
 
@@ -690,34 +610,49 @@ export class OutcomeScreen extends Container {
   }
 
   /**
-   * Put the verdict's colour on the band. See BAND.
+   * Point the banner at the ending, and record whether there was one.
    *
    * Called from `show`, once the result is known, and from the constructor so
-   * that a card laid out before it is shown is never a white band waiting to be
-   * told what it is.
+   * that a card laid out before it is shown is never a banner waiting to be told
+   * what it is.
+   *
+   * `painted` is what the layout reads. False means nothing decoded for *this*
+   * ending and the card falls back to its own drawn band with its own type — a
+   * per-ending answer and not a per-device one, since a build can ship a victory
+   * banner that decodes and a defeat one that does not. So it is asked again on
+   * every show rather than settled once here.
    */
-  paintBand() {
-    const c = BAND[this.defeat ? "defeat" : "victory"];
-    this.bandWash.tint = c.fill;
-    this.bandTop.tint = c.edge;
-    this.bandBottom.tint = c.edge;
+  aim() {
+    this.painted = this.verdict ? aimVerdict(this.verdict, this.defeat) : false;
+    if (this.verdict) this.verdict.visible = this.painted;
+    this.word.visible = !this.painted;
   }
 
   /**
-   * The band, drawn — reached only when the plate did not decode.
+   * The band, drawn — reached only when no banner decoded.
    *
-   * Two hairlines in the plate's own gold with a navy wash between them, which
-   * is the plate reduced to the two things it has to be. No chevron: a drawn
-   * ornament that is not the painted one is worse than none at all.
+   * The banner reduced to the three things it cannot do without: the plate's
+   * navy, the ending's wash with its own hairline bounding it, and the gold rule
+   * over each edge. No chevron and no serif — a drawn ornament that is not the
+   * painted one is worse than none at all, and the word over this is the card's
+   * own type. See `aim`.
    */
   drawBand(w, h) {
-    const t = Math.max(1, h * 0.02);
+    const c = BAND[this.defeat ? "defeat" : "victory"];
+    const gold = Math.max(1, h * 0.02);
+    const edge = Math.max(1, h * BAND_EDGE);
     this.band.clear();
     this.band.rect(-w / 2, -h / 2, w, h);
     this.band.fill({ color: PLATE_FILL, alpha: 0.72 });
-    this.band.rect(-w / 2, -h / 2, w, t);
+    this.band.rect(-w / 2, -h / 2 + gold, w, h - gold * 2);
+    this.band.fill({ color: c.fill, alpha: BAND_ALPHA });
+    this.band.rect(-w / 2, -h / 2 + gold, w, edge);
+    this.band.fill({ color: c.edge, alpha: BAND_ALPHA });
+    this.band.rect(-w / 2, h / 2 - gold - edge, w, edge);
+    this.band.fill({ color: c.edge, alpha: BAND_ALPHA });
+    this.band.rect(-w / 2, -h / 2, w, gold);
     this.band.fill({ color: PLATE_GOLD, alpha: 0.9 });
-    this.band.rect(-w / 2, h / 2 - t, w, t);
+    this.band.rect(-w / 2, h / 2 - gold, w, gold);
     this.band.fill({ color: PLATE_GOLD, alpha: 0.9 });
   }
 
@@ -733,7 +668,7 @@ export class OutcomeScreen extends Container {
   async show(outcome) {
     this.defeat = outcome === "defeat";
     this.word.text = this.defeat ? COPY.outcomeDefeat : COPY.outcomeVictory;
-    this.paintBand();
+    this.aim();
 
     /**
      * The room the verdict is read in, and the only place the result is allowed

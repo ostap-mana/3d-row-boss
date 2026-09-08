@@ -1,54 +1,49 @@
 /**
- * Pack the two pieces of chrome the outcome screen is built from.
+ * Pack the chrome the outcome screen is built from.
  *
  *   node tools/pack-outcome-ui.mjs           # -> src/assets/outcome/*.webp
  *   node tools/pack-outcome-ui.mjs --png     # keep the intermediate PNGs too
- *   node tools/pack-outcome-ui.mjs --proof   # both over the game's own navy
+ *   node tools/pack-outcome-ui.mjs --proof   # all of them over the game's navy
  *
- * Both are lifted straight out of the Invokers Titan Legacy build — they are
- * the game's own UI, pulled out of its Unity bundles with UnityPy rather than
- * redrawn:
+ * Three things, and they arrived from two different places:
  *
- *   S_ScreenTitleBackground   2000x178   -> title-plate.png
- *   S_TitleOrnamentLine        438x29    -> ornament-line.png
+ *   victory-band.png    816x266   the finished VICTORY banner
+ *   defeat-band.png     816x266   the finished DEFEAT banner
+ *   S_TitleOrnamentLine  438x29   -> ornament-line.png
  *
- * The plate is the band the game puts every screen title inside: a navy fill
- * that fades out at both ends, a bright gold hairline along the top and the
- * bottom, and a small gold chevron centred on each. The line is a single
- * hairline with a diamond notch in the middle of it. Between them they are the
- * whole vocabulary of the "VICTORY" card the game shows over a finished fight,
- * which is what ui/outcome.js now rebuilds.
+ * The line is the game's own UI, pulled out of the Invokers Titan Legacy Unity
+ * bundles with UnityPy rather than redrawn: one gold hairline with a diamond
+ * notch in the middle, which is the lid the shipped card puts over "tap to
+ * continue".
  *
- * ## Why the plate is stretched vertically and that is not a bug
+ * The two bands are finished art, supplied whole. Each is the plate, the wash,
+ * both hairlines, the chevron at either end AND the word, in one bitmap: a green
+ * plate under VICTORY and an oxblood one under DEFEAT, both fading to nothing at
+ * each end.
  *
- * Its own aspect is 11.24:1, and at the width the card wants it that is a band
- * about thirty points deep — too thin to put a headline in. The game stretches
- * it, and the stretch is safe because of what is in it: the ornament sits on the
- * centre line, the hairlines run along the edges, and everything between them is
- * a flat vertical gradient. Stretching it taller makes the chevron taller, which
- * is exactly what the shipped card looks like. See PLATE_ART and OutcomeScreen.
+ * ## What that replaced, and why the plate is no longer packed here
  *
- * ## ...and why the plate is therefore packed at its full height
+ * The card used to *build* this shape out of four pieces at run time —
+ * S_ScreenTitleBackground stretched into a box, three tinted gradient sprites
+ * laid inside its hairlines, and the verdict set in type over the lot — and the
+ * bulk of both this tool and ui/outcome.js was the arithmetic of holding those
+ * four things registered against each other on every aspect ratio a phone has.
+ * A finished bitmap has no registration problem: the word is where the artist
+ * put it, and the only thing left to decide is how wide to draw it.
  *
- * That stretch is the reason this file no longer resamples the plate's height at
- * all, and it is what the pack before this one got wrong.
+ * So `title-plate` is gone from this file and its webp with it. It was only ever
+ * the frame under a composition that no longer exists, and it cannot serve as
+ * the fallback for these two either — anything that fails to decode one webp
+ * fails to decode all three. What is behind them when the decode fails is the
+ * card's own drawn band, which needs no art at all. See OutcomeScreen.drawBand.
  *
- * The card asks for a box rather than for the art's aspect — `fitPlate` sets
- * both dimensions — and the box it asks for runs from about 3.1:1 on a tall
- * phone held upright to about 7.7:1 on the widest landscape. Against the art's
- * own 11.24:1 that is a vertical stretch of 1.5x at the very best and 3.4x at
- * the worst, on every device, every time. Height is therefore the one axis the
- * drawn image magnifies, and it was the axis being thrown away: packing 2000x178
- * down to 1024x91 halved the chevron's forty rows to twenty and the card then
- * blew them back up to forty-odd. The spikes came out as blobs and the hairline
- * came out doubled, with a dark ghost under it.
+ * ## The one thing these two may not be
  *
- * Packed at the source's own 178 rows the chevron keeps every row it was drawn
- * with and `ky` in the resampler falls to 1, so the pass becomes a purely
- * horizontal box filter. Measured against the source rendered at the size the
- * card draws it, mean error over the chevron falls from 4.7 of 255 to 1.5 — and
- * the table under CUTS has the rest of that measurement, including the two ways
- * of spending more that turn out not to buy anything.
+ * Stretched. The plate could be: everything between its hairlines was a flat
+ * vertical gradient, so pulling it taller distorted nothing, and the card pulled
+ * it taller on every device it ran on. These have a word in the middle of them,
+ * so they are fitted at their own 3.068:1 and take back the height that implies.
+ * See VERDICT_ART and `fitVerdict` in art/outcomeui.js.
  *
  * ## What the encode may not be
  *
@@ -80,53 +75,44 @@ const SRC_DIR = join(ROOT, "src/source/outcome");
 const OUT_DIR = join(ROOT, "src/assets/outcome");
 
 /**
- * The two cuts.
+ * The cuts.
  *
- * `width` is where each is resampled to and `height` where it is held; a
- * `height` equal to the source's is how the plate keeps every row it was drawn
- * with, and the header has the whole of why. `lossless` swaps the quality knob
- * out for an exact encode. The line is left at its own width, because it is
- * already small enough that resampling it would only soften the one thing it is
- * made of.
+ * `width` is where each is resampled to and `height` where it is held; all three
+ * are packed at their source's own size, so the resampler is a no-op on every
+ * one of them and nothing here is softened before it is encoded.
  *
- * 1400 for the plate is one-to-one for every phone this creative is built for —
- * the widest a phone draws the band is about 1400 device pixels, portrait or
- * landscape — and short of it only on a maximised desktop window or a tablet in
- * landscape, where the pixel budget in core/viewport.js allows about 1950. Every
- * row below is this tool's own output, measured against the source rendered at
- * that outside size: mean error over the chevron, out of 255.
+ * 816 across is one-to-one on a phone and a little short of it above that: the
+ * band is drawn about as wide as the safe box, which is around 1170 device
+ * pixels on a 390-point phone at 3x. The art is what it is — there is no larger
+ * master — so the choice is between shipping it at its own size and shipping a
+ * pre-blurred upscale of it, and an upscale done by the GPU at draw time costs
+ * nothing and looks the same.
  *
- *     1024x91  q88        16.5 kB   4.71   <- what this used to pack
- *     1024x178 q88        35.7 kB   1.99
- *     1400x178 q88        49.7 kB   1.50   <- here
- *     2000x178 q88        74.0 kB   1.53
- *     1024x178 lossless  133.0 kB   0.66
+ * Quality 92 on the two bands. The table is this tool's own output measured
+ * against the source: mean absolute error over everything not transparent, out
+ * of 255.
  *
- * Two things to read off that table, and the second one is why the numbers are
- * written down rather than reasoned about.
+ *     q82        36.7 kB   1.90
+ *     q88        39.9 kB   1.56
+ *     q92        43.5 kB   1.49   <- here
+ *     q96        49.4 kB   1.40
+ *     lossless  124.4 kB   0.00
  *
- * The height is the whole of the defect: one step down the table, at the same
- * quality and the same width, takes 4.71 to 1.99 for 19 kB. Width is worth one
- * more step and then stops — 2000 is *worse* than 1400, and the extra 24 kB buys
- * a slightly poorer picture.
+ * The knee is at 88 and 92 is a step past it — three and a half kB for the last
+ * of the difference an eye has any chance with, and then 75 kB more for the
+ * rest, which it has not. What the step is spent on is the cream serif in the
+ * middle: it is the one hard edge in either bitmap, it is the thing the player
+ * actually looks at, and low down the table its stems pick up the faint ringing
+ * lossy webp puts around high-contrast type.
  *
- * That is not noise, it is the floor showing through: past 1400 the resample is
- * no longer what limits the chevron, the 4:2:0 chroma is, and a wider grid
- * spreads the same subsampling over more of the art. It is the same floor the
- * quality knob runs into — 88, 92 and 96 measure 1.50, 1.48 and 1.46 at this
- * size, tails included, for 50, 54 and 63 kB. So 88 stays: the encode was never
- * what was wrong with this asset. The only way past the floor is lossless, and
- * 83 kB for a difference no eye finds on a phone is not a trade worth making
- * here — it is on `ornament-line`, which is a hairline and nothing else.
+ * `ornament-line` stays lossless, and that is not the same call. Chroma at half
+ * resolution is survivable on the bands, whose gold sits on a broad coloured
+ * plate; it is not survivable on a gold thread a pixel wide on nothing, which
+ * comes back grey-green. It costs 1.1 kB.
  */
 const CUTS = [
-  {
-    key: "title-plate",
-    src: "title-plate.png",
-    width: 1400,
-    height: 178,
-    quality: 88,
-  },
+  { key: "victory-band", src: "victory-band.png", width: 0, quality: 92 },
+  { key: "defeat-band", src: "defeat-band.png", width: 0, quality: 92 },
   { key: "ornament-line", src: "ornament-line.png", width: 0, lossless: true },
 ];
 
@@ -315,9 +301,26 @@ for (const cut of CUTS) {
 }
 
 console.log("     for art/outcomeui.js:");
+
+/**
+ * One constant covers both bands, so the defeat cut has nothing of its own to
+ * print — and a defeat band that is not the size of the victory one is worth
+ * shouting about here rather than finding out about as a squashed word on a
+ * phone. VERDICT_ART is a single aspect and cannot describe two.
+ */
+const NAMES = { "victory-band": "VERDICT_ART", "ornament-line": "LINE_ART" };
 packed.forEach((p) => {
-  const name = p.key === "title-plate" ? "PLATE_ART" : "LINE_ART";
-  console.log(`       ${name} { w: ${p.w}, h: ${p.h} }`);
+  if (p.key === "defeat-band") {
+    const v = packed.find((q) => q.key === "victory-band");
+    if (v && (v.w !== p.w || v.h !== p.h)) {
+      console.log(
+        `       !! defeat-band is ${p.w}x${p.h} and victory-band is ` +
+          `${v.w}x${v.h} — VERDICT_ART describes one shape and cannot do both`,
+      );
+    }
+    return;
+  }
+  console.log(`       ${NAMES[p.key]} { w: ${p.w}, h: ${p.h} }`);
 });
 
 /**

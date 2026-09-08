@@ -53,7 +53,7 @@ import { Hand } from "./ui/hand.js";
 import { Coach } from "./ui/coach.js";
 import { Spotlight } from "./ui/spotlight.js";
 import { EndCard } from "./ui/endcard.js";
-import { FREEZE_STEPS, OutcomeScreen } from "./ui/outcome.js";
+import { FREEZE_LIFT, FREEZE_STEPS, OutcomeScreen } from "./ui/outcome.js";
 import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
@@ -616,10 +616,12 @@ async function boot() {
    * the only thing in the creative that needs both the renderer and the world
    * container, and both belong to this file.
    *
-   * Halved FREEZE_STEPS times rather than taken at full size, and that is how
-   * the blur is done: a forty-nine pixel wide still drawn back across a phone is
-   * a gaussian blur that costs four one-off textures and no shader passes at
-   * all. See the note in ui/outcome.js on why there is no BlurFilter here.
+   * Halved FREEZE_STEPS times and then doubled FREEZE_LIFT times back up, and
+   * that is how the blur is done: a pyramid, built out of one-off render
+   * textures, with no shader passes and no per-frame cost at all. The way down
+   * is the blur and the way back up is what stops it looking like a smashed
+   * screenshot — see FREEZE_LIFT in ui/outcome.js, and the note there on why
+   * there is no BlurFilter here.
    *
    * `world` and not `app.stage`, *and* the overlay taken off screen for the one
    * call: the overlay is where the card itself lives, along with the cut-in and
@@ -640,67 +642,113 @@ async function boot() {
   function freezeFight() {
     const made = [];
     const shown = overlay.visible;
+
+    /**
+     * One rung of the pyramid: the picture drawn at w by h and photographed
+     * again. Used going down and coming back up — the pass is the same either
+     * way, only the size it is handed differs.
+     *
+     * The scaled sprite goes in a container, and the container is what gets
+     * photographed. That indirection is the whole of this working.
+     *
+     * A Sprite's own transform is not part of its local bounds, so a sprite
+     * scaled to half size still measures a full texture, and generating from it
+     * either re-renders it at full size or — with an explicit half-size `frame`
+     * — crops the top-left quarter and throws the rest away. Three passes of
+     * that is not a blur, it is a zoom: the first attempt at this came back as
+     * the boss's corner badge stretched across the screen.
+     *
+     * A container's local bounds *do* include its children's transforms, so
+     * this measures exactly w by h and needs no frame at all.
+     */
+    const resample = (from, w, h) => {
+      const holder = new Container();
+      const step = new Sprite(from);
+      step.setSize(w, h);
+      holder.addChild(step);
+
+      const next = app.renderer.generateTexture({
+        target: holder,
+        resolution: 1,
+        antialias: false,
+        textureSourceOptions: { scaleMode: "linear" },
+      });
+      holder.destroy({ children: true });
+      made.push(next);
+      return next;
+    };
+
     try {
       // The photograph itself, at the size it was taken.
       overlay.visible = false;
       let texture = app.renderer.generateTexture({
         target: world,
         frame: new Rectangle(0, 0, view.w, view.h),
-        // One device pixel per CSS pixel, and the same on every pass below.
-        // Left to the renderer's own resolution the still would come out twice
-        // as big on a retina phone as on a cheap one, and the blur — which is
-        // nothing but how far this is upscaled again — would be half as strong
-        // on the device with the sharper screen. Pinned, every phone gets the
-        // same picture.
-        resolution: 1,
+        /**
+         * The renderer's own resolution, so the still is the frame and not a
+         * picture of it.
+         *
+         * This was pinned to 1, and the reason it was pinned is gone. It read:
+         * left to the renderer's resolution the still comes out twice as big on
+         * a retina phone as on a cheap one, so the blur — which is nothing but
+         * how far it is upscaled again — would be half as strong on the sharper
+         * screen. True, and it was the right pin while FREEZE_STEPS was 3.
+         *
+         * With the pyramid off, that pin is the only blur left on the card, and
+         * it is one nobody chose: a still taken at one device pixel per CSS
+         * pixel and drawn over a window rendered at two is a 2x bilinear stretch
+         * with no downsample under it. On a DPR-1 device it was sharp; on every
+         * phone this ships to it was soft, and soft by a different amount at
+         * each ratio — the opposite of what the pin was for.
+         *
+         * At the renderer's resolution the texture is texel-for-pixel with the
+         * frame it was taken from and there is no stretch at all. It costs a
+         * full-screen texture at DPR instead of at 1 — the size of the
+         * framebuffer, held for the life of the card.
+         *
+         * Put the 1 back with FREEZE_STEPS, not on its own: a pyramid wants a
+         * pinned base so the blur is the same everywhere, and this wants the
+         * renderer's when there is no pyramid.
+         */
+        resolution: app.renderer.resolution,
         antialias: false,
         textureSourceOptions: { scaleMode: "linear" },
       });
       overlay.visible = shown;
       made.push(texture);
 
-      // And then halved, FREEZE_STEPS times. Each pass draws the level above it
-      // at half size, so every pixel of the result is the average of four of the
-      // one before — a box pyramid, which is what makes this a blur rather than
-      // a badly resampled screenshot. See FREEZE_STEPS.
+      // Down first, halving FREEZE_STEPS times. Each pass draws the level above
+      // it at half size, so every pixel of the result is the average of four of
+      // the one before — a box pyramid, which is what makes this a blur rather
+      // than a badly resampled screenshot. See FREEZE_STEPS.
+      //
+      // The size at the top of each rung is kept, so the way back up lands on
+      // exactly the sizes the way down came off. Rounding to whole pixels twice
+      // against two different divisions is how a picture ends up a pixel wider
+      // than the thing it is supposed to line up with.
+      const rungs = [];
       let w = view.w;
       let h = view.h;
       for (let i = 0; i < FREEZE_STEPS; i++) {
+        rungs.push([w, h]);
         w = Math.max(2, Math.round(w / 2));
         h = Math.max(2, Math.round(h / 2));
+        texture = resample(texture, w, h);
+      }
 
-        /**
-         * The scaled sprite goes in a container, and the container is what gets
-         * photographed. That indirection is the whole of this loop working.
-         *
-         * A Sprite's own transform is not part of its local bounds, so a sprite
-         * scaled to half size still measures a full texture, and generating from
-         * it either re-renders it at full size or — with an explicit half-size
-         * `frame` — crops the top-left quarter and throws the rest away. Three
-         * passes of that is not a blur, it is a zoom: the first attempt at this
-         * came back as the boss's corner badge stretched across the screen.
-         *
-         * A container's local bounds *do* include its children's transforms, so
-         * this measures exactly w by h and needs no frame at all.
-         */
-        const holder = new Container();
-        const step = new Sprite(texture);
-        step.setSize(w, h);
-        holder.addChild(step);
-
-        const next = app.renderer.generateTexture({
-          target: holder,
-          resolution: 1,
-          antialias: false,
-          textureSourceOptions: { scaleMode: "linear" },
-        });
-        holder.destroy({ children: true });
-        made.push(next);
-        texture = next;
+      // And back up, FREEZE_LIFT of those halvings undone. Nothing is recovered
+      // by this — the detail went at the bottom of the pyramid and is not coming
+      // back — but each doubling is another tent filter over a picture that has
+      // already had one, and that is the difference between a blur and a grid of
+      // eighth-size squares with creases between them. See FREEZE_LIFT.
+      const lift = Math.max(0, Math.min(FREEZE_LIFT, rungs.length));
+      for (let i = 0; i < lift; i++) {
+        const [rw, rh] = rungs[rungs.length - 1 - i];
+        texture = resample(texture, rw, rh);
       }
 
       // Every level but the last is scaffolding: the card holds one texture and
-      // the other three are render targets nobody will read again.
+      // the rest are render targets nobody will read again.
       made.slice(0, -1).forEach((t) => t.destroy(true));
       return texture;
     } catch {

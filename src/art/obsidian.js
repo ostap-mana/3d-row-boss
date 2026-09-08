@@ -15,7 +15,41 @@ import { tween, Ease } from "../core/tween.js";
 
 const ART = 100;
 const PAD = 6;
-const TEX_SPAN = (ART + PAD * 2) / ART;
+/**
+ * The slab silhouette's own span, in ART units — see `body` in drawBlock, whose
+ * outermost points are -47 and +47.
+ *
+ * This is the number `resize` has to size against, and sizing against ART
+ * instead is what had the blocks crowding their neighbours. The texture is a
+ * padded box: ART plus PAD on each side, and the stone fills neither. Scaling
+ * the sprite so the *box* came out at a cell put the stone at 0.92 of one,
+ * against the 0.86 a gem takes, and two blocks side by side were left six
+ * pixels of daylight where two gems get eleven. On the tilt below they touched.
+ */
+const BODY = 94;
+
+/**
+ * What a stone occupies of its cell — GemView.resize in art/gems.js, and the
+ * same number the board's own tiles are drawn to (see the inset in board.js).
+ *
+ * A block encases a gem. It is the same piece on the board as the gem it traps,
+ * it sits in the same cell, and it has no business being bigger than one.
+ */
+const FOOTPRINT = 0.86;
+
+/**
+ * How far a block is allowed to sit off square, in radians.
+ *
+ * The tilt is what keeps a row of blocks from reading as tiling, and it is also
+ * the thing that put them on top of each other: a square of side s turned by t
+ * bounds s * (cos t + sin t), so the ±0.25 this used to be swelled a slab to
+ * 1.21 of its own width — past the cell however it was sized.
+ *
+ * At 0.085 the bound is 1.086, which puts a turned slab at 0.93 of a cell: off
+ * square enough to see, still clear of the four cells around it. Raising this
+ * means lowering FOOTPRINT to pay for it.
+ */
+const TILT = 0.085;
 
 let blockTex = null;
 
@@ -95,7 +129,10 @@ export class ObsidianView extends Container {
   }
 
   resize(cell) {
-    const span = cell * 0.98 * TEX_SPAN;
+    // Sized so the stone lands on FOOTPRINT, not the padded box around it: the
+    // sprite carries ART + PAD * 2 of texture for BODY of slab, so the box has
+    // to be scaled up by exactly that ratio to leave the stone at a gem's size.
+    const span = (cell * FOOTPRINT * (ART + PAD * 2)) / BODY;
     this.slab.setSize(span, span);
     this.heat.setSize(cell * 1.5, cell * 1.5);
   }
@@ -109,7 +146,7 @@ export class ObsidianView extends Container {
   async form() {
     this.scale.set(0.2);
     this.alpha = 0;
-    this.slab.rotation = (Math.random() - 0.5) * 0.5;
+    this.slab.rotation = (Math.random() - 0.5) * 2 * TILT;
     await Promise.all([
       tween(this, { alpha: 1 }, 0.14),
       tween(this.scale, { x: 1, y: 1 }, 0.34, { ease: Ease.backOut }),
