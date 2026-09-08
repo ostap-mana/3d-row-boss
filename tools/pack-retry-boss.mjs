@@ -5,11 +5,12 @@
  *   node tools/pack-retry-boss.mjs --png     # keep the intermediate PNG too
  *   node tools/pack-retry-boss.mjs --proof   # composite it over the end card
  *
- * The source is `src/source/endcard/retry-boss.png`: the boss leaning out over a
- * cracked obsidian plate with RETRY cut into it, one claw resting on the word
- * and the little shaman riding its shoulder. It is the defeat card's way out
- * drawn as a piece of the game rather than as a piece of furniture — which is
- * the one thing the two dividers before it could not be.
+ * The source is `src/source/endcard/retry-boss.png`: the beast roaring out of
+ * the frame over a banner with RETRY across it, a claw hooked round each end of
+ * it and the little shaman riding its shoulders, wrapped in a magenta bloom. It
+ * is the defeat card's way out drawn as a piece of the game rather than as a
+ * piece of furniture — which is the one thing the two dividers before it could
+ * not be.
  *
  * ## What it replaces, and the argument it loses
  *
@@ -29,28 +30,29 @@
  * The same rule as every other packer in this folder: the matte is already on
  * the source, and this tool trims, resamples and encodes.
  *
- * On this cut that is finally true in the ordinary way. The first delivery of
- * this lockup arrived on a sheet of white with the plate's bloom fading into it
- * over forty pixels — no edge on it to find, and nothing in this folder able to
- * find one. It was cut by `tools/cut-bg.mjs --glow`, which floods the white,
- * walks out through the bloom as far as the ink line the art is drawn with, and
- * reads each bloom pixel's coverage off how far its darkest channel has fallen
- * below the sheet. That pass is still in the keyer and is still the way to
- * handle art delivered that way; this file no longer needs it, and both v1
- * files — `retry-boss-v1-white.png` and the cut taken off it — stay on disk
- * beside the current source rather than being the current source.
+ * The matte is on the source because a cutter put it there, and which cutter
+ * has been a different answer for each of the three deliveries this lockup has
+ * had. The first arrived on a sheet of white with the plate's bloom fading into
+ * it over forty pixels, and was keyed by `tools/cut-bg.mjs --glow`. The second
+ * arrived with an alpha channel drawn by hand and needed nothing. The third —
+ * the current one — arrived as 1344x896 of flat dark teal with no alpha at all,
+ * and is cut by `tools/cut-dark-bg.mjs`: a bloom over a dark fill is an additive
+ * glow, so the alpha is `max(pixel - backdrop)` for everything the border can
+ * flood to and solid for the painting the flood cannot reach. Every source is
+ * still on disk beside the current one — `retry-boss-v1-*.png`,
+ * `retry-boss-v2.png`, `retry-boss-v3-teal.png` — rather than being it.
  *
- * What arrives now is 1593x987 with a real alpha channel: 46.6% clear, 52.5%
- * solid and 0.9% in between. That soft band is half of what the keyed cut had,
- * which is the shape of a matte drawn by hand rather than solved out of a
- * gradient — the edges are the art's own ink line and there is no bloom left
- * outside it to unmix. Nothing below keys, thresholds or reconstructs anything,
- * and nothing here may start.
+ * What this file is handed is 1344x896 already carrying that matte: 48.3%
+ * clear, 45.4% solid and 6.3% in between. The soft band is wide because most of
+ * what surrounds this lockup is bloom rather than edge, which is the one number
+ * on the line above worth reading — a cut of this art with a *thin* soft band
+ * would be a cut with the glow sawn off. Nothing below keys, thresholds or
+ * reconstructs anything, and nothing here may start.
  *
  * ## The width, and why it is not the ornament's
  *
  * 640, and not the divider's 1024. The rule was 85 px deep at 1024 and spent
- * every pixel it had on an edge; this is a painting at about 7:5 drawn some 235
+ * every pixel it had on an edge; this is a painting at about 7:6 drawn some 235
  * points across on a phone — 470 device pixels at a renderer clamped to
  * resolution 2 — so 640 is a third more than it is ever asked for. It is also
  * the width the PLAY NOW plate is packed at, which is the piece of art directly

@@ -84,8 +84,11 @@ import { READY_SCALE, READY_SWING } from "../art/heroes.js";
  *
  * So the stone travels the whole way, exactly as it did — that is the gesture
  * being taught and it is not allowed to be a half-measure — and then sets off
- * home on the same beat it arrives, under a mark that stays up without it. The
- * run is shown; it is never left standing.
+ * home on the same beat it arrives. What HOLD buys is the beat around that
+ * journey and not a park at the end of it: the run's frame is up for as long as
+ * the stones are in the run, comes off with them, and what is left of HOLD is
+ * held on the pair instead. The run is shown; neither it nor the mark round it
+ * is ever left standing.
  */
 const HOLD = 0.62;
 /** The travel, out and back. Out is the lesson; back is the stone not staying. */
@@ -1026,19 +1029,25 @@ export class Coach extends Container {
     //    home in the same beat, so the run it completed exists for the turn of
     //    the travel and not a moment longer. See HOLD.
     //
-    //    Not awaited here. The mark is what holds the beat now: the frame round
-    //    the three cells stays up for HOLD while the two stones slide back out
-    //    from under it, which is the lesson saying "that is the run" about a
-    //    board it has already handed back. Awaiting the return first would put
-    //    the stall back exactly where it was taken out of.
+    //    And the frame comes off with them. It used to stay up for the whole of
+    //    HOLD while the stones slid back out from under it, which is a third of
+    //    a second of a mark held over a board that has already gone back: by
+    //    then the cell the traveller borrowed is holding its own gem again, so
+    //    what is on screen is a nature frame with an arcane stone standing
+    //    inside it — a bracket in the wrong place, which is the one thing these
+    //    marks are not allowed to be. Waiting for the return costs nothing that
+    //    was bought here: the stones still set off home on the beat they land,
+    //    they still travel out from under a frame saying "that is the run", and
+    //    what is left of HOLD is spent on the pair — so the pass is the same
+    //    length it was and nothing else in the loop moves.
     hand.leave(grip);
     const home = board.previewSwap(from, to, RETURN, true);
-    await delay(HOLD);
+    await home;
     if (id !== this.token) return;
 
     // The pair stays lit underneath while the lesson waits to say it again.
     show({ lit: rest });
-    await home;
+    await delay(Math.max(0, HOLD - RETURN));
     if (id !== this.token) return;
     await tween(this, { alpha: REST_ALPHA }, 0.22);
   }

@@ -39,10 +39,11 @@ export const KEY_ART = { w: 1500, h: 1246 };
 /**
  * The RETRY lockup, packed by tools/pack-retry-boss.mjs.
  *
- * The defeat card's way out, painted: the boss leaning out over a cracked
- * obsidian plate with RETRY cut into it, one claw resting on the word and the
- * little shaman riding its shoulder. The rematch offered by the thing that took
- * the fight off the player, which is an argument only a picture can make.
+ * The defeat card's way out, painted: the beast roaring straight out of the
+ * frame over a banner with RETRY across it, a claw hooked round each end of the
+ * banner and the little shaman riding its shoulders, the whole thing wrapped in
+ * a magenta bloom. The rematch offered by the thing that took the fight off the
+ * player, which is an argument only a picture can make.
  *
  * It is the third shape this control has had and the first that is a picture of
  * the game rather than a piece of furniture. It replaced a hairline rule, which
@@ -58,23 +59,32 @@ export const KEY_ART = { w: 1500, h: 1246 };
  * tools/pack-retry-line.mjs and tools/pack-retry.mjs. Nothing imports either,
  * so neither is bytes in the bundle.
  *
- * At 1.38 it is a painting and not a rule, and the difference costs the layout
+ * At 1.16 it is a painting and not a rule, and the difference costs the layout
  * a second number: fitted to the width the old rule was given it would stand
- * about nine times as deep, which upright eats the picture and sideways is
+ * about twelve times as deep, which upright eats the picture and sideways is
  * taller than the column it is a rung of. So this one is fitted to a width
  * *and* a ceiling, and hands back the box it settled on. See fitRetryBoss.
  *
- * ## Two deliveries, and why the shape moved
+ * ## Three deliveries, and why the shape keeps moving
  *
- * The first cut of this lockup came in at 1.42 on a sheet of white, and had to
- * be keyed off it — see tools/cut-bg.mjs --glow, and the v1 files still beside
- * the current source. This is the artist's own matted delivery of the same
- * lockup: a little taller in proportion, with the word set larger inside the
- * plate and the boss cropped closer around it. Nothing in the card was written
- * to 1.42 — the fit asks the constant, and the constant is a transcript of what
- * the packer printed — so the swap was this number and the packed file.
+ * The first cut came in at 1.42 on a sheet of white and had to be keyed off it —
+ * see tools/cut-bg.mjs --glow. The second was the artist's own matted delivery
+ * at 1.38, a plate of cracked obsidian with the boss leaning over it. This is
+ * the third: a different lockup rather than a recut of the same one, and the
+ * one place in the creative where the art is louder than the pitch above it on
+ * purpose. It arrived at 1344x896 on a flat dark teal sheet with no alpha at
+ * all, and is cut by tools/cut-dark-bg.mjs, which is in the folder because of
+ * it — a bloom over a dark fill is an additive glow and neither of the other
+ * two cutters can read one.
+ *
+ * Every one of those three was a different aspect and none of them cost the
+ * card a line: the fit asks this constant, the constant is a transcript of what
+ * the packer printed, and the ceiling in the caller is what keeps a taller
+ * painting from taking the screen. All three sources are still on disk beside
+ * the current one, as `retry-boss-v1-*.png`, `retry-boss-v2.png` and
+ * `retry-boss-v3-teal.png`.
  */
-export const RETRY_BOSS_ART = { w: 640, h: 464 };
+export const RETRY_BOSS_ART = { w: 640, h: 551 };
 
 /**
  * The RETRY divider, out of the build — and kept only as a measurement.

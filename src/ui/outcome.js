@@ -58,9 +58,21 @@
  *
  * ## How it ends
  *
- * A tap anywhere, or the hold running out. There are no buttons on it — the
- * game's own card has none, and the rematch a loss is owed is offered by the end
- * card immediately after this one. See ui/endcard.js.
+ * On a win: a tap anywhere, or the hold running out, and the store card comes
+ * up behind it. See ui/endcard.js.
+ *
+ * On a loss it does not end at all — it is the last screen of the run. There is
+ * one control on it, RETRY, and no card behind it: the store screen was asked
+ * off the losing path outright. A player who has just been wiped is being sold
+ * to on the frame they most want another go, and the tap they are reaching for
+ * is the rematch — so that is the only thing on the screen to hit. The pitch
+ * still has the banner in the HUD, all the way through the fight, and it still
+ * has the whole end card on a win.
+ *
+ * That is the one asymmetry on this card, and everything it touches is named
+ * `terminal` below: the hold is not armed, the whole-screen tap answers nothing,
+ * and `show` settles as soon as the verdict is up rather than when the player
+ * leaves — because on this path they do not.
  */
 
 import { Container, Graphics, Rectangle, Sprite, Text } from "pixi.js";
@@ -75,6 +87,7 @@ import {
   lineSprite,
   verdictSprite,
 } from "../art/outcomeui.js";
+import { PLAY_RIM, fitRetryBoss, retryBossSprite } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -255,6 +268,58 @@ const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 const LINE_W = { portrait: 0.44, landscape: 0.26 };
 
 /**
+ * The RETRY control — an offer of width and a ceiling on height, and nothing
+ * about where it goes. See `terminal`, and the block in `resize`.
+ *
+ * Where it goes is measured rather than chosen, and that is the whole of what
+ * these two are left holding. It was placed on the tap line's own fraction of
+ * the stage — 0.86 upright, 0.7 sideways — on the argument that the sentence
+ * asking for a tap and the button answering it belong in the same place. The
+ * argument is sound and the fraction is not: 0.86 of the box the player can see
+ * is *inside the hero row* on every screen in the matrix, because the row is
+ * measured off a card's own aspect and lands where it lands. So the party wore
+ * the button on a phone, on both iPads and on a desktop, and the one thing on a
+ * frozen fight that must not be covered is the six faces the player just lost
+ * with.
+ *
+ * So the control is given the room between the bottom of the verdict and the
+ * top of the party, and the numbers that room is made of are the layout's own —
+ * `layout.cards.y`, `layout.board`, the band this file just fitted. Nothing
+ * about it is a fraction of the screen any more, which is why it comes out
+ * right on a 344 point phone and on a 1024 point tablet without either being
+ * special-cased.
+ *
+ * `W` is a share of the safe box's width and `MAX` a ceiling as a share of its
+ * height, and the lockup takes both as an offer: it is a painting at 1.16 and
+ * it comes back with whatever box that aspect allows inside them and inside the
+ * room. See fitRetryBoss.
+ *
+ * MAX is generous — a quarter of the screen and better — because it is no
+ * longer the thing that stops the button growing. The room is, and a ceiling
+ * tighter than the room is a ceiling that shrinks a button for no reason on the
+ * screens that had space for it. It still binds on a tall phone, where the room
+ * under the board is deep and a control that took all of it would be a plaque
+ * rather than a button.
+ */
+const RETRY_W = { portrait: 0.56, landscape: 0.34 };
+const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
+
+/** Air between the control and whatever bounds it, in UI points. */
+const RETRY_AIR = 12;
+
+/**
+ * The drawn pill, for the device that could not decode the lockup.
+ *
+ * The same shape and the same two colours the end card's own fallback uses —
+ * the card's backdrop rimmed in the plate's gold — because it is the same
+ * button, and a rematch that looks like a different control on a cheap phone is
+ * a control the player has to work out twice. See PLAY_RIM.
+ */
+const RETRY_PILL = { w: 0.42, h: 0.075 };
+const RETRY_FILL = 0x1a0c2c;
+const RETRY_LABEL = 0xffe6a8;
+
+/**
  * The flash.
  *
  * `HOLD` is how long it stays at full before it starts leaving, and it is two
@@ -318,14 +383,28 @@ export class OutcomeScreen extends Container {
    *   function rather than a texture because the still has to be taken at the
    *   moment the fight ends, and this card is built thirty seconds earlier.
    *
-   * There is no `onContinue` and no `onRetry`. Leaving is what `show` resolving
-   * means, and the card has no second control to hang one off: the rematch
-   * belongs to the end card, one screen later.
+   * @param {() => void} [onRetry] play it again. The card's one control, and
+   *   only on a loss — see `terminal` and RETRY_W. Optional: without it the
+   *   loss falls back to the way out it had before, which is the card resolving
+   *   and the store screen behind it.
+   *
+   * There is still no `onContinue`. On a win, leaving is what `show` resolving
+   * means and a tap anywhere is how it is done.
    */
-  constructor(freeze) {
+  constructor(freeze, onRetry) {
     super();
     this.visible = false;
     this.freeze = freeze || (() => null);
+    this.onRetry = onRetry || null;
+    /**
+     * Whether this showing of the card is the last screen of the run.
+     *
+     * Set by `show` off the result, read by everything that would otherwise
+     * take the player off the card — the hold in `update`, the whole-screen tap
+     * through `leave`, and `settle`, which arms the hold again after a
+     * rotation. See the header.
+     */
+    this.terminal = false;
 
     this.layout = null;
     this.defeat = false;
@@ -350,6 +429,17 @@ export class OutcomeScreen extends Container {
      * texture gets.
      */
     this.still = null;
+    /**
+     * The window the still was photographed in. See `reframe`.
+     *
+     * Held because a photograph is only square to the screen it was taken from,
+     * and this card outlives the screen: on a loss it is the last thing up, and
+     * a phone rotated or a desktop window dragged while it is standing there
+     * leaves the frozen fight to be fitted into a box it was never shot for.
+     */
+    this.stillAt = null;
+    /** Raised when the still no longer matches the screen. See `reframe`. */
+    this.stale = false;
 
     this.scrim = new Sprite(gradientTexture("outcome-scrim", SCRIM));
     this.addChild(this.scrim);
@@ -482,6 +572,56 @@ export class OutcomeScreen extends Container {
     this.tap.alpha = 0;
     this.addChild(this.tap);
 
+    /* ------------------------------------------------------------- retry */
+
+    /**
+     * RETRY — the one control this card has ever had, and only on a wipe.
+     *
+     * Built here and hidden, like the tap line it stands in for: `show` is the
+     * first moment the result is known. Exactly one of the two is ever on
+     * screen, and the same is true inside this container — the painted lockup
+     * when it decoded, the drawn pill and its type when it did not. See
+     * RETRY_PILL, and fitRetry, which is where that choice is made once.
+     *
+     * Its own hit area and its own listener, rather than the card's
+     * whole-screen tap: on this path that tap answers nothing at all, so a
+     * rematch has to be asked for on the button. See `leave`.
+     */
+    this.retry = new Container();
+    this.retryBg = new Graphics();
+    this.retry.addChild(this.retryBg);
+    this.retryArt = retryBossSprite();
+    if (this.retryArt) this.retry.addChild(this.retryArt);
+    this.retryText = new Text({
+      text: COPY.retry,
+      style: {
+        fontFamily: FONT,
+        fontSize: 20,
+        fontWeight: "900",
+        fill: RETRY_LABEL,
+        letterSpacing: 2.4,
+      },
+    });
+    this.retryText.anchor.set(0.5);
+    // The painting carries its own word. The Text is built either way, so a
+    // device that decoded nothing still has a button with RETRY on it.
+    this.retryText.visible = !this.retryArt;
+    this.retry.addChild(this.retryText);
+    this.retry.visible = false;
+    this.retry.alpha = 0;
+    this.retry.eventMode = "static";
+    this.retry.cursor = "pointer";
+    this.retry.on("pointertap", (e) => {
+      // The card behind it takes taps of its own on a win, and this control is
+      // only ever up on a loss — but the guard is free and the day the two ever
+      // overlap is not the day to find out that a rematch also left the card.
+      e.stopPropagation();
+      if (!this.onRetry || this.arming > 0) return;
+      sfx.select();
+      this.onRetry();
+    });
+    this.addChild(this.retry);
+
     /* ----------------------------------------------------------- the flash */
 
     /**
@@ -525,7 +665,7 @@ export class OutcomeScreen extends Container {
 
     // The still covers the window and not the stage: it is a photograph of the
     // whole screen, and it goes back exactly where it was taken from.
-    if (this.still) this.still.setSize(w, h);
+    if (this.still) this.reframe(w, h);
     this.scrim.setSize(w, h);
 
     this.flash.clear();
@@ -604,9 +744,180 @@ export class OutcomeScreen extends Container {
       this.line.position.set(0, -size * 1.6);
     }
 
+    /* ------------------------------------------------------------- retry */
+
+    // Solved on every layout and not only while it is up, for the same reason
+    // the band is: a rotation arrives whenever it likes, and a control fitted
+    // only on the frame it was shown is a control that is the wrong size for
+    // the rest of the run. It costs one fit of a sprite nobody can see.
+    //
+    // On the board's own middle, in both orientations, and the second one is
+    // where that earns its keep. Upright the board is centred in the field, so
+    // this is the middle of the screen and reads as the middle of the screen.
+    // Sideways the board hugs the right edge — for thumb reach, see
+    // landscapeLayout in core/layout.js — and the rematch belongs in the same
+    // reach as the gems the player was just swiping. It is also the only column
+    // of that layout with no party in it: the hero row runs along the foot of
+    // the boss's column, beside the board and not under it.
+    const b = layout.board;
+    const retryX = b.x + b.size / 2;
+
+    /**
+     * The room the control is placed in: from under the verdict down to
+     * whatever it must not cover.
+     *
+     * The floor is the top of the hero row where the control stands over the
+     * row, and the foot of the safe box where it does not — which is one
+     * geometric question asked of the two numbers that answer it, rather than
+     * an orientation the code has to know about. Upright the row runs the whole
+     * width and the answer is the row; sideways the board is clear of it and the
+     * answer is the screen.
+     */
+    const air = RETRY_AIR * ui;
+    const rowLeft = layout.cards.x;
+    const rowRight = rowLeft + layout.cards.w;
+    const overRow = retryX > rowLeft && retryX < rowRight;
+    const roof = cy + ph / 2 + air;
+    const sill = (overRow ? layout.cards.y : s.bottom) - air;
+    // A floor under the room as well as a ceiling: a window short enough to
+    // leave the band and the row touching gets a small button rather than an
+    // inside-out one, and 44 is the same thumb the hit area is bought for.
+    const room = Math.max(44 * ui, sill - roof);
+
+    const box = this.fitRetry(
+      s.w * RETRY_W[key],
+      Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
+      ui,
+    );
+    this.retry.position.set(retryX, (roof + sill) / 2);
+    // A thumb's worth of height whatever the ceiling did to the art — and the
+    // width the art actually came back with, so the box cannot reach out past
+    // the picture into the dark either side of it.
+    const hitH = Math.max(box.h, 44);
+    this.retry.hitArea = new Rectangle(-box.w / 2, -hitH / 2, box.w, hitH);
+
     // The card just moved. Anything still flying towards where it used to be has
     // to be told, or it will spend the next half second putting it back.
     if (this.introducing) this.settle();
+  }
+
+  /**
+   * The still, fitted to a window that may not be the one it was taken in.
+   *
+   * `setSize(w, h)` was the whole of this, and it is right exactly as long as
+   * the screen never changes shape — which is a thing this card cannot assume,
+   * least of all now. On a loss it is the last screen of the run and it stands
+   * there until the player taps RETRY, so a phone turned over or a desktop
+   * window dragged narrower is a photograph of a landscape fight pulled into a
+   * portrait box: round gems come out as ovals, the health bar reaches a third
+   * of the way across, the party is a smear along the bottom. It is the single
+   * ugliest thing the creative can be made to do, and it takes one gesture.
+   *
+   * Two answers, in order.
+   *
+   * The good one is another photograph. The world under this card is still
+   * there and `relayout` has just re-solved every piece of it for the new
+   * screen — see main.js — so the fight can simply be shot again, correctly
+   * composed, and the card goes on showing the position the player lost from.
+   * That is deferred to the next frame rather than taken here: this runs inside
+   * the relayout itself, with the lava mask further down the same function
+   * still holding the shape of the screen we have just left.
+   *
+   * The one for this frame, and the one a renderer that refuses a second
+   * texture keeps, is to cover the window with the picture we have. Cropped
+   * rather than stretched — a photograph shown at the wrong size is a
+   * photograph, and one shown at the wrong aspect is a funhouse mirror.
+   */
+  reframe(w, h) {
+    const at = this.stillAt;
+    if (!at || (at.w === w && at.h === h)) {
+      this.still.position.set(0, 0);
+      this.still.setSize(w, h);
+      return;
+    }
+
+    const k = Math.max(w / at.w, h / at.h);
+    const fw = at.w * k;
+    const fh = at.h * k;
+    this.still.position.set((w - fw) / 2, (h - fh) / 2);
+    this.still.setSize(fw, fh);
+    this.stale = true;
+  }
+
+  /**
+   * Photograph the fight again, for the screen it is on now. See `reframe`.
+   *
+   * The old texture is released after the new one is in place and never before:
+   * a renderer that hands back nothing leaves the card wearing the cropped
+   * still, which is a frame off but is a picture, and a card that had freed its
+   * own backdrop first would be a black screen with a word on it.
+   */
+  rephotograph() {
+    this.stale = false;
+    if (!this.still || !this.layout) return;
+    const fresh = this.freeze();
+    if (!fresh) return;
+
+    const old = this.still.texture;
+    this.still.texture = fresh;
+    this.still.tint = STILL_TINT;
+    this.stillAt = { w: this.layout.w, h: this.layout.h };
+    this.still.position.set(0, 0);
+    this.still.setSize(this.layout.w, this.layout.h);
+    if (old && old !== fresh) {
+      try {
+        old.destroy(true);
+      } catch {
+        /* a texture the renderer already dropped has nothing to free */
+      }
+    }
+  }
+
+  /**
+   * Size the retry control into `w` by `maxH`, and report the box it took.
+   *
+   * The painted lockup takes the two as an offer — it is nearly square next to
+   * everything else on this screen, so a width that suits the stage can imply a
+   * height the stage has not got, and fitRetryBoss is what brings the width
+   * back down to meet the ceiling rather than squashing the boss into it.
+   *
+   * The drawn pill is not measured against either: it is a flat capsule and its
+   * box is its own two fractions of the stage. Whichever path runs, the other
+   * one's marks are cleared — the pill is drawn empty behind the painting, and
+   * `retryText.visible` was settled once in the constructor.
+   *
+   * @returns {{w: number, h: number}}
+   */
+  fitRetry(w, maxH, ui) {
+    this.retryBg.clear();
+    if (this.retryArt) return fitRetryBoss(this.retryArt, w, maxH);
+
+    const s = this.layout.safeBox;
+    const pw = s.w * RETRY_PILL.w;
+    const ph = clamp(s.h * RETRY_PILL.h, 34 * ui, 64 * ui);
+    const r = ph * 0.42;
+    const g = this.retryBg;
+    g.roundRect(-pw / 2, -ph / 2, pw, ph, r);
+    g.fill({ color: RETRY_FILL, alpha: 0.86 });
+    g.roundRect(-pw / 2, -ph / 2, pw, ph, r);
+    g.stroke({ width: Math.max(1.5, ph * 0.06), color: PLAY_RIM, alpha: 0.9 });
+    fitFont(this.retryText, pw * 0.72, Math.max(12, ph * 0.4));
+    this.retryText.position.set(0, 0);
+    return { w: pw, h: ph };
+  }
+
+  /**
+   * Whether the card would be the last screen of the run for this result.
+   *
+   * Asked by Director.finish before it shows the card, because the decision
+   * belongs to the same object that acts on it: a card holding a rematch and a
+   * director queueing a store screen behind it would put the pitch up over the
+   * top of a button offering to take it down. See the header.
+   *
+   * @param {"victory"|"defeat"} outcome
+   */
+  terminalFor(outcome) {
+    return outcome === "defeat" && !!this.onRetry;
   }
 
   /**
@@ -662,13 +973,28 @@ export class OutcomeScreen extends Container {
    * Put the verdict up, and resolve when the player leaves it.
    *
    * @param {"victory"|"defeat"} outcome
-   * @returns {Promise<void>} settles when the card is done with. The end card
-   *   goes up next — see Director.finish.
+   * @returns {Promise<void>} on a win, settles when the player leaves the card
+   *   and the end card goes up next — see Director.finish. On a loss it settles
+   *   as soon as the verdict and the button are up and the card then stays
+   *   where it is: there is nothing to go on to, and the only way off it is the
+   *   rematch. See `terminal`.
    */
   async show(outcome) {
     this.defeat = outcome === "defeat";
+    this.terminal = this.terminalFor(outcome);
     this.word.text = this.defeat ? COPY.outcomeDefeat : COPY.outcomeVictory;
     this.aim();
+
+    /**
+     * Which of the two prompts this showing has under the verdict.
+     *
+     * Never both, and the one that is off is off rather than transparent: the
+     * card is a whole-screen tap target on a win, and a tap line left up at
+     * alpha zero under a RETRY button would be a sentence the player cannot
+     * read telling them a tap does something it no longer does.
+     */
+    this.retry.visible = this.terminal;
+    this.tap.visible = !this.terminal;
 
     /**
      * The room the verdict is read in, and the only place the result is allowed
@@ -702,6 +1028,9 @@ export class OutcomeScreen extends Container {
       const texture = this.freeze();
       if (texture) {
         this.still = new Sprite(texture);
+        this.stillAt = this.layout
+          ? { w: this.layout.w, h: this.layout.h }
+          : null;
         // Under the scrim, which is index 0 until this arrives.
         this.addChildAt(this.still, 0);
       }
@@ -725,6 +1054,7 @@ export class OutcomeScreen extends Container {
 
     this.card.alpha = 0;
     this.tap.alpha = 0;
+    this.retry.alpha = 0;
     this.bloom.alpha = 0;
     this.flash.alpha = 1;
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
@@ -732,6 +1062,18 @@ export class OutcomeScreen extends Container {
     const waiting = new Promise((resolve) => {
       this.leaving = resolve;
     });
+    /**
+     * What this call hands back, which is not the same question as what the
+     * card does next.
+     *
+     * On a win it is `waiting` — the card is a door and `show` settles when the
+     * player goes through it. On a loss there is no door, so the caller is let
+     * go of once the verdict is standing and the card simply stays up behind
+     * it. `waiting` is still armed underneath, and nothing ever resolves it:
+     * `leave` is the only thing that would, and it refuses outright while the
+     * card is terminal.
+     */
+    const done = this.terminal ? Promise.resolve() : waiting;
 
     /**
      * The ending's own stinger, on the word rather than on the flash.
@@ -785,16 +1127,19 @@ export class OutcomeScreen extends Container {
     tween(this.bloom, { alpha: this.defeat ? 0.3 : 0.42 }, 0.5, { delay: 0.1 });
 
     await delay(0.62);
-    if (!this.introducing) return waiting;
+    if (!this.introducing) return done;
 
-    await tween(this.tap, { alpha: 1 }, 0.3);
-    if (!this.introducing) return waiting;
+    // Whichever prompt this ending has — the sentence, or the button.
+    await tween(this.terminal ? this.retry : this.tap, { alpha: 1 }, 0.3);
+    if (!this.introducing) return done;
 
     this.introducing = false;
     // The clock starts once the line asking for a tap is up, and not at `show`:
     // a hold measured from the flash is a hold most of which was spent behind it.
-    this.hold = T.outcomeHold;
-    return waiting;
+    // A terminal card never arms it: there is nowhere for it to advance to, and
+    // a card that timed out on a loss would take the rematch off the screen.
+    this.hold = this.terminal ? -1 : T.outcomeHold;
+    return done;
   }
 
   /**
@@ -809,7 +1154,7 @@ export class OutcomeScreen extends Container {
     if (!this.introducing) return;
     this.introducing = false;
 
-    [this.card, this.tap].forEach((el) => {
+    [this.card, this.tap, this.retry].forEach((el) => {
       killTweensOf(el);
       killTweensOf(el.scale);
       el.alpha = 1;
@@ -824,7 +1169,7 @@ export class OutcomeScreen extends Container {
     this.flash.alpha = 0;
 
     if (this.layout) this.resize(this.layout);
-    this.hold = T.outcomeHold;
+    this.hold = this.terminal ? -1 : T.outcomeHold;
   }
 
   /**
@@ -839,6 +1184,11 @@ export class OutcomeScreen extends Container {
   leave(how) {
     if (!this.leaving) return;
     if (this.arming > 0) return;
+    // Nowhere to go. On a loss this card is the end of the run and the tap the
+    // player is making is either the rematch — which has its own listener and
+    // stops the event before it reaches the card — or a tap on the frozen
+    // fight, which is not an instruction to do anything. See the header.
+    if (this.terminal) return;
 
     const resolve = this.leaving;
     this.leaving = null;
@@ -862,6 +1212,9 @@ export class OutcomeScreen extends Container {
 
   update(dt) {
     if (!this.visible) return;
+    // Before anything that moves: the screen changed shape a frame ago and the
+    // backdrop is a crop of a picture of the old one. See `reframe`.
+    if (this.stale) this.rephotograph();
     this.t += dt;
 
     if (this.arming > 0) this.arming -= dt;

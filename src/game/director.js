@@ -3271,10 +3271,18 @@ export class Director {
    * is that the verdict is no longer competing with the pitch for the same
    * screen.
    *
-   * The rematch is the one path that stops here. RETRY on the outcome screen
-   * rebuilds the whole cast on the spot — see main.js `restart` — so this run's
-   * last act is to not show a card over the top of a fight that has already
-   * started again.
+   * The rematch is the one path that stops here. RETRY rebuilds the whole cast
+   * on the spot — see main.js `restart` — so this run's last act is to not show
+   * a card over the top of a fight that has already started again.
+   *
+   * And on a loss there are two screens no longer: the store card was asked off
+   * the losing path outright, so a wipe ends on the verdict with RETRY on it and
+   * nothing behind it. Which of the two the card is doing is the card's own
+   * answer — see OutcomeScreen.terminalFor — because the alternative is this
+   * method deciding it and the card deciding it separately, and the failure that
+   * gets you is a pitch fading up over a button offering to take it away. The
+   * install is still asked for twice on that path: the banner in the HUD is up
+   * for the whole fight, and a win still gets the whole card.
    */
   async finish() {
     if (this.ended) return;
@@ -3305,10 +3313,17 @@ export class Director {
     // calling it anything else would be the old lie in a new place.
     const outcome = this.outcome || (this.bossHp <= 0 ? "victory" : "defeat");
 
-    // The verdict, over a frozen still of the fight that just ended. It takes a
-    // tap or about three seconds, and there is no way off it but forward — see
-    // ui/outcome.js, which has no buttons on it at all.
+    // Asked before the card is shown rather than after: `show` settles the
+    // moment a terminal card is standing, and by then the card is up and the
+    // answer has to already have been acted on.
+    const terminal = this.s.outcome.terminalFor(outcome);
+
+    // The verdict, over a frozen still of the fight that just ended. On a win it
+    // takes a tap or about three seconds and there is no way off it but forward.
     await this.s.outcome.show(outcome);
+
+    // A wipe stops here, on a card with RETRY on it. See the note above.
+    if (terminal) return;
 
     // `true`: the verdict has been stamped once already, and a card that stamps
     // it a second time is the creative telling the player something they read

@@ -277,13 +277,21 @@ async function boot() {
      * crosses over the top of it rather than cutting to it. See ui/outcome.js.
      *
      * All it is given is a way to photograph the fight, because that is all it
-     * needs: it has no buttons on it, and leaving it is what its `show`
-     * resolving means. A loss gets its rematch from the end card a beat later.
+     * needs on a win: nothing on it to press, and leaving it is what its `show`
+     * resolving means.
+     *
+     * A loss is where its one button lives now. The store card is off that path
+     * — see Director.finish — so the verdict is the last screen of the run and
+     * RETRY is the only thing on it, wired to the same `restart` the end card's
+     * own button has always called.
      */
-    const outcome = new OutcomeScreen(freezeFight);
+    const outcome = new OutcomeScreen(freezeFight, () => restart());
     // Two ways off this card: the store, and back into the fight. The second is
     // only offered on a wipe — see ui/endcard.js — and it is the only tap in the
-    // creative that does not lead to a store page.
+    // creative that does not lead to a store page. A wipe no longer reaches this
+    // card at all, so on the shipped routes that button is unreachable; it is
+    // left wired because the card is also built for hosts that show it on a loss
+    // — see EndCard.show, which still makes the same decision itself.
     const endcard = new EndCard(
       (source) => ctaClick(source),
       () => restart(),
