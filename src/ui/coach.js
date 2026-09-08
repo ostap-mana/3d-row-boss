@@ -20,7 +20,10 @@
  *   4. the run lights as one, inside a single frame drawn round the whole of
  *      it — this is what you were making. One frame per run and not one round
  *      everything that lit: a swap can finish two runs at once, in two
- *      elements, and each gets its own frame in its own colour.
+ *      elements, and each gets its own frame in its own colour. The stones
+ *      leave on the beat they arrive and the frame is what stays: a board is
+ *      never left standing with three of a kind in a line on it, because a run
+ *      the board is wearing is a clear the board owes. See HOLD.
  *
  * Then it puts everything back and does it again, holding the pair lit at
  * REST_ALPHA in between, until whoever started it calls stop().
@@ -66,9 +69,26 @@ import {
 } from "../art/hintmarks.js";
 import { READY_SCALE, READY_SWING } from "../art/heroes.js";
 
-/** How long the completed run is held up before the board is put back. */
+/**
+ * How long the run's own marks are held up — the frame drawn round the three
+ * cells the swipe would fill.
+ *
+ * The *stones* are not held there any more, and that is the whole of the fix
+ * this constant used to be the bug in. The demo landed the travelling stone in
+ * its cell and then parked it there for most of a second, which meant the
+ * first thing the creative showed anybody — the cold pass runs before the
+ * touch, on a loop — was three of the same element standing in a row on a
+ * match-3 board with nothing clearing them. Every player who saw that read the
+ * board as broken, and they read it correctly: three in a line is a clear the
+ * board owes, and a board that owes one and does not pay it is a bug.
+ *
+ * So the stone travels the whole way, exactly as it did — that is the gesture
+ * being taught and it is not allowed to be a half-measure — and then sets off
+ * home on the same beat it arrives, under a mark that stays up without it. The
+ * run is shown; it is never left standing.
+ */
 const HOLD = 0.62;
-/** The travel, out and back. Out is the lesson; back is only bookkeeping. */
+/** The travel, out and back. Out is the lesson; back is the stone not staying. */
 const TRAVEL = 0.4;
 const RETURN = 0.26;
 /** The beat between one pass and the next. */
@@ -1001,14 +1021,24 @@ export class Coach extends Container {
       return board.typeAt(r, c);
     };
     show({ lit: run, joined: straightRuns(run, landed) });
+
+    // 5. And back, on the frame it landed — the stone is let go of and sent
+    //    home in the same beat, so the run it completed exists for the turn of
+    //    the travel and not a moment longer. See HOLD.
+    //
+    //    Not awaited here. The mark is what holds the beat now: the frame round
+    //    the three cells stays up for HOLD while the two stones slide back out
+    //    from under it, which is the lesson saying "that is the run" about a
+    //    board it has already handed back. Awaiting the return first would put
+    //    the stall back exactly where it was taken out of.
+    hand.leave(grip);
+    const home = board.previewSwap(from, to, RETURN, true);
     await delay(HOLD);
     if (id !== this.token) return;
 
-    // 5. Put the board back the way the model has always had it — and leave
-    //    the pair lit underneath while the lesson waits to say it again.
-    hand.leave(grip);
+    // The pair stays lit underneath while the lesson waits to say it again.
     show({ lit: rest });
-    await board.previewSwap(from, to, RETURN, true);
+    await home;
     if (id !== this.token) return;
     await tween(this, { alpha: REST_ALPHA }, 0.22);
   }
