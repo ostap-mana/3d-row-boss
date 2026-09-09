@@ -1683,17 +1683,20 @@ export class Director {
       const gems = counts[card.hero.element];
       if (!gems) return;
       if (!card.addCharge(gems * card.chargeRate())) return;
-      hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
-        fill: GEM_LIGHT[card.hero.element],
-        from: 1.6,
-      });
-      // The shout names the hero, the call says it at the size of the screen
-      // and drops into the tile, and the lesson then taps the tile it landed
-      // on. All three fired and not awaited — this is the middle of a cascade,
-      // and nothing in a cascade waits on a hand. See teachUlt, which does its
-      // own waiting, and T.ultHintIn, which is what keeps the hand behind the
-      // call rather than under it.
-      this.callReady(index);
+      // The call says it at the size of the screen and drops into the tile,
+      // and the lesson then taps the tile it landed on. The HUD shout is the
+      // fallback for a hero the call could not take — the two carry the same
+      // sentence and stand in the same third of the screen, so only ever one
+      // of them speaks. Fired and not awaited — this is the middle of a
+      // cascade, and nothing in a cascade waits on a hand. See teachUlt, which
+      // does its own waiting, and T.ultHintIn, which is what keeps the hand
+      // behind the call rather than under it.
+      if (!this.callReady(index)) {
+        hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
+          fill: GEM_LIGHT[card.hero.element],
+          from: 1.6,
+        });
+      }
       this.teachUlt(index);
     });
   }
@@ -3123,10 +3126,11 @@ export class Director {
    * amount for the hero nobody is being taught with.
    */
   callReady(index) {
-    if (this.ultTaught || this.ended) return;
+    if (this.ultTaught || this.ended) return false;
     const { readyCall, heroRow } = this.s;
-    if (!readyCall || readyCall.playing) return;
+    if (!readyCall || readyCall.playing) return false;
     readyCall.play(index, heroRow.cards[index]);
+    return true;
   }
 
   /**

@@ -44,9 +44,27 @@
 
 import { Container, Sprite, Text } from "pixi.js";
 
-import { FONT, FONT_TITLE, GEM_LIGHT, HEROES, READY_CALL } from "../config.js";
+import { COPY, FONT_READY, GEM_LIGHT, HEROES, READY_CALL } from "../config.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
-import { tween, killTweensOf, Ease } from "../core/tween.js";
+import { rampTexture } from "../art/textures.js";
+import { tween, delay, killTweensOf, Ease } from "../core/tween.js";
+
+const BAND_RAMP = [
+  [0, "rgba(255,255,255,0)"],
+  [0.18, "rgba(255,255,255,1)"],
+  [0.82, "rgba(255,255,255,1)"],
+  [1, "rgba(255,255,255,0)"],
+];
+
+const RULE_RAMP = [
+  [0, "rgba(255,255,255,0)"],
+  [0.3, "rgba(255,255,255,1)"],
+  [0.7, "rgba(255,255,255,1)"],
+  [1, "rgba(255,255,255,0)"],
+];
+
+const BAND_TINT = 0x05070f;
+const BAND_ALPHA = 0.93;
 
 export class ReadyCall extends Container {
   constructor() {
@@ -54,78 +72,146 @@ export class ReadyCall extends Container {
     this.visible = false;
     this.layout = null;
     this.playId = 0;
+    this.playing = false;
 
-    /** Frames of the sheet currently on the crown, and where in them we are. */
     this.frames = null;
     this.frameT = 0;
 
-    this.crown = new Sprite();
-    this.crown.anchor.set(0.5, 1);
-    this.crown.blendMode = "add";
-    this.addChild(this.crown);
+    this.wipe = { k: 0 };
+    this.flight = { k: 0 };
+
+    this.rig = new Container();
+    this.addChild(this.rig);
+
+    this.scrim = new Sprite(rampTexture("readyBand", BAND_RAMP));
+    this.scrim.anchor.set(0.5);
+    this.scrim.tint = BAND_TINT;
+
+    this.ruleTop = new Sprite(rampTexture("readyRule", RULE_RAMP));
+    this.ruleTop.anchor.set(0.5);
+    this.ruleTop.blendMode = "add";
+    this.ruleBot = new Sprite(rampTexture("readyRule", RULE_RAMP));
+    this.ruleBot.anchor.set(0.5);
+    this.ruleBot.blendMode = "add";
+
+    this.crownL = new Sprite();
+    this.crownL.anchor.set(0.5, 1);
+    this.crownL.blendMode = "add";
+    this.crownR = new Sprite();
+    this.crownR.anchor.set(0.5, 1);
+    this.crownR.blendMode = "add";
 
     this.word = new Text({
       text: "READY",
       style: {
-        fontFamily: FONT_TITLE,
+        fontFamily: FONT_READY,
         fontSize: 64,
         fontWeight: "900",
         fill: 0xffffff,
-        letterSpacing: 10,
+        letterSpacing: 3,
+        dropShadow: {
+          color: 0x05070f,
+          alpha: 0.85,
+          angle: Math.PI / 2,
+          blur: 4,
+          distance: 4,
+        },
+        padding: 14,
       },
     });
     this.word.anchor.set(0.5);
-    this.addChild(this.word);
 
     this.who = new Text({
       text: "",
       style: {
-        fontFamily: FONT,
+        fontFamily: FONT_READY,
         fontSize: 18,
         fontWeight: "800",
         fill: 0xffffff,
         letterSpacing: 6,
+        padding: 6,
       },
     });
     this.who.anchor.set(0.5);
-    this.addChild(this.who);
 
-    /**
-     * Everything that moves as one piece, so the collapse is one tween on one
-     * transform rather than five that have to agree with each other.
-     */
-    this.rig = new Container();
-    this.addChild(this.rig);
-    this.rig.addChild(this.crown, this.word, this.who);
+    this.rig.addChild(
+      this.scrim,
+      this.crownL,
+      this.crownR,
+      this.ruleTop,
+      this.ruleBot,
+      this.word,
+      this.who,
+    );
   }
 
   resize(layout) {
     this.layout = layout;
     const s = layout.safeBox;
 
-    // Placed against the safe box and not the window, for the reason
-    // core/layout.js gives: a notch is not screen the composition may use.
     this.homeX = s.x + s.w / 2;
     this.homeY = s.y + s.h * READY_CALL.y;
 
-    // Height drives it and the width follows the cell's aspect, which is the
-    // packer's fourth rule: these sheets are fitted, never stretched. See
-    // art/readyfx.js and CROWN_CELL.
+    this.fitType(this.word, s.w * READY_CALL.word, READY_CALL.wordTrack);
+    this.fitType(this.who, s.w * READY_CALL.who, READY_CALL.whoTrack);
+
+    const wordH = this.word.height;
+    const whoH = this.who.height;
+    const pad = wordH * READY_CALL.bandPad;
+    const gap = whoH * 0.4;
+
+    this.bandW = s.w * READY_CALL.bandW;
+    this.bandH = pad * 2 + wordH + gap + whoH;
+    this.ruleH = Math.max(2, Math.round(s.w * 0.006));
+
+    this.word.position.set(0, -this.bandH / 2 + pad + wordH / 2);
+    this.whoY = this.word.y + wordH / 2 + gap + whoH / 2;
+    this.who.position.set(0, this.whoY);
+
     this.crownH = s.w * READY_CALL.crown;
     this.crownW = this.crownH * CROWN_CELL.aspect;
-    this.crown.position.set(0, this.crownH * 0.34);
-    this.fitCrown();
+    const inset = this.bandW / 2 - this.crownW * 0.52;
+    this.crownL.x = -inset;
+    this.crownR.x = inset;
+    this.fitCrowns();
 
-    this.word.style.fontSize = Math.round(s.w * READY_CALL.word);
-    this.who.style.fontSize = Math.round(s.w * READY_CALL.who);
-    this.word.position.set(0, 0);
-    this.who.position.set(0, -this.word.height * 0.62);
-
+    this.drawBand();
     if (!this.playing) this.rig.position.set(this.homeX, this.homeY);
   }
 
+  fitType(text, size, track) {
+    const px = Math.round(size);
+    const shadow = text.style.dropShadow;
+    text.style.fontSize = px;
+    text.style.letterSpacing = px * track;
+    if (shadow) {
+      shadow.blur = px * 0.06;
+      shadow.distance = px * 0.05;
+    }
+    text.style.padding = Math.ceil(
+      px * 0.18 + (shadow ? shadow.blur + shadow.distance : 0),
+    );
+  }
+
+  drawBand() {
+    if (!this.bandW) return;
+    const k = this.wipe.k;
+    const w = Math.max(1, this.bandW * (0.1 + 0.9 * k));
+    this.scrim.width = w;
+    this.scrim.height = Math.max(1, this.bandH * k);
+    this.scrim.alpha = BAND_ALPHA * Math.min(1, k * 2.4);
+    this.ruleTop.width = w;
+    this.ruleBot.width = w;
+    this.ruleTop.height = this.ruleH;
+    this.ruleBot.height = this.ruleH;
+    this.ruleTop.y = (-this.bandH / 2) * k;
+    this.ruleBot.y = (this.bandH / 2) * k;
+    this.crownL.y = this.ruleBot.y;
+    this.crownR.y = this.ruleBot.y;
+  }
+
   /**
-   * Size the crown, and only ever with a real texture under it.
+   * Size the crowns, and only ever with a real texture under them.
    *
    * Pixi v8 turns a width into a scale against whatever texture the sprite is
    * carrying at the time. A sprite built with `new Sprite()` carries the 1x1
@@ -137,15 +223,17 @@ export class ReadyCall extends Container {
    * So the size is held as a number and applied only from here, and this is
    * called on the far side of every texture assignment.
    */
-  fitCrown() {
-    if (!this.crownH || !this.crown.texture || this.crown.texture.width <= 1) {
-      return;
+  fitCrowns() {
+    if (!this.crownH) return;
+    for (const c of [this.crownL, this.crownR]) {
+      if (!c.texture || c.texture.width <= 1) continue;
+      c.setSize(this.crownW, this.crownH);
     }
-    this.crown.setSize(this.crownW, this.crownH);
+    this.crownR.scale.x = -Math.abs(this.crownR.scale.x);
   }
 
   /**
-   * Walk the crown's flipbook.
+   * Walk the crowns' flipbook.
    *
    * On the world clock like everything else that animates, so a cast rushing
    * the board does not leave this one sheet playing at its own speed. Held on
@@ -156,13 +244,14 @@ export class ReadyCall extends Container {
     if (!this.visible || !this.frames) return;
     this.frameT += dt * READY_CALL.fps;
     const i = Math.min(this.frames.length - 1, this.frameT | 0);
-    if (this.crown.texture === this.frames[i]) return;
-    this.crown.texture = this.frames[i];
-    this.fitCrown();
+    if (this.crownL.texture === this.frames[i]) return;
+    this.crownL.texture = this.frames[i];
+    this.crownR.texture = this.frames[i];
+    this.fitCrowns();
   }
 
   /**
-   * Announce a hero, then drop the whole thing into their card.
+   * Announce a hero, then drop the word into their card.
    *
    * @param {number} index which hero in the row
    * @param {import("pixi.js").Container} card the tile to collapse into
@@ -179,50 +268,86 @@ export class ReadyCall extends Container {
     const light = GEM_LIGHT[hero.element];
     this.frames = readyCrownFrames(hero.element);
     this.frameT = 0;
-    // A hero whose sheet has not landed yet still gets the words — see
-    // art/readyfx.js on why an element with no sheet is a supported case.
-    this.crown.visible = !!this.frames;
-    if (this.frames) {
-      this.crown.texture = this.frames[0];
-      this.fitCrown();
-    }
 
-    this.word.style.fill = light;
-    this.who.style.fill = 0xffffff;
-    this.who.text = hero.name;
+    this.ruleTop.tint = light;
+    this.ruleBot.tint = light;
+    this.who.style.fill = light;
+    this.who.text = COPY.ultReady.replace("{hero}", hero.name);
 
-    killTweensOf(this.rig);
-    killTweensOf(this.rig.scale);
-    killTweensOf(this.word.scale);
+    this.killAll();
 
     this.rig.position.set(this.homeX, this.homeY);
     this.rig.alpha = 1;
-    this.rig.scale.set(READY_CALL.from);
+    this.rig.scale.set(1);
+    this.wipe.k = 0;
+    this.drawBand();
+    this.word.alpha = 0;
     this.word.scale.set(1);
+    this.who.alpha = 0;
+    this.crownL.alpha = 0;
+    this.crownR.alpha = 0;
+    this.crownL.visible = !!this.frames;
+    this.crownR.visible = !!this.frames;
+    if (this.frames) {
+      this.crownL.texture = this.frames[0];
+      this.crownR.texture = this.frames[0];
+      this.fitCrowns();
+    }
     this.visible = true;
 
-    // In on a back-out, which is the one ease that reads as arriving rather than
-    // as growing: it overshoots the size it is going to hold and settles back
-    // into it, and the settle is what the eye reads as weight.
-    await tween(this.rig.scale, { x: 1, y: 1 }, READY_CALL.in, {
-      ease: Ease.backOut,
+    tween(this.wipe, { k: 1 }, READY_CALL.open, {
+      ease: Ease.expoOut,
+      onUpdate: () => this.drawBand(),
+    });
+
+    await delay(READY_CALL.open * 0.5);
+    if (token !== this.playId) return;
+
+    this.frameT = 0;
+    this.word.scale.set(READY_CALL.slamX, READY_CALL.slamY);
+    tween(this.word, { alpha: 1 }, READY_CALL.slam * 0.3);
+    tween(this.crownL, { alpha: 1 }, READY_CALL.slam * 0.4);
+    tween(this.crownR, { alpha: 1 }, READY_CALL.slam * 0.4);
+    this.who.y = this.whoY + this.who.height * 0.5;
+    tween(this.who, { alpha: 1, y: this.whoY }, READY_CALL.slam, {
+      ease: Ease.cubicOut,
+      delay: READY_CALL.slam * 0.45,
+    });
+
+    await tween(this.word.scale, { x: 1, y: 1 }, READY_CALL.slam, {
+      ease: Ease.expoOut,
     });
     if (token !== this.playId) return;
 
-    await tween(this.word.scale, { x: 1.06, y: 1.06 }, READY_CALL.hold, {
+    await tween(this.word.scale, { x: 1.03, y: 1.03 }, READY_CALL.hold, {
       ease: Ease.quadOut,
     });
     if (token !== this.playId) return;
 
-    // Where the card is, in this container's own space. Read now and not at
-    // resize: the row is laid out by then, and a card can be anywhere in it.
+    tween(this.who, { alpha: 0 }, READY_CALL.close * 0.7);
+    tween(this.crownL, { alpha: 0 }, READY_CALL.close);
+    tween(this.crownR, { alpha: 0 }, READY_CALL.close);
+    await tween(this.wipe, { k: 0 }, READY_CALL.close, {
+      ease: Ease.quadIn,
+      onUpdate: () => this.drawBand(),
+    });
+    if (token !== this.playId) return;
+
     const to = card
       ? this.toLocal(card.getGlobalPosition())
       : { x: this.homeX, y: this.homeY };
+    const from = { x: this.rig.x, y: this.rig.y };
+    this.flight.k = 0;
 
     await Promise.all([
-      tween(this.rig, { x: to.x, y: to.y }, READY_CALL.drop, {
+      tween(this.flight, { k: 1 }, READY_CALL.drop, {
         ease: Ease.quadIn,
+        onUpdate: () => {
+          const k = this.flight.k;
+          const n = 1 - k;
+          this.rig.x = n * n * from.x + (2 * n * k + k * k) * to.x;
+          this.rig.y = (n * n + 2 * n * k) * from.y + k * k * to.y;
+        },
       }),
       tween(
         this.rig.scale,
@@ -230,13 +355,27 @@ export class ReadyCall extends Container {
         READY_CALL.drop,
         { ease: Ease.quadIn },
       ),
-      tween(this.rig, { alpha: 0 }, READY_CALL.drop, { ease: Ease.quadIn }),
+      tween(this.rig, { alpha: 0 }, READY_CALL.drop, { ease: Ease.expoIn }),
     ]);
     if (token !== this.playId) return;
+
+    if (card && card.flareReady) card.flareReady();
 
     this.playing = false;
     this.visible = false;
     this.frames = null;
+  }
+
+  killAll() {
+    killTweensOf(this.wipe);
+    killTweensOf(this.flight);
+    killTweensOf(this.rig);
+    killTweensOf(this.rig.scale);
+    killTweensOf(this.word);
+    killTweensOf(this.word.scale);
+    killTweensOf(this.who);
+    killTweensOf(this.crownL);
+    killTweensOf(this.crownR);
   }
 
   /** Take it off the screen now — a rebuilt fight, or a cast that beat it. */
@@ -245,9 +384,10 @@ export class ReadyCall extends Container {
     this.playing = false;
     this.visible = false;
     this.frames = null;
-    killTweensOf(this.rig);
-    killTweensOf(this.rig.scale);
-    killTweensOf(this.word.scale);
+    this.killAll();
     this.rig.alpha = 1;
+    this.rig.scale.set(1);
+    this.wipe.k = 0;
+    this.drawBand();
   }
 }

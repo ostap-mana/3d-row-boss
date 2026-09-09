@@ -1,9 +1,10 @@
-# Montserrat Bold Italic — the damage numbers
+# Montserrat Bold Italic — the damage numbers and the READY call
 
-`montserrat-700i.woff2` draws the figures that fly off a hit, and nothing else in
-the creative. It is 1.7 kB, it holds seventeen glyphs, and unlike the Hitzone
-cuts next to it, it can ship: Montserrat is SIL Open Font License, and the
-licence is in this folder as `OFL-Montserrat.txt`.
+`montserrat-700i.woff2` draws the figures that fly off a hit and the banner that
+announces an ultimate, and nothing else in the creative. It is 3.5 kB, it holds
+forty-six glyphs, and unlike the Hitzone cuts next to it, it can ship:
+Montserrat is SIL Open Font License, and the licence is in this folder as
+`OFL-Montserrat.txt`.
 
 ## Why a second face for numbers
 
@@ -47,9 +48,9 @@ TrueType is kept outside this repo with the rest of that set:
 
 ## How it is wired
 
-| file                    | family          | used by       |
-| ----------------------- | --------------- | ------------- |
-| `montserrat-700i.woff2` | `Montserrat It` | `FONT_DAMAGE` |
+| file                    | family          | used by                     |
+| ----------------------- | --------------- | --------------------------- |
+| `montserrat-700i.woff2` | `Montserrat It` | `FONT_DAMAGE`, `FONT_READY` |
 
 A third family rather than a weight or a style of an existing one, for the same
 reason Hitzone and Hitzone Med are two families: `FONT_DAMAGE` names this one, so
@@ -66,25 +67,34 @@ Left at `normal`, a device that cannot load this file prints upright Hitzone at
 
 ## What was cut
 
-Seventeen glyphs — `0-9`, comma, full stop, hyphen-minus, plus, percent, the
-multiplication sign, and the space. That is every character `comma()` and the
-`sign` option in [`ui/hud.js`](../../ui/hud.js) can produce, with a little room
-around it. 202 kB of TrueType comes out at 1,764 bytes, against about 20 kB for
-the Latin-1 cut the Hitzone faces get.
+Forty-six glyphs: `A-Z`, `0-9`, and `space ! % ' + , - . : ×`. That is every
+character `comma()` and the `sign` option in [`ui/hud.js`](../../ui/hud.js) can
+produce, plus the word READY and every hero name the banner can print under it —
+the roster is upper case and so is `COPY.ultReady`. 202 kB of TrueType comes out
+at 3,576 bytes, against about 20 kB for the Latin-1 cut the Hitzone faces get.
 
-**There are no letters in this file at all.** That is deliberate and it is the
-one sharp edge: a word set in `FONT_DAMAGE` draws its digits from Montserrat and
-falls through to Hitzone glyph by glyph for the rest. Survivable, but not a thing
-to do on purpose — which is why the constant is named for numbers and why the two
-general family lists in [`config.js`](../../config.js) do not mention Montserrat.
-Widen the `--unicodes` below before using this family for anything that reads.
+**There is no lower case in this file.** A word set in either of the two lists
+that name this family draws its capitals and digits from Montserrat and falls
+through to Hitzone glyph by glyph for anything else — survivable, and not a
+thing to do on purpose. Widen the `--unicodes` below before setting a mixed-case
+string in either constant.
 
-Re-cut with:
+Re-cut with — and keep this line in step with what ships, because a narrower cut
+would silently take the letters back out of the READY banner:
 
     pyftsubset Montserrat-Bold-Italic.ttf \
       --output-file=montserrat-700i.woff2 --flavor=woff2 \
-      --unicodes="U+0020,U+0025,U+002B-002E,U+0030-0039,U+00D7" \
+      --unicodes="U+0020-0021,U+0025,U+0027,U+002B-002E,U+0030-003A,U+0041-005A,U+00D7" \
       --layout-features=kern --no-hinting --drop-tables+=DSIG
+
+## The READY call
+
+The banner in [`fx/readycall.js`](../../fx/readycall.js) asks for this face
+through `FONT_READY`, which is the same file behind a second name — see that
+constant in [`config.js`](../../config.js) for why the announcement leans where
+every label in the creative stays upright. Both of its lines are sized and
+tracked from the safe box at runtime, so nothing there is authored against these
+metrics either.
 
 ## If the face changes again
 

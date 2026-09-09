@@ -2365,6 +2365,9 @@ export const FONT_OUTCOME =
 export const FONT_DAMAGE =
   '"Montserrat It", "Hitzone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+export const FONT_READY =
+  '"Montserrat It", "Hitzone Med", "Hitzone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 /* ------------------------------------------------------------------ heroes */
 
 /**
@@ -2552,12 +2555,17 @@ export const READY_CALL = {
    * top row of the board, which made the banner look like part of the grid, and
    * the HUD's own shout, which lives lower and was being written through.
    */
-  y: 0.3,
+  y: 0.29,
   /** The crown flipbook's size, against the safe box's width. */
-  crown: 0.5,
+  crown: 0.26,
   /** Type, both against the same width. */
-  word: 0.155,
-  who: 0.05,
+  word: 0.15,
+  who: 0.045,
+  wordTrack: 0.05,
+  whoTrack: 0.3,
+  /** The band the type stands on, against the safe box's width and the type. */
+  bandW: 0.94,
+  bandPad: 0.22,
   /**
    * Frames a second for the crown.
    *
@@ -2571,27 +2579,37 @@ export const READY_CALL = {
    */
   fps: 18,
   /**
-   * Scale it arrives from and leaves at.
+   * Where the collapse lands.
    *
-   * `to` is roughly a hero tile against the safe box, so the collapse lands at
-   * about the size of the thing it is collapsing into rather than at nothing —
-   * a banner that shrinks to zero over a card reads as disappearing, and the
-   * whole point of the drop is that it arrives somewhere.
+   * Roughly a hero tile against the safe box, so it arrives at about the size
+   * of the thing it is arriving in rather than at nothing — a banner that
+   * shrinks to zero over a card reads as disappearing, and the whole point of
+   * the drop is that it goes somewhere.
    */
-  from: 0.72,
   to: 0.2,
   /**
-   * In, hold, and the drop into the card.
+   * The word's slam, as the scale it is struck flat from.
    *
-   * Under a second all told, and that is the constraint rather than a
-   * measurement: this runs in the middle of a cascade the player is still
-   * watching resolve, and ULT_PACE.cast is the beat that is allowed to own the
-   * screen. Anything longer here and the announcement competes with the thing
-   * it is announcing.
+   * Wide and short on the frame it lands, back to square over `slam`. It is
+   * the one entrance that does not read as a pop: a thing that arrives already
+   * deformed has been thrown, and a thing that grows has been faded up.
    */
-  in: 0.26,
-  hold: 0.34,
-  drop: 0.3,
+  slamX: 1.5,
+  slamY: 0.66,
+  /**
+   * Open, slam, hold, close, and the drop into the card.
+   *
+   * Under a second and a half all told, and the length is the constraint
+   * rather than a measurement: this runs in the middle of a cascade the player
+   * is still watching resolve, and ULT_PACE.cast is the beat that is allowed to
+   * own the screen. Anything longer here and the announcement competes with the
+   * thing it is announcing.
+   */
+  open: 0.16,
+  slam: 0.2,
+  hold: 0.46,
+  close: 0.12,
+  drop: 0.32,
 };
 
 export const ULT_PACE = {
