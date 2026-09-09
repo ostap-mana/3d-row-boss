@@ -321,5 +321,5 @@ for (const job of JOBS) {
 console.log(
   `\ntotal ${(before / 1024).toFixed(1)} kB -> ${(after / 1024).toFixed(1)} kB` +
     ` — about ${(((before - after) * 4) / 3 / 1024).toFixed(0)} kB off the` +
-    ` base64 in dist/index.html.`,
+    ` base64 in dist/km3.html.`,
 );

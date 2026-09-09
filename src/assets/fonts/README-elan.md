@@ -38,7 +38,7 @@ of being synthesised bolder.
 ## Format
 
 WOFF2. `.woff`, `.otf` and `.ttf` are picked up too, but this build inlines every
-asset as base64 into one `dist/index.html` — an OTF is two to three times the
+asset as base64 into one `dist/km3.html` — an OTF is two to three times the
 bytes of the same face as WOFF2, straight onto the creative's weight budget.
 Convert a desktop OTF with `woff2_compress`, `fonttools`
 (`fonttools ttLib.woff2 compress elan-bold.otf`) or any web font converter, and

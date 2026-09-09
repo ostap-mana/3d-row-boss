@@ -383,6 +383,6 @@ for (const job of JOBS) {
       ` -> ${dw}x${dh}  aspect ${(dw / dh).toFixed(3)}` +
       `   ${kb(source).padStart(8)} kB -> ${kb(out).padStart(7)} kB` +
       `   (about ${((statSync(out).size * 4) / 3 / 1024).toFixed(0)} kB of` +
-      ` base64 in dist/index.html)`,
+      ` base64 in dist/km3.html)`,
   );
 }

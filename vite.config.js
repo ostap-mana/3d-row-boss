@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
@@ -9,14 +9,17 @@ import { viteSingleFile } from "vite-plugin-singlefile";
  * URL as a string literal; the runtime call is disabled via `hello: false`,
  * and this strips the leftover literal so the audit comes back clean.
  */
+const DELIVERABLE = "km3.html";
+
 function scrubVendorUrls() {
   return {
     name: "scrub-vendor-urls",
     closeBundle() {
-      const file = resolve(import.meta.dirname, "dist/index.html");
+      const emitted = resolve(import.meta.dirname, "dist/index.html");
+      const file = resolve(import.meta.dirname, "dist", DELIVERABLE);
       let html;
       try {
-        html = readFileSync(file, "utf8");
+        html = readFileSync(emitted, "utf8");
       } catch {
         return;
       }
@@ -26,15 +29,22 @@ function scrubVendorUrls() {
       const cleaned = html
         .replace(/https?:\/\/www\.pixijs\.com\//g, "")
         .replace(/globalThis\.console\.log\(/g, "(()=>{})(");
-      if (cleaned !== html) writeFileSync(file, cleaned);
+      writeFileSync(file, cleaned);
+      rmSync(emitted, { force: true });
       const kb = (statSync(file).size / 1024).toFixed(1);
-      this.info(`playable bundle: dist/index.html — ${kb} kB`);
+      this.info(`playable bundle: dist/${DELIVERABLE} — ${kb} kB`);
     },
   };
 }
 
 /**
- * Playable-ad build: one self-contained index.html, no external requests.
+ * Playable-ad build: one self-contained dist/km3.html, no external requests.
+ *
+ * Vite emits index.html because that is the entry template; scrubVendorUrls
+ * above renames it on the way out, so the build never leaves two files behind
+ * and the deliverable is always called the same thing. The dev server still
+ * serves index.html.
+ *
  * https://vite.dev/config/
  */
 export default defineConfig({
@@ -45,7 +55,7 @@ export default defineConfig({
     open: true,
   },
   // The template's demo assets stay on disk but must not be copied into the
-  // build: the deliverable is exactly one file, dist/index.html.
+  // build: the deliverable is exactly one file, dist/km3.html.
   publicDir: false,
   build: {
     target: "es2017",

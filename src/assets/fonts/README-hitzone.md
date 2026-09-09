@@ -27,7 +27,7 @@ is kept as untouched TTF/OTF outside this repo, in
 
 Nine of the Latin ones are also cut to WOFF2 in [`invokers-build/`](invokers-build/),
 ready to point an import at. Nothing in that folder is imported, so nothing in it
-reaches `dist/index.html`.
+reaches `dist/km3.html`.
 
 ## How they are wired
 

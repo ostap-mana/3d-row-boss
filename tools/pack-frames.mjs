@@ -279,7 +279,7 @@ for (const file of files) {
 
 console.log(
   `\n${files.length} frames, ${(bytes / 1024).toFixed(1)} kB` +
-    `  (about ${((bytes * 4) / 3 / 1024).toFixed(0)} kB of base64 in dist/index.html)`,
+    `  (about ${((bytes * 4) / 3 / 1024).toFixed(0)} kB of base64 in dist/km3.html)`,
 );
 
 function rel(p) {

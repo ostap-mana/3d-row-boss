@@ -386,7 +386,7 @@ encode(art, dw, dh, `${OUT}.webp`, [
 console.log(
   `out  ${rel(OUT)}.webp  ${kb(`${OUT}.webp`)} kB` +
     `  (about ${((statSync(`${OUT}.webp`).size * 4) / 3 / 1024).toFixed(0)} kB` +
-    ` of base64 in dist/index.html)`,
+    ` of base64 in dist/km3.html)`,
 );
 
 /** The measurement, drawn back over the art: the opening in cyan. */
