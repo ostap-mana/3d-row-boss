@@ -1683,7 +1683,7 @@ export class Director {
       const gems = counts[card.hero.element];
       if (!gems) return;
       if (!card.addCharge(gems * card.chargeRate())) return;
-      hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), 0.7, {
+      hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
         fill: GEM_LIGHT[card.hero.element],
         from: 1.6,
       });
@@ -3073,6 +3073,34 @@ export class Director {
     // frame: the player has just been shown something, and a swipe demo landing
     // where the tap demo left off is two lessons in one breath.
     this.restartIdle();
+    this.reofferUlt(index);
+  }
+
+  /**
+   * Put the lesson up again, while that hero is still charged and untapped.
+   *
+   * The one thing the callout could not do before. A hero fills, the row says
+   * READY, the hand taps the card for 3.2 seconds — and if the player happened
+   * to be watching the boss for those 3.2 seconds, nothing ever told them again:
+   * the lesson fired once per fill, and a hero who stays charged never fills a
+   * second time. So the largest number in the fight sat there unspent behind a
+   * control nobody had been shown.
+   *
+   * Cheap to keep offering, because every way it can become pointless is
+   * already checked. `ultTaught` shuts it for the whole run on the first tap on
+   * any card, `canUlt` drops it the moment the hero is spent or knocked down,
+   * T.ultHintShows is the ceiling, and the token retires this the instant
+   * another hero's lesson takes the hand — read after endUltLesson has bumped
+   * it, so what is captured here is the quiet, not the pass that just finished.
+   */
+  async reofferUlt(index) {
+    if (!T.ultHintAgain || this.ultTaught || this.ended) return;
+    if (this.ultShows >= T.ultHintShows) return;
+    const token = this.ultToken;
+    await delay(T.ultHintAgain);
+    if (token !== this.ultToken || this.ultTaught || this.ended) return;
+    if (this.ultLive || !this.canUlt(index)) return;
+    this.teachUlt(index);
   }
 
   /**

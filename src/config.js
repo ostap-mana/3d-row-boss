@@ -1624,13 +1624,47 @@ export const T = {
    *
    * Twice. Once is a demonstration that can be missed while the boss is
    * roaring; three times, on a thirty second clock with five heroes charging
-   * off five colours, is a hand that will not leave the row alone.
+   * off five colours, was a hand that would not leave the row alone.
+   *
+   * Five now, and the cap means something different than it did. It used to be
+   * the only thing stopping the hand: the lesson fired once per hero filling and
+   * then went quiet, so a player who looked away for those 3.2 seconds was never
+   * told again. It now re-offers itself on `ultHintAgain` for as long as a
+   * charged hero is still standing there untapped, and this is the ceiling on
+   * that rather than a ration of chances. The run is 45 seconds and the free
+   * opening cast is gone — see DIFFICULTY.chargeStart — so the first ultimate is
+   * something the player has to be told about while they are already playing.
    *
    * Spent whether or not the offer was taken, and never reached at all by a
    * player who taps a card: the first tap on any of them ends the lesson for
    * the rest of the run. See Director.onCardTap.
    */
-  ultHintShows: 2,
+  ultHintShows: 5,
+  /**
+   * Quiet between one ult lesson coming off and the next going up, while a
+   * charged hero is still sitting there untapped.
+   *
+   * The hand is a prop and it is shared with the board's lesson, so this is
+   * also the board's turn: long enough that the two read as separate offers
+   * rather than one hand flickering between the row and the grid, short enough
+   * that somebody who missed the first pass has not moved on. Set 0 to go back
+   * to a lesson that fires once per charge and never returns.
+   */
+  ultHintAgain: 2.2,
+  /**
+   * How long the READY shout holds — "TAP ARISSA", in the hero's own colour.
+   *
+   * 1.4, and it was 0.7 hard-coded inside Director.chargeParty. That was the
+   * single clearest hole in the whole callout, and the note under `ultHints`
+   * named it before this number existed: a player who has spent the run looking
+   * at the board is told about a control they have never touched by a caption
+   * that is gone before they look down.
+   *
+   * Fitted to the hand rather than picked: `ultHintIn` is 0.5, so at 1.4 the
+   * words are still up when the hand lands on the card and the two read as one
+   * sentence — the name says who, the hand says how.
+   */
+  ultShout: 1.4,
   /**
    * Idle before the game plays the move itself — and it only ever did that for a
    * viewer who had not touched the screen once. See Director.armAutoPlay.
