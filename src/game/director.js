@@ -1318,6 +1318,31 @@ export class Director {
    * fight is animating at.
    */
   doomRate() {
+    return this.stretchRate() * this.castRate();
+  }
+
+  /**
+   * Half speed while an ultimate is casting, and 1 the rest of the time.
+   *
+   * The two settings this sits between are DIFFICULTY.ultCostsTime's: true
+   * billed the player in full for a stretch of fight they cannot play — the
+   * board is locked and the cut-in owns the screen — and false stopped the fuse
+   * dead, which made a cast free and turned the clock into something to hide
+   * behind. A rate is the answer to both: the cast still costs seconds, it
+   * simply costs half of them.
+   *
+   * On the shown clock only, which is the one the price is paid in. The world
+   * clock the pace guard and the rage ramp read is untouched, so casting does
+   * not slow the boss down as well — see holdClock, which is the other
+   * mechanism and still the one `ultCostsTime` switches.
+   */
+  castRate() {
+    if (!this.ultCasting) return 1;
+    const r = DIFFICULTY.ultTimeRate;
+    return r > 0 && r <= 1 ? r : 1;
+  }
+
+  stretchRate() {
     const { extra, window, shape } = DOOM.stretch || {};
     if (!extra || !window || this.doomLeft > window) return 1;
     const u = Math.max(0, Math.min(1, 1 - this.doomLeft / window));

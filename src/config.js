@@ -239,25 +239,30 @@ export const DIFFICULTY = {
    */
   chargePerGem: 0.2,
   /**
-   * What the opening hero's bar is dealt at — and it is dealt full.
+   * What the opening hero's bar is dealt at.
    *
    * A stake and not a rate: it moves where the run's first ultimate lands and
    * nothing else, because chargePerGem above is what the rest of the fight runs
-   * on. Full, so that the creative can show the ultimate at all.
+   * on.
    *
-   * The opening demo points at a hero only once that hero's bar is actually
-   * full — see Director.showLesson, which is where the rule and the reasons for
-   * it are written down. Dealt at the old 0.16 nobody is ever full on the start
-   * screen, so the demo had a board half and no card half, and the one mechanic
-   * that separates this game from every other match-three in the feed was never
-   * demonstrated before the player had to decide whether to keep watching.
+   * 0.16, which is a head start and not a free cast — asked for directly: there
+   * is to be no ultimate waiting on the start screen. It was 1 for a while, a
+   * full bar dealt before the first swipe, and the argument for that was the
+   * demo rather than the balance: Director.showLesson points at a hero only
+   * once that hero's bar is actually full, so at anything under a full stake
+   * the opening demo has a board half and no card half, and the mechanic that
+   * separates this game from every other match-three in the feed is not shown
+   * before the player decides whether to keep watching.
    *
-   * What it costs the fight is one ultimate arriving free rather than two
-   * triples in. On a thirty second clock against a boss whose whole threat is
-   * the doom timer, that is a head start and not a broken fight. Put it back to
-   * 0.16 and the balance is exactly what it was; the demo goes quiet with it.
+   * That cost is real and it is accepted. What survives it is the in-fight
+   * lesson: `ultHints` fires off Director.chargeParty whenever a hero fills, up
+   * to `ultHintShows` times, so the ultimate is still taught — a few seconds
+   * later, to a player who is already playing, and off a bar they filled
+   * themselves rather than one they were handed.
+   *
+   * Put it back to 1 for the old opening, and the free cast comes with it.
    */
-  chargeStart: 1,
+  chargeStart: 0.16,
 
   /**
    * Whether the hero dealt that full bar is rolled, or is always the healer.
@@ -472,6 +477,27 @@ export const DIFFICULTY = {
    * and the one every note written before this flag existed describes.
    */
   ultCostsTime: true,
+
+  /**
+   * How fast the doom clock drains while an ultimate is casting.
+   *
+   * 0.5 — half speed, asked for directly, and it is the middle this pair of
+   * settings never had. `ultCostsTime` above is a switch between billing the
+   * player in full for a stretch they cannot play, and stopping the fuse dead
+   * so a cast is free and the clock becomes somewhere to hide. Neither is what
+   * a priced decision looks like. At 0.5 the cast still costs seconds; it costs
+   * half of them.
+   *
+   * Read by Director.castRate, which multiplies it into doomRate beside the
+   * DOOM.stretch curve — so it applies to the clock the player is shown and
+   * nothing else. The world clock behind the pace guard and the rage ramp is
+   * not touched, which means casting buys time against the deadline without
+   * also slowing the boss down.
+   *
+   * 1 is the old behaviour with `ultCostsTime` true. Set `ultCostsTime` false
+   * instead and this stops mattering — the clock is held rather than slowed.
+   */
+  ultTimeRate: 0.5,
 
   /**
    * THE DIFFICULTY CURVE — the staircase the whole fight is hung on.
