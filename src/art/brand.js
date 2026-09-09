@@ -25,7 +25,7 @@ import { canvasTexture } from "./textures.js";
 import keyArtUrl from "../assets/brand/key-art.webp";
 import logoUrl from "../assets/brand/logo-invokers.webp";
 import playUrl from "../assets/brand/play-now.webp";
-import retryBossUrl from "../assets/brand/retry-boss.webp";
+import retryPlateUrl from "../assets/brand/retry-plate.webp";
 import appStoreUrl from "../assets/brand/badge-app-store.webp";
 import googlePlayUrl from "../assets/brand/badge-google-play.webp";
 import pcMacUrl from "../assets/brand/badge-pc-mac.webp";
@@ -85,6 +85,8 @@ export const KEY_ART = { w: 1500, h: 1246 };
  * `retry-boss-v3-teal.png`.
  */
 export const RETRY_BOSS_ART = { w: 640, h: 551 };
+
+export const RETRY_PLATE_ART = { w: 472, h: 128 };
 
 /**
  * The RETRY divider, out of the build — and kept only as a measurement.
@@ -170,7 +172,7 @@ export const PLAY_LABEL = 0xfbf1e4;
 let keyArtTexture = null;
 let logoTexture = null;
 let playTexture = null;
-let retryBossTexture = null;
+let retryPlateTexture = null;
 let victoryTexture = null;
 let defeatTexture = null;
 const badgeTextures = {};
@@ -211,9 +213,9 @@ export async function loadBrandArt() {
         playTexture = t;
       })
       .catch(() => {}),
-    decode(retryBossUrl)
+    decode(retryPlateUrl)
       .then((t) => {
-        retryBossTexture = t;
+        retryPlateTexture = t;
       })
       .catch(() => {}),
     ...BADGES.map((b) =>
@@ -273,8 +275,8 @@ export function playPlateSprite() {
  * control falls back to the drawn pill and the word in type, which is plainer
  * and is still a button that restarts the fight. See EndCard.fitRetry.
  */
-export function retryBossSprite() {
-  return sprite(retryBossTexture);
+export function retryPlateSprite() {
+  return sprite(retryPlateTexture);
 }
 
 /**
@@ -323,9 +325,8 @@ export function fitPlayPlate(s, w) {
   return h;
 }
 
-/** What the RETRY lockup stands to at width `w`. The only height it may take. */
-export function retryBossHeight(w) {
-  return (w * RETRY_BOSS_ART.h) / RETRY_BOSS_ART.w;
+export function retryPlateHeight(w) {
+  return (w * RETRY_PLATE_ART.h) / RETRY_PLATE_ART.w;
 }
 
 /**
@@ -346,11 +347,11 @@ export function retryBossHeight(w) {
  *
  * @returns {{w: number, h: number}}
  */
-export function fitRetryBoss(s, w, maxH) {
-  let h = retryBossHeight(w);
+export function fitRetryPlate(s, w, maxH) {
+  let h = retryPlateHeight(w);
   if (maxH > 0 && h > maxH) {
     h = maxH;
-    w = (h * RETRY_BOSS_ART.w) / RETRY_BOSS_ART.h;
+    w = (h * RETRY_PLATE_ART.w) / RETRY_PLATE_ART.h;
   }
   s.setSize(w, h);
   return { w, h };

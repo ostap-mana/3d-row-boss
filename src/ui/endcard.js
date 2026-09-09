@@ -29,6 +29,7 @@ import { Container, Graphics, Sprite, Text, Rectangle } from "pixi.js";
 import {
   COPY,
   FONT,
+  FONT_OUTCOME,
   FONT_TITLE,
   GEM_COLORS,
   GEM_LIGHT,
@@ -45,12 +46,12 @@ import {
   fitKeyArt,
   fitLogo,
   fitPlayPlate,
-  fitRetryBoss,
+  fitRetryPlate,
   keyArtSprite,
   logoSprite,
   playHeight,
   playPlateSprite,
-  retryBossSprite,
+  retryPlateSprite,
   DEFEAT_ART,
   VICTORY_ART,
 } from "../art/brand.js";
@@ -185,6 +186,9 @@ const RETRY_BOSS_MAX_PORTRAIT = 0.13;
 const RETRY_CLEAR = 0.25;
 const RETRY_PILL_W = 0.64;
 const RETRY_H = 0.56;
+const RETRY_PLATE_W = 0.64;
+const RETRY_LABEL_W = 0.6;
+const RETRY_LABEL_H = 0.4;
 
 /**
  * The retry button's own colours — drawn, not painted.
@@ -197,7 +201,7 @@ const RETRY_H = 0.56;
  * belong to the same card.
  */
 const RETRY_FILL = 0x1a0c2c;
-const RETRY_LABEL = 0xffe6a8;
+const RETRY_LABEL = 0x3a2205;
 
 /**
  * How much of the card's width the outcome banner takes, and the most of the
@@ -501,14 +505,14 @@ export class EndCard extends Container {
      * everywhere. With the painting there the pill is left empty and the word is
      * already in the art; without it, the pill and the word are the button.
      */
-    this.retryArt = retryBossSprite();
+    this.retryArt = retryPlateSprite();
     if (this.retryArt) this.retry.addChild(this.retryArt);
     this.retryText = new Text({
       text: COPY.retry,
       style: {
-        fontFamily: FONT,
+        fontFamily: FONT_OUTCOME,
         fontSize: 20,
-        fontWeight: "900",
+        fontWeight: "700",
         fill: RETRY_LABEL,
         letterSpacing: 2.4,
       },
@@ -517,7 +521,7 @@ export class EndCard extends Container {
     // Painted plates carry their own word. The Text stays built either way so
     // that a device which could not decode the bitmap still has a button with
     // RETRY on it — see COPY.retry, which exists for exactly that reader.
-    this.retryText.visible = !this.retryArt;
+    this.retryText.visible = true;
     this.retry.addChild(this.retryText);
     this.retry.visible = false;
     this.addChild(this.retry);
@@ -604,7 +608,13 @@ export class EndCard extends Container {
     // art on this screen is sized — with a ceiling on top, because this is the
     // only one deep enough to overrun the column it is a rung of.
     if (this.retryArt) {
-      return fitRetryBoss(this.retryArt, w, maxH);
+      const box = fitRetryPlate(this.retryArt, bw * RETRY_PLATE_W, maxH);
+      fitFont(
+        this.retryText,
+        box.w * RETRY_LABEL_W,
+        Math.max(12, box.h * RETRY_LABEL_H),
+      );
+      return box;
     }
 
     const pw = bw * RETRY_PILL_W;

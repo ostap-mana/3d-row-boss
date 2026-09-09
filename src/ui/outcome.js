@@ -87,7 +87,7 @@ import {
   lineSprite,
   verdictSprite,
 } from "../art/outcomeui.js";
-import { PLAY_RIM, fitRetryBoss, retryBossSprite } from "../art/brand.js";
+import { PLAY_RIM, fitRetryPlate, retryPlateSprite } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -307,6 +307,9 @@ const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
 /** Air between the control and whatever bounds it, in UI points. */
 const RETRY_AIR = 12;
 
+const RETRY_LABEL_W = 0.6;
+const RETRY_LABEL_H = 0.4;
+
 /**
  * The drawn pill, for the device that could not decode the lockup.
  *
@@ -317,7 +320,7 @@ const RETRY_AIR = 12;
  */
 const RETRY_PILL = { w: 0.42, h: 0.075 };
 const RETRY_FILL = 0x1a0c2c;
-const RETRY_LABEL = 0xffe6a8;
+const RETRY_LABEL = 0x3a2205;
 
 /**
  * The flash.
@@ -590,14 +593,14 @@ export class OutcomeScreen extends Container {
     this.retry = new Container();
     this.retryBg = new Graphics();
     this.retry.addChild(this.retryBg);
-    this.retryArt = retryBossSprite();
+    this.retryArt = retryPlateSprite();
     if (this.retryArt) this.retry.addChild(this.retryArt);
     this.retryText = new Text({
       text: COPY.retry,
       style: {
-        fontFamily: FONT,
+        fontFamily: FONT_OUTCOME,
         fontSize: 20,
-        fontWeight: "900",
+        fontWeight: "700",
         fill: RETRY_LABEL,
         letterSpacing: 2.4,
       },
@@ -605,7 +608,7 @@ export class OutcomeScreen extends Container {
     this.retryText.anchor.set(0.5);
     // The painting carries its own word. The Text is built either way, so a
     // device that decoded nothing still has a button with RETRY on it.
-    this.retryText.visible = !this.retryArt;
+    this.retryText.visible = true;
     this.retry.addChild(this.retryText);
     this.retry.visible = false;
     this.retry.alpha = 0;
@@ -890,7 +893,16 @@ export class OutcomeScreen extends Container {
    */
   fitRetry(w, maxH, ui) {
     this.retryBg.clear();
-    if (this.retryArt) return fitRetryBoss(this.retryArt, w, maxH);
+    if (this.retryArt) {
+      const box = fitRetryPlate(this.retryArt, w, maxH);
+      fitFont(
+        this.retryText,
+        box.w * RETRY_LABEL_W,
+        Math.max(12, box.h * RETRY_LABEL_H),
+      );
+      this.retryText.position.set(0, 0);
+      return box;
+    }
 
     const s = this.layout.safeBox;
     const pw = s.w * RETRY_PILL.w;
