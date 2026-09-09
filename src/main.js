@@ -60,6 +60,8 @@ import { Vfx } from "./fx/vfx.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
 import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
+import { EV, eventLog, track, trackOnce } from "./net/analytics.js";
+import { tagReport } from "./net/tags.js";
 import {
   audioSleep,
   installAudioUnlock,
@@ -85,6 +87,8 @@ const timing = { essential: 0, ready: 0, deferred: 0 };
 async function boot() {
   const bootStart = performance.now();
   const since = () => Math.round(performance.now() - bootStart);
+
+  track(EV.load);
 
   // Before a single await. The first touch can land while the fonts and the
   // fourteen bitmaps below are still decoding, and on a phone that first touch
@@ -608,6 +612,7 @@ async function boot() {
    * frame forever.
    */
   watchViewable((seen, live) => {
+    track(seen ? EV.view : EV.hide, { live });
     audioSleep(!seen);
     if (!live) return;
     if (seen) app.ticker.start();
@@ -1243,6 +1248,7 @@ async function boot() {
    * is now gone.
    */
   function restart() {
+    track(EV.retry);
     // Whatever the last frame of the old fight was holding, let go of it: a
     // rematch that opens on a frame still thrown off centre by the blow that
     // ended the first one is a rematch that opens crooked.
@@ -1307,6 +1313,8 @@ async function boot() {
   // What the wrapper is saying, for a pass reading it off a real device. See
   // mraidReport — undefined everywhere the creative is not inside a container.
   scene.mraid = mraidReport;
+  scene.events = eventLog;
+  scene.tags = tagReport;
   window.__SIEGE__ = scene;
 
   // Nothing is held back and nothing is put in front: the first frame of the
@@ -1386,6 +1394,7 @@ async function boot() {
   // against, rather than the moment the last decode resolved.
   nextFrame().then(() => {
     timing.ready = since();
+    trackOnce(EV.ready, { ms: timing.ready });
   });
 
   loadRest();
@@ -1400,6 +1409,7 @@ async function boot() {
   // it is the stricter of the two, and the thirty second clock now starts
   // on the same gesture the player starts the fight with.
   firstTouch().then(() => {
+    trackOnce(EV.start);
     scene.prompt.dismiss();
     // The dark goes with the caption, on the very gesture that starts the
     // fight. The scrim is laid over the whole screen, so a press anywhere on

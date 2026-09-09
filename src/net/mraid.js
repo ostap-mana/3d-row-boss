@@ -126,6 +126,17 @@ export function whenReady(fn) {
   }
 }
 
+export function openStore(url) {
+  const m = host();
+  if (!m || typeof m.open !== "function") return false;
+  whenReady(() => {
+    try {
+      m.open(url);
+    } catch {}
+  });
+  return true;
+}
+
 /**
  * Tell `fn` whether the ad is being looked at, whenever that changes.
  *

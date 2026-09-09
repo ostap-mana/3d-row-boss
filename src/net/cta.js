@@ -7,6 +7,9 @@
 
 import { STORE_URL, BADGE_STORE } from "../config.js";
 import * as sfx from "../audio/sfx.js";
+import { openStore } from "./mraid.js";
+import { EV, track } from "./analytics.js";
+import { clickUrl } from "./tags.js";
 
 let fired = false;
 
@@ -42,26 +45,27 @@ export function ctaClick(source) {
   // Networks dislike duplicate open() calls; one per session is plenty.
   if (fired) return;
   fired = true;
+  track(EV.cta, { source });
   sfx.cta();
 
-  const url = storeUrl(source);
+  const url = clickUrl(storeUrl(source));
   const w = window;
 
   try {
-    if (typeof w.mraid !== "undefined" && w.mraid.open) {
-      w.mraid.open(url);
-    } else if (typeof w.FbPlayableAd !== "undefined") {
-      w.FbPlayableAd.onCTAClick();
-    } else if (typeof w.ExitApi !== "undefined") {
-      w.ExitApi.exit();
-    } else if (typeof w.install === "function") {
-      w.install();
-    } else if (typeof w.gameEnd === "function") {
-      w.gameEnd();
-    } else if (typeof w.gameclose === "function") {
-      w.gameclose();
-    } else {
-      w.open(url, "_blank");
+    if (!openStore(url)) {
+      if (typeof w.FbPlayableAd !== "undefined") {
+        w.FbPlayableAd.onCTAClick();
+      } else if (typeof w.ExitApi !== "undefined") {
+        w.ExitApi.exit();
+      } else if (typeof w.install === "function") {
+        w.install();
+      } else if (typeof w.gameEnd === "function") {
+        w.gameEnd();
+      } else if (typeof w.gameclose === "function") {
+        w.gameclose();
+      } else {
+        w.open(url, "_blank");
+      }
     }
   } catch (e) {
     // A broken wrapper must never take the creative down with it.

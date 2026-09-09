@@ -51,6 +51,7 @@ import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
+import { EV, track, trackOnce } from "../net/analytics.js";
 
 /**
  * How far below the best score a cell can be and still get picked.
@@ -443,7 +444,10 @@ export class Director {
       // who got here spent the lesson on the touch that started the move, so
       // this is ordinarily a no-op; it is kept for the one path that reaches a
       // move without a touch, which is T.autoPlay driving the board itself.
-      if (action === "swap" || action === "ult") this.spendOpeningHint();
+      if (action === "swap" || action === "ult") {
+        trackOnce(EV.firstSwap, { action });
+        this.spendOpeningHint();
+      }
 
       // A boss beat ended the fight while the player was still holding their
       // move. The checks at the top of the loop are what act on it.
@@ -2507,6 +2511,7 @@ export class Director {
 
     const element = card.hero.element;
     const healer = !!card.hero.heal;
+    track(EV.ultimate, { hero: index, element, healer });
     const color = GEM_COLORS[element];
     const light = GEM_LIGHT[element];
 
@@ -3312,6 +3317,11 @@ export class Director {
     // Cut off by the hard cap with the boss still standing: that is a loss, and
     // calling it anything else would be the old lie in a new place.
     const outcome = this.outcome || (this.bossHp <= 0 ? "victory" : "defeat");
+    track(EV.end, {
+      outcome,
+      seconds: Math.round(this.elapsed() - this.fightStart),
+      bossHp: Math.max(0, Math.round(this.bossHp)),
+    });
 
     // Asked before the card is shown rather than after: `show` settles the
     // moment a terminal card is standing, and by then the card is up and the
@@ -3328,6 +3338,7 @@ export class Director {
     // `true`: the verdict has been stamped once already, and a card that stamps
     // it a second time is the creative telling the player something they read
     // three seconds ago. See EndCard.show.
+    track(EV.endcard, { outcome });
     await this.s.endcard.show(outcome, true);
   }
 }
