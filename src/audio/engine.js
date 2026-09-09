@@ -166,14 +166,29 @@ function watch(c) {
       opening();
       return;
     }
-    // Only what was taken from us, and only while somebody is looking: a
-    // context we parked ourselves reads `suspended`, and the ad being off
-    // screen is the one case where the silence is the point.
-    if (c.state === "interrupted" && opened && !hidden()) {
+    // Only what was taken from us: a context we parked ourselves reads
+    // `suspended`, and the ad being off screen is the one case where the
+    // silence is the point.
+    //
+    // This is also the path a screen lock takes when `visibilitychange` never
+    // arrives — some webviews do not send one — so the replacement is armed
+    // here too rather than only in audioSleep. An interrupted context is the
+    // one iOS will not hand back: resume is worth the state read while somebody
+    // is looking, and when it does not take, the next touch rebuilds.
+    if (c.state === "interrupted" && opened) {
+      if (hidden()) {
+        staleRefusal();
+        return;
+      }
       try {
-        c.resume().catch(() => {});
+        const p = c.resume();
+        const settle = () => {
+          if (c === ctx && c.state !== "running") staleRefusal();
+        };
+        if (p && p.then) p.then(settle, staleRefusal);
+        else settle();
       } catch (e) {
-        /* nothing left to try */
+        staleRefusal();
       }
     }
   });
@@ -574,11 +589,44 @@ export function audioSleep(asleep) {
   // script error on the compliance run and it fires every time the ad is
   // scrolled back into view on a phone that is already playing something.
   try {
-    const p = asleep ? ctx.suspend() : ctx.resume();
-    if (p && p.catch) p.catch(() => {});
+    if (asleep) {
+      const p = ctx.suspend();
+      if (p && p.catch) p.catch(() => {});
+      return;
+    }
+    // Waking up is the half that was silently failing. A screen lock leaves the
+    // context `interrupted`, iOS refuses to resume that one for the rest of its
+    // life, and the refusal arrives as a rejected promise — so the ad came back
+    // on screen, resume() said no to nobody, and the fight played out mute.
+    //
+    // Nothing short of a new context fixes an interrupted one (see rebuild), and
+    // a new one may only be built from inside a gesture. So the resume is still
+    // tried first, and when it does not take, the *next* touch is armed to
+    // replace the context instead of retrying it: staleRefusal backdates the
+    // clock that unlockAudio's rebuild is gated behind, which otherwise makes
+    // the player tap, wait out STUBBORN_MS and tap again before the sound comes
+    // back — which nobody does, so it never came back at all.
+    const c = ctx;
+    const settle = () => {
+      if (c === ctx && c.state !== "running") staleRefusal();
+    };
+    const p = c.resume();
+    if (p && p.then) p.then(settle, staleRefusal);
+    else settle();
   } catch (e) {
-    /* a context that will not park is not worth a broken creative */
+    staleRefusal();
   }
+}
+
+/**
+ * Backdate the refusal clock so the next gesture rebuilds rather than retries.
+ *
+ * `rebuiltAt` goes with it: the gap between rebuilds exists to stop a drag from
+ * spawning a context per event, and a screen unlock is not that.
+ */
+function staleRefusal() {
+  refusedAt = now() - STUBBORN_MS - 1;
+  rebuiltAt = 0;
 }
 
 export function setMuted(on) {
