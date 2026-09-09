@@ -3,8 +3,9 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * thirty second fight — T.hardCap, and every other number in config.js is
- * fitted to it — and hands the player to the store.
+ * forty-five second fight — T.hardCap, and every other number in config.js is
+ * fitted to it — and hands the player to the store. The clock on screen reads
+ * thirty; see DOOM.stretch for why those are the same fight.
  */
 
 import { Application, Container, Graphics, Rectangle, Sprite } from "pixi.js";
@@ -1195,8 +1196,9 @@ async function boot() {
     // Clamped so a backgrounded tab does not fast-forward the storyboard.
     const real = Math.min(ticker.deltaMS / 1000, 0.05);
     /**
-     * The world's own clock, which is the real one except for the fraction of a
-     * second after something lands. See core/juice.js.
+     * The world's own clock: the real one at WORLD_RATE, held for a fraction of
+     * a second after something lands, and rushed while an ultimate is queued.
+     * See core/juice.js.
      *
      * Two clocks rather than one because two things in here are not allowed to
      * be slowed down. The doom clock is a promise to the player about how long
@@ -1406,8 +1408,8 @@ async function boot() {
   // itself viewable is not a person agreeing to be shown a monster, and every
   // network this ships to asks a playable not to start on its own. A touch is
   // both at once, so the viewability wait is gone rather than kept alongside:
-  // it is the stricter of the two, and the thirty second clock now starts
-  // on the same gesture the player starts the fight with.
+  // it is the stricter of the two, and the run's clock now starts on the same
+  // gesture the player starts the fight with.
   firstTouch().then(() => {
     trackOnce(EV.start);
     scene.prompt.dismiss();

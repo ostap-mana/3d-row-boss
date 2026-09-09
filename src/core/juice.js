@@ -136,6 +136,12 @@ function stopFactor(dt) {
  * Deliberately not applied to the two clocks main.js ticks on real time — the
  * cataclysm fuse and the camera shake. A fuse that ran faster because the
  * player rushed an animation would be charging them for the rush.
+ *
+ * `base` is the other kind of rate and the two multiply: transient beats above,
+ * and underneath them the standing speed the whole creative animates at, which
+ * comes from WORLD_RATE and is 0.8. It survives clearStop, because a rematch
+ * dealt mid-cast has to drop the cast's rate and keep the creative's. See
+ * config.js for what does and does not move when it changes.
  */
 let scale = 1;
 let base = WORLD_RATE;

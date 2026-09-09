@@ -102,9 +102,10 @@ export const DIFFICULTY = {
    * both directions, and every time the run length is what moved it.
    *
    * Down first: at 0.028, where the gauntlet tuning had it, a fight was twelve
-   * moves deep. A move costs about three seconds to play out — the swap, the
-   * cascade, the volley, the boss answering — and twelve of those is
-   * thirty-six seconds against a thirty second creative. That was never a hard
+   * moves deep. A move costs about three and a half seconds to play out at the
+   * world rate — see WORLD_RATE — the swap, the cascade, the volley, the boss
+   * answering — and twelve of those is forty-two seconds against what was then
+   * a thirty second creative. That was never a hard
    * fight inside this runtime; it was a fight that could not be finished inside
    * it, and what a viewer actually saw was a health bar that ended the ad two
    * thirds full. That is the failure mode this number exists to stay clear of.
@@ -447,8 +448,8 @@ export const DIFFICULTY = {
    *
    * That is much less than it sounds like it should be, and the reason is worth
    * knowing before anybody tunes against this flag: T.hardCap was never held.
-   * The thirty second deadline runs on wall time and always charged for every
-   * cut-in, so the seconds a cast costs the *run* were being billed all along.
+   * The forty-five second deadline runs on the world clock and always charged
+   * for every cut-in, so the seconds a cast costs the *run* were billed along.
    * What was exempt was only the three things routed through Director.elapsed —
    * the cataclysm's fuse, the boss's rage ramp, and the clock floor under
    * Director.pressure — and of those, rage is capped at 1.18 and the floor
@@ -608,9 +609,11 @@ export const DIFFICULTY = {
    * ones win 99%. The healer is the exception and stays worth casting late —
    * hers clears every obsidian block, on a board holding twelve.
    *
-   * The kill landing at 28 of the thirty seconds is deliberate, and it is why
-   * `pace` below went from a 26 second schedule to 28: the run is supposed to
-   * be won near the deadline with the doom strip already red.
+   * The kill landing near the end of the run is deliberate, and it is why
+   * `pace` below is a schedule at all rather than a damage number: the run is
+   * supposed to be won close to the deadline with the doom strip already red.
+   * That schedule was 26, then 28 against a thirty second cap; it is 43 now,
+   * two under T.hardCap, and the intent has not moved with the arithmetic.
    * T.finaleReserve does not constrain this — it holds only the *autoplay*
    * back from starting a move it cannot finish, so a human plays to T.hardCap.
    *
@@ -647,7 +650,8 @@ export const DIFFICULTY = {
      * The schedule the clock floor is measured against, in seconds. Kept level
      * with pace.seconds: they are two readings of the same schedule, and a
      * floor that finished before or after the pace guard's line would be
-     * pulling against it. Both went 28 -> 31 when the run went 30 -> 33.
+     * pulling against it. Both have followed the run the whole way: 28 at a
+     * thirty second cap, 31 at 33, 38 at 40, 43 at 45.
      */
     seconds: 43,
     /**
@@ -1105,14 +1109,18 @@ export const DIFFICULTY = {
   pace: {
     enabled: true,
     /**
-     * 31, and it moved with T.hardCap rather than being retuned.
+     * 43, and it moved with T.hardCap rather than being retuned.
      *
      * This is a schedule in *real* seconds, and it has always sat two seconds
      * under the deadline so that the guard is still pulling when the deadline
-     * arrives. The run went from 30 to 33 — see T.hardCap and DOOM.stretch —
-     * so this went from 28 to 31 to keep that distance. Read the win-time
-     * table above as a 30 second run's; every figure in it slides about three
-     * seconds later now, and the shape of the distribution does not move.
+     * arrives. The run went 30 -> 33 -> 40 -> 45 — see T.hardCap and
+     * DOOM.stretch — so this went 28 -> 31 -> 38 -> 43 to keep that distance.
+     * Read the win-time table above as a 30 second run's; every figure in it
+     * slides about fifteen seconds later now, and the shape of the
+     * distribution does not move.
+     *
+     * Real seconds, so Director.paceGrip converts the world clock back through
+     * toReal before it reads this — see WORLD_RATE.
      */
     seconds: 43,
     bite: 3,
@@ -1171,18 +1179,22 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Thirty, which is the length of the whole creative — so read what this now
-   * is rather than what it says: a thirty second countdown that runs out at the
-   * end of the run and nowhere before it. T.hardCap is 30 and the clock is
-   * armed the moment the intro is off the screen, so what the strip has left
-   * when the cap collects is exactly what the intro cost — about two seconds —
-   * and Director.timeUp drives that last sliver to zero itself before the
-   * cataclysm lands.
+   * Thirty, and this is the clock the player is *shown* rather than the length
+   * of the run. T.hardCap is 45 and `stretch` below is what reconciles the two:
+   * the strip is never wrong about how much of itself is left, it simply drains
+   * slower than wall time over the back half, so thirty of its seconds take
+   * forty-five of ours.
    *
-   * Kept equal to the run on purpose: the clock on screen was asked for as the
-   * length of the creative, so when the creative moved the clock moved with it
-   * — which has now happened three times, in both directions, and this number
-   * went with it every time: 15, then 20, then 25, now 30.
+   * The clock is armed the moment the intro is off the screen, so what the
+   * strip has left when the cap collects is exactly what the intro cost — about
+   * two seconds — and Director.timeUp drives that last sliver to zero itself
+   * before the cataclysm lands.
+   *
+   * Thirty was picked back when it *was* the length of the creative, and the
+   * two moved together for as long as they were the same thing: 15, then 20,
+   * then 25, then 30. The run has since gone to 33, then 40, then 45 and this
+   * has not followed it, because what was asked for at that point was a clock
+   * that reads thirty over a fight that lasts longer than it looks.
    *
    * What that costs is the mechanic in the middle of the fight. The clock
    * cannot reach zero while there is still a fight to land a cataclysm in, so
@@ -1190,39 +1202,33 @@ export const DOOM = {
    * makes. What does survive is the last few seconds of a run the deadline
    * collects: warnAt is 4 and 2 and panicAt is 3.5, all three of which a capped
    * run reaches, so the strip goes red and KOLTMOS IS CHARGING still gets said
-   * on the way into it.
+   * on the way into it — and under the stretch those last 3.5 shown seconds are
+   * 9.7 real ones, which is the ending getting room rather than being slowed.
    *
-   * That is a deliberate choice and not a regression — the timer on screen was
-   * asked for as the length of the creative, whatever that length is. It was 9,
-   * which is three moves: it landed in the middle of the fight, after the player
-   * had felt the bar move and before the kill, with room for exactly one repeat
-   * behind it, so the deadline arrived once as a threat and once as proof it was
-   * not a bluff. Put it back at 9 and the mechanic comes back with it.
-   *
-   * ONE CORRECTION TO ALL OF THE ABOVE, and it is the important one now: this
-   * is no longer the length of the run. T.hardCap is 33 and this is 30 — the
-   * clock the player is *shown* — and `stretch` below is what reconciles them.
-   * Everything written above is still true of what the strip says and how the
-   * mode reads it; it is only no longer true of how long the fight lasts.
+   * That is a deliberate choice and not a regression. It was 9 once, which is
+   * three moves: it landed in the middle of the fight, after the player had
+   * felt the bar move and before the kill, with room for exactly one repeat
+   * behind it, so the deadline arrived once as a threat and once as proof it
+   * was not a bluff. Put it back at 9 and the mechanic comes back with it.
    */
   seconds: 30,
   /**
-   * The three seconds the player is given and not told about.
+   * The fifteen seconds the player is given and not told about.
    *
-   * The run is 33 seconds long (T.hardCap) and the countdown on screen is 30
+   * The run is 45 seconds long (T.hardCap) and the countdown on screen is 30
    * (`seconds` above). The difference is not a lie the strip tells at any one
    * moment — the strip is never wrong about how much of *itself* is left — it
    * is a rate: the clock drains slower than wall time, so thirty of its seconds
-   * take thirty-three of ours. Nobody counts a countdown against a stopwatch;
+   * take forty-five of ours. Nobody counts a countdown against a stopwatch;
    * what they feel is how long they had.
    *
    * `window` is the whole of the idea and it is the second thing this was
    * asked for: the stretch is confined to the last `window` seconds of the
    * countdown and there is none at all before them. Outside the window the
-   * clock is wall time to the frame — twenty-seven true seconds — and inside
-   * it the three are handed over. It was a smooth curve over the whole run
-   * first, and the note it earned was that the extra time should land on the
-   * last few seconds and nowhere else, which is what this is.
+   * clock is wall time to the frame — fifteen true seconds — and inside it the
+   * fifteen are handed over. It was a smooth curve over the whole run first,
+   * and the note it earned was that the extra time should land at the end and
+   * nowhere else, which is what this is.
    *
    * The drain rate inside the window is
    *
@@ -1237,20 +1243,25 @@ export const DOOM = {
    * which is where the ceil is), so this is literally how long each digit is
    * on screen:
    *
-   *     "3" holds 1.3s      where it would have held 1.0
-   *     "2" holds 2.0s
-   *     "1" holds 2.7s
+   *     "16" holds 1.00s     the last digit before the window
+   *     "15" holds 1.07s     where it would have held 1.00
+   *     "10" holds 1.73s
+   *      "5" holds 2.40s
+   *      "1" holds 2.93s
    *
-   * Six real seconds for the last three of the countdown. That is deliberately
-   * on the edge of noticeable — a player who is counting would catch the last
-   * one — and the alternative was giving the time back where nobody feels it,
-   * which is the same as not giving it.
+   * Thirty real seconds for the last fifteen of the countdown, and the step
+   * between one digit and the next is 0.13s the whole way down. That gentle a
+   * lean is the point of keeping `window` equal to `extra`: k comes out at 2
+   * either way, so the clock never runs slower than a third of wall time and no
+   * single digit ever sits there long enough to read as a freeze.
    *
    * The three knobs, in the order worth reaching for:
    *
-   *   window  2 puts the whole gift on two digits and the last one holds 3.3s,
-   *           which is the version that was also asked about; 4 or 5 spreads it
-   *           and stops it reading as a reprieve.
+   *   window  equal to `extra` holds k at 2 and the floor at 0.33x. Smaller
+   *           concentrates the gift: 10 against an extra of 15 puts "1" on
+   *           screen for 3.85s, which stops being a reprieve and starts being
+   *           a pause. Larger flattens the lean further and starts eating into
+   *           the honest half of the countdown.
    *   shape   1 leans in linearly. 0 is a flat half-speed across the window and
    *           steps as it enters. Above 1 the window opens near true speed and
    *           the last digit takes almost all of it.
@@ -1260,8 +1271,8 @@ export const DOOM = {
    * What this does NOT touch is what the deadline means. The cataclysm still
    * lands when the strip reads zero, the warnings at DOOM.warnAt still fire on
    * the numbers the player sees, and the mix still leans on the shown clock —
-   * so the panic at 3.5 now plays out over six and a half real seconds, which
-   * is the ending getting room rather than the ending being slower.
+   * so the panic at 3.5 now plays out over 9.7 real seconds, which is the
+   * ending getting room rather than the ending being slower.
    */
   stretch: { extra: 15, window: 15, shape: 1 },
   /**
@@ -1311,6 +1322,23 @@ export const BOSS_NAME = "KOLTMOS";
 
 /* ------------------------------------------------------------------- timing */
 
+/**
+ * How fast the fight animates against wall time. 1 is real time; 0.8 is a fifth
+ * slower, which is what it is.
+ *
+ * Everything the creative moves runs on the world clock — the cascade, the
+ * boss, the cut-ins, every tween and every delay() — and this is the standing
+ * rate that clock advances at, under the transient ult rates and hit-stop. See
+ * core/juice.js.
+ *
+ * The doom clock is deliberately not on it. That one is a promise to the player
+ * about how long they have, so main.js ticks the director on the real frame and
+ * the countdown is wall time whatever this says. Which leaves the schedule: the
+ * deadlines below are written in wall seconds but measured on the world clock,
+ * so Director converts them through toWorld/toReal and the run is still exactly
+ * T.hardCap seconds long. Change this number and the fight gets slower or
+ * faster; the length of the creative does not move.
+ */
 export const WORLD_RATE = 0.8;
 
 export const T = {
@@ -1581,8 +1609,8 @@ export const T = {
    * playing itself out, so the fastest the demo ever goes is a move every three
    * and a bit seconds. It only reaches that when the boss is deep enough that
    * the run cannot afford anything slower. It is a pace, not a stampede — but
-   * the whole run is thirty seconds, and a second of dead air is a thirtieth
-   * of the ad spent watching nothing.
+   * the whole run is forty-five seconds, and a second of dead air is a
+   * forty-fifth of the ad spent watching nothing.
    */
   autoFloor: 0.35,
   /**
@@ -1599,46 +1627,55 @@ export const T = {
    * creative anybody is still watching.
    *
    * A third of the run and nothing else — a share rather than a duration, so
-   * it moves every time T.hardCap does. It has now moved three times: 5 when
-   * the run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty.
+   * it moves every time T.hardCap does. It has now moved six times: 5 when the
+   * run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty, 11 at
+   * thirty-three, 13.3 at forty, 15 at forty-five.
    */
   banner: 15.0,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Thirty-three seconds, and the player is shown thirty — see DOOM.stretch,
-   * which is the whole of that trick and the only reason these two numbers are
-   * allowed to disagree. Everything else in this file is fitted to this one
-   * rather than the other way round: `banner` so the store button lands a third
-   * of the way in, finaleReserve so the death still gets played,
+   * Forty-five seconds in wall time, and the player is shown thirty — see
+   * DOOM.stretch, which is the whole of that trick and the only reason these
+   * two numbers are allowed to disagree. Everything else in this file is fitted
+   * to this one rather than the other way round: `banner` so the store button
+   * lands a third of the way in, finaleReserve so the death still gets played,
    * DIFFICULTY.damagePerGem so the boss can be dead before it, and
    * DIFFICULTY.pace.seconds so the guard is still pulling when it arrives.
    *
-   * The three seconds are a gift and not a retune: nothing about the fight was
-   * made easier to pay for them. What they buy is the one thing the win-rate
-   * table under DIFFICULTY.curve says the run was short of — every bracket
-   * finishing between 26 and 29 seconds against a 30 second cap is a fight
-   * decided in its last beat, and a player who fumbles one swipe in that window
-   * loses to the clock rather than to the boss. Read every figure in that table
-   * as three seconds earlier than the deadline it is now racing.
+   * Measured in wall seconds and not in world ones, which is a distinction this
+   * number did not have to make until WORLD_RATE existed. Director.run races
+   * this on the world clock, so it converts through toWorld first; at a rate of
+   * 0.8 the race is armed for 36 world seconds, which is these 45.
+   *
+   * The fifteen seconds over the shown clock are a gift and not a retune:
+   * nothing about the fight was made easier to pay for them. What they buy is
+   * the one thing the win-rate table under DIFFICULTY.curve says the run was
+   * short of — every bracket finishing between 26 and 29 seconds against a 30
+   * second cap is a fight decided in its last beat, and a player who fumbles
+   * one swipe in that window loses to the clock rather than to the boss. Read
+   * every figure in that table as fifteen seconds earlier than the deadline it
+   * is now racing.
    *
    * That last one is the thing to know about this number. The damage curve is
    * cut to a dead boss in four or five moves, and moveCost puts a move at 2.8
-   * seconds. Thirty, less about two for the intro and the 3.5 of
-   * finaleReserve, leaves twenty-four and a half playable seconds — eight
+   * seconds — 3.5 of them at the world rate, which is what a move actually
+   * costs the player now. Forty-five, less about two and a half for the intro
+   * and the 3.5 of finaleReserve, leaves thirty-nine playable seconds — eleven
    * moves, against a fight balanced to end in five.
    *
-   * That gap is the whole reason the number has climbed three times. At fifteen the
+   * That gap is the whole reason the number has climbed. At fifteen the
    * run held nine and a half playable seconds and three moves, and the fight as
    * balanced did not fit inside it at all: playing well still ended with the
    * boss standing, which is not difficulty, it is a creative that stops before
    * its own climax. At twenty it held five and a bit, which is the fight
    * exactly and no room for a mistake in it — one fumbled swipe and the clock
    * collected instead of the player. Twenty-five was the first number with
-   * slack in it, and thirty is that with a beat spare: a player who reads the
-   * board kills the boss with two or three moves in hand, and one who spends
-   * the opening working out what a match even is — reads the line, watches the
-   * coach show it once, fumbles a swipe — can still get there. Nobody is being
+   * slack in it, thirty was that with a beat spare, and everything past it —
+   * 33, 40, 45 — was asked for rather than needed: a player who reads the board
+   * kills the boss with several moves in hand, and one who spends the opening
+   * working out what a match even is — reads the line, watches the coach show
+   * it once, fumbles a swipe — can still get there comfortably. Nobody is being
    * given the fight; they are being given the time to lose a move or two to it.
    *
    * This number is what the run is racing — see Director.run, where it is
