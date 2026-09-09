@@ -3126,7 +3126,7 @@ export class Director {
    * amount for the hero nobody is being taught with.
    */
   callReady(index) {
-    if (this.ultTaught || this.ended) return false;
+    if (this.ended || this.ultCasting) return false;
     const { readyCall, heroRow } = this.s;
     if (!readyCall || readyCall.playing) return false;
     readyCall.play(index, heroRow.cards[index]);
