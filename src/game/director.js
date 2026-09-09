@@ -1687,9 +1687,13 @@ export class Director {
         fill: GEM_LIGHT[card.hero.element],
         from: 1.6,
       });
-      // The shout names the hero; the lesson points at the card. Fired and not
-      // awaited — this is the middle of a cascade, and nothing in a cascade
-      // waits on a hand. See teachUlt, which does its own waiting.
+      // The shout names the hero, the call says it at the size of the screen
+      // and drops into the tile, and the lesson then taps the tile it landed
+      // on. All three fired and not awaited — this is the middle of a cascade,
+      // and nothing in a cascade waits on a hand. See teachUlt, which does its
+      // own waiting, and T.ultHintIn, which is what keeps the hand behind the
+      // call rather than under it.
+      this.callReady(index);
       this.teachUlt(index);
     });
   }
@@ -2565,6 +2569,8 @@ export class Director {
     // the player tapped. It is asked for anyway, because where that beat lives
     // is the card's business and this is where it is spent.
     await delay(card.flareLead());
+    // The announcement is over the moment the thing it announced is happening.
+    if (this.s.readyCall) this.s.readyCall.clear();
     await cutin.play(index);
     if (this.ended) return;
 
@@ -3101,6 +3107,26 @@ export class Director {
     if (token !== this.ultToken || this.ultTaught || this.ended) return;
     if (this.ultLive || !this.canUlt(index)) return;
     this.teachUlt(index);
+  }
+
+  /**
+   * Say READY at the size of the screen — see fx/readycall.js.
+   *
+   * Behind the same one-way door as the lesson. `ultTaught` shuts on the first
+   * tap on any card, and somebody who has spent an ultimate has been shown the
+   * cast's own cut-in, which is a louder thing than this and must stay the
+   * loudest: a banner over every later charge would be arguing with it.
+   *
+   * One at a time, whatever the cascade filled. A five-gem run can charge two
+   * heroes on the same frame and the second announcement would land on top of
+   * the first — the row's own flares still fire for both, which is the right
+   * amount for the hero nobody is being taught with.
+   */
+  callReady(index) {
+    if (this.ultTaught || this.ended) return;
+    const { readyCall, heroRow } = this.s;
+    if (!readyCall || readyCall.playing) return;
+    readyCall.play(index, heroRow.cards[index]);
   }
 
   /**

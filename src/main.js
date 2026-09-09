@@ -57,6 +57,7 @@ import { EndCard } from "./ui/endcard.js";
 import { FREEZE_LIFT, FREEZE_STEPS, OutcomeScreen } from "./ui/outcome.js";
 import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
+import { ReadyCall } from "./fx/readycall.js";
 import { Vfx } from "./fx/vfx.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
@@ -274,6 +275,7 @@ async function boot() {
     const spotlight = new Spotlight();
     coach.useSpotlight(spotlight);
     const cutin = new CutIn();
+    const readyCall = new ReadyCall();
     /**
      * The fight's own verdict, and the screen the run ends on.
      *
@@ -332,7 +334,7 @@ async function boot() {
       coach,
       hand,
     );
-    overlay.addChild(cutin, outcome, endcard, prompt);
+    overlay.addChild(readyCall, cutin, outcome, endcard, prompt);
 
     Object.assign(scene, {
       bg,
@@ -346,6 +348,7 @@ async function boot() {
       spotlight,
       vfx,
       cutin,
+      readyCall,
       outcome,
       endcard,
       prompt,
@@ -458,6 +461,7 @@ async function boot() {
     scene.coach.resize(layout);
     scene.vfx.resize(layout);
     scene.cutin.resize(layout);
+    scene.readyCall.resize(layout);
     scene.outcome.resize(layout);
     scene.endcard.resize(layout);
     scene.prompt.resize(layout);
@@ -1218,6 +1222,7 @@ async function boot() {
     scene.heroRow.update(dt);
     scene.hud.update(dt);
     scene.spotlight.update(dt);
+    scene.readyCall.update(dt);
     scene.outcome.update(dt);
     scene.endcard.update(dt);
     scene.prompt.update(dt);

@@ -1602,14 +1602,22 @@ export const T = {
    */
   ultHints: true,
   /**
-   * How long the READY shout is given before the lesson arrives.
+   * How long the callout is given before the lesson's hand arrives.
    *
-   * The shout goes up the instant the bar fills and holds for 0.7 — see
-   * Director.chargeParty. This lands inside that, so the hand turns up while
-   * the hero's name is still on screen and the two read as one sentence rather
-   * than as two announcements a second apart.
+   * 1.05, and it is the READY call that sets it rather than the shout. The
+   * three beats have to arrive in this order or they are three things happening
+   * at once: the shout names the hero on the frame the bar fills, READY_CALL
+   * says it at the size of the screen and takes 0.26 + 0.34 + 0.3 to land and
+   * drop into the hero's tile, and then the hand taps the tile it just watched
+   * the banner fall into. See fx/readycall.js.
+   *
+   * It was 0.5, against a 0.7 shout and no banner. Anything under about a
+   * second now and the hand comes up underneath the announcement — two props
+   * over the same card, which is the one arrangement that reads as a bug.
+   * `ultShout` is 1.4, so the hero's name is still on screen when the hand
+   * lands whatever this is set to inside that.
    */
-  ultHintIn: 0.5,
+  ultHintIn: 1.05,
   /**
    * How long the lesson holds the prop before handing it back to the board.
    *
@@ -2529,6 +2537,63 @@ export const BOSS_ATTACKS = [
  * flare used to hold the screen for 0.42s before the cut-in was allowed to take
  * it, and is now 0.
  */
+/**
+ * The READY call — see fx/readycall.js, which is where the reasoning lives.
+ *
+ * Every length is a fraction of the safe box's width rather than a pixel count,
+ * so the banner is the same share of the composition on a tall phone and a
+ * short one. See core/layout.js on why the safe box and not the window.
+ */
+export const READY_CALL = {
+  /**
+   * Where it sits, as a fraction of the safe box's height.
+   *
+   * 0.3 — over the arena and clear of two things it collided with at 0.42: the
+   * top row of the board, which made the banner look like part of the grid, and
+   * the HUD's own shout, which lives lower and was being written through.
+   */
+  y: 0.3,
+  /** The crown flipbook's size, against the safe box's width. */
+  crown: 0.5,
+  /** Type, both against the same width. */
+  word: 0.155,
+  who: 0.05,
+  /**
+   * Frames a second for the crown.
+   *
+   * 18 rather than the 24 the sheets were cut at, and it is the banner's own
+   * length that sets it: the sixteen-frame sheets burn out in two thirds of a
+   * second at 24 and left the word standing on its own for the whole drop. At
+   * 18 a sixteen-frame burst spans the beat almost exactly. The eight-frame
+   * bolt still finishes early and holds, which is the sheets disagreeing about
+   * their own length rather than something to tune around — see art/readyfx.js,
+   * where the frame count is deliberately not fixed.
+   */
+  fps: 18,
+  /**
+   * Scale it arrives from and leaves at.
+   *
+   * `to` is roughly a hero tile against the safe box, so the collapse lands at
+   * about the size of the thing it is collapsing into rather than at nothing —
+   * a banner that shrinks to zero over a card reads as disappearing, and the
+   * whole point of the drop is that it arrives somewhere.
+   */
+  from: 0.72,
+  to: 0.2,
+  /**
+   * In, hold, and the drop into the card.
+   *
+   * Under a second all told, and that is the constraint rather than a
+   * measurement: this runs in the middle of a cascade the player is still
+   * watching resolve, and ULT_PACE.cast is the beat that is allowed to own the
+   * screen. Anything longer here and the announcement competes with the thing
+   * it is announcing.
+   */
+  in: 0.26,
+  hold: 0.34,
+  drop: 0.3,
+};
+
 export const ULT_PACE = {
   rush: 5,
   cast: 1.35,
