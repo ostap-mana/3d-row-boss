@@ -1179,22 +1179,24 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Thirty, and this is the clock the player is *shown* rather than the length
+   * Forty, and this is the clock the player is *shown* rather than the length
    * of the run. T.hardCap is 45 and `stretch` below is what reconciles the two:
    * the strip is never wrong about how much of itself is left, it simply drains
-   * slower than wall time over the back half, so thirty of its seconds take
-   * forty-five of ours.
+   * slower than wall time over the last quarter, so forty of its seconds take
+   * forty-five of ours. This is the number on the CATACLYSM readout — see
+   * Hud.setDoom — so it is also the largest figure the player ever reads there.
    *
    * The clock is armed the moment the intro is off the screen, so what the
    * strip has left when the cap collects is exactly what the intro cost — about
    * two seconds — and Director.timeUp drives that last sliver to zero itself
    * before the cataclysm lands.
    *
-   * Thirty was picked back when it *was* the length of the creative, and the
-   * two moved together for as long as they were the same thing: 15, then 20,
-   * then 25, then 30. The run has since gone to 33, then 40, then 45 and this
-   * has not followed it, because what was asked for at that point was a clock
-   * that reads thirty over a fight that lasts longer than it looks.
+   * This was the length of the creative for as long as the two were the same
+   * thing: 15, then 20, then 25, then 30. Then the run went to 33, 40 and 45
+   * while the strip stayed at 30, because what was asked for was a clock that
+   * reads less than the fight lasts. It now reads 40 against a 45 second run —
+   * asked for directly, off the readout rather than off this file — so the two
+   * are close again and `stretch` carries the five seconds between them.
    *
    * What that costs is the mechanic in the middle of the fight. The clock
    * cannot reach zero while there is still a fight to land a cataclysm in, so
@@ -1203,7 +1205,7 @@ export const DOOM = {
    * collects: warnAt is 4 and 2 and panicAt is 3.5, all three of which a capped
    * run reaches, so the strip goes red and KOLTMOS IS CHARGING still gets said
    * on the way into it — and under the stretch those last 3.5 shown seconds are
-   * 9.7 real ones, which is the ending getting room rather than being slowed.
+   * 6.4 real ones, which is the ending getting room rather than being slowed.
    *
    * That is a deliberate choice and not a regression. It was 9 once, which is
    * three moves: it landed in the middle of the fight, after the player had
@@ -1211,23 +1213,23 @@ export const DOOM = {
    * behind it, so the deadline arrived once as a threat and once as proof it
    * was not a bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 30,
+  seconds: 40,
   /**
-   * The fifteen seconds the player is given and not told about.
+   * The five seconds the player is given and not told about.
    *
-   * The run is 45 seconds long (T.hardCap) and the countdown on screen is 30
+   * The run is 45 seconds long (T.hardCap) and the countdown on screen is 40
    * (`seconds` above). The difference is not a lie the strip tells at any one
    * moment — the strip is never wrong about how much of *itself* is left — it
-   * is a rate: the clock drains slower than wall time, so thirty of its seconds
+   * is a rate: the clock drains slower than wall time, so forty of its seconds
    * take forty-five of ours. Nobody counts a countdown against a stopwatch;
    * what they feel is how long they had.
    *
    * `window` is the whole of the idea and it is the second thing this was
    * asked for: the stretch is confined to the last `window` seconds of the
    * countdown and there is none at all before them. Outside the window the
-   * clock is wall time to the frame — fifteen true seconds — and inside it the
-   * fifteen are handed over. It was a smooth curve over the whole run first,
-   * and the note it earned was that the extra time should land at the end and
+   * clock is wall time to the frame — thirty true seconds — and inside it the
+   * five are handed over. It was a smooth curve over the whole run first, and
+   * the note it earned was that the extra time should land at the end and
    * nowhere else, which is what this is.
    *
    * The drain rate inside the window is
@@ -1243,38 +1245,38 @@ export const DOOM = {
    * which is where the ceil is), so this is literally how long each digit is
    * on screen:
    *
-   *     "16" holds 1.00s     the last digit before the window
-   *     "15" holds 1.07s     where it would have held 1.00
-   *     "10" holds 1.73s
-   *      "5" holds 2.40s
-   *      "1" holds 2.93s
+   *     "11" holds 1.00s     the last digit before the window
+   *     "10" holds 1.05s     where it would have held 1.00
+   *      "5" holds 1.55s
+   *      "1" holds 1.95s
    *
-   * Thirty real seconds for the last fifteen of the countdown, and the step
-   * between one digit and the next is 0.13s the whole way down. That gentle a
-   * lean is the point of keeping `window` equal to `extra`: k comes out at 2
-   * either way, so the clock never runs slower than a third of wall time and no
-   * single digit ever sits there long enough to read as a freeze.
+   * Fifteen real seconds for the last ten of the countdown, and the step
+   * between one digit and the next is 0.10s the whole way down. That is the
+   * softest lean any version of this has had, and it is deliberate: `window` at
+   * twice `extra` puts k at 1, so the clock never runs slower than half of wall
+   * time and no single digit sits there long enough to read as a freeze.
    *
    * The three knobs, in the order worth reaching for:
    *
-   *   window  equal to `extra` holds k at 2 and the floor at 0.33x. Smaller
-   *           concentrates the gift: 10 against an extra of 15 puts "1" on
-   *           screen for 3.85s, which stops being a reprieve and starts being
-   *           a pause. Larger flattens the lean further and starts eating into
-   *           the honest half of the countdown.
+   *   window  twice `extra` puts k at 1 and the floor at 0.50x, which is where
+   *           it is. Equal to `extra` doubles k: the floor drops to 0.33x, the
+   *           step per digit quadruples, and the gift concentrates on the last
+   *           few numbers. Tighter than that stops being a reprieve and starts
+   *           being a pause — 15 extra over a window of 10 once put "1" on
+   *           screen for 3.85s. Wider eats into the honest part of the clock.
    *   shape   1 leans in linearly. 0 is a flat half-speed across the window and
    *           steps as it enters. Above 1 the window opens near true speed and
    *           the last digit takes almost all of it.
    *   extra   0 turns the whole mechanism off — the rate is 1, the clock is
-   *           wall time again, and only T.hardCap has to come back to 30.
+   *           wall time again, and T.hardCap has to come back to 40 to match.
    *
    * What this does NOT touch is what the deadline means. The cataclysm still
    * lands when the strip reads zero, the warnings at DOOM.warnAt still fire on
    * the numbers the player sees, and the mix still leans on the shown clock —
-   * so the panic at 3.5 now plays out over 9.7 real seconds, which is the
+   * so the panic at 3.5 now plays out over 6.4 real seconds, which is the
    * ending getting room rather than the ending being slower.
    */
-  stretch: { extra: 15, window: 15, shape: 1 },
+  stretch: { extra: 5, window: 10, shape: 1 },
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
@@ -1635,7 +1637,7 @@ export const T = {
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Forty-five seconds in wall time, and the player is shown thirty — see
+   * Forty-five seconds in wall time, and the player is shown forty — see
    * DOOM.stretch, which is the whole of that trick and the only reason these
    * two numbers are allowed to disagree. Everything else in this file is fitted
    * to this one rather than the other way round: `banner` so the store button
@@ -1648,14 +1650,14 @@ export const T = {
    * this on the world clock, so it converts through toWorld first; at a rate of
    * 0.8 the race is armed for 36 world seconds, which is these 45.
    *
-   * The fifteen seconds over the shown clock are a gift and not a retune:
-   * nothing about the fight was made easier to pay for them. What they buy is
-   * the one thing the win-rate table under DIFFICULTY.curve says the run was
-   * short of — every bracket finishing between 26 and 29 seconds against a 30
-   * second cap is a fight decided in its last beat, and a player who fumbles
-   * one swipe in that window loses to the clock rather than to the boss. Read
-   * every figure in that table as fifteen seconds earlier than the deadline it
-   * is now racing.
+   * The fifteen seconds this has gained over the original thirty are a gift and
+   * not a retune: nothing about the fight was made easier to pay for them. What
+   * they buy is the one thing the win-rate table under DIFFICULTY.curve says
+   * the run was short of — every bracket finishing between 26 and 29 seconds
+   * against a 30 second cap is a fight decided in its last beat, and a player
+   * who fumbles one swipe in that window loses to the clock rather than to the
+   * boss. Read every figure in that table as fifteen seconds earlier than the
+   * deadline it is now racing.
    *
    * That last one is the thing to know about this number. The damage curve is
    * cut to a dead boss in four or five moves, and moveCost puts a move at 2.8

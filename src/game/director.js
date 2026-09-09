@@ -1289,10 +1289,10 @@ export class Director {
    * How fast the clock on screen runs against the clock the run is on.
    *
    * 1 for all but the last `window` seconds of the countdown, and below 1
-   * inside them — so the first fifteen of the thirty shown seconds are wall
-   * time and the fifteen the run is longer than it admits are all spent on the
-   * last fifteen. See DOOM.stretch, which is where the intent and the tuning
-   * are written down.
+   * inside them — so the first thirty of the forty shown seconds are wall time
+   * and the five the run is longer than it admits are all spent on the last
+   * ten. See DOOM.stretch, which is where the intent and the tuning are
+   * written down.
    *
    *     rate(u) = 1 / (1 + k * u^shape)
    *
@@ -1311,7 +1311,7 @@ export class Director {
    * more here than it did when this was spread across the whole run. The clock
    * is armed after the intro and can be held for an ultimate — see holdClock —
    * so elapsed real time says nothing about how close the strip is to zero, and
-   * "the last fifteen seconds" has to mean the last fifteen the player sees.
+   * "the last ten seconds" has to mean the last ten the player sees.
    *
    * Ticked on the real frame and not the world one — see main.js — so
    * WORLD_RATE does not reach this. The countdown is wall time whatever the

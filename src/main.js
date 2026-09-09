@@ -5,7 +5,7 @@
  * the player touches the screen — see the audio section below. Boots, plays a
  * forty-five second fight — T.hardCap, and every other number in config.js is
  * fitted to it — and hands the player to the store. The clock on screen reads
- * thirty; see DOOM.stretch for why those are the same fight.
+ * forty; see DOOM.stretch for why those are the same fight.
  */
 
 import { Application, Container, Graphics, Rectangle, Sprite } from "pixi.js";
