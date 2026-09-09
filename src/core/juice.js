@@ -7,6 +7,8 @@
  * are driven from main.js.
  */
 
+import { WORLD_RATE } from "../config.js";
+
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /* ------------------------------------------------------------------ hit-stop */
@@ -81,7 +83,7 @@ export function hitStop(strength, duration) {
  * @returns {number} the seconds the world should advance by
  */
 export function warpDt(dt) {
-  return dt * scale * stopFactor(dt);
+  return dt * base * scale * stopFactor(dt);
 }
 
 /**
@@ -136,15 +138,24 @@ function stopFactor(dt) {
  * player rushed an animation would be charging them for the rush.
  */
 let scale = 1;
+let base = WORLD_RATE;
 
 /** @param {number} v 1 = real time, 4 = four times as fast */
 export function setTimeScale(v) {
   scale = v > 0 ? v : 1;
 }
 
+export function setWorldRate(v) {
+  base = v > 0 ? v : 1;
+}
+
+export function worldRate() {
+  return base;
+}
+
 /** The rate the world is running at. */
 export function timeScale() {
-  return scale;
+  return scale * base;
 }
 
 /** Whether the world clock is currently being held. */

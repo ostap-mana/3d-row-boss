@@ -46,12 +46,15 @@ import {
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
-import { clearStop, setTimeScale } from "../core/juice.js";
+import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
 import { EV, track, trackOnce } from "../net/analytics.js";
+
+const toWorld = (realSeconds) => realSeconds * worldRate();
+const toReal = (worldSeconds) => worldSeconds / worldRate();
 
 /**
  * How far below the best score a cell can be and still get picked.
@@ -348,7 +351,7 @@ export class Director {
     const fight = this.playFight();
     const capped = await Promise.race([
       fight.then(() => false),
-      delay(T.hardCap).then(() => true),
+      delay(toWorld(T.hardCap)).then(() => true),
     ]);
     if (capped && this.verdict()) {
       // The cap is a deadline on the fight, not on its ending. A boss who went
@@ -554,7 +557,7 @@ export class Director {
     const curve = DIFFICULTY.curve;
     const secs = curve && curve.seconds ? curve.seconds : 0;
     if (secs <= 0) return 0;
-    const spent = Math.max(0, this.elapsed() - this.fightStart);
+    const spent = toReal(Math.max(0, this.elapsed() - this.fightStart));
     return Math.max(0, Math.min(1, spent / secs));
   }
 
@@ -748,7 +751,10 @@ export class Director {
     // see holdClock. Time only ever loosens this guard's grip, so taking the
     // cast's seconds off the bill here would be charging the player for it, not
     // sparing them: the fuse and the rage ramp are the two that bill.
-    const expected = Math.max(0, 1 - (now() - this.fightStart) / guard.seconds);
+    const expected = Math.max(
+      0,
+      1 - toReal(now() - this.fightStart) / guard.seconds,
+    );
     // Behind the line, or past the end of it: the boss holds nothing back.
     if (expected <= 0 || this.bossHp >= expected) return 1;
     return Math.max(guard.floor, Math.pow(this.bossHp / expected, guard.bite));
@@ -1100,7 +1106,7 @@ export class Director {
   }
 
   startBannerTimer() {
-    delay(T.banner).then(() => {
+    delay(toWorld(T.banner)).then(() => {
       if (!this.ended) this.s.hud.showBanner();
     });
   }
@@ -3200,10 +3206,10 @@ export class Director {
    * touched the screen, so nothing here can take a turn off a real player.
    */
   autoDelay() {
-    const left = T.hardCap - T.finaleReserve - now();
+    const left = T.hardCap - T.finaleReserve - toReal(now());
     const moves = Math.max(1, Math.ceil(this.bossHp / this.paidPerMove()));
     const budget = left / moves - T.moveCost;
-    return Math.max(T.autoFloor, Math.min(T.auto, budget));
+    return toWorld(Math.max(T.autoFloor, Math.min(T.auto, budget)));
   }
 
   pointHand() {

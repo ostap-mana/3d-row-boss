@@ -649,7 +649,7 @@ export const DIFFICULTY = {
      * floor that finished before or after the pace guard's line would be
      * pulling against it. Both went 28 -> 31 when the run went 30 -> 33.
      */
-    seconds: 31,
+    seconds: 43,
     /**
      * How far up the curve a completely stalled run is dragged by the clock.
      *
@@ -1114,7 +1114,7 @@ export const DIFFICULTY = {
      * table above as a 30 second run's; every figure in it slides about three
      * seconds later now, and the shape of the distribution does not move.
      */
-    seconds: 31,
+    seconds: 43,
     bite: 3,
     floor: 0.12,
   },
@@ -1263,7 +1263,7 @@ export const DOOM = {
    * so the panic at 3.5 now plays out over six and a half real seconds, which
    * is the ending getting room rather than the ending being slower.
    */
-  stretch: { extra: 3, window: 3, shape: 1 },
+  stretch: { extra: 15, window: 15, shape: 1 },
   /**
    * Every cataclysm after the first — and each one arrives sooner than the one
    * before it, shortened by repeatDecay and floored at repeatFloor.
@@ -1310,6 +1310,8 @@ export const BOSS_MAX_HP = 10000000;
 export const BOSS_NAME = "KOLTMOS";
 
 /* ------------------------------------------------------------------- timing */
+
+export const WORLD_RATE = 0.8;
 
 export const T = {
   /**
@@ -1600,7 +1602,7 @@ export const T = {
    * it moves every time T.hardCap does. It has now moved three times: 5 when
    * the run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty.
    */
-  banner: 11.0,
+  banner: 15.0,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
@@ -1643,7 +1645,7 @@ export const T = {
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 33.0,
+  hardCap: 45.0,
   /** beat after the boss dies before the outcome screen */
   victoryHold: 1.4,
   /**
