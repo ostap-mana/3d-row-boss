@@ -290,16 +290,15 @@ const LINE_W = { portrait: 0.44, landscape: 0.26 };
  * special-cased.
  *
  * `W` is a share of the safe box's width and `MAX` a ceiling as a share of its
- * height, and the lockup takes both as an offer: it is a painting at 1.16 and
- * it comes back with whatever box that aspect allows inside them and inside the
- * room. See fitRetryBoss.
+ * height, and the plate takes both as an offer: it is 3.7 to 1 and it comes
+ * back with whatever box that aspect allows inside them and inside the room.
+ * See fitRetryPlate.
  *
- * MAX is generous — a quarter of the screen and better — because it is no
- * longer the thing that stops the button growing. The room is, and a ceiling
- * tighter than the room is a ceiling that shrinks a button for no reason on the
- * screens that had space for it. It still binds on a tall phone, where the room
- * under the board is deep and a control that took all of it would be a plaque
- * rather than a button.
+ * MAX is generous — a quarter of the screen and better — because it is not the
+ * thing that stops the button growing. The room is, and a ceiling tighter than
+ * the room is a ceiling that shrinks a button for no reason on the screens that
+ * had space for it. At this aspect neither the ceiling nor the room binds on a
+ * phone: the width alone comes back about a fifth as deep as the room allows.
  */
 const RETRY_W = { portrait: 0.56, landscape: 0.34 };
 const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
@@ -311,7 +310,7 @@ const RETRY_LABEL_W = 0.6;
 const RETRY_LABEL_H = 0.4;
 
 /**
- * The drawn pill, for the device that could not decode the lockup.
+ * The drawn pill, for the device that could not decode the plate.
  *
  * The same shape and the same two colours the end card's own fallback uses —
  * the card's backdrop rimmed in the plate's gold — because it is the same
@@ -582,9 +581,10 @@ export class OutcomeScreen extends Container {
      *
      * Built here and hidden, like the tap line it stands in for: `show` is the
      * first moment the result is known. Exactly one of the two is ever on
-     * screen, and the same is true inside this container — the painted lockup
-     * when it decoded, the drawn pill and its type when it did not. See
-     * RETRY_PILL, and fitRetry, which is where that choice is made once.
+     * screen, and the same is true inside this container — the painted plate
+     * when it decoded, the drawn pill when it did not, and the word over
+     * whichever arrived. See RETRY_PILL, and fitRetry, which is where that
+     * choice is made once.
      *
      * Its own hit area and its own listener, rather than the card's
      * whole-screen tap: on this path that tap answers nothing at all, so a
@@ -606,8 +606,7 @@ export class OutcomeScreen extends Container {
       },
     });
     this.retryText.anchor.set(0.5);
-    // The painting carries its own word. The Text is built either way, so a
-    // device that decoded nothing still has a button with RETRY on it.
+    // The plate carries no word, so the Text is the word on both paths.
     this.retryText.visible = true;
     this.retry.addChild(this.retryText);
     this.retry.visible = false;
@@ -879,15 +878,14 @@ export class OutcomeScreen extends Container {
   /**
    * Size the retry control into `w` by `maxH`, and report the box it took.
    *
-   * The painted lockup takes the two as an offer — it is nearly square next to
-   * everything else on this screen, so a width that suits the stage can imply a
-   * height the stage has not got, and fitRetryBoss is what brings the width
-   * back down to meet the ceiling rather than squashing the boss into it.
+   * The painted plate takes the two as an offer, and fitRetryPlate is what
+   * brings the width back down to meet the ceiling rather than squashing the
+   * bevel into it.
    *
    * The drawn pill is not measured against either: it is a flat capsule and its
    * box is its own two fractions of the stage. Whichever path runs, the other
-   * one's marks are cleared — the pill is drawn empty behind the painting, and
-   * `retryText.visible` was settled once in the constructor.
+   * one's marks are cleared — the pill is drawn empty behind the plate — and
+   * the word is fitted to whichever box came back.
    *
    * @returns {{w: number, h: number}}
    */

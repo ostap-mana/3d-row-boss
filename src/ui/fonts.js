@@ -154,10 +154,11 @@ const FACES = [
   { family: "Hitzone", url: hitzoneUrl, weight: "100 900" },
   { family: "Hitzone Med", url: hitzoneMedUrl, weight: "100 900" },
   /**
-   * Montserrat Bold Italic — the digits that fly off a hit, and nothing else.
+   * Montserrat Bold Italic — the digits that fly off a hit, and the READY call.
    *
    * Third family, same reason as the first two: named rather than weighted, so
-   * FONT_DAMAGE lands on this file and the UI's own 900s never do. It comes out
+   * FONT_DAMAGE and FONT_READY land on this file and the UI's own 900s never
+   * do. It comes out
    * of the same Invokers build as Hitzone, which is embedded there as plain
    * TrueType with its own licence beside it — and that licence is the
    * difference: Montserrat is OFL and can actually ship, where Hitzone still
@@ -171,12 +172,12 @@ const FACES = [
    * that cannot load Montserrat prints upright Hitzone, which is precisely the
    * previous design rather than a broken version of this one.
    *
-   * Cut to seventeen glyphs — `0-9 , . - + % ×` and the space — because that is
-   * every character `comma()` and the sign can produce. 1.7 kB, against 20 kB
-   * for a Latin-1 cut and 202 kB of TrueType. It carries no letters at all: a
-   * caller who sets a word in this family gets its digits and per-glyph
-   * fallback for the rest, which is why FONT_DAMAGE names numbers and the two
-   * general lists in config.js do not name Montserrat at all.
+   * Cut to forty-six glyphs — `A-Z`, `0-9` and a little punctuation — because
+   * that is every character `comma()` and the sign can produce plus the word
+   * READY and every hero name under it. 3.5 kB, against 20 kB for a Latin-1 cut
+   * and 202 kB of TrueType. It carries no lower case: a caller who sets a
+   * mixed-case word in this family gets per-glyph fallback for the rest, which
+   * is why the two general lists in config.js do not name Montserrat at all.
    */
   { family: "Montserrat It", url: montserratItUrl, weight: "100 900" },
   ...elanFaces(),

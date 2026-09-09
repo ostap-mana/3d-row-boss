@@ -3115,15 +3115,15 @@ export class Director {
   /**
    * Say READY at the size of the screen — see fx/readycall.js.
    *
-   * Behind the same one-way door as the lesson. `ultTaught` shuts on the first
-   * tap on any card, and somebody who has spent an ultimate has been shown the
-   * cast's own cut-in, which is a louder thing than this and must stay the
-   * loudest: a banner over every later charge would be arguing with it.
+   * Every fill, not just the first: a charged hero is the largest number in the
+   * fight whether it is the first one or the fourth. `ultCasting` is the one
+   * door, and it is shut from the tap to the end of the cast — the cut-in is a
+   * louder thing than this and must stay the loudest, and a cascade inside
+   * clearElement can charge a hero while it is on screen.
    *
    * One at a time, whatever the cascade filled. A five-gem run can charge two
    * heroes on the same frame and the second announcement would land on top of
-   * the first — the row's own flares still fire for both, which is the right
-   * amount for the hero nobody is being taught with.
+   * the first — the row's own flares still fire for both.
    */
   callReady(index) {
     if (this.ended || this.ultCasting) return false;

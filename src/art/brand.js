@@ -37,7 +37,13 @@ export const PLAY_ART = { w: 640, h: 164 };
 export const KEY_ART = { w: 1500, h: 1246 };
 
 /**
- * The RETRY lockup, packed by tools/pack-retry-boss.mjs.
+ * The RETRY lockup, out of the build — and kept only as a measurement.
+ *
+ * `retry-boss.webp` is still on disk and tools/pack-retry-boss.mjs still makes
+ * it, but nothing imports it any more: the gold plate below replaced it, on
+ * exactly the objection the paragraphs here record being overruled. The
+ * constant stays as the transcript of what that packer printed, the same way
+ * RETRY_LINE_ART does.
  *
  * The defeat card's way out, painted: the beast roaring straight out of the
  * frame over a banner with RETRY across it, a claw hooked round each end of the
@@ -49,21 +55,13 @@ export const KEY_ART = { w: 1500, h: 1246 };
  * the game rather than a piece of furniture. It replaced a hairline rule, which
  * had replaced a blue gem plate, and both of those were chosen against exactly
  * this: two lit lockups stacked in one column is the card making two offers at
- * the same volume, and the card has one offer. That objection has not gone away
- * — it has been overruled, and the sizing is where the overruling is paid for.
- * See RETRY_BOSS_W in ui/endcard.js, which holds this to about three quarters of
- * the CTA plate's width so the pitch still wins the column on width, and only
- * on width.
+ * the same volume, and the card has one offer. That objection was overruled for
+ * three deliveries and then carried: what draws now is a plate with the word
+ * set on it, which is the piece of furniture this replaced.
  *
- * Both older cuts are still on disk and both packers still run —
- * tools/pack-retry-line.mjs and tools/pack-retry.mjs. Nothing imports either,
- * so neither is bytes in the bundle.
- *
- * At 1.16 it is a painting and not a rule, and the difference costs the layout
- * a second number: fitted to the width the old rule was given it would stand
- * about twelve times as deep, which upright eats the picture and sideways is
- * taller than the column it is a rung of. So this one is fitted to a width
- * *and* a ceiling, and hands back the box it settled on. See fitRetryBoss.
+ * Every older cut is still on disk and every packer still runs —
+ * tools/pack-retry-line.mjs, tools/pack-retry.mjs and tools/pack-retry-boss.mjs.
+ * Nothing imports any of them, so none is bytes in the bundle.
  *
  * ## Three deliveries, and why the shape keeps moving
  *
@@ -330,20 +328,14 @@ export function retryPlateHeight(w) {
 }
 
 /**
- * Size the RETRY lockup into `w` by `maxH`, and report the box it took.
+ * Size the RETRY plate into `w` by `maxH`, and report the box it took.
  *
  * The only fit on this screen that takes two numbers, and the only one that can
- * hand back a width other than the one it was given. Every other piece of brand
- * art here is a wide, shallow thing — a wordmark, a plate, a store badge, a rule
- * — so a width is the whole question and the aspect answers the rest. This one
- * is nearly square by comparison, and a width that suits the column can imply a
- * height the column does not have: sideways there is barely a third of a phone's
- * short edge for the entire pitch, and this rung asked for more of it than the
- * wordmark, the plate and the store row together.
- *
- * So the ceiling wins when the two disagree, and the width comes back down to
- * meet it rather than the art being squashed into the box. The caller places
- * what it is handed, which is why this returns a box and not a height.
+ * hand back a width other than the one it was given. The ceiling wins when the
+ * two disagree, and the width comes back down to meet it rather than the art
+ * being squashed into the box — a plate held to a height it was not drawn for
+ * is a plate with a squashed bevel. The caller places what it is handed, which
+ * is why this returns a box and not a height.
  *
  * @returns {{w: number, h: number}}
  */

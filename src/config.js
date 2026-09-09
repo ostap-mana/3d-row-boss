@@ -2335,7 +2335,7 @@ export const FONT_OUTCOME =
   '"Elan ITC Pro", "Hitzone Med", "Hitzone", Georgia, "Times New Roman", serif';
 
 /**
- * The damage face: the figures that fly off a hit, and nothing else in the game.
+ * The damage face: the figures that fly off a hit.
  *
  * Montserrat Bold Italic, out of the same Invokers Titan Legacy build the rest
  * of this creative's type comes from — so it is drawn from the game's own set of
@@ -2356,11 +2356,10 @@ export const FONT_OUTCOME =
  *
  * Hitzone sits directly behind it, which makes the fallback the previous design
  * rather than a degraded one: the digits print upright in the UI face at 900,
- * exactly as they did before this constant existed. That also covers the one
- * sharp edge of the cut — the file carries `0-9 , . - + % ×` and no letters at
- * all, being 1.7 kB rather than 20. Numbers only. A word set in this list draws
- * its letters out of Hitzone glyph by glyph, which is survivable but is not a
- * thing to do on purpose.
+ * exactly as they did before this constant existed. The cut carries `A-Z`,
+ * `0-9` and a little punctuation and no lower case — see FONT_READY, which is
+ * the same file under a second name, and README-montserrat.md for the subset
+ * line that ships.
  */
 export const FONT_DAMAGE =
   '"Montserrat It", "Hitzone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';

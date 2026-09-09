@@ -100,7 +100,7 @@ const SIDE_SCRIM = [
 const BADGE_GAP = 0.28;
 
 /**
- * The RETRY lockup, measured off the PLAY NOW plate directly above it.
+ * The RETRY plate, measured off the PLAY NOW plate directly above it.
  *
  * Off the plate and not off the store row, which is where the rule this
  * replaced was measured from. That rule was a line drawn under the bottom of
@@ -108,85 +108,34 @@ const BADGE_GAP = 0.28;
  * This is a button again, it stands in the plate's column, and the only number
  * that matters about it is how it compares to the plate.
  *
- * 0.74, so that comparison comes out the right way round. This is the one piece
- * of art on the card that can outshout the CTA — a lit painting with a monster
- * in it, against a plate with two words on it — and a card that shouts louder
- * about the rematch than about the install is a card working against itself.
- * Held to three quarters of the plate's width, the pitch is still the widest
- * thing in the column and the way out is plainly the smaller of the two offers.
- * That is the whole of the concession: on colour, on light and on interest this
- * loses to nothing, and it is a cost taken with open eyes. See RETRY_BOSS_ART.
+ * 0.64, so that comparison comes out the right way round. A card that shouts
+ * louder about the rematch than about the install is a card working against
+ * itself, and at two thirds of the plate's width the pitch is the widest thing
+ * in the column and the way out is plainly the smaller of the two offers.
  *
- * RETRY_BOSS_MAX is the ceiling, as a share of the box the column is solved in.
- * Width alone was enough for a rule at 12.05 and is not enough for a painting
- * at 1.38: sideways, three quarters of the plate implies a rung deeper than the
- * wordmark, the plate and the store row together, and the column would run off
- * both ends of the screen. Upright it never binds; sideways it always does, and
- * on a short landscape window — a browser chrome eating half of 600 points —
- * it is the only thing standing between the column and the edges.
+ * RETRY_PLATE_MAX and RETRY_PLATE_MAX_PORTRAIT are the ceilings, as a share of
+ * the box the column is solved in. Neither binds at this art's aspect — the
+ * plate is 3.7 to 1, so two thirds of the CTA's width comes back about a
+ * seventh as deep as either ceiling allows. They are kept because they are what
+ * stands between the column and the edges on a short landscape window, and
+ * because the last three shapes this control had were all deep enough to need
+ * them. See fitRetryPlate, which brings the width down to meet a ceiling rather
+ * than squashing the art into it.
  *
- * RETRY_CLEAR is the air over the lockup, as a share of the lockup's own height.
- *
- * A fraction of the art and not of the screen, because what has to be cleared is
- * the art. Every other gap in this stack is a fraction of the box the column is
- * solved in, which was right for a rule: a rule is a straight line, its top edge
- * is its ink, and a gap that is 3% of the screen looks like 3% of the screen
- * above it. This lockup's top edge is a shaman on the boss's shoulder holding a
- * staff up over its head — a thin silhouette reaching well above the mass of the
- * thing — and against the store row directly over it that reads as touching long
- * before the boxes do. A quarter of the art's height is what stops it reading
- * that way; the old 3% of the screen is kept as a floor under it, for the drawn
- * fallback and for any window short enough that the ceiling has taken the art
- * down to nothing.
+ * RETRY_CLEAR is the air over the plate, as a share of the plate's own height,
+ * under a floor of 3% of the column's box. The plate's top edge is its ink, so
+ * it is the floor that decides this now.
  *
  * RETRY_PILL_W and RETRY_H only reach the drawn fallback, which is still a
  * capsule measured off the plate — two thirds of it, as it was before there was
- * any art here at all: a dark pill at the plate's own width beside a painted gem
- * lockup is not a second button, it is the first one with a shadow. The painted
- * path takes its box from its own aspect and the ceiling instead. See fitRetry,
- * which is where the two part.
+ * any art here at all. See fitRetry, which is where the two part.
  */
-const RETRY_BOSS_W = 0.74;
-const RETRY_BOSS_MAX = 0.22;
-/**
- * The same ceiling for the card held upright, and the reason it is a second
- * number.
- *
- * The paragraph above says the sideways ceiling always binds and the upright one
- * never does. That was true and it was the problem: upright the lockup was sized
- * by width alone off the CTA plate, and on a modern phone it came back a hundred
- * and sixty-seven points deep — a fifth of the safe box spent on the one control
- * on this card that is not the offer. It is the rung holding the bottom edge, so
- * everything measured up from it — the store row, the plate — was pushed that far
- * up the screen and into the painting.
- *
- * Binding it upright does two things with one number, which is why it is this
- * and not a separate nudge on the block above: the lockup stops being the
- * biggest thing on the card, and every point it gives back is a point the plate
- * and the badges drop by, out of the picture and down where a thumb already is.
- *
- * 0.13, and the exact value is set against the painting rather than against the
- * lockup. The plate has to clear the bottom bezel of the phone in the key art,
- * which on a tall portrait screen sits at a *fixed* height: the painting is
- * cover-fitted, so on any screen taller than the art is the fit comes out
- * exactly one screen deep and the vertical aim in fitKeyArt clamps dead centre —
- * `clear.y` moves and the picture does not follow it. That is what makes this
- * solvable at all. The bezel lands near 62% of the screen, the plate is measured
- * up from the bottom edge through this lockup, and 0.13 is the ceiling at which
- * the plate's top edge comes out below the bezel instead of across the hero's
- * hammer. Lower it further and the lockup stops reading as a painting; raise it
- * and the CTA climbs back into the picture.
- *
- * Sideways keeps 0.22. There the column is centred rather than solved off the
- * bottom edge, so the ceiling is load-bearing for a different reason — see
- * BANNER_COL_ROOM_RETRY — and lowering it there would buy slack the landscape
- * column has already been given somewhere else.
- */
-const RETRY_BOSS_MAX_PORTRAIT = 0.13;
+const RETRY_PLATE_W = 0.64;
+const RETRY_PLATE_MAX = 0.22;
+const RETRY_PLATE_MAX_PORTRAIT = 0.13;
 const RETRY_CLEAR = 0.25;
 const RETRY_PILL_W = 0.64;
 const RETRY_H = 0.56;
-const RETRY_PLATE_W = 0.64;
 const RETRY_LABEL_W = 0.6;
 const RETRY_LABEL_H = 0.4;
 
@@ -587,9 +536,9 @@ export class EndCard extends Container {
    * Size the retry control and report the box it took.
    *
    * Two boxes in, because the two paths are measured off two different things
-   * and always were: `w` by `maxH` is what the painting is allowed — the CTA
-   * plate's width at RETRY_BOSS_W, under a ceiling the layout sets, see
-   * RETRY_BOSS_MAX — and `bw`/`bh` are the plate's own box, which is all the
+   * and always were: `w` by `maxH` is what the plate is allowed — the CTA
+   * plate's width at RETRY_PLATE_W, under a ceiling the layout sets, see
+   * RETRY_PLATE_MAX — and `bw`/`bh` are the plate's own box, which is all the
    * drawn pill has ever been sized against. Both callers have every one of
    * those numbers by the time they get here: portrait lays the badges and the
    * plate out before it solves the foot of the column, and landscape measures
@@ -608,7 +557,7 @@ export class EndCard extends Container {
     // art on this screen is sized — with a ceiling on top, because this is the
     // only one deep enough to overrun the column it is a rung of.
     if (this.retryArt) {
-      const box = fitRetryPlate(this.retryArt, bw * RETRY_PLATE_W, maxH);
+      const box = fitRetryPlate(this.retryArt, w, maxH);
       fitFont(
         this.retryText,
         box.w * RETRY_LABEL_W,
@@ -954,10 +903,10 @@ export class EndCard extends Container {
     let foot = s.bottom - pad;
     if (this.retry.visible) {
       const r = this.fitRetry(
-        bw * RETRY_BOSS_W,
+        bw * RETRY_PLATE_W,
         bw,
         bh,
-        h * RETRY_BOSS_MAX_PORTRAIT,
+        h * RETRY_PLATE_MAX_PORTRAIT,
       );
       const ry = foot - r.h / 2;
       this.placeRetry(s.cx, ry, r.w, r.h);
@@ -1054,10 +1003,10 @@ export class EndCard extends Container {
     // Measured here with the rest of the column and placed below as a rung of
     // it — one more optional rung, on exactly the terms the other two are on.
     // Off the CTA plate's width under the column's own ceiling, exactly as
-    // upright. Sideways it is the ceiling that decides it: see RETRY_BOSS_MAX,
-    // and fitRetryBoss, which brings the width back down to meet it.
+    // upright. See RETRY_PLATE_MAX, and fitRetryPlate, which brings the width
+    // back down to meet it.
     const retry = this.retry.visible
-      ? this.fitRetry(bw * RETRY_BOSS_W, bw, bh, h * RETRY_BOSS_MAX)
+      ? this.fitRetry(bw * RETRY_PLATE_W, bw, bh, h * RETRY_PLATE_MAX)
       : null;
     const bannerH = this.sizeBanner(
       Math.min(colW * BANNER_COL, 520 * ui),
