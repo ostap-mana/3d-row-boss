@@ -97,9 +97,11 @@ export const DIFFICULTY = {
   /**
    * Boss health taken by one gem cleared in the first step of a match.
    *
-   * 0.044, and the reason is the clock rather than a change of heart about
-   * difficulty. This number has been set three times by the same argument, in
-   * both directions, and every time the run length is what moved it.
+   * 0.05, and this time it *is* a change of heart about difficulty rather than
+   * the clock: the creative was asked to be 20% easier for an audience in its
+   * thirties, and a boss that needs 20% fewer gems is the cleanest way to say
+   * that. Every earlier revision of this number was the clock instead —
+   * T.hardCap moved and this followed it.
    *
    * Down first: at 0.028, where the gauntlet tuning had it, a fight was twelve
    * moves deep. A move costs about three and a half seconds to play out at the
@@ -147,7 +149,7 @@ export const DIFFICULTY = {
    * there — 51% at 0.034, 45% at 0.032 — and the ad starts ending on a health
    * bar nobody emptied. That is the floor, not this.
    */
-  damagePerGem: 0.04,
+  damagePerGem: 0.05,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -482,7 +484,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.30 -> 0.85   1.55->1.70   3.30 -> 1.60
+   *     attack      0.24 -> 0.68   1.24->1.36   2.64 -> 1.28
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -537,8 +539,8 @@ export const DIFFICULTY = {
    *   boss HP   zone         one rake      best match    ultimate
    *      100%   super easy   x0.30    5%   38% of boss   41% of boss
    *       75%   super easy   x0.48    7%   38%           41%
-   *       50%   medium >>>   x0.85   13%   38%           41%   OBSIDIAN HIDE
-   *       40%   medium       x1.55   23%   30%           28%
+   *       50%   medium >>>   x0.68   13%   38%           41%   OBSIDIAN HIDE
+   *       40%   medium       x1.24   23%   30%           28%
    *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
    *       12%   super hard   x27.5   50%   15%            9%
    *       10%   super hard   x22.0   38%   14%            6%
@@ -661,7 +663,7 @@ export const DIFFICULTY = {
      * damaging the boss that is all it is — see Director.pressure, which only
      * ever takes the larger of the two. This is the answer to the run the spec
      * does not cover: a player who never damages the boss meeting a golem that
-     * swings at 0.30 for thirty seconds is not an easy fight, it is no fight,
+     * swings at 0.24 for the whole run is not an easy fight, it is no fight,
      * and an ad that ends on a health bar nobody touched.
      *
      * 0.7 lands a stalled run in the middle of the medium zone by the end of
@@ -709,7 +711,7 @@ export const DIFFICULTY = {
        * party was already chewed before the mechanic had landed — which is most
        * of what "it's too fast, you lose too fast" was about.
        */
-      { p: 0.0, attack: 0.3, resist: 1.0, obsidian: 1, hold: 5 },
+      { p: 0.0, attack: 0.24, resist: 1.0, obsidian: 1, hold: 5 },
       /**
        * Two thirds of a boss left, and still inside the easy zone.
        *
@@ -720,7 +722,7 @@ export const DIFFICULTY = {
        * The creep is small enough that nothing here is what anybody would call
        * difficulty — the swings are still under a tenth of a hero bar.
        */
-      { p: 0.35, attack: 0.55, resist: 1.0, obsidian: 2, hold: 6 },
+      { p: 0.35, attack: 0.44, resist: 1.0, obsidian: 2, hold: 6 },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
        * half.
@@ -737,7 +739,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.85,
+        attack: 0.68,
         resist: 1.0,
         obsidian: 3,
         hold: 8,
@@ -754,11 +756,11 @@ export const DIFFICULTY = {
        * the player cannot feel is not a boundary, and this one is announced a
        * beat before it by the keyframe above.
        */
-      { p: 0.6, attack: 1.55, resist: 0.78, obsidian: 5, hold: 10 },
+      { p: 0.6, attack: 1.24, resist: 0.78, obsidian: 5, hold: 10 },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
-       * The zone behind this line is deliberately near-flat: 1.55 to 1.70 across
+       * The zone behind this line is deliberately near-flat: 1.24 to 1.36 across
        * fifteen percent of the bar. Medium has to be a place the player gets to
        * stand and play, not a ramp they slide down — it is where the roster gets
        * charged and where somebody who has understood the game gets to look good
@@ -766,7 +768,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.75,
-        attack: 1.7,
+        attack: 1.36,
         resist: 0.78,
         obsidian: 5,
         hold: 10,
@@ -808,7 +810,7 @@ export const DIFFICULTY = {
        * whole. Nothing the player owns is a solution to this zone any more; it
        * is a grind, and it is meant to be.
        */
-      { p: 0.88, attack: 3.3, resist: 0.4, obsidian: 8, hold: 11 },
+      { p: 0.88, attack: 2.64, resist: 0.4, obsidian: 8, hold: 11 },
       /**
        * The killing stretch.
        *
@@ -841,7 +843,7 @@ export const DIFFICULTY = {
        * "a couple of percent" and into "why did I press that".
        *
        * THE FALL, and its first and steepest two points. `attack` comes off the
-       * needle's 3.30 (x27.5) to 2.51 here (x22.0) and then down to the kill's
+       * needle's 2.64 (x22.0) to 2.01 here (x17.6) and then down to the kill's
        * 1.60 (x14.0) — so a fifth of the drop is spent in the two points of
        * health between 12% and 10%, and the remaining tenth of the bar spreads
        * the rest of it out. That is the shape deliberately: the golem comes off
@@ -866,7 +868,7 @@ export const DIFFICULTY = {
        * bars of damage now against 1.37, which is about half a second off the
        * fight.
        */
-      { p: 0.9, attack: 2.51, resist: 0.38, obsidian: 8, hold: 12 },
+      { p: 0.9, attack: 2.01, resist: 0.38, obsidian: 8, hold: 12 },
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
@@ -923,7 +925,7 @@ export const DIFFICULTY = {
        * under this build rather than as its measurement: a softer killing blow
        * can only move a wipe into a win, and it moves nothing else.
        */
-      { p: 1.0, attack: 1.6, resist: 0.38, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 1.28, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
@@ -1295,14 +1297,21 @@ export const DOOM = {
    * Fraction of HERO_MAX_HP the cataclysm takes off every hero. Set against
    * ULT_HEAL_TO: a freshly healed party lives on a sliver, a chewed-up one
    * does not live at all.
+   *
+   * 0.32, down from 0.4, which is one of the three places the 20% the creative
+   * was asked to shed actually lands — see damagePerGem and `attack` under
+   * DIFFICULTY.curve for the other two. The audience is players in their
+   * thirties who do not play match-3 for a living, and what beats them is not
+   * the puzzle, it is being punished for the seconds they spend reading the
+   * board. Nothing about the clock moved for it.
    */
-  damage: 0.4,
+  damage: 0.32,
   /**
    * And every cataclysm after the first is multiplied by this again.
    *
-   * 40%, then 48%, then 58%, then 69%. The first is survivable by a party that
+   * 32%, then 38%, then 46%, then 55%. The first is survivable by a party that
    * has not been chewed on; the third is survivable only by one that was healed
-   * in between, and the fourth is not survivable at all. That escalating
+   * in between, and the fourth takes all but a sliver. That escalating
    * deadline is the spine of the whole mode — it is what stops a careful player
    * simply outlasting the fight, and it is why the tide's decay matters.
    *
