@@ -124,22 +124,6 @@ function hidden() {
   return typeof document !== "undefined" && document.hidden;
 }
 
-/**
- * Whether the page has ever been touched, according to the browser rather than
- * to us. Covers the gestures that landed before this module was listening.
- */
-function hasBeenActive(w) {
-  try {
-    return !!(
-      w.navigator &&
-      w.navigator.userActivation &&
-      w.navigator.userActivation.hasBeenActive
-    );
-  } catch (e) {
-    return false;
-  }
-}
-
 /** Run a subscriber list, where one of them throwing does not cost the rest. */
 function fire(list) {
   list.slice().forEach((fn) => {
@@ -216,10 +200,18 @@ function context() {
   if (building) return null;
   const w = host();
   if (!w) return null;
-  // Not one is built before the first gesture — see `gestured`. A page the
-  // browser already counts as interacted with counts here too, so a sound asked
-  // for between that gesture and our own handler is not dropped for nothing.
-  if (!gestured && !hasBeenActive(w)) return null;
+  // Not one is built before the creative itself has been touched — see
+  // `gestured`, which unlockAudio sets and `activated` gates.
+  //
+  // `hasBeenActive` used to be accepted here beside it, so that a sound asked
+  // for between the gesture and our own handler was not dropped for nothing.
+  // It had to go: it is true of a document whose *container* was clicked, and
+  // on a compliance run the harness's own reload button is exactly that. With
+  // it, `tone` and `noise` built a live context and played through it before
+  // the ad had been touched, and the buffer source that a hit sound is came
+  // back as audio before a tap. Every audible path in this file runs through
+  // this one line, which is why the gate belongs here and not on each of them.
+  if (!gestured) return null;
   const Ctor = w.AudioContext || w.webkitAudioContext;
   if (!Ctor) return null;
 
@@ -361,7 +353,8 @@ function rebuild() {
   fire(resetCbs);
   if (dead) {
     try {
-      dead.close();
+      const p = dead.close();
+      if (p && p.catch) p.catch(() => {});
     } catch (e) {
       /* a context that will not close is one we have already let go of */
     }
@@ -395,6 +388,7 @@ function rebuild() {
  *   Use onAudioOpen to be told, and audioReady to ask.
  */
 export function unlockAudio() {
+  if (!activated()) return false;
   gestured = true;
   // First, and on every gesture rather than the first one. On iOS this is
   // what decides whether the ring/silent switch applies to everything
@@ -464,8 +458,19 @@ export function unlockAudio() {
  * creative while it was still loading spent the one gesture that mattered on
  * nothing at all.
  *
- * The list is deliberately *everything*, rather than the events that are
- * supposed to carry user activation, and that is the whole fix:
+ * The list is deliberately wider than the events that are specified to carry
+ * user activation — but it is still only interactions, and nothing here runs
+ * before one. See `activated`, which is the gate every path goes through:
+ *
+ *   - A hover used to be enough. `pointermove` and `mousemove` are in the moves
+ *     list, they arrive without anybody touching anything, and the unlock they
+ *     asked for started a silent one-frame buffer. That is an automatic FAIL on
+ *     "No audio before a tap" in a compliance run, and it bought nothing: a
+ *     move with no press behind it never carried activation to resume with.
+ *   - The moves are kept, gated. A drag is `pointerdown` first and the moves
+ *     after it, so a real finger sets the flag on its own first event and the
+ *     moves go on retrying inside the same interaction, which is what they were
+ *     added for.
  *
  *   - By the letter of it, a finger's activation rides on `pointerup` and
  *     `touchend`. Neither of those is guaranteed to arrive. A drag that iOS
@@ -507,6 +512,28 @@ const GESTURES = [
 const MOVES = ["pointermove", "touchmove", "mousemove"];
 
 let installed = false;
+let tapped = false;
+
+/**
+ * Whether the player has touched *this creative* yet, which is the one thing
+ * that has to be true before this file goes near the audio hardware.
+ *
+ * Deliberately not `hasBeenActive`, and that distinction is the whole bug. A
+ * document counts as activated the moment anything in it is clicked, including
+ * the container's own furniture — the harness reload button, a preview page's
+ * play arrow — so on a compliance run the document arrives already activated
+ * and `hasBeenActive` says yes before the ad has been touched at all. Then one
+ * `mousemove` over the frame reached unlockAudio, a context got built, and the
+ * silent one-frame buffer it starts to wake iOS became
+ * `AudioBufferSourceNode.start()` at 321ms with no interaction behind it: an
+ * automatic FAIL on "No audio before a tap", which every network rejects.
+ *
+ * So this is our own flag, set only by the listeners in installAudioUnlock,
+ * every one of which is a real press or key on the creative itself.
+ */
+function activated() {
+  return tapped;
+}
 
 export function installAudioUnlock() {
   const w = host();
@@ -514,11 +541,14 @@ export function installAudioUnlock() {
   installed = true;
 
   const opts = { capture: true, passive: true };
-  const wake = () => unlockAudio();
+  const wake = () => {
+    tapped = true;
+    unlockAudio();
+  };
 
   let lastMove = 0;
   const moved = () => {
-    if (audioReady()) return;
+    if (!activated() || audioReady()) return;
     const t = now();
     if (t - lastMove < MOVE_GAP_MS) return;
     lastMove = t;
@@ -538,9 +568,14 @@ export function audioSleep(asleep) {
   // itself a way to park a context somewhere resume() cannot reach it, and an
   // ad preloaded into an off-screen slot gets that visibilitychange every time.
   if (!ctx || !opened) return;
+  // Both return promises, so a throw is not what a refusal looks like: iOS
+  // rejects with InvalidStateError("Failed to start the audio device") when the
+  // hardware is busy, and the try/catch never sees it. Unhandled, that is a
+  // script error on the compliance run and it fires every time the ad is
+  // scrolled back into view on a phone that is already playing something.
   try {
-    if (asleep) ctx.suspend();
-    else ctx.resume();
+    const p = asleep ? ctx.suspend() : ctx.resume();
+    if (p && p.catch) p.catch(() => {});
   } catch (e) {
     /* a context that will not park is not worth a broken creative */
   }

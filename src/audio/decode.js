@@ -81,7 +81,8 @@ function evict() {
   const dead = scratch;
   scratch = null;
   try {
-    if (dead.close) dead.close();
+    const p = dead.close ? dead.close() : null;
+    if (p && p.catch) p.catch(() => {});
   } catch (e) {
     /* a scratch context that will not close is not worth an exception */
   }
