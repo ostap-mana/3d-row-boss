@@ -137,34 +137,37 @@ export const DIFFICULTY = {
    *
    * 0.044 was the first correction and it did not go far enough: the bar still
    * emptied in five moves and the kill still landed at 18 seconds with the
-   * board barely under pressure. This is the second pass, and it is the last
-   * one this knob can carry alone — see the floor at the bottom of this note.
+   * board barely under pressure.
    *
-   * At 0.040 a plain triple takes about 12% off a bare boss, a four-run leading
-   * a cascade is a serious dent rather than a finish, and the kill lands on
-   * move six — 21 seconds for a player taking the best swap every time, 24 for
-   * an ordinary one, with about a third of ordinary runs now losing outright,
-   * most of them to the clock. The fight fills the window instead of ending in
-   * the middle of it, and the boss's last quarter is played against a doom
-   * strip that is already red.
+   * 0.075 is where it stands, and it is set by a requirement rather than by a
+   * win rate: the fight has to be finishable in five hits and six at the very
+   * worst, counting a match and an ultimate alike as one hit. A plain triple
+   * takes 22.5% off a bare boss, so four of them and a cast end it, and the
+   * slowest line anybody can actually play — every match a bare triple and the
+   * ultimate never spent — lands the kill on hit six at 19 seconds. Nothing
+   * reaches seven.
    *
-   * It is deliberately paired with a trimmed sizeBonus and comboMultiplier
-   * below rather than carrying the whole cut by itself. Damage per gem is the
-   * beginner's number — it is all a plain triple ever earns — while the bonus
-   * tables are the expert's, and the complaint being answered here was that the
-   * fight is trivial for somebody who reads the board. Taking both together
-   * slows the strong player by about two and a half seconds and the weak one
-   * by under a second, which is the shape the complaint asked for.
+   * It is deliberately paired with a flattened sizeBonus and comboMultiplier
+   * below rather than carrying that requirement by itself. Damage per gem is
+   * the beginner's number — it is all a plain triple ever earns — while the
+   * bonus tables are the expert's, and raising this one on its own put the
+   * ceiling straight through the floor: with the tables as they were, a
+   * five-cell step leading a cascade into an ultimate killed the boss in a
+   * single hit. Raising the floor is this knob. Holding the ceiling down is
+   * those two tables, and the pair of them is what makes the band 3 to 6
+   * instead of 1 to 7.
    *
    * Difficulty in a creative this short is not how many moves it takes; it is
    * T.hardCap, which is the only opponent that never misses. What this number
    * decides is whether the fight fills the time that clock gives it. Under
-   * about 0.034 the twelve-move problem starts coming back: measured with these
-   * bonus tables, an ordinary player's win rate crosses under a coin flip
-   * there — 51% at 0.034, 45% at 0.032 — and the ad starts ending on a health
-   * bar nobody emptied. That is the floor, not this.
+   * about 0.034 the twelve-move problem starts coming back — an ordinary
+   * player's win rate crossed under a coin flip there, 51% at 0.034 and 45% at
+   * 0.032, and the ad starts ending on a health bar nobody emptied. Those two
+   * readings were taken against the steeper bonus tables this pass replaced,
+   * so treat them as the shape of the floor rather than as its current
+   * altitude. Either way it is far below this.
    */
-  damagePerGem: 0.0625,
+  damagePerGem: 0.075,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -172,13 +175,16 @@ export const DIFFICULTY = {
    * refill into a match, a simulated fight averaging a deepest combo of about
    * 1.3 — so this is the ceiling, not the bread and butter.
    *
-   * Trimmed from 1.7/2.5/3.4/4.4 with the same argument as sizeBonus below: a
-   * rare event paying quadruple is how a fight ends in four moves on the one
-   * run where the board happens to fall right, and that run is exactly the one
-   * that reads as "it beat itself". A second step is still worth half again a
-   * first, which is plenty for a cascade to feel like the board paying out.
+   * Trimmed twice, from 1.7/2.5/3.4/4.4 to 1.55/2.1/2.8/3.5 and now to this,
+   * with the same argument as sizeBonus below: a rare event paying triple is
+   * how a fight ends in one hit on the run where the board happens to fall
+   * right, and that run is exactly the one that reads as "it beat itself". A
+   * second step is worth a fifth more than a first now rather than half again —
+   * enough that a cascade still reads as the board paying out, not enough to
+   * skip three of the five hits the fight is specified to take. See
+   * damagePerGem above for the specification.
    */
-  comboMultiplier: [1, 1.55, 2.1, 2.8, 3.5],
+  comboMultiplier: [1, 1.2, 1.4, 1.6, 1.8],
   /**
    * Payout for clearing more than three gems in one step.
    *
@@ -192,19 +198,26 @@ export const DIFFICULTY = {
    * the lever a good player has left, and it has to be worth the seconds that
    * hunting for it costs them on the doom clock.
    *
-   * Then trimmed from 1.5/2.3, because that lever had become the whole fight.
-   * Per gem *and* per shape, a five-cell step was paying nearly four times a
-   * triple, so a single good read took a third off the boss and two of them
-   * ended it — which is precisely the "wins itself" the retune was asked for.
-   * At 1.35 and 1.9 a four-run is still worth about 1.8 triples and a five-run
-   * about 3.2, so reading the board is still the best thing a player can do
-   * with their seconds; it is simply no longer the only thing that matters.
+   * Then trimmed from 1.5/2.3, and then from 1.35/1.9, because that lever had
+   * become the whole fight. Per gem *and* per shape, a five-cell step was
+   * paying nearly four times a triple, so a single good read took a third off
+   * the boss and two of them ended it — which is precisely the "wins itself"
+   * the retune was asked for.
+   *
+   * Both entries are the same number now, and that is the point rather than a
+   * typo: the cell count already pays for the bigger shape, so this table only
+   * has to say how much a shape is worth *per gem* on top of that. At 1.15 a
+   * four-run comes to about 1.5 triples and a five-run to about 1.9, which
+   * keeps reading the board the best thing a player can do with their seconds
+   * while leaving the five-hit fight on damagePerGem above intact. The step
+   * that was doing the damage was 1.9: it made a five-cell step worth 3.2
+   * triples, and stacked with a cascade and an ultimate that is a one-hit kill.
    *
    * Do not take these to 1: that was measured, and it flattens the win rate
    * across every skill level, which is the same fight for a player who reads
    * the board and one who swipes at random.
    */
-  sizeBonus: { 4: 1.35, 5: 1.9 },
+  sizeBonus: { 4: 1.15, 5: 1.15 },
   /**
    * What a hero still contributes once they are down.
    *
@@ -330,22 +343,21 @@ export const DIFFICULTY = {
    * Down from 0.3 and 1.25. That pair made one tap worth about 45% of the boss
    * — nearly half a fight from a button the player did not have to aim — and it
    * was the single biggest reason a run ended before the clock got interesting.
-   * 0.24 and 1.15 were still worth about a third of the bar for one tap, and
-   * 0.2 was a quarter of it. 0.25 is that same quarter: the boss lost a fifth
-   * of its health under damagePerGem and this went up by the quarter that
-   * keeps a cast worth the absolute two million it was worth before, which is
-   * a little over half of the shorter bar. Still the largest number anybody
-   * can put on the screen in one beat, still the correct answer to a wall of
-   * obsidian — it simply no longer pays for two of the six moves the run has
-   * room for.
+   * 0.24 and 1.15 were still worth about a third of the bar for one tap. 0.2
+   * and 0.9 is where the five-hit fight on damagePerGem puts it: a cast comes
+   * to a little over half the bar, which is about two and a half matches, so
+   * spending it is what turns a six-hit run into a five-hit one. Still the
+   * largest number anybody can put on the screen in one beat, still the
+   * correct answer to a wall of obsidian — it simply cannot be the fight on
+   * its own, which at 0.3 and 1.25 it very nearly was.
    *
    * The floor here is the cut-in, not the arithmetic. Take the flat chunk much
    * under 0.15 and the ultimate stops being worth the two seconds its cut-in
    * costs on T.hardCap, at which point the correct play is never to cast the
    * feature the creative is selling.
    */
-  ultDamage: 0.25,
-  ultGemMultiplier: 1.05,
+  ultDamage: 0.2,
+  ultGemMultiplier: 0.9,
   /**
    * How much harder the boss's hide bites an ULTIMATE than it bites a match.
    *
@@ -790,7 +802,7 @@ export const DIFFICULTY = {
        * a zone boundary the player cannot feel is not a boundary, and this one
        * is announced a beat before it by the keyframe above.
        */
-      { p: 0.6, attack: 0.58, resist: 0.85, ult: 1, obsidian: 3, hold: 8 },
+      { p: 0.6, attack: 0.58, resist: 0.88, ult: 1, obsidian: 3, hold: 8 },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
@@ -803,7 +815,7 @@ export const DIFFICULTY = {
       {
         p: 0.75,
         attack: 0.64,
-        resist: 0.85,
+        resist: 0.88,
         ult: 1,
         obsidian: 3,
         hold: 8,
@@ -838,7 +850,7 @@ export const DIFFICULTY = {
        * complaints and these are separate knobs — see the note under
        * DIFFICULTY.ultHideBite, which is the third.
        */
-      { p: 0.88, attack: 1.05, resist: 0.54, ult: 1, obsidian: 5, hold: 9 },
+      { p: 0.88, attack: 1.05, resist: 0.8, ult: 1, obsidian: 5, hold: 9 },
       /**
        * BOSS AT TEN PERCENT — and `resist` goes flat from here to the kill.
        *
@@ -860,7 +872,7 @@ export const DIFFICULTY = {
        * cost of holding the ultimate still: a five-cell step lands for 31%
        * across the last tenth where a sliding hide would have taken it lower.
        */
-      { p: 0.9, attack: 0.95, resist: 0.52, ult: 1, obsidian: 5, hold: 9 },
+      { p: 0.9, attack: 0.95, resist: 0.72, ult: 1, obsidian: 5, hold: 9 },
       /**
        * The killing blow.
        *
@@ -887,7 +899,7 @@ export const DIFFICULTY = {
        * back. This pass is the first to move both, and it moved `resist`
        * deliberately — the length was the complaint.
        */
-      { p: 1.0, attack: 0.62, resist: 0.52, ult: 1, obsidian: 5, hold: 9 },
+      { p: 1.0, attack: 0.62, resist: 0.72, ult: 1, obsidian: 5, hold: 9 },
     ],
   },
 
@@ -1096,7 +1108,7 @@ export const DIFFICULTY = {
      */
     seconds: 22,
     bite: 2,
-    floor: 0.5,
+    floor: 0.7,
   },
 
   /**
