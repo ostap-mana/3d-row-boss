@@ -11,7 +11,8 @@
  *
  * So this shows the rule instead of naming it, in four beats and no words:
  *
- *   1. the two gems that are already in a line light up — here is a pair;
+ *   1. the two gems that are already in a line light up, under one frame drawn
+ *      round the both of them — here is a pair, and it is one thing;
  *   2. the one that would complete it lights up too, with an arrow off it —
  *      this one, that way;
  *   3. the gem actually travels. Board.previewSwap slides the real stones on
@@ -322,6 +323,71 @@ function straightRuns(cells, typeOf) {
       }
       if (line.length >= 3) out.push({ cells: line, type });
     });
+  });
+
+  return out;
+}
+
+/**
+ * The same job for the beats that have no run yet: what lines up, joined.
+ *
+ * The pair a lesson opens on is two gems of one element side by side, and two
+ * frames laid on them is two marks for one fact — eight brackets crowding a
+ * seam, when what the beat is saying is "these, together". So the lit cells are
+ * put into maximal same-element lines first and each line is framed once, in
+ * exactly the grammar the finished run is framed in. A gem with nothing beside
+ * it — the traveller, a pair the swap lands in the middle of — is a line of one
+ * and wears the single-cell frame it always did.
+ *
+ * The difference from straightRuns is the length: a run is three and a line
+ * here is two, which is why this is not that function with an argument. A cell
+ * is only ever in one group, so an L of lit cells gives its longer arm one
+ * frame and the rest of itself singles rather than two frames crossing on the
+ * corner they share.
+ *
+ * @param {Array<{r:number,c:number}>} cells the lit cells
+ * @param {function} typeOf the element at a cell, as the board reads *now*
+ * @returns {Array<{cells:Array,type:number}>} one entry per frame
+ */
+function litLines(cells, typeOf) {
+  const key = (r, c) => `${r},${c}`;
+  const set = new Set(cells.map((cell) => key(cell.r, cell.c)));
+  const taken = new Set();
+  const out = [];
+
+  [
+    [0, 1],
+    [1, 0],
+  ].forEach(([dr, dc]) => {
+    cells.forEach((cell) => {
+      const type = typeOf(cell.r, cell.c);
+      // An encased cell has no element to line up with, and -1 matching -1
+      // would join two of them into one frame over a pair of buried stones.
+      if (type < 0) return;
+      if (
+        set.has(key(cell.r - dr, cell.c - dc)) &&
+        typeOf(cell.r - dr, cell.c - dc) === type
+      ) {
+        return;
+      }
+      const line = [cell];
+      for (;;) {
+        const r = cell.r + dr * line.length;
+        const c = cell.c + dc * line.length;
+        if (!set.has(key(r, c)) || typeOf(r, c) !== type) break;
+        line.push({ r, c });
+      }
+      if (line.length < 2) return;
+      if (line.some((p) => taken.has(key(p.r, p.c)))) return;
+      line.forEach((p) => taken.add(key(p.r, p.c)));
+      out.push({ cells: line, type });
+    });
+  });
+
+  cells.forEach((cell) => {
+    if (taken.has(key(cell.r, cell.c))) return;
+    taken.add(key(cell.r, cell.c));
+    out.push({ cells: [cell], type: typeOf(cell.r, cell.c) });
   });
 
   return out;
@@ -1090,43 +1156,54 @@ export class Coach extends Container {
     const span = size * FRAME_SPAN;
     const boxes = [];
 
-    // One frame round each finished run, so three gems read as the one thing
-    // the player just made rather than as three things that happen to be lit —
-    // and so two runs finished by the one swap read as two things and not as
-    // one box with both of them and the gems between them inside it. It is the
-    // same frame as a single gem wears, pulled along the run — which is what
-    // the nine-slice is for.
+    // One frame round a list of cells, whatever that list is. A single gem, a
+    // lit pair and a finished run all come through here, so the box round three
+    // is the box round one pulled along the line — which is what the nine-slice
+    // in art/hintmarks.js is cut for.
     //
-    // Each in its own element rather than in the traveller's: a run is made of
-    // the colour it is made of, and the frame saying otherwise was the whole of
-    // what looked wrong about a double match.
-    (joined || []).forEach((group) => {
+    // typeAt is -1 for an encased cell, which has no painted set of its own.
+    // That one keeps the beat's element instead: the alternative is paint()
+    // finding a box it has no art for and standing the entire lesson down to
+    // the stroked fallback over a single gem the boss happened to bury.
+    const frame = (cells, type) => {
       let x0 = Infinity;
       let y0 = Infinity;
       let x1 = -Infinity;
       let y1 = -Infinity;
-      group.cells.forEach((cell) => {
+      cells.forEach((cell) => {
         const p = at(cell);
         x0 = Math.min(x0, p.x);
         y0 = Math.min(y0, p.y);
         x1 = Math.max(x1, p.x);
         y1 = Math.max(y1, p.y);
       });
+      const el = type < 0 ? step.type : type;
       boxes.push({
         x: x0 - span / 2,
         y: y0 - span / 2,
         w: x1 - x0 + span,
         h: y1 - y0 + span,
-        type: group.type,
-        color:
-          GEM_LIGHT[group.type] === undefined
-            ? step.color
-            : GEM_LIGHT[group.type],
+        type: el,
+        color: GEM_LIGHT[el] === undefined ? step.color : GEM_LIGHT[el],
       });
-    });
+    };
+
+    // One frame round each finished run, so three gems read as the one thing
+    // the player just made rather than as three things that happen to be lit —
+    // and so two runs finished by the one swap read as two things and not as
+    // one box with both of them and the gems between them inside it.
+    //
+    // Each in its own element rather than in the traveller's: a run is made of
+    // the colour it is made of, and the frame saying otherwise was the whole of
+    // what looked wrong about a double match.
+    (joined || []).forEach((group) => frame(group.cells, group.type));
 
     // A gem already inside a run's frame does not get one of its own: it is
     // framed, and a second frame inside the first is two marks for one fact.
+    // What is left goes through litLines, so the gems that already line up are
+    // framed together and only a stone standing on its own wears a box of its
+    // own — the pair a lesson opens on is one thing, and it was being drawn as
+    // two squares meeting at a seam.
     //
     // Each in its own element, like the run frames and for the same reason.
     // Every mark used to wear the one colour a beat — the travelling gem's —
@@ -1136,24 +1213,10 @@ export class Coach extends Container {
     // colour, so three water gems sat in arcane brackets; a bracket that
     // disagrees with the gem inside it reads as a mark drawn in the wrong place
     // rather than as a hint about that gem.
-    (step.lit || []).forEach((cell) => {
-      if (inRun(cell)) return;
-      const p = at(cell);
-      // typeAt is -1 for an encased cell, which has no painted set of its own.
-      // That one keeps the beat's element instead: the alternative is paint()
-      // finding a box it has no art for and standing the entire lesson down to
-      // the stroked fallback over a single gem the boss happened to bury.
-      const type = board.typeAt(cell.r, cell.c);
-      const el = type < 0 ? step.type : type;
-      boxes.push({
-        x: p.x - span / 2,
-        y: p.y - span / 2,
-        w: span,
-        h: span,
-        type: el,
-        color: GEM_LIGHT[el] === undefined ? step.color : GEM_LIGHT[el],
-      });
-    });
+    const loose = (step.lit || []).filter((cell) => !inRun(cell));
+    litLines(loose, (r, c) => board.typeAt(r, c)).forEach((group) =>
+      frame(group.cells, group.type),
+    );
 
     // The pointer, on the seam the stone is about to cross. Only ever placed
     // before it does: once the gem is moving it is sitting on this exact spot,
@@ -1325,10 +1388,11 @@ export class Coach extends Container {
         color: box.color === undefined ? color : box.color,
         alpha: 0.92,
       };
-      // Inset by the shadow it carries, so a ring on one cell of a lit pair
-      // stops short of the ring on the other. The painted frame does not need
-      // this — its brackets are open where a ring is closed, and two of them
-      // meeting at a seam reads as a pair rather than as a collision.
+      // Inset by the shadow it carries, so a box on one cell stops short of the
+      // box on the cell beside it — the traveller's, drawn against the run it is
+      // about to join. The painted frame does not need this: its brackets are
+      // open where a ring is closed, and two of them meeting at a seam reads as
+      // two marks rather than as a collision.
       const pad = shadow.width / 2;
       const w = box.w - pad * 2;
       const h = box.h - pad * 2;
