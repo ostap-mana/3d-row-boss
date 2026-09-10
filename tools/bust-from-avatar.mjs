@@ -8,11 +8,13 @@ const OUT_DIR = join(ROOT, "src/source/heroes");
 
 const TARGET = { w: 160, h: 328 };
 const HEAD = 160;
-const SKIRT_SAMPLE = 10;
-const SKIRT_FLOOR = 0.035;
-const SKIRT_SMEAR = 3;
-const DUSK_FROM = 128;
-const DUSK_TO = 204;
+const TORSO_REACH = 62;
+const TORSO_EASE = 0.72;
+const DUSK_FLOOR = 0.06;
+const DUSK_FALL = 3.8;
+const BLUR_MAX = 6;
+const BORDER_LEVEL = 10;
+const BORDER_HUNT = 6;
 
 const MAP = [
   ["tools/image-5.png", "fire"],
@@ -105,52 +107,58 @@ function areaScale(px, w, h, tw, th) {
   return out;
 }
 
-function hemColumns(head, w) {
-  const raw = [];
+function rowBlur(head, w, y, radius) {
+  const row = [];
   for (let x = 0; x < w; x++) {
-    let r = 0,
-      g = 0,
-      b = 0;
-    for (let y = HEAD - SKIRT_SAMPLE; y < HEAD; y++) {
-      const i = (y * w + x) * 4;
-      r += head[i];
-      g += head[i + 1];
-      b += head[i + 2];
-    }
-    raw.push([r / SKIRT_SAMPLE, g / SKIRT_SAMPLE, b / SKIRT_SAMPLE]);
-  }
-
-  return raw.map((_, x) => {
     let r = 0,
       g = 0,
       b = 0,
       n = 0;
-    for (let k = -SKIRT_SMEAR; k <= SKIRT_SMEAR; k++) {
-      const c = raw[Math.min(w - 1, Math.max(0, x + k))];
-      r += c[0];
-      g += c[1];
-      b += c[2];
+    for (let k = -radius; k <= radius; k++) {
+      const sx = Math.min(w - 1, Math.max(0, x + k));
+      const i = (y * w + sx) * 4;
+      r += head[i];
+      g += head[i + 1];
+      b += head[i + 2];
       n++;
     }
-    return [r / n, g / n, b / n];
-  });
+    row.push([r / n, g / n, b / n]);
+  }
+  return row;
+}
+
+function litRows(px, w, h) {
+  let last = h - 1;
+  while (last > h - 1 - BORDER_HUNT) {
+    let sum = 0;
+    for (let x = 0; x < w; x++) {
+      const i = (last * w + x) * 4;
+      sum += px[i] + px[i + 1] + px[i + 2];
+    }
+    if (sum / (w * 3) > BORDER_LEVEL) break;
+    last--;
+  }
+  return last + 1;
 }
 
 function bust(file) {
   const info = probe(file);
   const src = decode(file);
-  const head = areaScale(src, info.w, info.h, TARGET.w, HEAD);
+  const lit = litRows(src, info.w, info.h);
+  const head = areaScale(src, info.w, lit, TARGET.w, HEAD);
 
   const out = Buffer.alloc(TARGET.w * TARGET.h * 4);
-  const hem = hemColumns(head, TARGET.w);
+  head.copy(out, 0);
 
-  for (let y = 0; y < TARGET.h; y++) {
-    const t = Math.min(1, Math.max(0, (y - DUSK_FROM) / (DUSK_TO - DUSK_FROM)));
-    const dusk = SKIRT_FLOOR + (1 - SKIRT_FLOOR) * Math.pow(1 - t, 1.6);
+  const torso = TARGET.h - HEAD;
+  for (let y = HEAD; y < TARGET.h; y++) {
+    const t = (y - HEAD) / torso;
+    const srcY = HEAD - 1 - Math.round(TORSO_REACH * Math.pow(t, TORSO_EASE));
+    const dusk = DUSK_FLOOR + (1 - DUSK_FLOOR) * Math.pow(1 - t, DUSK_FALL);
+    const row = rowBlur(head, TARGET.w, srcY, Math.round(1 + BLUR_MAX * t));
     for (let x = 0; x < TARGET.w; x++) {
       const o = (y * TARGET.w + x) * 4;
-      const lit = y < HEAD ? head.subarray((y * TARGET.w + x) * 4) : null;
-      const c = lit ? [lit[0], lit[1], lit[2]] : hem[x];
+      const c = row[x];
       out[o] = Math.round(c[0] * dusk);
       out[o + 1] = Math.round(c[1] * dusk);
       out[o + 2] = Math.round(c[2] * dusk);
