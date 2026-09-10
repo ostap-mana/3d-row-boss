@@ -89,6 +89,7 @@ import {
 } from "../art/outcomeui.js";
 import { PLAY_RIM, fitRetryPlate, retryPlateSprite } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
+import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
@@ -474,6 +475,9 @@ export class OutcomeScreen extends Container {
     this.bloom.alpha = 0;
     this.addChild(this.bloom);
 
+    this.fireworks = new Fireworks();
+    this.addChild(this.fireworks);
+
     /* --------------------------------------------------------- the verdict */
 
     /**
@@ -669,6 +673,7 @@ export class OutcomeScreen extends Container {
     // whole screen, and it goes back exactly where it was taken from.
     if (this.still) this.reframe(w, h);
     this.scrim.setSize(w, h);
+    this.fireworks.resize(layout);
 
     this.flash.clear();
     this.flash.rect(0, 0, w, h);
@@ -1069,6 +1074,9 @@ export class OutcomeScreen extends Container {
     this.flash.alpha = 1;
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
 
+    this.fireworks.clear();
+    if (!this.defeat) this.fireworks.start();
+
     const waiting = new Promise((resolve) => {
       this.leaving = resolve;
     });
@@ -1210,9 +1218,11 @@ export class OutcomeScreen extends Container {
 
     // Faded, because the end card comes up over this and fades itself in from
     // nothing: for a third of a second the two are one dissolve.
+    this.fireworks.stop();
     killTweensOf(this);
     tween(this, { alpha: 0 }, 0.4).then(() => {
       this.visible = false;
+      this.fireworks.clear();
     });
 
     resolve();
@@ -1226,6 +1236,7 @@ export class OutcomeScreen extends Container {
     // backdrop is a crop of a picture of the old one. See `reframe`.
     if (this.stale) this.rephotograph();
     this.t += dt;
+    this.fireworks.update(dt);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;
