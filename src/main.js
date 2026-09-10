@@ -46,6 +46,7 @@ import { loadBossCrest } from "./art/crest.js";
 import { loadFireArt } from "./art/fire.js";
 import { loadSpellArt } from "./art/spells.js";
 import { loadGemPopArt } from "./art/gempop.js";
+import { loadLinkArt } from "./art/links.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -1360,8 +1361,8 @@ async function boot() {
    *
    * Not awaited, and every loader in it is written to be missable: the pieces
    * that grab their art at construction are all in the list above, and these
-   * three are asked for at the moment they are used — `spellFrames` and
-   * `fireFrames` each answer null and each has a fallback behind it. The ult
+   * four are asked for at the moment they are used — `linkFrames`, `spellFrames`
+   * and `fireFrames` each answer null and each has a fallback behind it. The ult
    * sheets are the one exception, because a card builds its border sprite in its
    * constructor, so the row is told to pick them up. See HeroCard.adoptUltArt.
    *
@@ -1381,10 +1382,15 @@ async function boot() {
     await nextFrame();
     await nextFrame();
 
-    // Heaviest first. Each of these paces itself internally, so the order is
-    // about which fallback is retired soonest rather than about the frame
-    // budget — and the border is both the biggest and the one with a hand-off
-    // at the end of it.
+    // Ordered by which fallback is retired soonest rather than by weight, and
+    // each of these paces itself internally so the frame budget is not what
+    // decides. The links go first because a match is the first thing that
+    // happens in the fight, and they are the lightest of the three besides.
+    try {
+      await loadLinkArt();
+    } catch {
+      /* every run keeps the lance it detonates with */
+    }
     try {
       await loadUltBorders();
       // Both ends of the tap's hand-off: the six cards, and the panel the

@@ -36,7 +36,9 @@ import {
   GEM_LIGHT,
   HERO_MAX_HP,
   HEALER,
+  MATCH_FX,
   OBSIDIAN,
+  STRIKE,
   ROWS,
   SCRIPTED_HINT,
   T,
@@ -46,6 +48,7 @@ import {
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
+import { heroStrike } from "../fx/strike.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
 import { rndInt } from "../core/rng.js";
@@ -267,6 +270,21 @@ export class Director {
       // is what a cleared gem always was and it is still what carries the beat.
       vfx.burst(x, y, GEM_COLORS[type], 5, 0.9);
       vfx.pop(x, y, GEM_COLORS[type], board.cell * 1.6);
+    };
+    board.onDetonate = (a, b, type, length, cell, points) => {
+      const color =
+        GEM_COLORS[type] === undefined ? 0xffffff : GEM_COLORS[type];
+      const painted = vfx.link(points, type, color, {
+        cell,
+        power: 1 + Math.max(0, length - 3) * 0.09,
+      });
+      vfx.detonate(a, b, color, { cell, length, painted });
+      if (length < MATCH_FX.bigRun) return;
+      const over = length - MATCH_FX.bigRun;
+      scene.shake(MATCH_FX.shake * (1 + over * 0.55), 0.2 + over * 0.05);
+      if (length >= MATCH_FX.hugeRun) {
+        vfx.flash(color, MATCH_FX.flashAlpha, 0.3);
+      }
     };
     board.onShatter = (x, y) => {
       vfx.burst(x, y, OBSIDIAN.seam, 10, 1.4);
@@ -1675,17 +1693,34 @@ export class Director {
    * the doom clock is aimed at.
    */
   chargeParty(cells) {
-    const { board, heroRow, hud } = this.s;
+    const { board, heroRow, hud, vfx } = this.s;
 
     const counts = [];
+    const origins = [];
     cells.forEach((cell) => {
       const type = board.typeAt(cell.r, cell.c);
-      if (type >= 0) counts[type] = (counts[type] || 0) + 1;
+      if (type < 0) return;
+      counts[type] = (counts[type] || 0) + 1;
+      const p = board.cellPos(cell.r, cell.c);
+      const o = origins[type] || (origins[type] = { x: 0, y: 0, n: 0 });
+      o.x += board.x + p.x;
+      o.y += board.y + p.y;
+      o.n++;
     });
 
     heroRow.cards.forEach((card, index) => {
       const gems = counts[card.hero.element];
       if (!gems) return;
+      const o = origins[card.hero.element];
+      if (o && !card.downed) {
+        vfx.chargeArc(
+          { x: o.x / o.n, y: o.y / o.n },
+          heroRow.cardPoint(index),
+          card.hero.element,
+          GEM_LIGHT[card.hero.element],
+          { cell: board.cell },
+        );
+      }
       if (!card.addCharge(gems * card.chargeRate())) return;
       // The shout names the hero on the frame the bar fills and the lesson's
       // hand then taps the card it named. Fired and not awaited — this is the
@@ -1731,30 +1766,42 @@ export class Director {
           card.strike(isLead);
 
           const from = heroRow.cardPoint(index);
-          vfx
-            .beam(from, target, GEM_COLORS[card.hero.element], {
-              thickness: isLead ? 16 + step * 5 : 8 + step * 2,
-              impact: power,
-              travel: isLead ? 0.16 : 0.2,
-            })
-            .then(() => {
-              if (this.ended) return;
-              boss.hit(isLead ? power : power * 0.6);
-              // Thrown along the beam's own line, so six heroes hitting from
-              // six places along the row knock the frame six different ways
-              // rather than all rattling it the same way at once.
-              shake(isLead ? 5 + step * 2 : 2.5, isLead ? 0.24 : 0.14, {
-                axis: { x: target.x - from.x, y: target.y - from.y },
-                // The assists are texture, not beats: pitched up so that five
-                // of them inside a third of a second read as a patter under the
-                // lead's blow rather than as five blows.
-                freq: isLead ? 1 : 1.4,
-              });
-              // The lead's blow is the one the row swung behind, so it is the
-              // one that gets a beat. Never the assists — see the merge rule in
-              // core/juice.js: five stops inside half a second is slow motion.
-              if (isLead) hitStop(0.22);
+          const spread =
+            heroRow.cards.length > 1
+              ? index / (heroRow.cards.length - 1) - 0.5
+              : 0;
+          heroStrike(
+            vfx,
+            from,
+            target,
+            card.hero.element,
+            GEM_COLORS[card.hero.element],
+            {
+              power: isLead ? 1 + step * 0.12 : 0.62,
+              size: isLead
+                ? STRIKE.size * (1 + step * 0.08)
+                : STRIKE.size * 0.6,
+              travel: isLead ? 0.26 : 0.32,
+              bow: spread * STRIKE.bow * 2,
+            },
+          ).then(() => {
+            if (this.ended) return;
+            boss.hit(isLead ? power : power * 0.6);
+            // Thrown along the beam's own line, so six heroes hitting from
+            // six places along the row knock the frame six different ways
+            // rather than all rattling it the same way at once.
+            shake(isLead ? 5 + step * 2 : 2.5, isLead ? 0.24 : 0.14, {
+              axis: { x: target.x - from.x, y: target.y - from.y },
+              // The assists are texture, not beats: pitched up so that five
+              // of them inside a third of a second read as a patter under the
+              // lead's blow rather than as five blows.
+              freq: isLead ? 1 : 1.4,
             });
+            // The lead's blow is the one the row swung behind, so it is the
+            // one that gets a beat. Never the assists — see the merge rule in
+            // core/juice.js: five stops inside half a second is slow motion.
+            if (isLead) hitStop(0.22);
+          });
         },
       );
     });

@@ -75,6 +75,7 @@ import {
   hintMarksReady,
 } from "../art/hintmarks.js";
 import { READY_SCALE, READY_SWING } from "../art/heroes.js";
+import { straightRuns } from "../game/board.js";
 
 /**
  * How long the run's own marks are held up — the frame drawn round the three
@@ -271,68 +272,6 @@ const CARD_READY = READY_SCALE * (1 + CARD_BREATH * READY_SWING);
 
 /** Whether two cells are the same cell. */
 const same = (a, b) => a.r === b.r && a.c === b.c;
-
-/**
- * The straight runs a list of matched cells is actually made of.
- *
- * Board.findMatches answers with every cell in a run of three or more anywhere
- * on the board, flattened into one list — and a single swap can light two runs
- * at once, in two different elements: the stone going down completes a line
- * where it lands while the stone coming up completes another where it started.
- *
- * The lesson used to take the bounding box of that whole list. On a double
- * match that is one rectangle with both runs inside it, every unmatched gem
- * between them inside it as well, drawn in whichever element happened to be
- * travelling — a lightning frame round three lightning gems *and* three nature
- * ones, which says the player made one six-gem yellow thing out of stones that
- * are plainly not all yellow.
- *
- * So the list is put back into the runs it came from before anything is drawn:
- * maximal same-element lines of three or more, along each axis. A plain match
- * gives one, framed as before. A double match gives two, each framed on its own
- * and each in its own colour. An L or a T gives its arm and its leg, which
- * overlap at the corner they share and cover no cell that is not in the match.
- *
- * @param {Array<{r:number,c:number}>} cells every matched cell
- * @param {function} typeOf the element at a cell, as the board reads *now*
- * @returns {Array<{cells:Array,type:number}>} one entry per run
- */
-function straightRuns(cells, typeOf) {
-  const key = (r, c) => `${r},${c}`;
-  const set = new Set(cells.map((cell) => key(cell.r, cell.c)));
-  const out = [];
-
-  [
-    [0, 1],
-    [1, 0],
-  ].forEach(([dr, dc]) => {
-    cells.forEach((cell) => {
-      const type = typeOf(cell.r, cell.c);
-      // -1 is an encased cell. The boss can drop obsidian between the hint
-      // being solved and this beat being drawn, and a run through one is no
-      // longer a run.
-      if (type < 0) return;
-      // Only ever walked from the head of a line, so each line is found once
-      // however many of its cells this loop visits.
-      if (
-        set.has(key(cell.r - dr, cell.c - dc)) &&
-        typeOf(cell.r - dr, cell.c - dc) === type
-      ) {
-        return;
-      }
-      const line = [cell];
-      for (;;) {
-        const r = cell.r + dr * line.length;
-        const c = cell.c + dc * line.length;
-        if (!set.has(key(r, c)) || typeOf(r, c) !== type) break;
-        line.push({ r, c });
-      }
-      if (line.length >= 3) out.push({ cells: line, type });
-    });
-  });
-
-  return out;
-}
 
 /**
  * The same job for whatever the run frames did not take: what lines up,

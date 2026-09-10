@@ -1802,6 +1802,68 @@ export const T = {
  * the cells being taught. What the player sees is the rest of the screen
  * falling away, which is the whole of what this was for.
  */
+export const STRIKE = {
+  ceiling: 220,
+  size: 190,
+  travel: 0.3,
+  bow: 74,
+  streak: 3.4,
+  streakSpeed: 5.5,
+  trailGap: 16,
+  trailLife: 0.32,
+  muzzle: 74,
+  muzzleLife: 0.2,
+  muzzleSparks: 6,
+  blast: 92,
+  blastLife: 0.34,
+  blastScale: 1.25,
+  blastSparks: 9,
+};
+
+export const MATCH_FX = {
+  on: true,
+  charge: 0.075,
+  chargeMote: 0.9,
+  lanceLife: 0.3,
+  lanceThick: 0.5,
+  lanceOvershoot: 0.62,
+  coreLife: 0.32,
+  coreSize: 1.5,
+  waveLife: 0.4,
+  waveSpan: 1.5,
+  waveFlat: 0.26,
+  shards: 4,
+  shardSpread: 0.5,
+  shardReach: 1.15,
+  emberLife: 0.7,
+  bigRun: 4,
+  shake: 4.5,
+  hugeRun: 5,
+  flashAlpha: 0.14,
+};
+
+export const LINK = {
+  on: true,
+  thick: 0.66,
+  overshoot: 1.22,
+  snap: 0.07,
+  hold: 0.1,
+  fade: 0.17,
+  swell: 1.3,
+  wobble: 0.07,
+  nodeSize: 1.15,
+  nodeLife: 0.3,
+  nodeSwell: 1.35,
+  nodeSpin: 0.5,
+  arcFly: 0.24,
+  arcTail: 0.13,
+  arcThick: 0.44,
+  arcBow: 0.22,
+  knotSize: 0.8,
+  splatSize: 1.6,
+  splatLife: 0.28,
+};
+
 export const SPOTLIGHT = {
   on: true,
   /**

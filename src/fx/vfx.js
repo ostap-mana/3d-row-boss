@@ -22,7 +22,15 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
-import { FIRE } from "../config.js";
+import {
+  LINK_FRAMES,
+  NODE_KNOT,
+  NODE_SPARK,
+  NODE_SPLAT,
+  linkFrames,
+  nodeFrame,
+} from "../art/links.js";
+import { FIRE, LINK, MATCH_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -229,6 +237,436 @@ export class Vfx extends Container {
     }).then(() => s.destroy());
 
     return true;
+  }
+
+  detonate(a, b, color, opts) {
+    if (!MATCH_FX.on) return;
+    const o = opts || {};
+    const cell = o.cell || 64;
+    const count = o.length || 3;
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const ux = Math.cos(ang);
+    const uy = Math.sin(ang);
+    const span = Math.hypot(b.x - a.x, b.y - a.y) + cell;
+    const power = 0.85 + Math.max(0, count - 3) * 0.3;
+
+    if (this.roomLeft() > 6) {
+      for (const side of [-1, 1]) {
+        const mote = new Sprite(glowTexture());
+        mote.anchor.set(0.5);
+        mote.blendMode = "add";
+        mote.tint = color;
+        const d = cell * MATCH_FX.chargeMote;
+        mote.setSize(d, d);
+        mote.x = mx + ux * span * 0.5 * side;
+        mote.y = my + uy * span * 0.5 * side;
+        mote.alpha = 0;
+        this.field.addChild(mote);
+        const base = { x: mote.scale.x, y: mote.scale.y };
+        const from = { x: mote.x, y: mote.y };
+        tweenValue(0, 1, MATCH_FX.charge, (p) => {
+          if (mote.destroyed) return;
+          const e = p * p;
+          mote.x = from.x + (mx - from.x) * e;
+          mote.y = from.y + (my - from.y) * e;
+          const k = 0.55 + p * 0.75;
+          mote.scale.set(base.x * k, base.y * k);
+          mote.alpha = Math.min(1, p * 2.6);
+        }).then(() => mote.destroy());
+      }
+    }
+
+    delay(MATCH_FX.charge).then(() => {
+      if (this.destroyed) return;
+      this.detonated({
+        mx,
+        my,
+        ang,
+        ux,
+        uy,
+        span,
+        cell,
+        count,
+        color,
+        power,
+        painted: o.painted === true,
+      });
+    });
+  }
+
+  lance(d) {
+    const { mx, my, ang, span, cell, color, power } = d;
+    const hot = 0xffffff;
+
+    const lance = new Container();
+    lance.x = mx;
+    lance.y = my;
+    lance.rotation = ang;
+    this.field.addChild(lance);
+
+    const full = span * (1 + MATCH_FX.lanceOvershoot);
+    for (const [k, tone] of [
+      [1, color],
+      [0.3, hot],
+    ]) {
+      const bar = new Sprite(beamTexture());
+      bar.anchor.set(0.5);
+      bar.blendMode = "add";
+      bar.tint = tone;
+      bar.setSize(full, cell * MATCH_FX.lanceThick * k * power);
+      lance.addChild(bar);
+      const base = { x: bar.scale.x, y: bar.scale.y };
+      bar.scale.set(base.x * 0.08, base.y);
+      tween(bar.scale, { x: base.x }, MATCH_FX.lanceLife * 0.3, {
+        ease: Ease.expoOut,
+      });
+      tween(bar.scale, { y: base.y * 0.08 }, MATCH_FX.lanceLife, {
+        ease: Ease.quadIn,
+      });
+      tween(bar, { alpha: 0 }, MATCH_FX.lanceLife * 0.7, {
+        delay: MATCH_FX.lanceLife * 0.3,
+      });
+    }
+    delay(MATCH_FX.lanceLife).then(() => {
+      if (!lance.destroyed) lance.destroy({ children: true });
+    });
+  }
+
+  detonated(d) {
+    const { mx, my, ang, ux, uy, span, cell, count, color, power } = d;
+    const hot = 0xffffff;
+
+    if (!d.painted) this.lance({ mx, my, ang, span, cell, color, power });
+
+    const core = new Sprite(glowTexture());
+    core.anchor.set(0.5);
+    core.blendMode = "add";
+    core.tint = hot;
+    core.x = mx;
+    core.y = my;
+    core.rotation = ang;
+    const cw = cell * MATCH_FX.coreSize * power;
+    core.setSize(cw * 1.4, cw);
+    this.field.addChild(core);
+    const coreBase = { x: core.scale.x, y: core.scale.y };
+    tweenValue(0, 1, MATCH_FX.coreLife, (p) => {
+      if (core.destroyed) return;
+      const k = 1 + p * 0.85;
+      core.scale.set(coreBase.x * k, coreBase.y * k);
+      core.alpha = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
+    }).then(() => core.destroy());
+
+    const wave = new Graphics();
+    wave.circle(0, 0, 50);
+    wave.stroke({ width: Math.max(2, cell * 0.1), color, alpha: 1 });
+    wave.x = mx;
+    wave.y = my;
+    wave.rotation = ang;
+    wave.blendMode = "add";
+    wave.scale.set(0.16, 0.05);
+    this.field.addChild(wave);
+    const reach = (span * MATCH_FX.waveSpan) / 2 / 50;
+    tween(
+      wave.scale,
+      { x: reach, y: reach * MATCH_FX.waveFlat },
+      MATCH_FX.waveLife,
+      { ease: Ease.quadOut },
+    );
+    tween(wave, { alpha: 0 }, MATCH_FX.waveLife).then(() => wave.destroy());
+
+    const shards = Math.min(
+      this.roomLeft(),
+      Math.round(MATCH_FX.shards * count),
+    );
+    for (let i = 0; i < shards; i++) {
+      const s = new Sprite(sparkTexture());
+      s.anchor.set(0.5);
+      s.blendMode = "add";
+      s.tint = i % 5 === 0 ? hot : color;
+      const size = rndRange(cell * 0.13, cell * 0.34) * power;
+      s.setSize(size, size);
+      const along = rndRange(-0.46, 0.46);
+      const px = mx + ux * span * along;
+      const py = my + uy * span * along;
+      s.x = px;
+      s.y = py;
+      this.field.addChild(s);
+      const out =
+        ang +
+        (Math.PI / 2) * (i % 2 ? 1 : -1) +
+        rndRange(-MATCH_FX.shardSpread, MATCH_FX.shardSpread);
+      const dist = rndRange(cell * 0.45, cell * MATCH_FX.shardReach) * power;
+      tween(
+        s,
+        { x: px + Math.cos(out) * dist, y: py + Math.sin(out) * dist },
+        0.46,
+        { ease: Ease.quadOut },
+      );
+      tween(s.scale, { x: 0, y: 0 }, 0.46, { ease: Ease.quadIn }).then(() =>
+        s.destroy(),
+      );
+    }
+
+    for (const side of [-1, 1]) {
+      if (this.roomLeft() <= 0) break;
+      const s = new Sprite(sparkTexture());
+      s.anchor.set(0.5);
+      s.blendMode = "add";
+      s.tint = hot;
+      const size = cell * 0.3 * power;
+      s.setSize(size, size);
+      const px = mx + ux * span * 0.5 * side;
+      const py = my + uy * span * 0.5 * side;
+      s.x = px;
+      s.y = py;
+      this.field.addChild(s);
+      const dist = cell * 0.9 * power;
+      tween(s, { x: px + ux * dist * side, y: py + uy * dist * side }, 0.34, {
+        ease: Ease.quadOut,
+      });
+      tween(s.scale, { x: 0, y: 0 }, 0.34, { ease: Ease.quadIn }).then(() =>
+        s.destroy(),
+      );
+    }
+  }
+
+  roomLeft() {
+    return MAX_PARTICLES - this.field.children.length;
+  }
+
+  hasLinkArt(element) {
+    return Boolean(LINK.on && linkFrames(element));
+  }
+
+  link(points, element, color, opts) {
+    const frames = linkFrames(element);
+    if (!LINK.on || !frames || points.length < 2) return false;
+
+    const o = opts || {};
+    const cell = o.cell || 64;
+    const power = o.power === undefined ? 1 : o.power;
+    const mid = (points.length - 1) / 2;
+    const life = LINK.snap + LINK.hold + LINK.fade;
+
+    for (let i = 0; i < points.length - 1; i++) {
+      if (this.roomLeft() <= 0) break;
+      const near = Math.abs(i - mid) <= Math.abs(i + 1 - mid);
+      this.linkSegment(
+        points[near ? i : i + 1],
+        points[near ? i + 1 : i],
+        frames,
+        cell,
+        power,
+        life,
+        Math.abs(i + 0.5 - mid) * LINK.snap * 0.6,
+        i % 2 ? -1 : 1,
+      );
+    }
+
+    const spark = nodeFrame(NODE_SPARK);
+    if (spark) {
+      points.forEach((p, i) => {
+        if (this.roomLeft() <= 0) return;
+        this.linkNode(p, spark, color, cell, power, Math.abs(i - mid) * 0.03);
+      });
+    }
+    return true;
+  }
+
+  linkSegment(from, to, frames, cell, power, life, wait, flip) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const full = Math.hypot(dx, dy) * LINK.overshoot;
+    const thick = cell * LINK.thick * power;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0, 0.5);
+    s.blendMode = "add";
+    s.x = from.x;
+    s.y = from.y;
+    s.rotation =
+      Math.atan2(dy, dx) + rndRange(-LINK.wobble, LINK.wobble) * flip;
+    s.setSize(0, thick);
+    s.scale.y = Math.abs(s.scale.y) * flip;
+    this.field.addChild(s);
+
+    const snapEnd = LINK.snap / life;
+    const fadeAt = (LINK.snap + LINK.hold) / life;
+
+    tweenValue(
+      0,
+      1,
+      life,
+      (p) => {
+        if (s.destroyed) return;
+        const grown = p < snapEnd ? Ease.expoOut(p / snapEnd) : 1;
+        const gone = p < fadeAt ? 0 : (p - fadeAt) / (1 - fadeAt);
+        s.texture = frames[Math.min(LINK_FRAMES - 1, (p * LINK_FRAMES) | 0)];
+        const h = thick * (1 + gone * (LINK.swell - 1));
+        s.width = full * grown;
+        s.height = h;
+        s.scale.y = Math.abs(s.scale.y) * flip;
+        s.alpha = 1 - gone;
+      },
+      { delay: wait },
+    ).then(() => s.destroy());
+  }
+
+  linkNode(at, texture, color, cell, power, wait) {
+    const size = cell * LINK.nodeSize * power;
+    const spin = rndRange(-LINK.nodeSpin, LINK.nodeSpin);
+
+    const s = new Sprite(texture);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color;
+    s.x = at.x;
+    s.y = at.y;
+    s.setSize(0, 0);
+    this.field.addChild(s);
+
+    tweenValue(
+      0,
+      1,
+      LINK.nodeLife,
+      (p) => {
+        if (s.destroyed) return;
+        const k =
+          Ease.backOutSoft(Math.min(1, p / 0.3)) *
+          (1 + p * (LINK.nodeSwell - 1));
+        s.setSize(size * k, size * k);
+        s.rotation = spin * p;
+        s.alpha = p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8;
+      },
+      { delay: wait },
+    ).then(() => s.destroy());
+  }
+
+  chargeArc(from, to, element, color, opts) {
+    const frames = linkFrames(element);
+    if (!LINK.on || !frames) return Promise.resolve(false);
+
+    const o = opts || {};
+    const cell = o.cell || 64;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return Promise.resolve(false);
+
+    const bow = dist * LINK.arcBow * (o.bow === undefined ? 1 : o.bow);
+    const cx = (from.x + to.x) / 2 - (dy / dist) * bow;
+    const cy = (from.y + to.y) / 2 + (dx / dist) * bow;
+    const at = (t) => {
+      const u = 1 - t;
+      return {
+        x: u * u * from.x + 2 * u * t * cx + t * t * to.x,
+        y: u * u * from.y + 2 * u * t * cy + t * t * to.y,
+      };
+    };
+
+    const STEPS = 3;
+    const legs = [];
+    let total = 0;
+    for (let i = 0; i < STEPS; i++) {
+      const a = at(i / STEPS);
+      const b = at((i + 1) / STEPS);
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      legs.push({
+        a,
+        ux: (b.x - a.x) / len,
+        uy: (b.y - a.y) / len,
+        len,
+        start: total,
+      });
+      total += len;
+    }
+
+    const thick = cell * LINK.arcThick;
+    const bars = legs.map((leg) => {
+      const s = new Sprite(frames[0]);
+      s.anchor.set(0, 0.5);
+      s.blendMode = "add";
+      s.rotation = Math.atan2(leg.uy, leg.ux);
+      s.setSize(0, thick);
+      s.visible = false;
+      this.field.addChild(s);
+      return s;
+    });
+
+    const knotArt = nodeFrame(NODE_KNOT);
+    let knot = null;
+    if (knotArt) {
+      knot = new Sprite(knotArt);
+      knot.anchor.set(0.5);
+      knot.blendMode = "add";
+      knot.tint = color;
+      const k = cell * LINK.knotSize;
+      knot.setSize(k, k);
+      this.field.addChild(knot);
+    }
+
+    const tail = total * LINK.arcTail + thick;
+    const span = total + tail;
+
+    return tweenValue(0, 1, LINK.arcFly, (p) => {
+      const head = p * span;
+      const frame = frames[Math.min(LINK_FRAMES - 1, (p * LINK_FRAMES) | 0)];
+      legs.forEach((leg, i) => {
+        const s = bars[i];
+        if (s.destroyed) return;
+        const front = Math.min(leg.len, Math.max(0, head - leg.start));
+        const back = Math.min(leg.len, Math.max(0, head - tail - leg.start));
+        const shown = front - back;
+        s.visible = shown > 0.5;
+        if (!s.visible) return;
+        s.texture = frame;
+        s.x = leg.a.x + leg.ux * back;
+        s.y = leg.a.y + leg.uy * back;
+        s.width = shown;
+        s.height = thick;
+      });
+      if (knot && !knot.destroyed) {
+        const t = Math.min(1, head / total);
+        const tip = at(t);
+        knot.x = tip.x;
+        knot.y = tip.y;
+        knot.alpha = t < 1 ? 1 : Math.max(0, 1 - (head - total) / tail);
+      }
+    }).then(() => {
+      bars.forEach((s) => {
+        if (!s.destroyed) s.destroy();
+      });
+      if (knot && !knot.destroyed) knot.destroy();
+      this.chargeLand(to, color, cell);
+      return true;
+    });
+  }
+
+  chargeLand(at, color, cell) {
+    this.burst(at.x, at.y, color, 5, 0.7);
+
+    const art = nodeFrame(NODE_SPLAT);
+    if (!art || this.roomLeft() <= 0) return;
+
+    const s = new Sprite(art);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color;
+    s.x = at.x;
+    s.y = at.y;
+    s.rotation = rndRange(-0.5, 0.5);
+    const size = cell * LINK.splatSize;
+    s.setSize(size * 0.4, size * 0.4);
+    this.field.addChild(s);
+
+    tweenValue(0, 1, LINK.splatLife, (p) => {
+      if (s.destroyed) return;
+      const k = 0.4 + Ease.expoOut(p) * 0.85;
+      s.setSize(size * k, size * k);
+      s.alpha = p < 0.18 ? p / 0.18 : 1 - (p - 0.18) / 0.82;
+    }).then(() => s.destroy());
   }
 
   /** Expanding ring — the punctuation mark on every hit. */
