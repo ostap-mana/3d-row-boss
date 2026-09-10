@@ -1607,12 +1607,12 @@ export const T = {
    * 1.05, and it is the READY call that sets it rather than the shout. The
    * three beats have to arrive in this order or they are three things happening
    * at once: the shout names the hero on the frame the bar fills, READY_CALL
-   * says it at the size of the screen and takes 0.26 + 0.34 + 0.3 to land and
-   * drop into the hero's tile, and then the hand taps the tile it just watched
-   * the banner fall into. See fx/readycall.js.
+   * rips a ribbon out of that hero's tile and takes 0.36 + 0.46 + 0.44 to land,
+   * hold and fall back into it, and then the hand taps the tile it just watched
+   * the ribbon drop into. See fx/readycall.js.
    *
-   * It was 0.5, against a 0.7 shout and no banner. Anything under about a
-   * second now and the hand comes up underneath the announcement — two props
+   * It was 0.5, against a 0.7 shout and no callout at all. Anything under about
+   * a second now and the hand comes up underneath the announcement — two props
    * over the same card, which is the one arrangement that reads as a bug.
    * `ultShout` is 1.4, so the hero's name is still on screen when the hand
    * lands whatever this is set to inside that.
@@ -2547,27 +2547,95 @@ export const BOSS_ATTACKS = [
  */
 export const READY_CALL = {
   /**
-   * Where it sits, as a fraction of the safe box's height.
+   * How far above the hero row the ribbon sits, as a fraction of a card's
+   * height — and therefore how long the beam between the two is.
    *
-   * 0.3 — over the arena and clear of two things it collided with at 0.42: the
-   * top row of the board, which made the banner look like part of the grid, and
-   * the HUD's own shout, which lives lower and was being written through.
+   * It used to be `y`, a fraction of the safe box's height, because the banner
+   * used to be a thing that landed in the middle of the screen and then had to
+   * travel the whole way down to the row. It is measured off the row itself now
+   * for the same reason the row's own geometry is: what this has to clear is the
+   * top edge of a tile, which moves with the aspect, and what it must not cover
+   * is the board's bottom rank.
+   *
+   * 0.62 of a card is enough beam to read as a beam and short enough that the
+   * ribbon is still unmistakably part of the row rather than floating over the
+   * play field.
    */
-  y: 0.29,
-  /** The crown flipbook's size, against the safe box's width. */
-  crown: 0.26,
-  /** Type, both against the same width. */
-  word: 0.15,
-  who: 0.045,
-  wordTrack: 0.05,
-  whoTrack: 0.3,
-  /** The band the type stands on, against the safe box's width and the type. */
-  bandW: 0.94,
-  bandPad: 0.22,
+  lift: 0.62,
+  /**
+   * The ribbon's width against the safe box.
+   *
+   * Full bleed to the gutter. A lower third that stops short of the edges is a
+   * plate, and a plate at this height reads as a second HUD — the whole point
+   * of running it to both edges is that it reads as chrome the fight is wearing
+   * for a second, not as a window that opened.
+   */
+  ribbonW: 0.98,
+  /**
+   * The band's height, as padding over the word's own height.
+   *
+   * Its own, not its texture's: fx/readycall.js takes the style padding back
+   * off before it measures. See typeH() there, and note that 0.34 of a padded
+   * height is nearly half of a real one — the band this number produced before
+   * that correction ate two ranks of the board instead of one.
+   */
+  bandPad: 0.34,
+  /**
+   * The beam's thickness, against a card's width.
+   *
+   * A quarter. It was a sixth and it was a hairline — a soft-ended gradient
+   * loses most of a thin strip to its own falloff, so what actually reached the
+   * screen was three or four pixels of red over a board full of lit gems and
+   * nobody would have followed it anywhere. Wider than this and it stops being
+   * a line pointing at a tile and becomes a column standing on one, which
+   * covers the art it is pointing at.
+   */
+  beam: 0.26,
+  /**
+   * The crown flipbook's size, against a card's width rather than the screen's.
+   *
+   * It burns out of the tile the beam lands on now instead of flanking the
+   * word, so it is measured against the tile. A little over a card wide: the
+   * effect has to be bigger than the thing it is erupting from or it reads as a
+   * decoration sitting on it.
+   */
+  crown: 1.05,
+  /**
+   * How far apart the mirrored pair stands, against a card's width.
+   *
+   * A third, so the two overlap through the middle and `add` builds a bright
+   * core out of the seam — one wide burst with a symmetrical silhouette. They
+   * were set a whole card apart for one revision, one clear of each edge of the
+   * tile, and at this size that is not a frame around anything: it is two small
+   * white claws poking up between three cards, and the eye reads them as debris
+   * rather than as the element.
+   */
+  crownFlank: 0.34,
+  /**
+   * How far the crowns' feet sink past the tile's top edge, against their own
+   * height.
+   *
+   * They stand on the edge at 0 and read as two objects balanced on a line.
+   * A fifth of themselves under it and they are burning out of the card, which
+   * is the thing being pointed at.
+   */
+  crownSink: 0.2,
+  /**
+   * Type, both against the safe box's width.
+   *
+   * Smaller than the centre banner's 0.15 — the word is not carrying the beat
+   * on its own any more. The ribbon, the beam and the crowns are all saying the
+   * same thing, and READY set the full height of a lower third is the one
+   * element that would have to shout over them.
+   */
+  word: 0.105,
+  who: 0.042,
+  wordTrack: 0.06,
+  whoTrack: 0.26,
   /**
    * Frames a second for the crown.
    *
-   * 18 rather than the 24 the sheets were cut at, and it is the banner's own
+   * 18 rather than the 24 the sheets were cut at, and it is the call's own
    * length that sets it: the sixteen-frame sheets burn out in two thirds of a
    * second at 24 and left the word standing on its own for the whole drop. At
    * 18 a sixteen-frame burst spans the beat almost exactly. The eight-frame
@@ -2580,9 +2648,9 @@ export const READY_CALL = {
    * Where the collapse lands.
    *
    * Roughly a hero tile against the safe box, so it arrives at about the size
-   * of the thing it is arriving in rather than at nothing — a banner that
-   * shrinks to zero over a card reads as disappearing, and the whole point of
-   * the drop is that it goes somewhere.
+   * of the thing it is arriving in rather than at nothing — a word that shrinks
+   * to zero over a card reads as disappearing, and the whole point of the drop
+   * is that it goes somewhere.
    */
   to: 0.2,
   /**
@@ -2595,7 +2663,7 @@ export const READY_CALL = {
   slamX: 1.5,
   slamY: 0.66,
   /**
-   * Open, slam, hold, close, and the drop into the card.
+   * The rip out of the card, the slam, the hold, the rip back, and the drop in.
    *
    * Under a second and a half all told, and the length is the constraint
    * rather than a measurement: this runs in the middle of a cascade the player
