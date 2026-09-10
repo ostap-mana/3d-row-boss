@@ -293,6 +293,7 @@ export class LottieClip extends Container {
     this.frame = data.ip;
     this.playing = false;
     this.looping = false;
+    this.rate = 1;
     this.visible = false;
 
     this.stage = new Container();
@@ -306,14 +307,12 @@ export class LottieClip extends Container {
     this.seek(this.frame);
   }
 
-  fit(w, h, spread, drop) {
+  pin(x, y, size) {
     const { data, stage } = this;
-    const scale = Math.min(w, h) / (data.w * spread);
+    const scale = size / data.w;
     stage.scale.set(scale);
-    stage.position.set(
-      (w - data.w * scale) / 2,
-      h * drop - (data.h * scale) / 2,
-    );
+    stage.position.set((-data.w * scale) / 2, (-data.h * scale) / 2);
+    this.position.set(x, y);
   }
 
   play(looping) {
@@ -336,7 +335,7 @@ export class LottieClip extends Container {
 
   update(dt) {
     if (!this.playing) return;
-    this.frame += dt * this.data.fr;
+    this.frame += dt * this.data.fr * this.rate;
     if (this.frame >= this.data.op) {
       if (!this.looping) {
         this.clear();
