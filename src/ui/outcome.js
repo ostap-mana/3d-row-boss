@@ -90,6 +90,8 @@ import {
 import { PLAY_RIM, fitRetryPlate, retryPlateSprite } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import { Fireworks } from "../fx/fireworks.js";
+import { LottieClip } from "../fx/lottie.js";
+import fireworksClip from "../assets/outcome/fireworks.json";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
@@ -264,6 +266,9 @@ const VERDICT_H = { portrait: 0.15, landscape: 0.24 };
 /** Where the band sits down the stage, and where the tap line sits under it. */
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
+
+const BURST_SPREAD = 0.74;
+const BURST_DROP = 0.33;
 
 /** The hairline over the tap line, as a share of the stage's width. */
 const LINE_W = { portrait: 0.44, landscape: 0.26 };
@@ -478,6 +483,10 @@ export class OutcomeScreen extends Container {
     this.fireworks = new Fireworks();
     this.addChild(this.fireworks);
 
+    this.burst = new LottieClip(fireworksClip);
+    this.burst.blendMode = "add";
+    this.addChild(this.burst);
+
     /* --------------------------------------------------------- the verdict */
 
     /**
@@ -674,6 +683,7 @@ export class OutcomeScreen extends Container {
     if (this.still) this.reframe(w, h);
     this.scrim.setSize(w, h);
     this.fireworks.resize(layout);
+    this.burst.fit(w, h, BURST_SPREAD, BURST_DROP);
 
     this.flash.clear();
     this.flash.rect(0, 0, w, h);
@@ -1075,6 +1085,7 @@ export class OutcomeScreen extends Container {
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
 
     this.fireworks.clear();
+    this.burst.clear();
 
     const waiting = new Promise((resolve) => {
       this.leaving = resolve;
@@ -1116,7 +1127,10 @@ export class OutcomeScreen extends Container {
      * milliseconds of each other.
      */
     if (this.defeat) sfx.defeat(0.06);
-    else sfx.victory();
+    else {
+      sfx.victory();
+      this.burst.play();
+    }
 
     // The flash goes out on its own clock. Everything below arrives inside it,
     // so the word is already standing by the time there is enough of the frame
@@ -1226,6 +1240,7 @@ export class OutcomeScreen extends Container {
     tween(this, { alpha: 0 }, 0.4).then(() => {
       this.visible = false;
       this.fireworks.clear();
+      this.burst.clear();
     });
 
     resolve();
@@ -1240,6 +1255,7 @@ export class OutcomeScreen extends Container {
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
+    this.burst.update(dt);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;
