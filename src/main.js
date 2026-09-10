@@ -64,6 +64,7 @@ import { ctaClick, signalReady } from "./net/cta.js";
 import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
 import { EV, eventLog, track, trackOnce } from "./net/analytics.js";
 import { tagReport } from "./net/tags.js";
+import { mountTuner } from "./dev/tuner.js";
 import {
   audioHeartbeat,
   audioSleep,
@@ -86,6 +87,11 @@ import { music } from "./audio/music.js";
  * decodes thirty megapixels in a blink and the phone it ships to does not.
  */
 const timing = { essential: 0, ready: 0, deferred: 0 };
+
+const onTuner = (e) => {
+  const el = e && e.target;
+  return !!(el && el.closest && el.closest("#siege-tuner"));
+};
 
 async function boot() {
   const bootStart = performance.now();
@@ -1110,6 +1116,7 @@ async function boot() {
       const route = (e) => {
         // Not a person. See the header.
         if (e.isTrusted === false) return;
+        if (onTuner(e)) return;
         if (DOWN.includes(e.type)) {
           // One press at a time. The same finger arrives here as a
           // `pointerdown` and again as a `touchstart`, and the second of those
@@ -1184,6 +1191,7 @@ async function boot() {
     const armed = performance.now();
     const press = (e) => {
       if (e.isTrusted === false) return;
+      if (onTuner(e)) return;
       if (performance.now() - armed < EXIT_GRACE) return;
       dropLessonExit();
       // Read off the live `director` and not off a captured one: a rematch
@@ -1328,6 +1336,8 @@ async function boot() {
   scene.mraid = mraidReport;
   scene.events = eventLog;
   scene.tags = tagReport;
+  scene.restart = () => restart();
+  scene.tuner = mountTuner(scene);
   window.__SIEGE__ = scene;
 
   // Nothing is held back and nothing is put in front: the first frame of the
