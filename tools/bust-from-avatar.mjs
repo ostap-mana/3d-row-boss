@@ -8,11 +8,10 @@ const OUT_DIR = join(ROOT, "src/source/heroes");
 
 const TARGET = { w: 160, h: 328 };
 const HEAD = 160;
-const TORSO_REACH = 62;
-const TORSO_EASE = 0.72;
-const DUSK_FLOOR = 0.06;
-const DUSK_FALL = 3.8;
-const BLUR_MAX = 6;
+const EDGE_ROWS = 20;
+const FADE = 34;
+const FADE_EASE = 1.35;
+const GROUND = 0.055;
 const BORDER_LEVEL = 10;
 const BORDER_HUNT = 6;
 
@@ -107,24 +106,21 @@ function areaScale(px, w, h, tw, th) {
   return out;
 }
 
-function rowBlur(head, w, y, radius) {
-  const row = [];
-  for (let x = 0; x < w; x++) {
-    let r = 0,
-      g = 0,
-      b = 0,
-      n = 0;
-    for (let k = -radius; k <= radius; k++) {
-      const sx = Math.min(w - 1, Math.max(0, x + k));
-      const i = (y * w + sx) * 4;
+function groundColour(head, w, bottom, rows) {
+  let r = 0,
+    g = 0,
+    b = 0,
+    n = 0;
+  for (let k = 0; k < rows; k++) {
+    for (let x = 0; x < w; x++) {
+      const i = ((bottom - k) * w + x) * 4;
       r += head[i];
       g += head[i + 1];
       b += head[i + 2];
       n++;
     }
-    row.push([r / n, g / n, b / n]);
   }
-  return row;
+  return [(r / n) * GROUND, (g / n) * GROUND, (b / n) * GROUND];
 }
 
 function litRows(px, w, h) {
@@ -150,18 +146,24 @@ function bust(file) {
   const out = Buffer.alloc(TARGET.w * TARGET.h * 4);
   head.copy(out, 0);
 
-  const torso = TARGET.h - HEAD;
-  for (let y = HEAD; y < TARGET.h; y++) {
-    const t = (y - HEAD) / torso;
-    const srcY = HEAD - 1 - Math.round(TORSO_REACH * Math.pow(t, TORSO_EASE));
-    const dusk = DUSK_FLOOR + (1 - DUSK_FLOOR) * Math.pow(1 - t, DUSK_FALL);
-    const row = rowBlur(head, TARGET.w, srcY, Math.round(1 + BLUR_MAX * t));
+  const ground = groundColour(head, TARGET.w, HEAD - 1, EDGE_ROWS);
+
+  for (let y = HEAD - FADE; y < HEAD; y++) {
+    const t = Math.pow((y - (HEAD - FADE)) / FADE, FADE_EASE);
     for (let x = 0; x < TARGET.w; x++) {
       const o = (y * TARGET.w + x) * 4;
-      const c = row[x];
-      out[o] = Math.round(c[0] * dusk);
-      out[o + 1] = Math.round(c[1] * dusk);
-      out[o + 2] = Math.round(c[2] * dusk);
+      for (let c = 0; c < 3; c++) {
+        out[o + c] = Math.round(out[o + c] * (1 - t) + ground[c] * t);
+      }
+    }
+  }
+
+  for (let y = HEAD; y < TARGET.h; y++) {
+    for (let x = 0; x < TARGET.w; x++) {
+      const o = (y * TARGET.w + x) * 4;
+      out[o] = Math.round(ground[0]);
+      out[o + 1] = Math.round(ground[1]);
+      out[o + 2] = Math.round(ground[2]);
       out[o + 3] = 255;
     }
   }
