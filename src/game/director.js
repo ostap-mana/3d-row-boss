@@ -646,9 +646,10 @@ export class Director {
    * the corners off the one feature the shape exists for — the moment the floor
    * drops.
    *
-   * @param {string} field one of attack, resist, obsidian, hold
+   * @param {string} field one of attack, resist, ult, obsidian, hold
    * @param {number} p where to read it — progress() for every column except
-   *   resist, which is read at wounds(). See both for why there are two axes.
+   *   resist and ult, which are read at wounds(). See both for why there are
+   *   two axes.
    * @param {number} fallback returned when the curve is off or empty
    */
   curveAt(field, p, fallback) {
@@ -799,7 +800,10 @@ export class Director {
   ultResistance() {
     const bite = DIFFICULTY.ultHideBite;
     const hide = this.armor();
-    return (bite === undefined ? hide : Math.pow(hide, bite)) * this.pace();
+    const shaped = this.curveAt("ult", this.wounds(), 1);
+    return (
+      (bite === undefined ? hide : Math.pow(hide, bite)) * this.pace() * shaped
+    );
   }
 
   /**

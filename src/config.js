@@ -523,6 +523,10 @@ export const DIFFICULTY = {
    *
    *   attack    everything the boss throws, multiplied. See currentAttack.
    *   resist    fraction of the player's damage that lands. See armor().
+   *   ult       the ultimate's own multiplier on top of that, so a cast can be
+   *             shaped along the fight without moving what a match is worth.
+   *             1 everywhere is the shape the fight shipped with — see
+   *             ultResistance, which is where it is read.
    *   obsidian  blocks laid per boss turn. See pickObsidian.
    *   hold      most blocks the board carries at once, out of 25.
    *   name      shouted the moment the bar crosses this keyframe, so a zone
@@ -736,7 +740,7 @@ export const DIFFICULTY = {
        * party was already chewed before the mechanic had landed — which is most
        * of what "it's too fast, you lose too fast" was about.
        */
-      { p: 0.0, attack: 0.154, resist: 1.0, obsidian: 1, hold: 5 },
+      { p: 0.0, attack: 0.154, resist: 1.0, ult: 1, obsidian: 1, hold: 5 },
       /**
        * Two thirds of a boss left, and still inside the easy zone.
        *
@@ -747,7 +751,7 @@ export const DIFFICULTY = {
        * The creep is small enough that nothing here is what anybody would call
        * difficulty — the swings are still under a tenth of a hero bar.
        */
-      { p: 0.35, attack: 0.282, resist: 1.0, obsidian: 2, hold: 6 },
+      { p: 0.35, attack: 0.282, resist: 1.0, ult: 1, obsidian: 2, hold: 6 },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
        * half.
@@ -766,6 +770,7 @@ export const DIFFICULTY = {
         p: 0.5,
         attack: 0.435,
         resist: 1.0,
+        ult: 1,
         obsidian: 3,
         hold: 8,
         name: "OBSIDIAN HIDE",
@@ -781,7 +786,7 @@ export const DIFFICULTY = {
        * the player cannot feel is not a boundary, and this one is announced a
        * beat before it by the keyframe above.
        */
-      { p: 0.6, attack: 0.79, resist: 0.78, obsidian: 5, hold: 10 },
+      { p: 0.6, attack: 0.79, resist: 0.78, ult: 1, obsidian: 5, hold: 10 },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
@@ -795,6 +800,7 @@ export const DIFFICULTY = {
         p: 0.75,
         attack: 0.87,
         resist: 0.78,
+        ult: 1,
         obsidian: 5,
         hold: 10,
         name: "MOLTEN CORE",
@@ -835,7 +841,7 @@ export const DIFFICULTY = {
        * whole. Nothing the player owns is a solution to this zone any more; it
        * is a grind, and it is meant to be.
        */
-      { p: 0.88, attack: 1.69, resist: 0.4, obsidian: 8, hold: 11 },
+      { p: 0.88, attack: 1.69, resist: 0.4, ult: 1, obsidian: 8, hold: 11 },
       /**
        * The killing stretch.
        *
@@ -893,7 +899,7 @@ export const DIFFICULTY = {
        * bars of damage now against 1.37, which is about half a second off the
        * fight.
        */
-      { p: 0.9, attack: 1.29, resist: 0.38, obsidian: 8, hold: 12 },
+      { p: 0.9, attack: 1.29, resist: 0.38, ult: 1, obsidian: 8, hold: 12 },
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
@@ -950,7 +956,7 @@ export const DIFFICULTY = {
        * under this build rather than as its measurement: a softer killing blow
        * can only move a wipe into a win, and it moves nothing else.
        */
-      { p: 1.0, attack: 0.82, resist: 0.38, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 0.82, resist: 0.38, ult: 1, obsidian: 9, hold: 12 },
     ],
   },
 
