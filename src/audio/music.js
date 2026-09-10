@@ -41,7 +41,7 @@
  */
 
 import { AUDIO } from "../config.js";
-import { audioBus, audioContext, onAudioReset } from "./engine.js";
+import { audioBus, audioContext, onAudioPark, onAudioReset } from "./engine.js";
 import { tracks } from "./tracks.js";
 
 /** Floor for every exponential ramp — the curve cannot reach or pass zero. */
@@ -139,6 +139,8 @@ let step = 0;
 let at = 0;
 /** Quantized tension, so a per-frame call is not a per-frame ramp. */
 let tension = -1;
+/** Whether the theme is meant to be sounding, as against merely built. */
+let playing = false;
 
 onAudioReset(() => {
   // These nodes belong to a context that is closed. Let go of them, and let
@@ -147,6 +149,26 @@ onAudioReset(() => {
   timer = null;
   nodes = null;
   tension = -1;
+  playing = false;
+});
+
+/**
+ * A parked theme stops writing, and that is the whole of what a park means to
+ * this file.
+ *
+ * The look-ahead is a third of a second of music handed to the audio thread
+ * before anybody hears it, and the pump is a timer — which goes on firing in a
+ * page whose frames have stopped. Left running through a screen lock it fills
+ * the graph with bars nobody is there for, and they are all still waiting on
+ * the far side of the park.
+ */
+onAudioPark((asleep) => {
+  if (asleep) {
+    if (timer) clearInterval(timer);
+    timer = null;
+    return;
+  }
+  if (playing && nodes && !timer) timer = setInterval(pump, PUMP_MS);
 });
 
 /** Attack, hold, exponential fall — the envelope shape sfx.js is built on. */
@@ -421,6 +443,7 @@ const synth = {
     // thing shouting, and nobody would hear any of the three.
     nodes.master.gain.setTargetAtTime(AUDIO.musicLevel, c.currentTime, 1.4);
     nodes.padGain.gain.setTargetAtTime(0.5, c.currentTime, 1.4);
+    playing = true;
     pump();
     timer = setInterval(pump, PUMP_MS);
   },
@@ -458,6 +481,7 @@ const synth = {
   /** Out with the fight. The end card gets its own sound and nothing else. */
   stop() {
     if (!nodes) return;
+    playing = false;
     if (timer) clearInterval(timer);
     timer = null;
     const c = audioContext();

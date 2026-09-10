@@ -46,11 +46,13 @@ const REBUILD_GAP_MS = 4000;
 /** An attempt per drag frame would be dozens a second. This is the floor. */
 const MOVE_GAP_MS = 120;
 
-const PARK_FADE = 0.07;
+const PARK_FADE = 0.04;
 const WAKE_FADE = 0.14;
 const BEAT_MS = 200;
 const WATCH_HOLD = 1.1;
 const WATCH_FALL = 0.45;
+const DOZE_MS = 1300;
+const DOZE_GAP_MS = 400;
 
 const now = () => Date.now();
 
@@ -86,6 +88,11 @@ let parked = false;
 let parkTimer = null;
 let fadeUntil = 0;
 let beatAt = 0;
+/** Parked because the frames stopped, rather than because anybody said so. */
+let dozed = false;
+/** Wall clock of the last frame, and the timer that notices there are none. */
+let framedAt = 0;
+let dozeTimer = null;
 /** True once the context has actually reached `running` — not once we tried. */
 let opened = false;
 let watching = false;
@@ -119,6 +126,11 @@ const resetCbs = [];
  * holding one it does not strictly need gives it up. See onAudioNeedsRoom.
  */
 const roomCbs = [];
+/**
+ * Called with true when the audio is parked and false when it comes back, so
+ * that anything writing into the future stops writing. See onAudioPark.
+ */
+const parkCbs = [];
 /** When the context first refused to open, and when we last gave up on one. */
 let refusedAt = 0;
 let rebuiltAt = 0;
@@ -135,10 +147,10 @@ function hidden() {
 }
 
 /** Run a subscriber list, where one of them throwing does not cost the rest. */
-function fire(list) {
+function fire(list, arg) {
   list.slice().forEach((fn) => {
     try {
-      fn();
+      fn(arg);
     } catch (e) {
       /* one listener throwing is not worth the rest of the audio */
     }
@@ -172,6 +184,9 @@ function watch(c) {
   if (watching || typeof c.addEventListener !== "function") return;
   watching = true;
   c.addEventListener("statechange", () => {
+    // A context that has been replaced still reports its own closing, and its
+    // bus and master belong to nobody now.
+    if (c !== ctx) return;
     if (c.state === "running") {
       opening();
       return;
@@ -181,25 +196,19 @@ function watch(c) {
     // silence is the point.
     //
     // This is also the path a screen lock takes when `visibilitychange` never
-    // arrives — some webviews do not send one — so the replacement is armed
-    // here too rather than only in audioSleep. An interrupted context is the
-    // one iOS will not hand back: resume is worth the state read while somebody
-    // is looking, and when it does not take, the next touch rebuilds.
+    // arrives — some webviews do not send one — and it is the only one that
+    // always arrives, so it parks rather than resumes. An interrupted context
+    // resumed is a sound on a speaker nobody is looking at, and iOS will not
+    // hand this one back anyway: the mute is immediate because the clock is
+    // already stopped and a ramp into a stopped clock is the squeal it was
+    // there to avoid, and the next touch rebuilds, which staleRefusal arms.
     if (c.state === "interrupted" && opened) {
-      if (hidden()) {
-        staleRefusal();
-        return;
+      hardMute();
+      if (!parked) {
+        parked = true;
+        fire(parkCbs, true);
       }
-      try {
-        const p = c.resume();
-        const settle = () => {
-          if (c === ctx && c.state !== "running") staleRefusal();
-        };
-        if (p && p.then) p.then(settle, staleRefusal);
-        else settle();
-      } catch (e) {
-        staleRefusal();
-      }
+      staleRefusal();
     }
   });
 }
@@ -351,6 +360,18 @@ export function onAudioNeedsRoom(fn) {
 }
 
 /**
+ * Run `fn(true)` when the audio is parked and `fn(false)` when it comes back.
+ *
+ * For whoever is writing notes into the future rather than holding a node: a
+ * park is a promise that nothing more will be heard, and a scheduler that goes
+ * on scheduling through one has a bar of music waiting on the speaker for
+ * whenever the phone comes out of the pocket. See the pump in music.js.
+ */
+export function onAudioPark(fn) {
+  parkCbs.push(fn);
+}
+
+/**
  * Throw the context away and build its replacement here and now.
  *
  * Only ever called from inside a gesture — see the note at the call site for
@@ -367,6 +388,7 @@ function rebuild() {
   master = null;
   noiseBuf = null;
   parked = false;
+  dozed = false;
   fadeUntil = 0;
   beatAt = 0;
   if (parkTimer) {
@@ -609,15 +631,28 @@ export function audioSleep(asleep) {
     clearTimeout(parkTimer);
     parkTimer = null;
   }
+  const was = parked;
   parked = !!asleep;
+  if (!parked) dozed = false;
+  if (parked !== was) fire(parkCbs, parked);
   try {
     if (asleep) {
+      // A ramp is only worth having while there is a clock to run it: a context
+      // iOS has already taken is one whose currentTime has stopped, so the ramp
+      // would never reach zero and the last sample rendered — whatever it was —
+      // is what the hardware repeats. That repeat is the squeal, so a stopped
+      // clock is cut rather than faded.
+      if (ctx.state !== "running") {
+        hardMute();
+        return;
+      }
       fadeMaster(0, PARK_FADE);
       const dying = ctx;
       parkTimer = setTimeout(
         () => {
           parkTimer = null;
           if (dying !== ctx) return;
+          hardMute();
           try {
             const p = dying.suspend();
             if (p && p.catch) p.catch(() => {});
@@ -677,8 +712,47 @@ function fadeMaster(to, seconds) {
   }
 }
 
+function hardMute() {
+  if (!master) return;
+  const g = master.gain;
+  try {
+    g.cancelScheduledValues(0);
+  } catch (e) {}
+  g.value = 0;
+  fadeUntil = 0;
+}
+
+/**
+ * Park the audio when the frames stop, whatever the page says about itself.
+ *
+ * The dead man's handle on the master gain takes the sound off the air on its
+ * own clock, which is what saves a locked phone from a drone — but a ramp is
+ * all it can do. Nothing suspends the context, hands the silent-switch session
+ * back or stops the theme writing bars into it, because none of that can be
+ * scheduled in advance. This is the timer that does it, and a timer is the one
+ * thing that still runs in a page whose frame loop has stopped.
+ *
+ * Late on purpose: the fall is already under way by DOZE_MS, so a main thread
+ * blocked for a second and a half is a fade that recovers on the next frame
+ * rather than a park in the middle of a fight.
+ */
+function dozeGuard() {
+  if (!ctx || !opened || parked) return;
+  if (now() - framedAt < DOZE_MS) return;
+  audioSleep(true);
+  dozed = true;
+}
+
 export function audioHeartbeat() {
-  if (!ctx || !master || parked) return;
+  framedAt = now();
+  if (!ctx || !master) return;
+  if (!dozeTimer) dozeTimer = setInterval(dozeGuard, DOZE_GAP_MS);
+  if (parked) {
+    // Only our own park, and only while there is something to look at: a hide
+    // is undone by the hide ending, and an ad off screen stays off.
+    if (dozed && !hidden()) audioSleep(false);
+    return;
+  }
   const t = now();
   if (t - beatAt < BEAT_MS) return;
   beatAt = t;

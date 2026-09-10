@@ -54,6 +54,8 @@ const SECONDS = 4;
 let keeper = null;
 /** Whether the keeper is meant to be running, as against merely existing. */
 let wanted = false;
+/** And whether it is parked for the moment, which outranks wanting it. */
+let napping = false;
 /** True once the modern property has taken, which retires the element half. */
 let asked = false;
 
@@ -143,7 +145,7 @@ function keep() {
       // Belt and braces against a `loop` that did not: the seam is the one
       // moment the session can lapse, so a missed wrap is started again here.
       el.addEventListener("ended", () => {
-        if (wanted) keep();
+        if (wanted && !napping) keep();
       });
       keeper = el;
     }
@@ -190,11 +192,27 @@ export function promoteSession(w) {
   keep();
 }
 
-/** Park the keeper with the rest of the audio: an off-screen ad holds nothing. */
+/**
+ * Hand both halves back with the rest of the audio, and take them again coming
+ * in: an ad that is not on screen holds no session at all.
+ *
+ * `playback` is the half that matters on a locked phone — it is the session
+ * type iOS goes on playing through a dark screen, so held for the whole life
+ * of the page it makes a screen lock silent to everything downstream. Given
+ * back, iOS interrupts us itself and `watch` hears it as a statechange.
+ */
 export function sessionSleep(asleep) {
+  napping = !!asleep;
+  const nav = typeof navigator === "undefined" ? null : navigator;
+  if (asked && nav && nav.audioSession) {
+    const want = napping ? "auto" : "playback";
+    try {
+      if (nav.audioSession.type !== want) nav.audioSession.type = want;
+    } catch (e) {}
+  }
   if (!keeper) return;
   try {
-    if (asleep) keeper.pause();
+    if (napping) keeper.pause();
     else if (wanted) keep();
   } catch (e) {
     /* nothing in here is worth an exception */
