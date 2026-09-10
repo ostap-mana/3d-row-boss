@@ -1075,7 +1075,6 @@ export class OutcomeScreen extends Container {
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
 
     this.fireworks.clear();
-    if (!this.defeat) this.fireworks.start();
 
     const waiting = new Promise((resolve) => {
       this.leaving = resolve;
@@ -1151,6 +1150,8 @@ export class OutcomeScreen extends Container {
     await tween(this.terminal ? this.retry : this.tap, { alpha: 1 }, 0.3);
     if (!this.introducing) return done;
 
+    if (!this.defeat) this.fireworks.start();
+
     this.introducing = false;
     // The clock starts once the line asking for a tap is up, and not at `show`:
     // a hold measured from the flash is a hold most of which was spent behind it.
@@ -1185,6 +1186,8 @@ export class OutcomeScreen extends Container {
     // sensible reading of "there is nobody watching this arrive".
     killTweensOf(this.flash);
     this.flash.alpha = 0;
+
+    if (!this.defeat) this.fireworks.start();
 
     if (this.layout) this.resize(this.layout);
     this.hold = this.terminal ? -1 : T.outcomeHold;

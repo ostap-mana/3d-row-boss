@@ -1774,14 +1774,19 @@ export const T = {
    * verdict rather than at the store, and the whole point of giving the verdict
    * a card of its own was to earn the one that follows it, not to replace it.
    *
-   * Under three, because there is one word on it. The card used to be a
-   * scoreboard and this number used to be five; with the statistics, the party
-   * row and the two buttons gone there is nothing left to read, and a screen
+   * It was 2.8 and the argument for it was that there is one word on the card:
+   * the scoreboard, the party row and the two buttons are gone, so a screen
    * held past the moment it has been understood is a screen the player is
-   * waiting out. Long enough to land the flash, the stamp and the line asking
-   * for a tap, and not a beat longer.
+   * waiting out.
+   *
+   * The fireworks are what bought the extra time back. They start once the
+   * stamp and the tap line are standing rather than behind the flash — see
+   * Outcome.show — so at 2.8 the display got under two seconds and read as a
+   * few sparks rather than as a finale. This is the window they play in, and it
+   * is the one thing on this card that is still worth watching after the word
+   * has been read.
    */
-  outcomeHold: 2.8,
+  outcomeHold: 4.2,
   /**
    * Time held back for the death animation and the beat after it. The autoplay
    * pace guard treats this as untouchable so a hands-off viewer still sees the

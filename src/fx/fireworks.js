@@ -1,57 +1,139 @@
 import { Container, Sprite } from "pixi.js";
 import { glowTexture, sparkTexture } from "../art/textures.js";
-import { popFrames } from "../art/gempop.js";
 import { rnd, rndRange, pick } from "../core/rng.js";
 
-const MAX_SPARKS = 300;
-const TRAIL_STEP = 0.012;
-const GAP = [0.2, 0.38];
+const MAX_SPARKS = 900;
+const TRAIL_STEP = 0.01;
+const TRAIL_BURST = 4;
+const DUST_BURST = 3;
+const GAP = [0.26, 0.6];
+const SALVO_GAP = [3, 6];
+const GLITTER_ROOM = 0.78;
 
 const WARM = [0xffe9b4, 0xf5c65a, 0xffb03a, 0xffd22e, 0xff8f3a];
 const COOL = [0x8ceee2, 0xa855f7, 0x7fd4ff, 0xff5aa8, 0xff7a2f];
 
-const SHAPES = ["peony", "peony", "willow", "crackle", "ring"];
+const SHAPES = [
+  "peony",
+  "peony",
+  "chrysanth",
+  "chrysanth",
+  "willow",
+  "crackle",
+  "ring",
+  "palm",
+  "crossette",
+  "strobe",
+];
+
+const BIG = ["chrysanth", "willow", "palm", "crossette"];
 
 const SHAPE = {
   peony: {
-    count: 42,
+    count: 46,
     speed: 1,
-    spread: [0.2, 1],
-    grav: 220,
+    spread: [0.25, 1],
+    grav: 230,
     drag: 1.7,
-    ttl: [0.85, 1.25],
-    twinkle: 0.35,
-    tail: 0.9,
+    ttl: [0.9, 1.35],
+    twinkle: 0.32,
+    tail: 0.95,
+    size: [4.5, 8],
+    glitter: 0,
+    shift: 0.4,
+  },
+  chrysanth: {
+    count: 54,
+    speed: 0.96,
+    spread: [0.5, 1],
+    grav: 300,
+    drag: 1.2,
+    ttl: [1.3, 1.9],
+    twinkle: 0.16,
+    tail: 1.6,
+    size: [4.5, 7.5],
+    glitter: 32,
+    shift: 0.35,
   },
   willow: {
-    count: 34,
-    speed: 0.72,
-    spread: [0.34, 1],
-    grav: 440,
-    drag: 0.95,
-    ttl: [1.3, 1.8],
+    count: 30,
+    speed: 0.68,
+    spread: [0.4, 1],
+    grav: 470,
+    drag: 0.85,
+    ttl: [1.6, 2.3],
     twinkle: 0.1,
-    tail: 1.5,
+    tail: 1.8,
+    size: [5, 8],
+    glitter: 22,
+    shift: 0.2,
   },
   crackle: {
-    count: 54,
-    speed: 1.15,
-    spread: [0.55, 1],
+    count: 64,
+    speed: 1.2,
+    spread: [0.6, 1],
     grav: 150,
-    drag: 3.2,
-    ttl: [0.5, 0.85],
-    twinkle: 0.95,
-    tail: 0.6,
+    drag: 3.4,
+    ttl: [0.45, 0.8],
+    twinkle: 1,
+    tail: 0.55,
+    size: [4, 6.5],
+    glitter: 0,
+    shift: 0,
   },
   ring: {
-    count: 38,
-    speed: 1.05,
-    spread: [0.88, 1],
+    count: 44,
+    speed: 1.06,
+    spread: [0.92, 1],
     grav: 200,
     drag: 1.9,
-    ttl: [0.9, 1.2],
-    twinkle: 0.3,
-    tail: 1.1,
+    ttl: [1, 1.3],
+    twinkle: 0.26,
+    tail: 1.15,
+    size: [5, 7.5],
+    glitter: 0,
+    shift: 0.5,
+  },
+  palm: {
+    count: 16,
+    speed: 1.15,
+    spread: [0.85, 1],
+    grav: 260,
+    drag: 1.1,
+    ttl: [1.5, 2],
+    twinkle: 0.1,
+    tail: 2.4,
+    size: [7, 11],
+    glitter: 16,
+    shift: 0.25,
+  },
+  crossette: {
+    count: 20,
+    speed: 0.95,
+    spread: [0.8, 1],
+    grav: 160,
+    drag: 1.5,
+    ttl: [1.1, 1.5],
+    twinkle: 0.1,
+    tail: 1,
+    size: [5.5, 8],
+    glitter: 0,
+    shift: 0,
+    split: { n: 4, speed: 165, ttl: [0.42, 0.7], tail: 0.7, size: [3.5, 5.5] },
+    splitAt: [0.34, 0.46],
+  },
+  strobe: {
+    count: 50,
+    speed: 0.9,
+    spread: [0.4, 1],
+    grav: 210,
+    drag: 2.2,
+    ttl: [1.1, 1.6],
+    twinkle: 1,
+    tail: 0.4,
+    size: [5, 7],
+    glitter: 0,
+    shift: 0.45,
   },
 };
 
@@ -66,6 +148,8 @@ export class Fireworks extends Container {
     this.unit = 1;
     this.running = false;
     this.next = 0;
+    this.beat = 0;
+    this.salvo = 0;
     this.shells = [];
     this.sparks = [];
     this.marks = [];
@@ -84,9 +168,12 @@ export class Fireworks extends Container {
   start() {
     if (this.running) return;
     this.running = true;
-    this.next = GAP[0];
-    this.launch(0.34);
-    this.launch(0.62);
+    this.beat = 0;
+    this.salvo = (rndRange(SALVO_GAP[0], SALVO_GAP[1]) | 0) + 1;
+    this.next = rndRange(GAP[0], GAP[1]);
+    this.launch(0.44, "chrysanth");
+    this.launch(0.68, "peony");
+    this.launch(0.94, pick(BIG));
   }
 
   stop() {
@@ -120,14 +207,14 @@ export class Fireworks extends Container {
     this.spare.push(sprite);
   }
 
-  launch(rise) {
+  launch(rise, shape) {
     if (!this.w) return;
-    const x = rndRange(this.w * 0.2, this.w * 0.8);
-    const apex = rndRange(this.h * 0.12, this.h * 0.38);
+    const x = rndRange(this.w * 0.14, this.w * 0.86);
+    const apex = rndRange(this.h * 0.07, this.h * 0.29);
     const from = this.h * 1.03;
-    const t = rise || rndRange(0.58, 0.88);
+    const t = rise || rndRange(0.58, 0.92);
     const d = Math.max(80, from - apex);
-    const color = rnd() < 0.76 ? pick(WARM) : pick(COOL);
+    const color = rnd() < 0.72 ? pick(WARM) : pick(COOL);
 
     const sprite = this.acquire(glowTexture());
     sprite.tint = 0xffe2ac;
@@ -144,62 +231,64 @@ export class Fireworks extends Container {
       fuse: t,
       trail: 0,
       color,
+      shape: shape || pick(SHAPES),
       sprite,
     });
   }
 
-  burst(x, y, color) {
-    const spec = SHAPE[pick(SHAPES)];
+  burst(x, y, color, shape) {
+    const key = shape || pick(SHAPES);
+    const spec = SHAPE[key];
     const second =
-      rnd() < 0.34 ? (WARM.includes(color) ? pick(COOL) : pick(WARM)) : color;
+      rnd() < 0.42 ? (WARM.includes(color) ? pick(COOL) : pick(WARM)) : color;
 
-    this.mark(x, y, color);
-    this.flare(x, y, color);
+    this.flare(x, y, color, BIG.includes(key));
 
     const room = MAX_SPARKS - this.sparks.length;
     if (room <= 0) return;
     const n = Math.min(spec.count, room);
-    const base = rndRange(310, 410) * spec.speed * this.unit;
+    const base = rndRange(310, 430) * spec.speed * this.unit;
     const turn = rndRange(0, Math.PI * 2);
+    const tilt = key === "ring" ? rndRange(0.28, 0.62) : 1;
 
     for (let i = 0; i < n; i++) {
       const step = (Math.PI * 2) / n;
       const ang = turn + i * step + rndRange(-step * 0.45, step * 0.45);
       const lo = spec.spread[0];
       const power = base * Math.sqrt(rndRange(lo * lo, 1));
-      this.spawn(x, y, Math.cos(ang) * power, Math.sin(ang) * power, {
-        color: i % 2 ? second : color,
+      const own = i % 2 ? second : color;
+      this.spawn(x, y, Math.cos(ang) * power, Math.sin(ang) * power * tilt, {
+        color: own,
         grav: spec.grav * this.unit,
         drag: spec.drag,
         ttl: rndRange(spec.ttl[0], spec.ttl[1]),
         twinkle: rnd() < spec.twinkle,
         tail: spec.tail,
-        size: rndRange(4.5, 8) * this.unit,
+        size: rndRange(spec.size[0], spec.size[1]) * this.unit,
+        glitter: spec.glitter,
+        shift: rnd() < spec.shift ? (own === color ? second : color) : 0,
+        split: spec.split || null,
+        splitAt: spec.split ? rndRange(spec.splitAt[0], spec.splitAt[1]) : 0,
       });
     }
   }
 
-  mark(x, y, color) {
-    const frames = popFrames();
-    if (!frames) return;
-    const sprite = this.acquire(frames[0]);
-    sprite.tint = color;
-    sprite.x = x;
-    sprite.y = y;
-    sprite.rotation = rndRange(0, Math.PI * 2);
-    const w = rndRange(96, 150) * this.unit;
-    sprite.setSize(w, w);
-    this.marks.push({ sprite, frames, t: 0, ttl: 0.3, w });
-  }
-
-  flare(x, y, color) {
+  flare(x, y, color, big) {
     const sprite = this.acquire(glowTexture());
     sprite.tint = color;
     sprite.x = x;
     sprite.y = y;
-    const w = rndRange(130, 180) * this.unit;
+    const w = rndRange(120, 168) * this.unit * (big ? 1.18 : 1);
     sprite.setSize(w, w);
-    this.marks.push({ sprite, frames: null, t: 0, ttl: 0.42, w });
+    this.marks.push({ sprite, t: 0, ttl: 0.44, w, fade: 0.5 });
+
+    const core = this.acquire(glowTexture());
+    core.tint = 0xfffdf2;
+    core.x = x;
+    core.y = y;
+    const cw = w * 0.3;
+    core.setSize(cw, cw);
+    this.marks.push({ sprite: core, t: 0, ttl: 0.14, w: cw, fade: 0.8 });
   }
 
   spawn(x, y, vx, vy, opt) {
@@ -220,6 +309,12 @@ export class Fireworks extends Container {
       drag: opt.drag,
       tail: opt.tail,
       twinkle: opt.twinkle,
+      glitter: opt.glitter || 0,
+      dust: 0,
+      shift: opt.shift || 0,
+      shifted: false,
+      split: opt.split || null,
+      splitAt: opt.splitAt || 0,
       rate: rndRange(24, 40),
       phase: rndRange(0, Math.PI * 2),
       sprite,
@@ -231,7 +326,16 @@ export class Fireworks extends Container {
     if (this.running) {
       this.next -= dt;
       if (this.next <= 0) {
-        this.launch();
+        this.beat++;
+        if (this.beat >= this.salvo) {
+          const n = 2 + ((rnd() * 2) | 0);
+          for (let i = 0; i < n; i++) {
+            this.launch(rndRange(0.5, 0.95), i ? undefined : pick(BIG));
+          }
+          this.salvo = this.beat + (rndRange(SALVO_GAP[0], SALVO_GAP[1]) | 0);
+        } else {
+          this.launch();
+        }
         this.next = rndRange(GAP[0], GAP[1]);
       }
     }
@@ -252,11 +356,13 @@ export class Fireworks extends Container {
       sh.sprite.alpha = 0.72 + Math.sin(sh.t * 46) * 0.28;
 
       sh.trail += dt;
-      while (sh.trail >= TRAIL_STEP) {
+      let puffs = TRAIL_BURST;
+      while (sh.trail >= TRAIL_STEP && puffs--) {
         sh.trail -= TRAIL_STEP;
+        const back = (puffs / TRAIL_BURST) * dt;
         this.spawn(
-          sh.x + rndRange(-3, 3),
-          sh.y + rndRange(-3, 3) + 8 * this.unit,
+          sh.x - sh.vx * back + rndRange(-3, 3),
+          sh.y - sh.vy * back + rndRange(-3, 3) + 8 * this.unit,
           sh.vx * 0.1 + rndRange(-24, 24),
           sh.vy * 0.08 + rndRange(-10, 30),
           {
@@ -270,11 +376,12 @@ export class Fireworks extends Container {
           },
         );
       }
+      if (sh.trail >= TRAIL_STEP) sh.trail = 0;
 
       if (sh.t >= sh.fuse) {
         this.release(sh.sprite);
         this.shells.splice(i, 1);
-        this.burst(sh.x, sh.y, sh.color);
+        this.burst(sh.x, sh.y, sh.color, sh.shape);
       }
     }
   }
@@ -289,22 +396,15 @@ export class Fireworks extends Container {
         this.marks.splice(i, 1);
         continue;
       }
-      if (m.frames) {
-        m.sprite.texture =
-          m.frames[Math.min(m.frames.length - 1, (k * m.frames.length) | 0)];
-        const w = m.w * (1 + k * 0.4);
-        m.sprite.setSize(w, w);
-        m.sprite.alpha = (k < 0.45 ? 1 : 1 - (k - 0.45) / 0.55) * 0.6;
-      } else {
-        const w = m.w * (1 + k * 0.7);
-        m.sprite.setSize(w, w);
-        m.sprite.alpha = (1 - k) * (1 - k) * 0.7;
-      }
+      const w = m.w * (1 + k * 0.7);
+      m.sprite.setSize(w, w);
+      m.sprite.alpha = (1 - k) * (1 - k) * m.fade;
     }
   }
 
   stepSparks(dt) {
     const damp = Math.exp(-dt);
+    const room = this.sparks.length < MAX_SPARKS * GLITTER_ROOM;
     for (let i = this.sparks.length - 1; i >= 0; i--) {
       const p = this.sparks[i];
       p.t += dt;
@@ -322,6 +422,36 @@ export class Fireworks extends Container {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
+      if (p.split && p.t >= p.splitAt) {
+        this.shatter(p);
+        this.release(p.sprite);
+        this.sparks.splice(i, 1);
+        continue;
+      }
+
+      if (p.shift && !p.shifted && k > 0.42) {
+        p.shifted = true;
+        p.sprite.tint = p.shift;
+      }
+
+      if (p.glitter && room && k > 0.2) {
+        p.dust += dt * p.glitter;
+        let motes = DUST_BURST;
+        while (p.dust >= 1 && motes--) {
+          p.dust -= 1;
+          this.spawn(p.x, p.y, rndRange(-18, 18), rndRange(-18, 18), {
+            color: 0xfff0c8,
+            grav: 60 * this.unit,
+            drag: 4.2,
+            ttl: rndRange(0.14, 0.3),
+            twinkle: false,
+            tail: 0.3,
+            size: rndRange(2.4, 4.2) * this.unit,
+          });
+        }
+        if (p.dust >= 1) p.dust = 0;
+      }
+
       const speed = Math.hypot(p.vx, p.vy);
       const s = p.sprite;
       s.x = p.x;
@@ -337,6 +467,30 @@ export class Fireworks extends Container {
         a *= 0.35 + 0.65 * Math.abs(Math.sin(p.t * p.rate + p.phase));
       }
       s.alpha = a;
+    }
+  }
+
+  shatter(p) {
+    const s = p.split;
+    const turn = rndRange(0, Math.PI * 2);
+    const speed = s.speed * this.unit;
+    for (let i = 0; i < s.n; i++) {
+      const ang = turn + (i * Math.PI * 2) / s.n;
+      this.spawn(
+        p.x,
+        p.y,
+        p.vx * 0.22 + Math.cos(ang) * speed,
+        p.vy * 0.22 + Math.sin(ang) * speed,
+        {
+          color: p.sprite.tint,
+          grav: p.grav * 0.8,
+          drag: 2.4,
+          ttl: rndRange(s.ttl[0], s.ttl[1]),
+          twinkle: rnd() < 0.5,
+          tail: s.tail,
+          size: rndRange(s.size[0], s.size[1]) * this.unit,
+        },
+      );
     }
   }
 }
