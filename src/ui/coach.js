@@ -56,8 +56,11 @@
  *
  * Every mark wears the element of the thing it is drawn on: a frame takes the
  * colour of the gem inside it, and a run's frame the colour the run is made of.
- * Only the arrow and the hand wear the travelling stone's, and only because
- * those two are about the stone rather than about a cell. A beat is therefore
+ * Only the arrow and the hand wear one colour for the whole beat, and that
+ * colour is the run's: on an ordinary swap it is the travelling stone's too,
+ * because the stone is what completes the line. On a swap that finishes two
+ * runs at once it is the line the stone is standing in — the frame the hand
+ * comes down inside — and not the one it is on its way to. A beat is therefore
  * as many colours as it has gems in it, which is the point — a lit gem and the
  * bracket round it are one statement, and a bracket that disagrees with what it
  * encloses reads as a mark that has landed in the wrong place.
@@ -394,6 +397,27 @@ function litLines(cells, typeOf) {
   });
 
   return out;
+}
+
+function swapRuns(board, shape) {
+  const { from, to, run } = shape;
+  // The board is swapped on screen and not in the model — that is the whole
+  // of what previewSwap does — so the two travelling cells are asked about
+  // the other way round, or every run the swap makes would be measured
+  // against the colours that are there before it.
+  const landed = (r, c) => {
+    if (r === from.r && c === from.c) return board.typeAt(to.r, to.c);
+    if (r === to.r && c === to.c) return board.typeAt(from.r, from.c);
+    return board.typeAt(r, c);
+  };
+  return straightRuns(run, landed);
+}
+
+function lessonElement(board, shape, runs) {
+  const runAt = (cell) =>
+    runs.find((group) => group.cells.some((p) => same(p, cell)));
+  const line = runAt(shape.from) || runAt(shape.to);
+  return line ? line.type : board.typeAt(shape.from.r, shape.from.c);
 }
 
 export class Coach extends Container {
@@ -798,10 +822,12 @@ export class Coach extends Container {
       open = false;
       if (id !== this.token) return;
 
-      // The colour is read off the board rather than off the shape, for the same
-      // reason lesson() reads it: a shape is a pair of cells and a run, and
-      // which element it is made of is a question only the board can answer.
-      const type = board.typeAt(live.from.r, live.from.c);
+      // The same colour the lesson just wore, so the card the hand goes to
+      // next is the one those three charge. Read off the board rather than off
+      // the shape, for the same reason lesson() reads it: a shape is a pair of
+      // cells and a run, and which element it is made of is a question only
+      // the board can answer.
+      const type = lessonElement(board, live, swapRuns(board, live));
       const card = cardFor && cardFor(type);
       if (card) {
         await this.cardBeat(id, card, hand, type);
@@ -983,7 +1009,14 @@ export class Coach extends Container {
    */
   async lesson(id, board, hand, shape, cold = false) {
     const { from, to, run, rest } = shape;
-    const type = board.typeAt(from.r, from.c);
+
+    // The line the swap is about to make — one frame per run rather than one
+    // round the lot, because a swap can finish two runs at once and two runs
+    // are not one thing and not one colour. See straightRuns. Solved once here
+    // and worn from the first beat to the last: the frame is the slot three of
+    // these go in, and every beat inside it is a stone travelling there.
+    const target = swapRuns(board, shape);
+    const type = lessonElement(board, shape, target);
     const color = GEM_LIGHT[type] === undefined ? 0xffffff : GEM_LIGHT[type];
 
     // The light goes on before the first mark does, round everything this pass
@@ -997,29 +1030,12 @@ export class Coach extends Container {
     // halfway through beat three.
     this.spotOn(board, rest.concat([from, to], run), type);
 
-    // The travelling stone's element. It is what the arrow and the hand wear,
-    // because they are the two marks that are *about* the stone that moves, and
+    // The run's element. It is what the arrow and the hand wear, because they
+    // are the two marks that are about the move rather than about a cell, and
     // it is what a mark falls back to when the gem under it has no element of
     // its own — an encased cell. Every frame otherwise wears the gem it is
     // drawn round; draw() reads that off the board a cell at a time.
     const show = (step) => this.draw(board, { type, color, ...step });
-
-    // The line the swap is about to make — one frame per run rather than one
-    // round the lot, because a swap can finish two runs at once and two runs
-    // are not one thing and not one colour. See straightRuns. Solved once here
-    // and worn from the first beat to the last: the frame is the slot three of
-    // these go in, and every beat inside it is a stone travelling there.
-    //
-    // The board is swapped on screen and not in the model — that is the whole
-    // of what previewSwap does — so the two travelling cells are asked about
-    // the other way round, or every run the swap makes would be measured
-    // against the colours that are there before it.
-    const landed = (r, c) => {
-      if (r === from.r && c === from.c) return board.typeAt(to.r, to.c);
-      if (r === to.r && c === to.c) return board.typeAt(from.r, from.c);
-      return board.typeAt(r, c);
-    };
-    const target = straightRuns(run, landed);
 
     // 1. Where the three go, and what is already standing in it. Up from
     //    nothing on the first pass and from REST_ALPHA on every one after it,
@@ -1217,8 +1233,7 @@ export class Coach extends Container {
     //
     // Each in its own element, like the run frames and for the same reason.
     // Every mark used to wear the one colour a beat — the travelling gem's —
-    // which is right for the arrow and right for the hand, because those *are*
-    // the stone that moves, and wrong for every frame that is not on it. A swap
+    // which is wrong for every frame that is not on that gem. A swap
     // that finishes two runs lights the far run's gems in the traveller's
     // colour, so three water gems sat in arcane brackets; a bracket that
     // disagrees with the gem inside it reads as a mark drawn in the wrong place

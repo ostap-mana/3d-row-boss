@@ -3295,7 +3295,9 @@ export class Director {
     const a = board.cellPos(this.idleHint.a.r, this.idleHint.a.c);
     const b = board.cellPos(this.idleHint.b.r, this.idleHint.b.c);
     // The hand takes the colour of the gem it is about to drag, which is the one
-    // it starts on — the same end ui/coach.js reads its lesson's element off.
+    // it starts on. The lesson wears the run's colour instead — see
+    // ui/coach.js — and cannot here: a swap whose shape could not be read is
+    // exactly why this path is the one being taken, so there is no run to ask.
     hand.setElement(board.typeAt(this.idleHint.a.r, this.idleHint.a.c));
     hand.swipeLoop(
       { x: board.x + a.x, y: board.y + a.y },
