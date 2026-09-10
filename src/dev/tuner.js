@@ -10,6 +10,7 @@ import { setWorldRate, worldRate } from "../core/juice.js";
 
 const KEY = "siege.tuner";
 const SAVE = "siege.tune";
+const WIDE = "siege.tuner.wide";
 const ID = "siege-tuner";
 
 const ROOTS = { DIFFICULTY, DOOM, T, ULT_PACE };
@@ -20,16 +21,11 @@ const BOSS_BASE =
   BOSS_ATTACKS.reduce((sum, a) => sum + (a.damage || 0), 0) /
   Math.max(1, BOSS_ATTACKS.length);
 
-const MAX = 100;
-const TICK = 25;
-
 const INK = "#16151a";
 const DIM = "#8b8780";
 const AXIS = "#6d7f9c";
 const HOT = "#ef6b3f";
-const ULT_COLOR = "#9a5bd6";
-const GEM_COLOR = "#2f8fd0";
-const HP_COLOR = "#4f9668";
+const KILL = "#4f9668";
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -136,68 +132,29 @@ const BANDS = [
   { to: 1, label: "SUPER HARD", fill: "#e8e5e1" },
 ];
 
-const CHARTS = [
-  {
-    key: "ult",
-    title: "1 · Урон ульти",
-    tab: "УЛЬТА",
-    unit: "% смуги боса за каст",
-    field: "ult",
-    color: ULT_COLOR,
-    read: (p) => 100 * ultAt(p),
-    raw: (step) => step.ult,
-    write: (step, v) => {
-      const room = ultBase() * hideAt(step.resist);
-      step.ult = +clamp(v / 100 / Math.max(1e-4, room), 0, 40).toFixed(3);
-    },
-    poke: (step, v) => {
-      step.ult = clamp(v, 0, 40);
-    },
-  },
-  {
-    key: "gem",
-    title: "2 · Урон каменя",
-    tab: "КАМІНЬ",
-    unit: "% смуги боса за трійку",
-    field: "resist",
-    color: GEM_COLOR,
-    read: (p) => 100 * gemAt(p),
-    raw: (step) => step.resist,
-    write: (step, v) => {
-      const room = MOVE_GEMS * DIFFICULTY.damagePerGem;
-      step.resist = +clamp(v / 100 / Math.max(1e-4, room), 0.01, 4).toFixed(3);
-    },
-    poke: (step, v) => {
-      step.resist = clamp(v, 0.01, 4);
-    },
-  },
-  {
-    key: "boss",
-    title: "3 · Урон боса",
-    tab: "БОС",
-    unit: "% смуги героя за удар",
-    field: "attack",
-    color: HOT,
-    read: (p) => 100 * bossAt(p),
-    raw: (step) => step.attack,
-    write: (step, v) => {
-      const room = BOSS_BASE * rageAt(step.p);
-      step.attack = +clamp(v / 100 / Math.max(1e-4, room), 0, 8).toFixed(3);
-    },
-    poke: (step, v) => {
-      step.attack = clamp(v, 0, 8);
-    },
-  },
-  {
-    key: "hp",
-    title: "4 · HP боса",
-    tab: "HP БОСА",
-    unit: "модель: проста трійка кожні 3.5с",
-    color: HP_COLOR,
-    dash: true,
-    still: true,
-  },
-];
+const RUNGS = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+
+const bite = (p) => at("attack", p) / Math.max(1e-4, at("resist", p));
+
+function opening() {
+  const list = steps();
+  return list.length ? Math.max(1e-4, bite(list[0].p)) : 1;
+}
+
+const indexAt = (p) => bite(p) / opening();
+
+function indexInto(step, value) {
+  const room = opening() * Math.max(1e-4, step.resist);
+  step.attack = +clamp(value * room, 0, 12).toFixed(3);
+}
+
+function scaleFor(peak) {
+  const unit = RUNGS.find((rung) => peak / rung <= 4) || 1000;
+  return { unit, top: Math.max(unit, Math.ceil(peak / unit) * unit) };
+}
+
+const feltIndex = (attackP, resistP) =>
+  at("attack", attackP) / Math.max(1e-4, at("resist", resistP)) / opening();
 
 const CSS = `
 #${ID}, #${ID} * { box-sizing: border-box; }
@@ -244,7 +201,7 @@ const CSS = `
 }
 #${ID} .t-x:active { background: #f0ede9; }
 #${ID} .t-live {
-  flex: none; display: grid; grid-template-columns: repeat(5, 1fr);
+  flex: none; display: grid; grid-template-columns: repeat(6, 1fr);
   gap: 0 6px; padding: 7px 12px; border-bottom: 1px solid #e6e3de; background: #fff;
 }
 #${ID} .t-live div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -268,22 +225,9 @@ const CSS = `
 #${ID} .t-card .t-sub code {
   background: #f1eeea; color: #4a4650; border-radius: 4px; padding: 1px 5px;
 }
-#${ID} .t-pick { flex: none; display: flex; gap: 4px; padding: 6px 0 2px; }
-#${ID} .t-pick button {
-  flex: 1 1 0; padding: 6px 2px; border-radius: 6px; cursor: pointer;
-  background: #faf9f7; border: 1px solid #e2ded8; color: #6f6b78;
-  font-size: 10px; letter-spacing: 0.06em;
-}
-#${ID} .t-pick button i {
-  width: 7px; height: 7px; border-radius: 50%; margin-right: 4px;
-  display: inline-block; vertical-align: middle;
-}
-#${ID} .t-pick button.t-on { color: #fff; }
-#${ID} .t-pick button.t-on i { background: #fff !important; }
 #${ID} canvas {
   flex: 1 1 auto; width: 100%; min-height: 190px; display: block; touch-action: none;
 }
-#${ID} .t-card.t-still canvas { touch-action: pan-y; }
 #${ID} .t-card.t-open canvas { flex: none; height: 210px; }
 #${ID} .t-more {
   flex: none; width: 100%; text-align: left; cursor: pointer; margin-top: 4px;
@@ -318,6 +262,23 @@ const CSS = `
 }
 #${ID} .t-bar button:active { background: #f0ede9; }
 #${ID} .t-bar button.t-act { color: ${HOT}; border-color: ${HOT}; }
+#${ID}.wide.open .t-icon { display: none; }
+#${ID}.wide .t-panel {
+  left: max(0px, env(safe-area-inset-left, 0px));
+  right: max(0px, env(safe-area-inset-right, 0px));
+  top: max(0px, env(safe-area-inset-top, 0px));
+  bottom: max(0px, env(safe-area-inset-bottom, 0px));
+  width: auto; border-radius: 0; box-shadow: none;
+}
+#${ID}.wide .t-head { padding: 12px 14px; }
+#${ID}.wide .t-live { padding: 10px 14px; }
+#${ID}.wide .t-live b { font-size: 14px; }
+#${ID}.wide .t-body { padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+#${ID}.wide .t-card { padding: 12px 12px 6px; }
+#${ID}.wide canvas { min-height: 300px; }
+#${ID}.wide .t-card.t-open canvas { height: min(58vh, 520px); }
+#${ID}.wide .t-tab input { padding: 8px 6px; }
+#${ID}.wide .t-bar { padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 520px) {
   #${ID} .t-panel { left: max(8px, env(safe-area-inset-left, 0px)); width: auto; }
 }
@@ -373,6 +334,7 @@ function build(scene) {
       <div class="t-head">
         <b>КРИВА СКЛАДНОСТІ</b>
         <div class="t-sp"></div>
+        <button class="t-x t-wide" type="button" data-act="wide" aria-label="На весь екран" title="На весь екран">⛶</button>
         <button class="t-x" type="button" data-act="hide">сховати</button>
         <button class="t-x" type="button" data-act="close">✕</button>
       </div>
@@ -418,7 +380,7 @@ function build(scene) {
     });
   }
 
-  function geom(cv) {
+  function geom(cv, top) {
     const w = cv.clientWidth || 1;
     const h = cv.clientHeight || 1;
     const pad = { l: 32, r: 42, t: 26, b: 30 };
@@ -431,22 +393,31 @@ function build(scene) {
       iw,
       ih,
       x: (p) => pad.l + p * iw,
-      y: (v) => pad.t + (1 - v / MAX) * ih,
+      y: (v) => pad.t + (1 - clamp(v / top, 0, 1)) * ih,
       atX: (x) => clamp((x - pad.l) / iw, 0, 1),
-      atY: (y) => clamp((1 - (y - pad.t) / ih) * MAX, 0, MAX),
+      atY: (y) => Math.max(0, 1 - (y - pad.t) / ih) * top,
     };
   }
 
-  const sample = (spec) =>
-    spec.still
-      ? (p) =>
-          100 * sim[clamp(Math.round(p * (sim.length - 1)), 0, sim.length - 1)]
-      : spec.read;
+  function peakStep() {
+    const list = steps();
+    let best = 0;
+    list.forEach((step, i) => {
+      if (indexAt(step.p) > indexAt(list[best].p)) best = i;
+    });
+    return best;
+  }
+
+  const scaleNow = () => {
+    const list = steps();
+    return scaleFor(list.length ? indexAt(list[peakStep()].p) : 1);
+  };
 
   function paint(cv) {
     const ctx = cv.getContext("2d");
     if (!ctx) return;
-    const g = geom(cv);
+    const scale = scaleNow();
+    const g = geom(cv, scale.top);
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     const pw = Math.round(g.w * dpr);
     const ph = Math.round(g.h * dpr);
@@ -461,7 +432,7 @@ function build(scene) {
 
     ctx.fillStyle = DIM;
     ctx.textAlign = "left";
-    ctx.fillText("% ВІД СМУГИ", g.pad.l + 2, g.pad.t - 14);
+    ctx.fillText("×РАЗІВ ДО ВІДКРИТТЯ", g.pad.l + 2, g.pad.t - 14);
 
     let from = 0;
     BANDS.forEach((band) => {
@@ -485,71 +456,58 @@ function build(scene) {
 
     ctx.strokeStyle = "#e6e3de";
     ctx.textAlign = "right";
-    for (let v = 0; v <= MAX; v += TICK) {
+    for (let v = 0; v <= scale.top; v += scale.unit) {
       const y = Math.round(g.y(v)) + 0.5;
       ctx.beginPath();
       ctx.moveTo(g.pad.l, y);
       ctx.lineTo(g.pad.l + g.iw, y);
       ctx.stroke();
       ctx.fillStyle = DIM;
-      ctx.fillText(`${v}%`, g.pad.l - 5, y);
+      ctx.fillText(`×${v}`, g.pad.l - 5, y);
     }
 
-    const secs = span();
     ctx.textAlign = "center";
     [0, 0.25, 0.5, 0.75, 1].forEach((p) => {
-      const x = g.x(p);
       ctx.fillStyle = AXIS;
-      ctx.fillText(`${Math.round(p * secs)}с`, x, g.pad.t + g.ih + 10);
-      ctx.fillStyle = "#a7a2ac";
-      ctx.fillText(`${Math.round((1 - p) * 100)}hp`, x, g.pad.t + g.ih + 21);
+      ctx.fillText(
+        `${Math.round((1 - p) * 100)}%`,
+        g.x(p),
+        g.pad.t + g.ih + 10,
+      );
     });
+    ctx.fillStyle = "#a7a2ac";
+    ctx.fillText(
+      "HP БОСА, ЩО ЛИШИЛОСЯ",
+      g.pad.l + g.iw / 2,
+      g.pad.t + g.ih + 21,
+    );
+
+    const list = steps();
 
     ctx.save();
     ctx.beginPath();
     ctx.rect(g.pad.l, g.pad.t, g.iw, g.ih);
     ctx.clip();
 
-    const trace = (spec) => {
-      const value = sample(spec);
-      const pts = [];
-      for (let i = 0; i <= 110; i++) {
-        const p = i / 110;
-        pts.push([g.x(p), g.y(value(p))]);
-      }
-      return pts;
-    };
-
-    const stroke = (spec, lead) => {
-      const pts = trace(spec);
-      if (lead) {
-        const fill = ctx.createLinearGradient(0, g.pad.t, 0, g.pad.t + g.ih);
-        fill.addColorStop(0, `${spec.color}3d`);
-        fill.addColorStop(1, `${spec.color}08`);
-        ctx.beginPath();
-        ctx.moveTo(pts[0][0], g.pad.t + g.ih);
-        pts.forEach(([x, y]) => ctx.lineTo(x, y));
-        ctx.lineTo(pts[pts.length - 1][0], g.pad.t + g.ih);
-        ctx.closePath();
-        ctx.fillStyle = fill;
-        ctx.fill();
-      }
-      ctx.beginPath();
-      pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-      ctx.strokeStyle = spec.color;
-      ctx.globalAlpha = lead ? 1 : 0.32;
-      ctx.lineWidth = lead ? 2 : 1.25;
-      ctx.lineJoin = "round";
-      if (spec.dash) ctx.setLineDash(lead ? [6, 3] : [4, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
-    };
-
-    CHARTS.forEach((spec) => {
-      if (spec !== active) stroke(spec, false);
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#a09c98";
+    list.forEach((step) => {
+      if (!step.name) return;
+      ctx.fillText(step.name, g.x(step.p) + 4, g.pad.t + g.ih - 8);
     });
-    stroke(active, true);
+
+    const pts = [];
+    for (let i = 0; i <= 110; i++) {
+      const p = i / 110;
+      pts.push([g.x(p), g.y(indexAt(p))]);
+    }
+
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.strokeStyle = HOT;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.stroke();
 
     const d = scene.director;
     if (d) {
@@ -566,69 +524,57 @@ function build(scene) {
         ctx.setLineDash([]);
       } catch {}
     }
-    ctx.restore();
 
     const dead = sim.findIndex((hp) => hp <= 0);
     if (dead > 0) {
-      const p = dead / (sim.length - 1);
-      const x = g.x(p);
-      ctx.save();
-      ctx.globalAlpha = active.still ? 1 : 0.45;
-      ctx.setLineDash([2, 3]);
-      ctx.strokeStyle = HP_COLOR;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(Math.round(x) + 0.5, g.pad.t);
-      ctx.lineTo(Math.round(x) + 0.5, g.pad.t + g.ih);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = HP_COLOR;
-      ctx.textAlign = p > 0.6 ? "right" : "left";
+      ctx.fillStyle = KILL;
+      ctx.textAlign = "left";
       ctx.fillText(
-        `бос падає на ${Math.round(p * secs)}с`,
-        x + (p > 0.6 ? -5 : 5),
-        g.pad.t + 26,
+        `бос падає на ${Math.round((dead / (sim.length - 1)) * span())}с`,
+        g.pad.l + 6,
+        g.pad.t + 27,
       );
-      ctx.restore();
     }
 
-    if (active.still) return;
-
-    const value = sample(active);
-    const list = steps();
-    let peak = 0;
     list.forEach((step, i) => {
-      if (value(step.p) > value(list[peak].p)) peak = i;
       const x = g.x(step.p);
-      const y = clamp(g.y(value(step.p)), g.pad.t, g.pad.t + g.ih);
+      const y = clamp(g.y(indexAt(step.p)), g.pad.t, g.pad.t + g.ih);
       const held = grab && grab.i === i;
       ctx.beginPath();
       ctx.arc(x, y, held ? 7 : 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = active.color;
+      ctx.fillStyle = i ? HOT : "#fff";
       ctx.fill();
-      ctx.strokeStyle = "#fff";
+      ctx.strokeStyle = i ? "#fff" : HOT;
       ctx.lineWidth = 1.5;
       ctx.stroke();
     });
+    ctx.restore();
 
     const mark = (i, tail) => {
       const step = list[i];
       if (!step) return;
-      const y = clamp(g.y(value(step.p)), g.pad.t + 6, g.pad.t + g.ih);
-      const name = !tail && step.name ? ` ${step.name}` : "";
-      const text = `${value(step.p).toFixed(1)}%${name}`;
-      ctx.fillStyle = active.color;
+      const value = indexAt(step.p);
+      const y = clamp(g.y(value), g.pad.t + 6, g.pad.t + g.ih);
+      const text = tail
+        ? `×${value.toFixed(1)}`
+        : `×${value.toFixed(1)} · ${Math.round((1 - step.p) * 100)}% HP`;
       ctx.textAlign = tail ? "left" : "center";
       const half = ctx.measureText(text).width / 2;
       const x = tail
         ? g.x(step.p) + 8
         : clamp(g.x(step.p), g.pad.l + half, g.pad.l + g.iw - half);
-      ctx.fillText(text, x, tail ? y : y - 11);
+      const row = tail ? y : y - 11;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 3;
+      ctx.lineJoin = "round";
+      ctx.strokeText(text, x, row);
+      ctx.fillStyle = HOT;
+      ctx.fillText(text, x, row);
     };
-    mark(grab ? grab.i : peak, false);
-    mark(list.length - 1, true);
+    const lead = grab ? grab.i : peakStep();
+    mark(lead, false);
+    if (lead !== list.length - 1) mark(list.length - 1, true);
   }
-
   function drawAll() {
     sim = simulate(96);
     paint(cv);
@@ -638,31 +584,31 @@ function build(scene) {
   function bind(cv) {
     const move = (e) => {
       if (!grab) return;
-      const g = geom(cv);
+      const g = geom(cv, scaleNow().top);
       const box = cv.getBoundingClientRect();
       const list = steps();
       const step = list[grab.i];
       if (!step) return;
-      if (grab.i > 0 && grab.i < list.length - 1) {
+      if (grab.i < list.length - 1) {
         const lo = list[grab.i - 1].p + 0.02;
         const hi = list[grab.i + 1].p - 0.02;
         step.p = +clamp(g.atX(e.clientX - box.left), lo, hi).toFixed(3);
       }
-      active.write(step, g.atY(e.clientY - box.top));
+      indexInto(step, g.atY(e.clientY - box.top));
       e.preventDefault();
       drawAll();
     };
 
     cv.addEventListener("pointerdown", (e) => {
-      if (active.still) return;
-      const g = geom(cv);
+      const g = geom(cv, scaleNow().top);
       const box = cv.getBoundingClientRect();
       const x = e.clientX - box.left;
       const y = e.clientY - box.top;
       let best = -1;
       let near = 36;
       steps().forEach((step, i) => {
-        const dist = Math.hypot(g.x(step.p) - x, g.y(active.read(step.p)) - y);
+        if (!i) return;
+        const dist = Math.hypot(g.x(step.p) - x, g.y(indexAt(step.p)) - y);
         if (dist < near) {
           near = dist;
           best = i;
@@ -686,11 +632,10 @@ function build(scene) {
     cv.addEventListener("pointerup", drop);
     cv.addEventListener("pointercancel", drop);
   }
-
-  function numbers(spec) {
+  function numbers() {
     const box = document.createElement("div");
     box.className = "t-tab";
-    box.innerHTML = `<table><thead><tr><th></th><th>секунда</th><th>%</th><th>raw</th></tr></thead><tbody></tbody></table>`;
+    box.innerHTML = `<table><thead><tr><th></th><th>hp</th><th>×</th><th>attack</th><th>resist</th></tr></thead><tbody></tbody></table>`;
     const tbody = box.querySelector("tbody");
 
     steps().forEach((step, i) => {
@@ -722,98 +667,73 @@ function build(scene) {
 
       const list = steps();
       make(
-        () => +(list[i].p * span()).toFixed(1),
+        () => Math.round((1 - list[i].p) * 100),
         (v) => {
           if (i === 0 || i === list.length - 1) return;
           const lo = list[i - 1].p + 0.02;
           const hi = list[i + 1].p - 0.02;
-          list[i].p = +clamp(v / span(), lo, hi).toFixed(3);
+          list[i].p = +clamp(1 - v / 100, lo, hi).toFixed(3);
+        },
+        1,
+      );
+      make(
+        () => +indexAt(list[i].p).toFixed(1),
+        (v) => {
+          if (i === 0) return;
+          indexInto(list[i], v);
         },
         0.5,
       );
       make(
-        () => +spec.read(list[i].p).toFixed(1),
-        (v) => spec.write(list[i], v),
-        1,
+        () => list[i].attack,
+        (v) => {
+          list[i].attack = +clamp(v, 0, 12).toFixed(3);
+        },
+        0.01,
       );
       make(
-        () => spec.raw(list[i]),
-        (v) => spec.poke(list[i], v),
+        () => list[i].resist,
+        (v) => {
+          list[i].resist = +clamp(v, 0.01, 4).toFixed(3);
+        },
         0.01,
       );
       tbody.appendChild(tr);
     });
     return box;
   }
-
   const card = document.createElement("div");
   card.className = "t-card";
   card.innerHTML = `
-    <b></b>
+    <b>Індекс складності</b>
     <div class="t-sub"></div>
-    <div class="t-pick"></div>
     <canvas></canvas>
     <button class="t-more" type="button"></button>`;
   body.appendChild(card);
 
-  const title = card.querySelector("b");
   const sub = card.querySelector(".t-sub");
-  const pick = card.querySelector(".t-pick");
   const cv = card.querySelector("canvas");
   const more = card.querySelector(".t-more");
 
-  let active = CHARTS[0];
   let table = null;
   let opened = false;
 
-  const tabs = CHARTS.map((spec) => {
-    const el = document.createElement("button");
-    el.type = "button";
-    const dot = document.createElement("i");
-    dot.style.background = spec.color;
-    el.appendChild(dot);
-    el.appendChild(document.createTextNode(spec.tab));
-    el.addEventListener("click", () => {
-      if (active === spec) return;
-      active = spec;
-      opened = false;
-      grab = null;
-      render();
-    });
-    pick.appendChild(el);
-    return el;
-  });
-
   function render() {
-    title.textContent = active.title;
-    sub.textContent = active.field ? `${active.unit} · ` : active.unit;
-    if (active.field) {
-      const chip = document.createElement("code");
-      chip.textContent = `curve.steps[].${active.field}`;
-      sub.appendChild(chip);
-    }
-    tabs.forEach((el, i) => {
-      const on = CHARTS[i] === active;
-      el.classList.toggle("t-on", on);
-      el.style.background = on ? CHARTS[i].color : "";
-      el.style.borderColor = on ? CHARTS[i].color : "";
-    });
-    card.classList.toggle("t-still", !!active.still);
-    card.classList.toggle("t-open", !!(active.field && opened));
-    more.hidden = !active.field;
-    more.textContent = active.field
-      ? `${opened ? "−" : "+"} ЧИСЛА · CURVE.STEPS[].${active.field.toUpperCase()}`
-      : "";
+    sub.textContent = "×разів відносно відкриття бою · ";
+    const chip = document.createElement("code");
+    chip.textContent = "curve.steps[].attack / resist";
+    sub.appendChild(chip);
+    card.classList.toggle("t-open", opened);
+    more.textContent = `${opened ? "−" : "+"} ЧИСЛА · CURVE.STEPS[]`;
     if (table) table.remove();
     table = null;
     binders.length = 0;
-    if (active.field && opened) {
-      table = numbers(active);
+    if (opened) {
+      table = numbers();
       card.appendChild(table);
     }
     drawAll();
   }
-
   bind(cv);
   more.addEventListener("click", () => {
     opened = !opened;
@@ -896,9 +816,13 @@ function build(scene) {
   const READOUT = [
     { label: "hp боса", get: (d) => `${Math.round(d.bossHp * 100)}%` },
     { label: "секунда", get: (d) => `${(d.progress() * span()).toFixed(1)}с` },
-    { label: "ульта", get: (d) => `${(100 * ultAt(d.wounds())).toFixed(1)}%` },
-    { label: "камінь", get: (d) => `${(100 * gemAt(d.wounds())).toFixed(1)}%` },
+    {
+      label: "×індекс",
+      get: (d) => `×${feltIndex(d.pressure(), d.wounds()).toFixed(1)}`,
+    },
     { label: "бос", get: (d) => `${(100 * bossAt(d.pressure())).toFixed(1)}%` },
+    { label: "камінь", get: (d) => `${(100 * gemAt(d.wounds())).toFixed(1)}%` },
+    { label: "ульта", get: (d) => `${(100 * ultAt(d.wounds())).toFixed(1)}%` },
   ];
   const cells = READOUT.map((r) => {
     const el = document.createElement("div");
@@ -929,9 +853,25 @@ function build(scene) {
   }
   window.requestAnimationFrame(tick);
 
+  const wideBtn = root.querySelector(".t-wide");
+
+  function wide(on) {
+    const want = on === undefined ? !root.classList.contains("wide") : !!on;
+    root.classList.toggle("wide", want);
+    wideBtn.textContent = want ? "⤡" : "⛶";
+    const label = want ? "Зменшити" : "На весь екран";
+    wideBtn.title = label;
+    wideBtn.setAttribute("aria-label", label);
+    keep(WIDE, want ? "on" : null);
+    drawAll();
+    window.requestAnimationFrame(() => paint(cv));
+  }
+
   root.querySelectorAll("[data-act]").forEach((el) => {
     el.addEventListener("click", () => {
-      if (el.dataset.act === "close") root.classList.remove("open");
+      const act = el.dataset.act;
+      if (act === "wide") wide();
+      else if (act === "close") root.classList.remove("open");
       else show(false, true);
     });
   });
@@ -958,6 +898,7 @@ function build(scene) {
     }
   }
   render();
+  wide(store(WIDE) === "on");
 
   return show;
 }

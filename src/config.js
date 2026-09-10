@@ -579,8 +579,8 @@ export const DIFFICULTY = {
    * Those last three lines are a spike, and the shape is the whole of what the
    * last quarter now is: the wall at 12% is a needle rather than a shelf — the
    * hardest the boss ever swings, at x27.5 — and the golem falls off it, steeply
-   * at first and then easing, to x14.0 at the kill. Half the drop is spent in
-   * the two points between 12% and 10%.
+   * at first and then easing, to x14.0 at the kill. Two fifths of the drop is
+   * spent in the two points between 12% and 10%.
    *
    * The one thing that crossed over on the way down is at the bottom: the raw
    * `attack` at the kill is under what the boss was throwing back in the medium
@@ -816,9 +816,10 @@ export const DIFFICULTY = {
        *
        * THE NEEDLE. This line is the peak of the whole fight and it is drawn as
        * a spike rather than a shelf: 1.69 is x27.5 on the index the curve is
-       * read by — `attack/0.30` over `resist` — and the two keyframes below it
-       * fall away to x22.0 and then x14.0. Nothing in the run is this hard
-       * before it and nothing is this hard after it.
+       * read by — `attack` over `resist`, against that same ratio at the
+       * opening keyframe — and the two keyframes below it fall away to x22.0
+       * and then x14.0. Nothing in the run is this hard before it and nothing
+       * is this hard after it.
        *
        * The value has been all over the place and the history is the argument.
        * 2.8 (x23.3) while the whole tail climbed past it; 2.52 (x21.0) when the
@@ -874,8 +875,8 @@ export const DIFFICULTY = {
        * "a couple of percent" and into "why did I press that".
        *
        * THE FALL, and its first and steepest two points. `attack` comes off the
-       * needle's 1.69 (x22.0) to 1.29 here (x17.6) and then down to the kill's
-       * 0.82 (x14.0) — so a fifth of the drop is spent in the two points of
+       * needle's 1.69 (x27.5) to 1.29 here (x22.0) and then down to the kill's
+       * 0.82 (x14.0) — so two fifths of the drop is spent in the two points of
        * health between 12% and 10%, and the remaining tenth of the bar spreads
        * the rest of it out. That is the shape deliberately: the golem comes off
        * the wall hard and then goes quietly, rather than sagging at a constant
@@ -905,10 +906,11 @@ export const DIFFICULTY = {
        *
        * 3.40 before, then 3.17, then 3.08, then 2.74, then 2.39, then 2.17,
        * then 1.94, and 0.82 now. Measured on the index the curve is read by —
-       * `attack/0.30` over `resist`, which is what a keyframe is worth against
-       * the opening swing — the kill now lands at x14.0 where it landed at
-       * x17.0, at x19.0 and x21.0 before that, x24.0 before that, and x29.8 to
-       * start with. 0.82 is the value that lands the index on 14.
+       * `attack` over `resist` against that same ratio at the opening keyframe,
+       * which is what a keyframe is worth against the opening swing — the kill
+       * now lands at x14.0 where it landed at x17.0, at x19.0 and x21.0 before
+       * that, x24.0 before that, and x29.8 to start with. 0.82 is the value
+       * that lands the index on 14.
        *
        * The third of those steps that does *not* move the top of the curve.
        * The ending was asked down to 14 on its own, so the wall at 0.88 keeps
