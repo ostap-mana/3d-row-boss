@@ -1762,8 +1762,6 @@ export const T = {
    * difficulty, because it is the one opponent that never misses.
    */
   hardCap: 45.0,
-  /** beat after the boss dies before the outcome screen */
-  victoryHold: 1.4,
   /**
    * How long the outcome screen holds itself up before moving on, in seconds.
    *
@@ -1789,9 +1787,10 @@ export const T = {
    * pace guard treats this as untouchable so a hands-off viewer still sees the
    * boss explode instead of being cut off by the hard cap.
    *
-   * Three and a half of the thirty, which is most of what the collapse and
-   * `victoryHold` actually take. Trimming it further buys one more move and
-   * spends the only moment in the creative that is pure payoff to get it.
+   * Three and a half of the thirty. The collapse it was sized around is no
+   * longer waited on — the verdict cuts in on the frame the boss dies, see
+   * Director.win — so what this now reserves is the room for the killing move
+   * itself to land inside the cap rather than be cut off by it.
    */
   finaleReserve: 3.5,
   /**

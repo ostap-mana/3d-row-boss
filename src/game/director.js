@@ -2692,64 +2692,54 @@ export class Director {
 
   /* -------------------------------------------------------- how it ends */
 
+  /**
+   * The boss is down, and the card says so on the next frame.
+   *
+   * Nothing here is awaited. There used to be about three seconds between the
+   * killing blow and the verdict — a capped wait on the boss's track, a hit
+   * stop, the collapse played out in full, then a hold on top of it —
+   * and every one of those beats was time the player spent watching a fight
+   * they had already won. The verdict is the payoff; the run-up to it was the
+   * creative holding its own ending back.
+   *
+   * The collapse is still started, so the still the card is built on is the
+   * beast coming apart rather than the beast standing there. What is gone is
+   * anybody waiting on it, and the white flash with it: the card opens on a
+   * flash of its own and two of them stacked would have baked the first one
+   * into the photograph. See OutcomeScreen.show.
+   */
   async win() {
-    const { boss, board, hud, vfx, shake, hitStop } = this.s;
+    const { boss, board, hud } = this.s;
     this.claim("victory");
     board.lockInput();
     this.stopIdle();
     this.doomArmed = false;
     hud.hideDoom();
-    // Let the swing already in the air land: a boss breathing fire on the way
-    // down reads as a bug, and a capped wait cannot cost the ending its time.
-    await this.bossSettled();
-
-    shake(26, 0.8);
-    // The blow that finished it, held. Not the collapse — the collapse is
-    // eight tenths of a second of the beast coming apart and it wants to play
-    // at speed; this is the quarter beat before it starts.
-    hitStop(0.8, 0.14);
-    const dying = boss.die();
-    await delay(0.35);
-    vfx.flash(0xffffff, 1, 0.7);
-    await dying;
-    if (this.ended) return;
-
-    // No shout, and no stinger either. VICTORY belongs to the outcome card —
-    // the frame the player actually stops on, where the word is stamped inside
-    // the gold band and the horn plays with it; see ui/outcome.js. Called out
-    // here as well it announced the win twice over, and the first of the two
-    // went by on a callout already on its way out.
-    //
-    // The beat itself stays: `victoryHold` is the pause the collapse is given
-    // before the card cuts in, and it was never the shout's own time.
-    await delay(T.victoryHold);
+    boss.die().catch(() => {});
   }
 
   /**
    * The party is down. The boss does not die, the screen does not celebrate,
    * and the end card says what happened — a "COLLECT YOUR HEROES" banner over
    * a wipe is the kind of thing a player notices and stops trusting.
+   *
+   * Cut to the verdict on the same frame the win is, and for the same reason:
+   * the roar, the DEFEAT callout and the half second after it were three
+   * seconds of a fight that was already over. The enrage and the roar are
+   * still fired — the beast is snarling in the still, and the roar carries on
+   * under the card — and the oxblood flash is not, because the card brings its
+   * own. See win, and OutcomeScreen.show.
    */
   async lose() {
-    const { boss, board, hud, vfx, shake } = this.s;
+    const { boss, board, hud } = this.s;
     this.claim("defeat");
     board.lockInput();
     this.stopIdle();
     this.doomArmed = false;
     hud.hideDoom();
-    await this.bossSettled();
-
     boss.enrage();
     hud.enrage();
-    shake(20, 0.7);
-    vfx.flash(0x3a0606, 0.7, 0.8);
-    await boss.roar();
-    if (this.ended) return;
-
-    // Silent here for the same reason the win is — see above. The braam is the
-    // card's, and the roar just above is what this beat sounds like.
-    await hud.shout(COPY.defeat, 0.9, { fill: 0xff5a3a, from: 2.4 });
-    await delay(0.5);
+    boss.roar().catch(() => {});
   }
 
   /* ---------------------------------------------------------- idle nagging */
@@ -3400,13 +3390,12 @@ export class Director {
     this.doomArmed = false;
     this.s.hud.hideDoom();
     this.s.board.lockInput();
-    this.s.hud.hideShout();
-    // A beat before the photograph, and it is not a flourish: `hideShout` fades
-    // the callout over 0.15s and the card's still is taken the instant `show` is
-    // called, so without this the frozen frame has a half-transparent MATCH 3 TO
-    // ATTACK welded across it. Measured against that fade, with a frame to
-    // spare. It also reads as the breath between the last swing and the verdict.
-    await delay(0.18);
+    // Taken off in one frame rather than faded, because the card's still is
+    // captured the instant `show` is called and a fading callout would be
+    // welded half-transparent across the photograph. The 0.18s beat that used
+    // to buy that fade its time is gone with every other wait on this path:
+    // the verdict lands on the frame the fight ends. See Director.win.
+    this.s.hud.hideShout(true);
     // Cut off by the hard cap with the boss still standing: that is a loss, and
     // calling it anything else would be the old lie in a new place.
     const outcome = this.outcome || (this.bossHp <= 0 ? "victory" : "defeat");

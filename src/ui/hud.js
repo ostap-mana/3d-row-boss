@@ -1145,10 +1145,15 @@ export class Hud extends Container {
     ]);
   }
 
-  hideShout() {
+  /**
+   * @param {boolean} [instant] gone this frame rather than over 0.15s — for the
+   *   ending, which photographs the screen on the frame it asks for this.
+   */
+  hideShout(instant) {
     this.shoutToken++;
     killTweensOf(this.callout);
-    tween(this.callout, { alpha: 0 }, 0.15);
+    if (instant) this.callout.alpha = 0;
+    else tween(this.callout, { alpha: 0 }, 0.15);
   }
 
   /**
