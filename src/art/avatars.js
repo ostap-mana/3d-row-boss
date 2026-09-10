@@ -7,15 +7,18 @@
  * every place a portrait shows up (the card, the ultimate cut-in, the end-card
  * roster).
  *
- * All six are painted one at a time now, each from its own source file, and the
- * sheet the whole set started as is no longer consulted for any of them. Nothing
- * here can tell the difference: they land at the same size under the same names,
- * which is the point of packing them.
+ * Five of them were packed one at a time from their own painted file, and only
+ * RICKLOW is cut out of the sheet the whole set started as. Nothing here can tell
+ * the difference: they land at the same size under the same names, which is the
+ * point of packing them. Those five source paintings are not in the tree — the
+ * packed WebP is the copy that survives, so a repack of one means the painting
+ * comes back first.
  *
- * They are composed by tools/bust-from-avatar.mjs out of square avatars, which is
- * why they are framed wider than the sheet's cells were: the whole head is inside
- * the tile — a hat brim, a crown, a pair of buns — and the shoulders fade into
- * shadow rather than running out of the bottom edge.
+ * All six are framed tight on the face, filling the cell top to bottom. A wider
+ * framing was tried — the whole head inside the tile, shoulders fading into
+ * shadow — and at card size it read as a small head over a black tile, so it is
+ * gone. The near one-to-one card fit below and ROUND_FOCUS are both measured off
+ * this framing.
  *
  * They are tiles rather than cut-outs. Each one is head and shoulders on the
  * backdrop it was painted against, 160 by 328 and opaque edge to edge — which is
