@@ -20,6 +20,7 @@ const MAP = [
   ["tools/image-1.png", "nature"],
   ["tools/image-4.png", "wind"],
   ["tools/image-2.png", "arcane"],
+  ["tools/image.png", "lightning"],
 ];
 
 function probe(file) {

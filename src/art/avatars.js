@@ -7,16 +7,15 @@
  * every place a portrait shows up (the card, the ultimate cut-in, the end-card
  * roster).
  *
- * Five of them are painted one at a time now, each from its own source file, and
- * only SELISA is still cut out of the sheet the whole set started as. Nothing
+ * All six are painted one at a time now, each from its own source file, and the
+ * sheet the whole set started as is no longer consulted for any of them. Nothing
  * here can tell the difference: they land at the same size under the same names,
  * which is the point of packing them.
  *
- * The five with their own file are composed by tools/bust-from-avatar.mjs out of
- * square avatars, which is why they are framed wider than the sheet's cells: the
- * whole head is inside the tile — a hat brim, a crown, a pair of buns — and the
- * shoulders fade into shadow rather than running out of the bottom edge. SELISA
- * is the one still framed tight, and next to the other five it reads zoomed in.
+ * They are composed by tools/bust-from-avatar.mjs out of square avatars, which is
+ * why they are framed wider than the sheet's cells were: the whole head is inside
+ * the tile — a hat brim, a crown, a pair of buns — and the shoulders fade into
+ * shadow rather than running out of the bottom edge.
  *
  * They are tiles rather than cut-outs. Each one is head and shoulders on the
  * backdrop it was painted against, 160 by 328 and opaque edge to edge — which is
