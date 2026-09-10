@@ -12,16 +12,19 @@
  * So this shows the rule instead of naming it, in four beats and no words:
  *
  *   1. the two gems that are already in a line light up, under one frame drawn
- *      round the both of them — here is a pair, and it is one thing;
+ *      round the whole line the swap is about to make — the pair and the cell
+ *      still holding somebody else — so the first mark on the screen is the
+ *      slot three of these go in, and not a pair sitting inside it;
  *   2. the one that would complete it lights up too, with an arrow off it —
  *      this one, that way;
  *   3. the gem actually travels. Board.previewSwap slides the real stones on
  *      screen without touching the model, so what the player watches is the
  *      move they are being asked to make, made;
- *   4. the run lights as one, inside a single frame drawn round the whole of
- *      it — this is what you were making. One frame per run and not one round
- *      everything that lit: a swap can finish two runs at once, in two
- *      elements, and each gets its own frame in its own colour. The stones
+ *   4. the run lights as one, inside the frame that has been round the line
+ *      since beat one — this is what you were making, and the stone has just
+ *      flown into it. One frame per run and not one round everything that
+ *      lit: a swap can finish two runs at once, in two elements, and each
+ *      gets its own frame in its own colour. The stones
  *      leave on the beat they arrive and the frame is what stays: a board is
  *      never left standing with three of a kind in a line on it, because a run
  *      the board is wearing is a clear the board owes. See HOLD.
@@ -329,15 +332,15 @@ function straightRuns(cells, typeOf) {
 }
 
 /**
- * The same job for the beats that have no run yet: what lines up, joined.
+ * The same job for whatever the run frames did not take: what lines up,
+ * joined.
  *
- * The pair a lesson opens on is two gems of one element side by side, and two
- * frames laid on them is two marks for one fact — eight brackets crowding a
- * seam, when what the beat is saying is "these, together". So the lit cells are
- * put into maximal same-element lines first and each line is framed once, in
- * exactly the grammar the finished run is framed in. A gem with nothing beside
- * it — the traveller, a pair the swap lands in the middle of — is a line of one
- * and wears the single-cell frame it always did.
+ * Two gems of one element side by side under two frames is two marks for one
+ * fact — eight brackets crowding a seam, when what the beat is saying is
+ * "these, together". So the cells left over are put into maximal same-element
+ * lines first and each line is framed once, in exactly the grammar the run is
+ * framed in. A gem with nothing beside it — the traveller, most passes — is a
+ * line of one and wears the single-cell frame it always did.
  *
  * The difference from straightRuns is the length: a run is three and a line
  * here is two, which is why this is not that function with an argument. A cell
@@ -1001,10 +1004,28 @@ export class Coach extends Container {
     // drawn round; draw() reads that off the board a cell at a time.
     const show = (step) => this.draw(board, { type, color, ...step });
 
-    // 1. What is already lined up. Up from nothing on the first pass and from
-    //    REST_ALPHA on every one after it, which is why the alpha is not reset
-    //    here: the marks were never all the way off.
-    show({ lit: rest });
+    // The line the swap is about to make — one frame per run rather than one
+    // round the lot, because a swap can finish two runs at once and two runs
+    // are not one thing and not one colour. See straightRuns. Solved once here
+    // and worn from the first beat to the last: the frame is the slot three of
+    // these go in, and every beat inside it is a stone travelling there.
+    //
+    // The board is swapped on screen and not in the model — that is the whole
+    // of what previewSwap does — so the two travelling cells are asked about
+    // the other way round, or every run the swap makes would be measured
+    // against the colours that are there before it.
+    const landed = (r, c) => {
+      if (r === from.r && c === from.c) return board.typeAt(to.r, to.c);
+      if (r === to.r && c === to.c) return board.typeAt(from.r, from.c);
+      return board.typeAt(r, c);
+    };
+    const target = straightRuns(run, landed);
+
+    // 1. Where the three go, and what is already standing in it. Up from
+    //    nothing on the first pass and from REST_ALPHA on every one after it,
+    //    which is why the alpha is not reset here: the marks were never all the
+    //    way off.
+    show({ lit: rest, joined: target });
     if (cold) {
       // There is nothing to fade up from. This is the first thing the creative
       // puts on the screen, and a fade is a fifth of a second of the player
@@ -1031,7 +1052,7 @@ export class Coach extends Container {
     const lit = rest.some((cell) => same(cell, from))
       ? rest
       : rest.concat([from]);
-    show({ lit, from, to });
+    show({ lit, from, to, joined: target });
     await delay(cold ? COLD_BEAT : 0.34);
     if (id !== this.token) return;
 
@@ -1065,7 +1086,7 @@ export class Coach extends Container {
       return;
     }
 
-    show({ lit: rest });
+    show({ lit: rest, joined: target });
     const [, moved] = await Promise.all([
       hand.slideTo(grip, board.x + b.x, board.y + b.y, TRAVEL),
       board.previewSwap(from, to, TRAVEL),
@@ -1076,20 +1097,9 @@ export class Coach extends Container {
       return;
     }
 
-    // 4. Three of a kind, joined up and held — one frame per run rather than
-    //    one round the lot, because a swap can finish two runs at once and two
-    //    runs are not one thing and not one colour. See straightRuns.
-    //
-    //    The board is swapped on screen and not in the model — that is the
-    //    whole of what previewSwap does — so the two travelling cells are asked
-    //    about the other way round, or every run the swap actually made would
-    //    be measured against the colours that were there before it.
-    const landed = (r, c) => {
-      if (r === from.r && c === from.c) return board.typeAt(to.r, to.c);
-      if (r === to.r && c === to.c) return board.typeAt(from.r, from.c);
-      return board.typeAt(r, c);
-    };
-    show({ lit: run, joined: straightRuns(run, landed) });
+    // 4. Three of a kind, standing in the frame that has been round the line
+    //    since the first beat.
+    show({ lit: run, joined: target });
 
     // 5. And back, on the frame it landed — the stone is let go of and sent
     //    home in the same beat, so the run it completed exists for the turn of
@@ -1111,8 +1121,9 @@ export class Coach extends Container {
     await home;
     if (id !== this.token) return;
 
-    // The pair stays lit underneath while the lesson waits to say it again.
-    show({ lit: rest });
+    // The pair stays lit underneath, in the frame, while the lesson waits to
+    // say it again.
+    show({ lit: rest, joined: target });
     await delay(Math.max(0, HOLD - RETURN));
     if (id !== this.token) return;
     await tween(this, { alpha: REST_ALPHA }, 0.22);
@@ -1201,9 +1212,8 @@ export class Coach extends Container {
     // A gem already inside a run's frame does not get one of its own: it is
     // framed, and a second frame inside the first is two marks for one fact.
     // What is left goes through litLines, so the gems that already line up are
-    // framed together and only a stone standing on its own wears a box of its
-    // own — the pair a lesson opens on is one thing, and it was being drawn as
-    // two squares meeting at a seam.
+    // framed together and only a stone standing outside every run — the
+    // traveller, most passes — wears a box of its own.
     //
     // Each in its own element, like the run frames and for the same reason.
     // Every mark used to wear the one colour a beat — the travelling gem's —
