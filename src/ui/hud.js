@@ -2,7 +2,7 @@
  * Heads-up display: boss health, callouts, damage numbers, the CTA lockup.
  *
  * The health bar deliberately carries no numbers — nobody reads
- * "7,500,000 / 10,000,000" in a thirty second creative (spec §7).
+ * "6,000,000 / 8,000,000" in a thirty second creative (spec §7).
  */
 
 import { Container, Graphics, Sprite, Text, Rectangle, Texture } from "pixi.js";

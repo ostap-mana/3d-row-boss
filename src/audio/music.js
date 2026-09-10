@@ -36,8 +36,8 @@
  * than v in the last bar so the form pulls back to the top instead of merely
  * arriving there. The arrangement enters in stages across the eight bars —
  * drums, then bass, then strings, then the horn line — because a playable is
- * watched for forty seconds, and a loop that is complete in its first bar has
- * nothing left to give the other thirty-nine.
+ * watched for half a minute, and a loop that is complete in its first bar has
+ * nothing left to give the rest of it.
  */
 
 import { AUDIO } from "../config.js";

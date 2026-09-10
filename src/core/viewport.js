@@ -59,19 +59,6 @@ const MAX_DPR = 2;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-/**
- * The visual viewport, when it can be trusted.
- *
- * It is the only API that reports the box a person can actually see — it is
- * what shrinks when the URL bar extends — and it is the reason this file
- * exists. It is not trusted while the page is pinch-zoomed, because then it
- * reports the magnified window rather than the screen, and a layout solved for
- * that would fight the zoom.
- *
- * `user-scalable=no` is set in index.html, so a scale other than 1 is either an
- * accessibility zoom or a webview ignoring the meta tag. Both are cases where
- * the honest answer is the document's own size, below.
- */
 function visual() {
   const vv = globalThis.visualViewport;
   if (!vv) return null;
@@ -81,20 +68,6 @@ function visual() {
   return { w: vv.width, h: vv.height };
 }
 
-/**
- * The size to draw for, in CSS pixels.
- *
- * Three sources, in falling order of how close each one is to the box a person
- * is looking at, and every one of them is the right answer somewhere:
- * `visualViewport` on a phone browser with a retracting toolbar,
- * `documentElement.clientWidth` inside an ad container's iframe — where the
- * frame is the creative's whole world and the visual viewport belongs to the
- * host page — and `innerWidth` in the webviews old enough to have neither.
- *
- * The host element is deliberately not among them: it is pinned from this
- * answer by the watcher below, so reading it back would be reading our own
- * last output.
- */
 export function measureViewport() {
   const vv = visual();
   if (vv) return { w: Math.round(vv.w), h: Math.round(vv.h) };
@@ -113,13 +86,6 @@ export function measureViewport() {
   return { w: 375, h: 667 };
 }
 
-/**
- * How many device pixels per CSS pixel to render at, for a viewport this size.
- *
- * The device's own ratio, held between the two bounds, and then held again to
- * whatever the budget affords at this size — so a big screen gives up sharpness
- * before it gives up frame rate, and a small one keeps all of it.
- */
 export function resolutionFor(w, h) {
   const dpr = globalThis.devicePixelRatio || 1;
   const capped = clamp(dpr, MIN_DPR, MAX_DPR);
@@ -130,14 +96,6 @@ export function resolutionFor(w, h) {
 /** No cutouts anywhere: the answer on most of the devices this runs on. */
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
 
-/**
- * The probe, cached.
- *
- * Looked up rather than held from boot because the insets are read on every
- * settle frame now — see apply() — and `getElementById` on every one of those
- * is a document walk for an element that never moves. Re-looked-up if it is
- * ever detached, which is the one thing that would make the cache lie.
- */
 let probeEl = null;
 function probe() {
   if (!probeEl || !probeEl.isConnected) {
@@ -146,34 +104,6 @@ function probe() {
   return probeEl;
 }
 
-/**
- * The device's own insets — the notch, the home indicator, the gesture bar —
- * mapped into the box the renderer is drawing.
- *
- * Two halves, and the second one is the reason this lives here rather than in
- * main.js.
- *
- * The first half is the reading. `env(safe-area-inset-*)` is resolved by the
- * browser against the *layout* viewport and handed back as real padding on the
- * hidden probe in index.html — a computed padding rather than a custom
- * property, because `getPropertyValue` returns the unresolved `env(...)` token
- * on some webviews. Note that a creative running inside an ad container's
- * iframe is told zero by every engine, per spec: insets belong to the top-level
- * document. That is the right answer there — the container decided where the
- * frame goes and the frame's edges are not the screen's.
- *
- * The second half is the mapping, and without it the insets are being applied
- * to the wrong box. The render box is pinned to the *visual* viewport, which on
- * a phone browser is the layout viewport less whatever the toolbar is currently
- * covering — so a 34 point home indicator sitting under a 51 point toolbar is
- * already outside the box we draw in, and taking it off the bottom a second
- * time is 34 points of screen spent on nothing. So each inset is reduced by
- * however much of that edge the render box is already clear of. Where the two
- * boxes are the same box — a webview, a fullscreen page, a desktop window —
- * every gap is zero and the insets pass through untouched.
- *
- * @param {{w:number,h:number}} [box] the render box; omit for raw insets
- */
 export function measureSafeInsets(box) {
   const el = probe();
   if (!el) return { ...NO_INSETS };

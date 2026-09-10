@@ -423,7 +423,7 @@ function lessonElement(board, shape, runs) {
 export class Coach extends Container {
   constructor() {
     super();
-    globalThis.__coach = this; // PROBE
+    globalThis.__coach = this; // TEMPPROBE
 
     /** The fallback, and empty for the whole of a lesson when the art decoded. */
     this.marks = new Graphics();

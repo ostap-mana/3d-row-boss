@@ -154,11 +154,10 @@ const FACES = [
   { family: "Hitzone", url: hitzoneUrl, weight: "100 900" },
   { family: "Hitzone Med", url: hitzoneMedUrl, weight: "100 900" },
   /**
-   * Montserrat Bold Italic — the digits that fly off a hit, and the READY call.
+   * Montserrat Bold Italic — the digits that fly off a hit.
    *
    * Third family, same reason as the first two: named rather than weighted, so
-   * FONT_DAMAGE and FONT_READY land on this file and the UI's own 900s never
-   * do. It comes out
+   * FONT_DAMAGE lands on this file and the UI's own 900s never do. It comes out
    * of the same Invokers build as Hitzone, which is embedded there as plain
    * TrueType with its own licence beside it — and that licence is the
    * difference: Montserrat is OFL and can actually ship, where Hitzone still

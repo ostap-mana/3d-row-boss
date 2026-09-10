@@ -1687,20 +1687,15 @@ export class Director {
       const gems = counts[card.hero.element];
       if (!gems) return;
       if (!card.addCharge(gems * card.chargeRate())) return;
-      // The call says it at the size of the screen and drops into the tile,
-      // and the lesson then taps the tile it landed on. The HUD shout is the
-      // fallback for a hero the call could not take — the two carry the same
-      // sentence and stand in the same third of the screen, so only ever one
-      // of them speaks. Fired and not awaited — this is the middle of a
-      // cascade, and nothing in a cascade waits on a hand. See teachUlt, which
-      // does its own waiting, and T.ultHintIn, which is what keeps the hand
-      // behind the call rather than under it.
-      if (!this.callReady(index)) {
-        hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
-          fill: GEM_LIGHT[card.hero.element],
-          from: 1.6,
-        });
-      }
+      // The shout names the hero on the frame the bar fills and the lesson's
+      // hand then taps the card it named. Fired and not awaited — this is the
+      // middle of a cascade, and nothing in a cascade waits on a hand. See
+      // teachUlt, which does its own waiting, and T.ultHintIn, which is what
+      // keeps the hand behind the shout rather than under it.
+      hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
+        fill: GEM_LIGHT[card.hero.element],
+        from: 1.6,
+      });
       this.teachUlt(index);
     });
   }
@@ -2576,8 +2571,6 @@ export class Director {
     // the player tapped. It is asked for anyway, because where that beat lives
     // is the card's business and this is where it is spent.
     await delay(card.flareLead());
-    // The announcement is over the moment the thing it announced is happening.
-    if (this.s.readyCall) this.s.readyCall.clear();
     await cutin.play(index);
     if (this.ended) return;
 
@@ -3107,27 +3100,6 @@ export class Director {
   }
 
   /**
-   * Say READY at the size of the screen — see fx/readycall.js.
-   *
-   * Every fill, not just the first: a charged hero is the largest number in the
-   * fight whether it is the first one or the fourth. `ultCasting` is the one
-   * door, and it is shut from the tap to the end of the cast — the cut-in is a
-   * louder thing than this and must stay the loudest, and a cascade inside
-   * clearElement can charge a hero while it is on screen.
-   *
-   * One at a time, whatever the cascade filled. A five-gem run can charge two
-   * heroes on the same frame and the second announcement would land on top of
-   * the first — the row's own flares still fire for both.
-   */
-  callReady(index) {
-    if (this.ended || this.ultCasting) return false;
-    const { readyCall, heroRow } = this.s;
-    if (!readyCall || readyCall.playing) return false;
-    readyCall.play(index, heroRow.cards[index]);
-    return true;
-  }
-
-  /**
    * Take the ult lesson off the screen.
    *
    * The token retires whatever pass of it is in flight — including one still
@@ -3269,9 +3241,9 @@ export class Director {
    *
    * The divisor used to be the literal 4: spread what is left of the run over
    * four more moves. Four is not the number, and it never was a number this
-   * file gets to hold an opinion about — DIFFICULTY.damagePerGem has moved four
-   * times since, and every move changed how many moves the boss is actually
-   * worth. A guard planning a fixed four of them paced the demo to a move every
+   * file gets to hold an opinion about — DIFFICULTY.damagePerGem has moved
+   * five times since, and every move changed how many moves the boss is
+   * actually worth. A guard planning a fixed four of them paced the demo to a move every
    * seven seconds, which is the ceiling T.auto, which is what it would have
    * done with no guard at all.
    *

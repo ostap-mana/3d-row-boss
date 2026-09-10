@@ -31,6 +31,23 @@ const GEM_TYPES = GEM_COLORS.length;
 const SWIPE_RATIO = 0.34;
 
 /**
+ * Take one gem's glow to `alpha`, whatever was already writing it.
+ *
+ * Held against the gem rather than against the cell it happens to be standing
+ * in. A glow is lit on one stone and put out on another second later, and in
+ * between the board is free to cascade, refill, permute or bury the thing that
+ * was lit — so a caller that lights `grid[r][c]` and darkens `grid[r][c]` is
+ * lighting one stone and darkening whoever inherited its address. The stone it
+ * actually lit keeps a 0.55 halo for the rest of the run, riding gravity down
+ * the board, and the player is left reading a mark that means nothing.
+ */
+function glowTo(gem, alpha, seconds) {
+  if (!gem) return;
+  killTweensOf(gem.glow);
+  tween(gem.glow, { alpha }, seconds);
+}
+
+/**
  * How long a swap takes, and how long it takes to come back.
  *
  * The one animation the player's own hand authors, so it is the one that may
@@ -207,7 +224,7 @@ const CELL_WASH = 0xe5ce8a;
 export class Board extends Container {
   constructor() {
     super();
-    globalThis.__board = this; // PROBE
+    globalThis.__board = this; // TEMPPROBE
 
     /** Painted frame, or null when the art failed to decode. */
     this.plate = boardFrameSprite();
@@ -305,6 +322,10 @@ export class Board extends Container {
 
     this.drag = null;
     this.selected = null;
+    /** The stone `selected` was standing on, held so its glow can be put out. */
+    this.selectedGem = null;
+    /** The stones the hint has lit, or null while it is not nagging. */
+    this.highlit = null;
     /** The stone the finger is currently holding down — see press(). */
     this.pressed = null;
     /**
@@ -422,13 +443,36 @@ export class Board extends Container {
 
   recycle(gem) {
     gem.visible = false;
+    // Same window as the scale below: a stone matched away while its glow was
+    // still fading up is dealt back out with that tween still writing, and the
+    // alpha set here is overwritten on the next frame.
+    killTweensOf(gem.glow);
     gem.glow.alpha = 0;
     // The swell a swap puts on a stone outlives a cancelled preview by design
     // — it always settles back at 1 — but a stone recycled inside that window
     // would be dealt back out with a tween still writing to its scale, and
     // whatever obtainGem set would be overwritten on the next frame.
     killTweensOf(gem.scale);
+    this.forget(gem);
     this.pool.push(gem);
+  }
+
+  /**
+   * Drop every mark that was still holding this gem.
+   *
+   * The selection and the hint's highlight both hold stones rather than cells
+   * now, and a stone can be matched away while either is on it. Left in place
+   * the reference outlives the gem's turn on the board: the selection would
+   * complete a swap against a stone that is sitting in the pool, and the
+   * highlight would put out a light on a gem that has already been dealt back
+   * out somewhere else.
+   */
+  forget(gem) {
+    if (this.selectedGem === gem) {
+      this.selected = null;
+      this.selectedGem = null;
+    }
+    if (this.highlit) this.highlit = this.highlit.filter((g) => g !== gem);
   }
 
   /* ---------------------------------------------------------------- layout */
@@ -915,17 +959,19 @@ export class Board extends Container {
   }
 
   select(cell) {
+    this.clearSelection();
     this.selected = cell;
+    this.selectedGem = this.grid[cell.r][cell.c];
     sfx.select();
-    const gem = this.grid[cell.r][cell.c];
-    if (gem) tween(gem.glow, { alpha: 0.55 }, 0.12);
+    glowTo(this.selectedGem, 0.55, 0.12);
   }
 
   clearSelection() {
     if (!this.selected) return;
-    const gem = this.grid[this.selected.r][this.selected.c];
-    if (gem) tween(gem.glow, { alpha: 0 }, 0.15);
+    const gem = this.selectedGem;
     this.selected = null;
+    this.selectedGem = null;
+    glowTo(gem, 0, 0.15);
   }
 
   inBounds(cell) {
@@ -1480,6 +1526,13 @@ export class Board extends Container {
     // and slideShuffle — so a lesson still gliding home, or a pair the finger
     // has leaned, is taken over cleanly rather than snapped out from under the
     // one person watching it.
+    //
+    // The selection is the one thing that is dropped, because it is the one
+    // thing that stops being true. It names a stone the player picked out of
+    // an arrangement this job is about to replace: held through a cascade it
+    // is a lit gem the player did not choose and, on their next tap, a swap
+    // against a cell they were never looking at.
+    this.clearSelection();
     this.busy = true;
     try {
       return await job();
@@ -2031,8 +2084,7 @@ export class Board extends Container {
         // Nothing here kills a tween it did not start, except on the glow:
         // clearSelection above is fading one out this instant, and two live
         // tweens on one alpha is a gem that flickers instead of tensing.
-        killTweensOf(gem.glow);
-        tween(gem.glow, { alpha: 0.5 }, SHUFFLE_TELL);
+        glowTo(gem, 0.5, SHUFFLE_TELL);
         return tween(gem.scale, { x: 0.78, y: 0.78 }, SHUFFLE_TELL, {
           delay: (i % COLS) * 0.012,
           ease: Ease.quadIn,
@@ -2054,7 +2106,7 @@ export class Board extends Container {
       cells.map((p) => {
         const gem = this.grid[p.r][p.c];
         if (!gem) return Promise.resolve();
-        tween(gem.glow, { alpha: 0 }, SHUFFLE_SETTLE);
+        glowTo(gem, 0, SHUFFLE_SETTLE);
         return tween(gem.scale, { x: 1, y: 1 }, SHUFFLE_SETTLE, {
           ease: Ease.backOut,
         });
@@ -2308,12 +2360,23 @@ export class Board extends Container {
 
   /* ------------------------------------------------------------------- fx */
 
-  /** Light up specific cells while the hint is nagging. */
+  /**
+   * Light up specific cells while the hint is nagging.
+   *
+   * The gems that were lit are kept, and putting the highlight out puts out
+   * those gems rather than whatever is standing on those cells by then. The
+   * hint nags for seconds at a time over a board the boss and the autoplay are
+   * both still writing, and the director lights a second pair on top of the
+   * first when it escalates — so a fresh `on` puts the last set out first.
+   */
   setHighlight(cells, on) {
-    (cells || []).forEach((cell) => {
-      const gem = this.grid[cell.r] && this.grid[cell.r][cell.c];
-      if (gem) tween(gem.glow, { alpha: on ? 0.6 : 0 }, 0.25);
-    });
+    (this.highlit || []).forEach((gem) => glowTo(gem, 0, 0.25));
+    this.highlit = null;
+    if (!on) return;
+    this.highlit = (cells || [])
+      .map((cell) => this.grid[cell.r] && this.grid[cell.r][cell.c])
+      .filter(Boolean);
+    this.highlit.forEach((gem) => glowTo(gem, 0.6, 0.25));
   }
 
   dim(on) {

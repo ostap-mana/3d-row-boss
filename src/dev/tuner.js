@@ -11,6 +11,7 @@ import { setWorldRate, worldRate } from "../core/juice.js";
 const KEY = "siege.tuner";
 const SAVE = "siege.tune";
 const WIDE = "siege.tuner.wide";
+const SIZE = "siege.tuner.size";
 const ID = "siege-tuner";
 
 const ROOTS = { DIFFICULTY, DOOM, T, ULT_PACE };
@@ -180,13 +181,27 @@ const CSS = `
   right: max(8px, env(safe-area-inset-right, 0px));
   bottom: max(8px, env(safe-area-inset-bottom, 0px));
   top: calc(62px + max(8px, env(safe-area-inset-top, 0px)));
-  width: min(430px, calc(100vw - 16px));
+  width: var(--t-w, min(430px, calc(100vw - 16px)));
+  height: var(--t-h, auto);
+  max-width: calc(100vw - 16px); max-height: calc(100vh - 16px);
   display: none; flex-direction: column;
   background: #f7f6f4; border: 1px solid rgba(0,0,0,0.14);
   border-radius: 12px; overflow: hidden;
   box-shadow: 0 18px 46px rgba(0,0,0,0.4);
 }
 #${ID}.open .t-panel { display: flex; }
+#${ID}.sized .t-panel { top: auto; }
+#${ID} .t-hand { position: absolute; z-index: 2; touch-action: none; }
+#${ID} .t-hand.t-w { left: -3px; top: 0; bottom: 0; width: 10px; cursor: ew-resize; }
+#${ID} .t-hand.t-h { left: 0; right: 0; top: -3px; height: 10px; cursor: ns-resize; }
+#${ID} .t-hand.t-wh { left: 0; top: 0; width: 26px; height: 26px; cursor: nwse-resize; }
+#${ID} .t-hand.t-wh::before {
+  content: ""; position: absolute; left: 6px; top: 6px; right: 7px; bottom: 7px;
+  border-left: 2px solid ${HOT}; border-top: 2px solid ${HOT};
+  border-top-left-radius: 5px; opacity: 0.5;
+}
+#${ID} .t-hand.t-wh:active::before { opacity: 1; }
+#${ID}.wide .t-hand { display: none; }
 #${ID} .t-head {
   display: flex; align-items: center; gap: 8px; flex: none;
   padding: 9px 12px; border-bottom: 1px solid #e6e3de; background: #fff;
@@ -195,6 +210,7 @@ const CSS = `
   font: 600 11px/1.4 system-ui, sans-serif; letter-spacing: 0.12em; color: ${HOT};
 }
 #${ID} .t-head .t-sp { margin-left: auto; }
+#${ID}:not(.wide) .t-head { padding-left: 24px; }
 #${ID} .t-x {
   background: #fff; border: 1px solid #ddd9d3; color: #57535e;
   border-radius: 7px; padding: 4px 8px; cursor: pointer; font-size: 11px;
@@ -264,11 +280,12 @@ const CSS = `
 #${ID} .t-bar button.t-act { color: ${HOT}; border-color: ${HOT}; }
 #${ID}.wide.open .t-icon { display: none; }
 #${ID}.wide .t-panel {
+  width: auto; height: auto; max-width: none; max-height: none;
   left: max(0px, env(safe-area-inset-left, 0px));
   right: max(0px, env(safe-area-inset-right, 0px));
   top: max(0px, env(safe-area-inset-top, 0px));
   bottom: max(0px, env(safe-area-inset-bottom, 0px));
-  width: auto; border-radius: 0; box-shadow: none;
+  border-radius: 0; box-shadow: none;
 }
 #${ID}.wide .t-head { padding: 12px 14px; }
 #${ID}.wide .t-live { padding: 10px 14px; }
@@ -331,6 +348,9 @@ function build(scene) {
   root.innerHTML = `
     <button class="t-icon" type="button" aria-label="Складність" title="Складність">⚙</button>
     <div class="t-panel" role="dialog" aria-label="Крива складності">
+      <div class="t-hand t-w" data-grow="w"></div>
+      <div class="t-hand t-h" data-grow="h"></div>
+      <div class="t-hand t-wh" data-grow="wh" title="Потягни, щоб змінити розмір"></div>
       <div class="t-head">
         <b>КРИВА СКЛАДНОСТІ</b>
         <div class="t-sp"></div>
@@ -853,7 +873,67 @@ function build(scene) {
   }
   window.requestAnimationFrame(tick);
 
+  const panel = root.querySelector(".t-panel");
   const wideBtn = root.querySelector(".t-wide");
+  const MIN_W = 300;
+  const MIN_H = 240;
+  const size = { w: null, h: null };
+
+  function applySize(persist) {
+    const room = { w: window.innerWidth - 16, h: window.innerHeight - 16 };
+    if (size.w !== null)
+      size.w = Math.round(clamp(size.w, MIN_W, Math.max(MIN_W, room.w)));
+    if (size.h !== null)
+      size.h = Math.round(clamp(size.h, MIN_H, Math.max(MIN_H, room.h)));
+    if (size.w === null) root.style.removeProperty("--t-w");
+    else root.style.setProperty("--t-w", `${size.w}px`);
+    if (size.h === null) root.style.removeProperty("--t-h");
+    else root.style.setProperty("--t-h", `${size.h}px`);
+    root.classList.toggle("sized", size.h !== null);
+    if (persist)
+      keep(
+        SIZE,
+        size.w === null && size.h === null ? null : JSON.stringify(size),
+      );
+    drawAll();
+  }
+
+  function grips() {
+    root.querySelectorAll(".t-hand").forEach((hand) => {
+      const grow = hand.dataset.grow;
+      let from = null;
+      hand.addEventListener("pointerdown", (e) => {
+        const box = panel.getBoundingClientRect();
+        from = { x: e.clientX, y: e.clientY, w: box.width, h: box.height };
+        try {
+          hand.setPointerCapture(e.pointerId);
+        } catch {}
+        e.preventDefault();
+      });
+      hand.addEventListener("pointermove", (e) => {
+        if (!from) return;
+        if (grow.includes("w")) size.w = from.w + (from.x - e.clientX);
+        if (grow.includes("h")) size.h = from.h + (from.y - e.clientY);
+        applySize(false);
+        e.preventDefault();
+      });
+      const drop = () => {
+        if (!from) return;
+        from = null;
+        applySize(true);
+      };
+      hand.addEventListener("pointerup", drop);
+      hand.addEventListener("pointercancel", drop);
+      hand.addEventListener("dblclick", () => {
+        size.w = null;
+        size.h = null;
+        applySize(true);
+      });
+    });
+    window.addEventListener("resize", () => {
+      if (size.w !== null || size.h !== null) applySize(false);
+    });
+  }
 
   function wide(on) {
     const want = on === undefined ? !root.classList.contains("wide") : !!on;
@@ -866,6 +946,11 @@ function build(scene) {
     drawAll();
     window.requestAnimationFrame(() => paint(cv));
   }
+
+  root.querySelector(".t-head").addEventListener("dblclick", (e) => {
+    if (e.target.closest("button")) return;
+    wide();
+  });
 
   root.querySelectorAll("[data-act]").forEach((el) => {
     el.addEventListener("click", () => {
@@ -898,6 +983,17 @@ function build(scene) {
     }
   }
   render();
+  try {
+    const kept = JSON.parse(store(SIZE) || "null");
+    if (kept) {
+      if (Number.isFinite(kept.w)) size.w = kept.w;
+      if (Number.isFinite(kept.h)) size.h = kept.h;
+    }
+  } catch {
+    keep(SIZE, null);
+  }
+  grips();
+  applySize(false);
   wide(store(WIDE) === "on");
 
   return show;

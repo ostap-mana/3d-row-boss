@@ -97,10 +97,25 @@ export const DIFFICULTY = {
   /**
    * Boss health taken by one gem cleared in the first step of a match.
    *
-   * 0.05, and this time it *is* a change of heart about difficulty rather than
-   * the clock: the creative was asked to be 20% easier for an audience in its
-   * thirties, and a boss that needs 20% fewer gems is the cleanest way to say
-   * that. Every earlier revision of this number was the clock instead —
+   * 0.0625, and it is the second change of heart about difficulty rather than
+   * the clock: the fight came back as still too hard and still too long to
+   * grind out, so the boss was cut to four fifths of the health it had.
+   * BOSS_MAX_HP came down with it, ten million to eight, and ultDamage went up
+   * by the same quarter — a health cut has to be a cut against every source of
+   * damage at once or it is really a nerf to whichever one was left behind. In
+   * absolute terms nothing hits any harder than it did; the numbers floating
+   * off the boss are the ones they always were, and the bar behind them is
+   * shorter.
+   *
+   * Where the cut actually lands is worth knowing before anybody reads a win
+   * rate off it: the pace guard clamps anybody ahead of schedule, so a player
+   * who was already killing the boss at 42 seconds still kills it at 42. What
+   * moves is the bracket the guard never touches, the one running behind the
+   * schedule and taking full damage — a fight that ended at the cap with a
+   * sliver left now ends a few seconds inside it. That is exactly the
+   * complaint this answers, and it is why this knob rather than the clock.
+   *
+   * Every revision of this number before the last two was the clock instead —
    * T.hardCap moved and this followed it.
    *
    * Down first: at 0.028, where the gauntlet tuning had it, a fight was twelve
@@ -149,7 +164,7 @@ export const DIFFICULTY = {
    * there — 51% at 0.034, 45% at 0.032 — and the ad starts ending on a health
    * bar nobody emptied. That is the floor, not this.
    */
-  damagePerGem: 0.05,
+  damagePerGem: 0.0625,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -197,12 +212,16 @@ export const DIFFICULTY = {
    * penalty on one colour — it is the share of the party's damage that dies
    * with each hero. See HeroRow.partyPower.
    *
-   * At 0.28 a single loss takes 12% off every match that follows and two losses
-   * take a quarter, which is enough that a party down two is not coming back.
-   * That is the intent: a fight you can lose slowly is not a hard fight, it is
-   * a long one, and this creative does not have the runtime to be long.
+   * At 0.45 a single loss takes 9% off every match that follows and two losses
+   * take under a fifth. It was 0.28 — 12% and a quarter — which was enough
+   * that a party down two was not coming back, and that was the intent while
+   * the fight was meant to be hard. It is not any more: the run that has
+   * already lost two heroes is the run most likely to be watching the clock
+   * collect, and grinding it down further is how a creative ends on a boss
+   * nobody emptied. The party is still plainly worth keeping alive; it is no
+   * longer a spiral.
    */
-  downedPenalty: 0.28,
+  downedPenalty: 0.45,
 
   /**
    * The volley.
@@ -311,18 +330,21 @@ export const DIFFICULTY = {
    * Down from 0.3 and 1.25. That pair made one tap worth about 45% of the boss
    * — nearly half a fight from a button the player did not have to aim — and it
    * was the single biggest reason a run ended before the clock got interesting.
-   * 0.24 and 1.15 were still worth about a third of the bar for one tap. At 0.2
-   * and 1.05 an ultimate is a quarter of it: the largest number anybody can put
-   * on the screen in one beat, still the correct answer to a wall of obsidian
-   * and still the thing worth building a run around — it simply no longer pays
-   * for two of the six moves the run has room for.
+   * 0.24 and 1.15 were still worth about a third of the bar for one tap, and
+   * 0.2 was a quarter of it. 0.25 is that same quarter: the boss lost a fifth
+   * of its health under damagePerGem and this went up by the quarter that
+   * keeps a cast worth the absolute two million it was worth before, which is
+   * a little over half of the shorter bar. Still the largest number anybody
+   * can put on the screen in one beat, still the correct answer to a wall of
+   * obsidian — it simply no longer pays for two of the six moves the run has
+   * room for.
    *
    * The floor here is the cut-in, not the arithmetic. Take the flat chunk much
    * under 0.15 and the ultimate stops being worth the two seconds its cut-in
    * costs on T.hardCap, at which point the correct play is never to cast the
    * feature the creative is selling.
    */
-  ultDamage: 0.2,
+  ultDamage: 0.25,
   ultGemMultiplier: 1.05,
   /**
    * How much harder the boss's hide bites an ULTIMATE than it bites a match.
@@ -351,7 +373,9 @@ export const DIFFICULTY = {
    * the power of `bite` is 1.0 at full health for any exponent, so an opening
    * ultimate is untouched and the fight's length is untouched with it — matches
    * still do all the grinding and `resist` still sets the clock. What collapses
-   * is only the ultimate's late value:
+   * is only the ultimate's late value — worked here against the bar and the
+   * `resist` column as they stood before the 20% health cut and the curve
+   * pass, where an opening cast was 41% of the bar:
    *
    *     bite    boss 100%   boss 25%   boss 10%   boss 5%   boss 0%
    *     1.6        41%         28%        8.8%      7.4%      6.0%
@@ -361,17 +385,26 @@ export const DIFFICULTY = {
    *     3.2        41%         18%        1.9%      1.9%      1.9%
    *     a match    38%         30%         14%       14%       14%
    *
-   * 2.9 is the setting, and it is solved rather than picked: the brief is "under
-   * ten percent of boss health an ultimate should take about 2.5% of the bar,
-   * not four". `resist` is 0.38 there, and 0.41 x 0.38^bite = 0.025 gives
-   * bite = 2.92.
+   * 2.2 is the setting and 2.9 was the one before it. 2.9 solved a brief that
+   * has since been withdrawn — "under ten percent of boss health an ultimate
+   * should take about 2.5% of the bar, not four" — and what replaced it is the
+   * opposite instruction: the fight is to be easier and to stop taking so long
+   * to play out. A cast worth 2.5% is the clearest single reason the last
+   * quarter ground on, because it made the player's biggest button the wrong
+   * thing to press in the one stretch of the run they most want to press it.
    *
-   * So an ultimate opens as the biggest number in the fight at 41% of the bar,
-   * is worth 20% through medium, and is worth 2.5% once the boss is inside its
-   * last tenth — a sixteenth of what the same cast was worth twenty seconds
-   * earlier. It stays at 2.5% rather than sliding further because `resist` is
-   * flat across that last tenth; see the p: 0.9 keyframe in curve.steps, which
-   * exists for exactly this.
+   * So an ultimate opens as the biggest number in the fight at 58% of the bar,
+   * is worth 40% through medium, and is worth 14% once the boss is inside its
+   * last tenth — a quarter of what the same cast was worth twenty seconds
+   * earlier, so the cards do still visibly weaken as the boss dies. It stays
+   * at 14% rather than sliding further because `resist` is flat across that
+   * last tenth; see the p: 0.9 keyframe in curve.steps, which exists for
+   * exactly this.
+   *
+   * Both of those figures carry the `resist` that DIFFICULTY.curve raised in
+   * the same pass, so the exponent is doing less of the work here than the
+   * table above suggests and putting the exponent back on its own will not put
+   * the old ending back.
    *
    * Note what this does to the middle of the fight, because it is a side effect
    * rather than a request: the exponent bends the whole curve, so a cast in the
@@ -386,7 +419,8 @@ export const DIFFICULTY = {
    * Past about 1.4 an ultimate is worth less than a good match in the last
    * quarter, so the cards stop being the answer to the wall and become the
    * thing worth having spent *before* it. A cut-in also costs about two seconds
-   * of T.hardCap, and a cast worth 6% of the bar does not buy two seconds back.
+   * of T.hardCap, and a cast worth a few percent of the bar does not buy two
+   * seconds back.
    * Put together that reads like a trap: the time-optimal endgame play is not to
    * cast at all, which is an odd thing to build into an ad whose job is to sell
    * the ultimates.
@@ -400,6 +434,11 @@ export const DIFFICULTY = {
    *     weak         26%            4%
    *     ordinary     87%           35%
    *     strong       83%          100%
+   *
+   * Those brackets are from the 2.9 build and have not been re-run at 2.2.
+   * What they are still good for is the fork itself — that this exponent makes
+   * the endgame a decision that cuts differently by skill — and not for the
+   * percentages, which describe a table that is no longer in the file.
    *
    * So there is no inversion and skill is not punished: a strong player who
    * front-loads goes from 83% to a clean 100%, and the 83% was the simulated
@@ -425,7 +464,7 @@ export const DIFFICULTY = {
    * Set 1 and an ultimate is resisted exactly like a match, which is where this
    * started before any of it was asked for.
    */
-  ultHideBite: 2.9,
+  ultHideBite: 2.2,
   /**
    * Whether the fight's clocks keep running while a skill's cut-in is on
    * screen. On: casting costs the player real seconds.
@@ -455,8 +494,8 @@ export const DIFFICULTY = {
    *
    * That is much less than it sounds like it should be, and the reason is worth
    * knowing before anybody tunes against this flag: T.hardCap was never held.
-   * The forty-five second deadline runs on the world clock and always charged
-   * for every cut-in, so the seconds a cast costs the *run* were billed along.
+   * The deadline runs on the world clock and always charged for every cut-in,
+   * so the seconds a cast costs the *run* were billed along.
    * What was exempt was only the three things routed through Director.elapsed —
    * the cataclysm's fuse, the boss's rage ramp, and the clock floor under
    * Director.pressure — and of those, rage is capped at 1.18 and the floor
@@ -504,15 +543,14 @@ export const DIFFICULTY = {
    *
    * Three zones, cut on the boss's own health bar, and this is the spec in the
    * words it was given in: easy to take the boss down to half, medium from half
-   * to a quarter, and the last quarter brutal — hard even with ultimates in
-   * hand. The whole thing playing out inside the thirty seconds of the
-   * creative.
+   * to a quarter, and the last quarter the hardest part of the fight. The whole
+   * thing playing out inside the run — see T.hardCap, which is 32 seconds.
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
-   *     zone         super easy     medium    super hard
-   *     attack      0.154 -> 0.435  0.79->0.87  1.69 -> 0.82
-   *     resist      1.00 (none)      0.72       0.50 -> 0.45
-   *     obsidian      1 -> 3         5            8 -> 9
+   *     zone         super easy     medium       hard
+   *     attack      0.120 -> 0.330  0.58->0.64  1.05 -> 0.62
+   *     resist      1.00 (none)      0.85       0.54 -> 0.52
+   *     obsidian      1 -> 2         3            5
    *
    * `p` is how much of the boss's bar is gone, so 0.5 is the first zone
    * boundary and 0.75 the second. Everything else is linearly interpolated
@@ -534,17 +572,28 @@ export const DIFFICULTY = {
    *             quietly starts moving slower. Both names sit on a zone
    *             boundary, which is the whole of their job.
    *
-   * The health bar as the axis is a change of mind, and the reason it works now
-   * is that these zones are coarse. An earlier revision of this table ran on
-   * the clock instead, because damage lands in lumps — a five-cell step is
-   * worth about a third of the bar — and shelves 0.2 wide were being stepped
-   * clean over by most players on most runs, which made the staircase a smooth
-   * slide wearing a table. Zones half a bar and a quarter of a bar wide cannot
-   * be skipped by one lucky match, so the objection that forced the clock does
-   * not apply to this shape. It is also simply the more legible fight: what the
-   * player watches all run is the boss's health bar, so hanging the difficulty
-   * on the one number already on screen means the escalation is something they
-   * can see coming.
+   * THIS PASS — the fight came back as too hard and, in the same breath, as
+   * taking too long to play out. Those are one complaint and not two, and the
+   * arithmetic below is why: the last quarter of the bar used to cost more
+   * damage to remove than the whole easy half, so every run spent its back
+   * third watching a bar crawl behind a wall. The softening is spent almost
+   * entirely there.
+   *
+   *   attack    down about a third at every keyframe, and the needle at
+   *             p: 0.88 from 1.69 to 1.05 — the peak index falls from x27.4 to
+   *             x16.2, so the wall is a little over half the wall it was.
+   *   resist    0.78 -> 0.85 through medium and 0.38 -> 0.52 across the last
+   *             tenth. This is the one that shortens the run: the bar takes
+   *             1.21 bars of damage to empty where it took 1.35.
+   *   obsidian  the endgame board carries nine blocks of twenty-five rather
+   *             than twelve, so there is still somewhere to play at the wall.
+   *
+   * It landed on top of a separate 20% health cut — see damagePerGem and
+   * BOSS_MAX_HP — and the two together take a fight of nine plain triples down
+   * to six and a half. The clock came in with them: T.hardCap 45 -> 32,
+   * WORLD_RATE 0.8 -> 1.0 so a move costs 2.8 seconds again rather than 3.5,
+   * and pace.seconds 43 -> 22 so the guard stops holding the fight open to the
+   * deadline.
    *
    * Two things are deliberately NOT on this axis, and both are about not
    * punishing a player who is behind:
@@ -562,115 +611,64 @@ export const DIFFICULTY = {
    *     extremes, and the second one was put there by a measurement rather than
    *     an opinion — see pressure and curve.clockLead.
    *
-   * What the three zones actually come to, measured off this table — the rake
-   * is the *lightest* attack in the rotation, so read that column as the floor
-   * under a boss turn rather than the worst it can do:
+   * What the three zones come to, computed off this table rather than
+   * simulated. The rake is the *lightest* attack in the rotation, so read that
+   * column as the floor under a boss turn rather than the worst it can do, and
+   * the two damage columns are unguarded — the pace guard takes a further bite
+   * out of anybody running ahead of schedule:
    *
    *   boss HP   zone         one rake      best match    ultimate
-   *      100%   super easy   x0.15    2%   38% of boss   41% of boss
-   *       75%   super easy   x0.25    4%   38%           41%
-   *       50%   medium >>>   x0.44    7%   38%           41%   OBSIDIAN HIDE
-   *       40%   medium       x0.79   12%   30%           28%
-   *       25%   hard >>>     x0.87   13%   30%           28%   MOLTEN CORE
-   *       12%   super hard   x1.69   25%   15%            9%
-   *       10%   super hard   x1.29   19%   14%            6%
-   *        0%   super hard   x0.82   12%   11%            6%
+   *      100%   super easy   x1.0     2%   59% of boss   58% of boss
+   *       75%   super easy   x1.6     3%   59%           58%
+   *       50%   medium >>>   x2.8     5%   59%           58%   OBSIDIAN HIDE
+   *       40%   medium       x5.7     9%   50%           40%
+   *       25%   hard >>>     x6.3    10%   50%           40%   MOLTEN CORE
+   *       12%   hard         x16.2   16%   32%           15%
+   *       10%   hard         x15.2   14%   31%           14%
+   *        0%   hard         x9.9     9%   31%           14%
    *
-   * Those last three lines are a spike, and the shape is the whole of what the
-   * last quarter now is: the wall at 12% is a needle rather than a shelf — the
-   * hardest the boss ever swings, at x27.5 — and the golem falls off it, steeply
-   * at first and then easing, to x14.0 at the kill. Two fifths of the drop is
-   * spent in the two points between 12% and 10%.
+   * The index is `attack` over `resist` against that same ratio at the opening
+   * keyframe: what a keyframe is worth measured against the opening swing. The
+   * heaviest swing in the rotation, the smash, lands for 28% of a hero bar on
+   * the needle and 17% at the kill, where before this pass those same two
+   * swings were 46% and 22%.
    *
-   * The one thing that crossed over on the way down is at the bottom: the raw
-   * `attack` at the kill is under what the boss was throwing back in the medium
-   * zone. See the last keyframe, which is where that is argued.
+   * The last column is the other half of what the ending is for, and it moved
+   * furthest. An ultimate used to be worth 3% of the bar in the last tenth: a
+   * cut-in that costs two seconds of T.hardCap to remove a thirtieth of a
+   * health bar is a button it is simply wrong to press, in a creative whose
+   * whole job is to sell that button. At ultHideBite 2.2 against this `resist`
+   * column it is worth 14% there — still a quarter of what the same cast was
+   * worth while the boss was whole, so the cards do weaken as the boss dies,
+   * but a late cast is an answer to the wall rather than a decoration on it.
    *
-   * The smash on that last line lands for 22% of a hero bar and the one on the
-   * needle for 46%, which is the hardest single hit the fight throws. The ending is where the softening went and the wall is where it was
-   * taken back from; see the last three keyframes.
+   * WHAT IS NOT MEASURED, and it is the thing to know before quoting anything
+   * out of here. Every revision of this note up to the last carried win rates
+   * by skill bracket off a 2000-run simulation of the fight — weak, ordinary,
+   * strong and expert, greedy against front-loading. Those were measured
+   * against the old table and none of them have been re-run against this one,
+   * so they are gone rather than quietly reprinted beside numbers they do not
+   * describe. What can be said from arithmetic alone: the bar needs 11% less
+   * damage to empty, a plain triple is worth a quarter more of it, the hardest
+   * swing in the run takes under a third off a hero instead of a half, and the
+   * board at the wall has two more cells to play in. Every one of those moves
+   * the fight the same way.
    *
-   * The last two columns are the other half of what the ending is for. An
-   * ultimate opens worth slightly more than the best match on the board and
-   * ends the run worth about half of one, because the hide bites the cards
-   * harder than it bites the board — see DIFFICULTY.ultHideBite, which also
-   * carries the two consequences of that choice.
-   *
-   * That column is also the answer to "it has to be hard to grind down even
-   * with ultimates — a cast should take a couple of percent there, not ten". It
-   * is, and in the number the player feels most: the same cast takes 41% of the
-   * bar while the boss is whole, 26% in medium, and 5% in the last quarter.
-   * Their biggest move loses over four fifths of its bite as the boss dies.
-   *
-   * That is DIFFICULTY.ultHideBite, and it is a separate mechanism from
-   * `resist` because it had to be — the note there has the arithmetic showing
-   * that no single armour number can make a late ultimate worth 5% and still
-   * leave the boss killable inside T.hardCap.
-   *
-   * Simulated over 2000 runs per bracket, and measured twice over because the
-   * endgame has two sensible strategies — `greedy` casts a skill the moment its
-   * bar fills, `front-load` banks the damage skills for before the wall and
-   * keeps only the healer's for after it:
-   *
-   *                  greedy                front-load
-   *     weak        9% @ 29.2s             4% @ 27.7s
-   *     ordinary   52% @ 28.0s            35% @ 26.1s
-   *     strong     50% @ 27.9s  (27% wipe) 99% @ 27.7s
-   *     expert     95% @ 27.5s            99% @ 27.0s
-   *
-   * Three things to read off that, and the second is the one to argue about.
-   *
-   * Every cell lands between 26 and 29 seconds, which is the "won near the 28th
-   * second however you play" this was tuned to. Holding the fast end of that is
-   * what DIFFICULTY.pace's tighter grip is for, not difficulty.
-   *
-   * An ordinary player now wins about half their runs, down from 83% before the
-   * last quarter got its final set of teeth (ultHideBite 1.6 -> 2.9, so a late
-   * ultimate went from 6% of the bar to 2.5%). That is the requested number
-   * doing exactly what it says and it is a real cost: half the sessions end on
-   * a boss with a sliver left. Whether that is the right trade for a playable
-   * ad is a judgement about the creative rather than about the fight, and the
-   * lever is `ultHideBite` — 2.4 gives 4% and takes an ordinary player back to
-   * roughly 70%.
-   *
-   * And the endgame strategy question is now settled rather than open: casting
-   * a damage skill under 10% boss health costs two seconds of T.hardCap to
-   * remove 2.5% of a bar a five-cell match removes 14% of. It is simply wrong,
-   * which is why greedy strong players wipe on 27% of runs and front-loading
-   * ones win 99%. The healer is the exception and stays worth casting late —
-   * hers clears every obsidian block, on a board holding twelve.
-   *
-   * The kill landing near the end of the run is deliberate, and it is why
-   * `pace` below is a schedule at all rather than a damage number: the run is
-   * supposed to be won close to the deadline with the doom strip already red.
-   * That schedule was 26, then 28 against a thirty second cap; it is 43 now,
-   * two under T.hardCap, and the intent has not moved with the arithmetic.
-   * T.finaleReserve does not constrain this — it holds only the *autoplay*
-   * back from starting a move it cannot finish, so a human plays to T.hardCap.
-   *
-   * Those win rates are lower than the revision before this one (36/92/100 at
-   * 27.0s) and the difference is entirely the last quarter getting the
-   * requested teeth.
-   *
-   * One correction to an earlier revision of these notes, which claimed
-   * 92/100/100 win rates: the sim was counting a kill landing after T.hardCap
-   * as a win, where the real run is collected by the deadline with the boss
-   * still standing. Nothing about the fight changed when that was fixed — only
-   * what the measurement was willing to admit.
+   * The kill is expected to land well inside the run now rather than on its
+   * last beat, and that is a change of intent rather than a side effect. It
+   * used to be deliberate that the run was won close to the deadline with the
+   * doom strip already red; what came back about that is that the creative
+   * plays too long. See DIFFICULTY.pace, which holds a 22 second line now
+   * against a 32 second cap.
    *
    * Where this leaves src/difficult/image.png, which the shape was originally
-   * traced off pixel by pixel: honoured in form, overruled in two places by the
-   * zone numbers, and that is the right order of precedence — "easy to fifty,
-   * medium to twenty-five, brutal after" is a harder statement than a
-   * hand-drawn line, and where they disagree the numbers win.
-   *
-   * The form is still the drawing's: a long gentle climb, a steep catch, a
-   * near-flat shelf, a last stroke straight up. Overlaid on the trace this
-   * table sits 8% off it on average where an earlier revision sat 1.6% off, and
-   * both places it moved are places it was asked to move — the boundaries slid
-   * right (the drawn shelf ran 0.42 to 0.68 where medium now runs 0.50 to 0.75)
-   * and the whole first half sits lower than the pen put it, because "super
-   * easy" is a stronger instruction than a slope.
+   * traced off pixel by pixel: honoured in form, overruled by the zone numbers
+   * wherever the two disagree — "easy to fifty, medium to twenty-five, hard
+   * after" is a harder statement than a hand-drawn line. The form is still the
+   * drawing's: a long gentle climb, a steep catch, a near-flat shelf, a last
+   * stroke up. This pass flattened that silhouette rather than redrawing it —
+   * every keyframe came down by roughly the same share — so what disagrees
+   * with the trace now is the scale and not the shape.
    *
    * Set `enabled` false and bossRamp/armor take the fight back, smooth
    * exponential and all.
@@ -681,10 +679,12 @@ export const DIFFICULTY = {
      * The schedule the clock floor is measured against, in seconds. Kept level
      * with pace.seconds: they are two readings of the same schedule, and a
      * floor that finished before or after the pace guard's line would be
-     * pulling against it. Both have followed the run the whole way: 28 at a
-     * thirty second cap, 31 at 33, 38 at 40, 43 at 45.
+     * pulling against it. Both followed the run the whole way up — 28 at a
+     * thirty second cap, 31 at 33, 38 at 40, 43 at 45 — and then came off it
+     * together: 22 against a 32 second cap, because the fight is no longer
+     * meant to be held open to the deadline. See DIFFICULTY.pace.
      */
-    seconds: 43,
+    seconds: 22,
     /**
      * How far up the curve a completely stalled run is dragged by the clock.
      *
@@ -695,12 +695,16 @@ export const DIFFICULTY = {
      * swings at 0.154 for the whole run is not an easy fight, it is no fight,
      * and an ad that ends on a health bar nobody touched.
      *
-     * 0.7 lands a stalled run in the middle of the medium zone by the end of
-     * the schedule — pressed, and nowhere near the last-quarter wall it has not
-     * earned a single point of. Set 0 to switch the floor off and put the curve
+     * 0.5 lands a stalled run on the medium boundary by the end of the
+     * schedule — pressed, and nowhere near the last-quarter wall it has not
+     * earned a single point of. It was 0.7, which put the same run in the
+     * middle of medium; it came down with everything else in the easier pass,
+     * and it had to, because the schedule it is measured against went from 43
+     * seconds to 22 and a fraction of a shorter schedule arrives sooner. Set
+     * 0 to switch the floor off and put the curve
      * purely on the bar.
      */
-    clockFloor: 0.7,
+    clockFloor: 0.5,
     /**
      * ...and the ceiling: how far the boss's temper may run ahead of that same
      * schedule. Only `attack`, `obsidian` and `hold` are held by it — armour is
@@ -731,16 +735,16 @@ export const DIFFICULTY = {
        * bossPress is 4 seconds and it starts with the fight, so the first swing
        * lands on somebody who has made one match and may not yet have worked
        * out that this is a match-three at all. Whatever sits here is what the
-       * game does to a player it has not finished teaching. At 0.3 the opening
-       * rake is about five percent of a hero bar and a single obsidian block
-       * sits on a board of twenty-five: the screen shaking is telling the
-       * truth, and it is costing nothing at all.
+       * game does to a player it has not finished teaching. At 0.12 the
+       * opening rake is under two percent of a hero bar and a single obsidian
+       * block sits on a board of twenty-five: the screen shaking is telling
+       * the truth, and it is costing nothing at all.
        *
        * The old curve opened at a flat 1.0 and compounded from there, and the
        * party was already chewed before the mechanic had landed — which is most
        * of what "it's too fast, you lose too fast" was about.
        */
-      { p: 0.0, attack: 0.154, resist: 1.0, ult: 1, obsidian: 1, hold: 5 },
+      { p: 0.0, attack: 0.12, resist: 1.0, ult: 1, obsidian: 1, hold: 5 },
       /**
        * Two thirds of a boss left, and still inside the easy zone.
        *
@@ -751,7 +755,7 @@ export const DIFFICULTY = {
        * The creep is small enough that nothing here is what anybody would call
        * difficulty — the swings are still under a tenth of a hero bar.
        */
-      { p: 0.35, attack: 0.282, resist: 1.0, ult: 1, obsidian: 2, hold: 6 },
+      { p: 0.35, attack: 0.22, resist: 1.0, ult: 1, obsidian: 2, hold: 6 },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
        * half.
@@ -768,11 +772,11 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.435,
+        attack: 0.33,
         resist: 1.0,
         ult: 1,
-        obsidian: 3,
-        hold: 8,
+        obsidian: 2,
+        hold: 7,
         name: "OBSIDIAN HIDE",
       },
       /**
@@ -780,185 +784,110 @@ export const DIFFICULTY = {
        * sharpest turn on the curve.
        *
        * The boss's damage nearly doubles and armour appears from nothing, so a
-       * good match stops being worth a third of the bar and starts being worth a
-       * fifth. The fight the player spent half the run getting comfortable in
-       * turns out to have been the tutorial. Steep on purpose: a zone boundary
-       * the player cannot feel is not a boundary, and this one is announced a
-       * beat before it by the keyframe above.
+       * good match stops being worth three fifths of the bar and starts being
+       * worth half of it. The fight the player spent half the run getting
+       * comfortable in turns out to have been the tutorial. Steep on purpose:
+       * a zone boundary the player cannot feel is not a boundary, and this one
+       * is announced a beat before it by the keyframe above.
        */
-      { p: 0.6, attack: 0.79, resist: 0.78, ult: 1, obsidian: 5, hold: 10 },
+      { p: 0.6, attack: 0.58, resist: 0.85, ult: 1, obsidian: 3, hold: 8 },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
-       * The zone behind this line is deliberately near-flat: 0.79 to 0.87 across
-       * fifteen percent of the bar. Medium has to be a place the player gets to
+       * The zone behind this line is deliberately near-flat: 0.58 to 0.64
+       * across fifteen percent of the bar. Medium has to be a place the player gets to
        * stand and play, not a ramp they slide down — it is where the roster gets
        * charged and where somebody who has understood the game gets to look good
        * at it, right before the part where looking good is not enough.
        */
       {
         p: 0.75,
-        attack: 0.87,
-        resist: 0.78,
+        attack: 0.64,
+        resist: 0.85,
         ult: 1,
-        obsidian: 5,
-        hold: 10,
+        obsidian: 3,
+        hold: 8,
         name: "MOLTEN CORE",
       },
       /**
-       * THE LAST QUARTER — super hard, and hard in three ways at once.
+       * THE LAST QUARTER — still the hardest part of the fight, and the part
+       * this pass took the most out of.
        *
-       * The golem's damage nearly doubles what the medium zone was throwing,
-       * armour goes to the floor so the board alone cannot finish the job, and
-       * the ceiling puts eleven blocks on a board of twenty-five so there is
-       * barely room to answer. All three land together, which is what makes
-       * this a climax rather than a difficulty setting.
+       * All three of the things that make a climax still land together here:
+       * the golem's damage jumps, armour thickens, and the board tightens.
+       * What changed is how far each of them goes.
        *
-       * THE NEEDLE. This line is the peak of the whole fight and it is drawn as
-       * a spike rather than a shelf: 1.69 is x27.5 on the index the curve is
-       * read by — `attack` over `resist`, against that same ratio at the
-       * opening keyframe — and the two keyframes below it fall away to x22.0
-       * and then x14.0. Nothing in the run is this hard before it and nothing
-       * is this hard after it.
+       * The wall used to be a needle at x27.4 on the index — the hardest swing
+       * in the creative, 46% of a hero bar on a smash, against armour at 0.4
+       * that left the board unable to finish the job and eleven obsidian
+       * blocks on twenty-five cells leaving nowhere to answer from. That was
+       * the shape the brief asked for, and it is also the shape the complaint
+       * came back about: this quarter of the bar cost more damage to remove
+       * than the entire easy half of the fight, which is a bar crawling
+       * through the back third of every run.
        *
-       * The value has been all over the place and the history is the argument.
-       * 2.8 (x23.3) while the whole tail climbed past it; 2.52 (x21.0) when the
-       * top of the curve was asked for at 21 and this had to come down to stop
-       * the tail running backwards off it; 1.69 now, because what was asked for
-       * this time was the *shape* — a needle here and a fall out of it — rather
-       * than a number anywhere.
+       * 1.05, 0.54 and five blocks a turn. The smash lands for 28% of a hero
+       * bar rather than 46%, a five-cell step takes 32% off the boss rather
+       * than 19%, and the board holds nine blocks rather than eleven. Against
+       * x2.8 at the medium boundary this is still by a distance the hardest
+       * thing in the creative — it simply no longer takes longer to play than
+       * the rest of the fight put together.
        *
-       * So the softening of the last three passes now lives entirely in the
-       * fall, not in the wall. A player who reaches 12% health meets the
-       * hardest swing in the creative — 46% of a hero's bar on a smash — and
-       * then watches the golem come apart over the last tenth. Lower this first
-       * if the spike turns out to wipe parties that had the kill in hand; the
-       * fall below is shaped against it and will follow it down.
-       *
-       * "Hard even with ultimates" is the standard this was written against,
-       * and it is met twice over here. A five-cell step takes 15% off the bar
-       * where it took 38% at full health — and through DIFFICULTY.ultHideBite
-       * an ultimate takes 3%, down from the 41% it was worth while the boss was
-       * whole. Nothing the player owns is a solution to this zone any more; it
-       * is a grind, and it is meant to be.
+       * Raise `attack` here first if the wall stops reading as a wall; lower
+       * `resist` if the ending stops being a grind at all. They are separate
+       * complaints and these are separate knobs — see the note under
+       * DIFFICULTY.ultHideBite, which is the third.
        */
-      { p: 0.88, attack: 1.69, resist: 0.4, ult: 1, obsidian: 8, hold: 11 },
-      /**
-       * The killing stretch.
-       *
-       * The killing blow, at the same hide the keyframe above set.
-       *
-       * 0.38 is well under the 0.5 the old `armor` table called its floor, and
-       * that floor was lifted deliberately rather than forgotten. Its argument
-       * was that a player who earned the kill should never watch their damage
-       * stop mattering — a real failure mode, and this is close enough to it to
-       * be worth writing down plainly: a five-cell step takes 14% off the bar
-       * here where it took 38% at full health, and an ultimate takes 2.5%. The
-       * bar visibly crawls. That is the requested behaviour and not a bug; it
-       * was asked for four times, the last time with the number in it.
-       *
-       * What it costs: the last quarter of the bar takes 0.53 bars of damage to
-       * remove — more than the entire easy half of the fight — which is why an
-       * ordinary run finishes at about 28 seconds of the thirty rather than 27.
-       *
-       * If it ever reads as cheating rather than as a wall, this number and
-       * `p: 0.88` above are the two to raise, in that order, and `ultHideBite`
-       * is the third. The rest of the curve does not move with them.
-       */
+      { p: 0.88, attack: 1.05, resist: 0.54, ult: 1, obsidian: 5, hold: 9 },
       /**
        * BOSS AT TEN PERCENT — and `resist` goes flat from here to the kill.
        *
-       * The flat stretch is the whole point of this keyframe and it is there to
-       * hold one number still: below a tenth of health an ultimate is supposed
-       * to land for about 2.5% of the bar. With `resist` sliding on to 0.30 it
-       * would have carried on down to 1.2% by the killing blow, which is past
-       * "a couple of percent" and into "why did I press that".
+       * The flat stretch is the whole point of this keyframe: below a tenth of
+       * health, what a player's hit is worth stops moving. DIFFICULTY.
+       * ultHideBite is an exponent on this number, so every wobble in it is
+       * magnified in the one figure the player reads hardest — what their
+       * biggest button is worth at the wall — and a `resist` still sliding
+       * here would keep collapsing that figure through the last seconds of the
+       * run.
        *
-       * THE FALL, and its first and steepest two points. `attack` comes off the
-       * needle's 1.69 (x27.5) to 1.29 here (x22.0) and then down to the kill's
-       * 0.82 (x14.0) — so two fifths of the drop is spent in the two points of
-       * health between 12% and 10%, and the remaining tenth of the bar spreads
-       * the rest of it out. That is the shape deliberately: the golem comes off
-       * the wall hard and then goes quietly, rather than sagging at a constant
-       * rate from the moment it peaks.
+       * THE FALL. `attack` comes off the needle's 1.05 (x16.2) to 0.95 here
+       * (x15.2) and then to the kill's 0.62 (x9.9): the golem comes off the
+       * wall hard and then goes quietly, rather than sagging at a constant
+       * rate from the moment it peaks. That shape is the one the revision
+       * before this had; only its height moved.
        *
-       * This line's own history is a record of the tail being talked down. It
-       * used to climb 2.9 to 3.08 and carry the index from x25.4 to x27.0
-       * (3.17 and x27.8 before that, 2.74 and x24.0 after, then flat at x21.0,
-       * then slides to x19.0 and x17.0) — every one of those passes moved it
-       * so the tail never ran backwards off the wall above. This pass is the
-       * first to move it *up* on the way to a lower ending, because the wall
-       * went up further.
-       *
-       * `resist` is still the flat column, which is what the paragraph above
-       * is protecting: how hard the boss hits falls across the last tenth, how
-       * much a player's hit is worth does not move at all.
-       *
-       * It also hands the board a little back, and that is the honest cost of
-       * flattening here: a five-cell step lands for 14% across the last tenth
-       * where a sliding hide would have taken it to 11%. The bar needs 1.34
-       * bars of damage now against 1.37, which is about half a second off the
-       * fight.
+       * What flattening `resist` hands the board is small and it is the honest
+       * cost of holding the ultimate still: a five-cell step lands for 31%
+       * across the last tenth where a sliding hide would have taken it lower.
        */
-      { p: 0.9, attack: 1.29, resist: 0.38, ult: 1, obsidian: 8, hold: 12 },
+      { p: 0.9, attack: 0.95, resist: 0.52, ult: 1, obsidian: 5, hold: 9 },
       /**
-       * The killing blow, and the one place the last quarter was let out.
+       * The killing blow.
        *
-       * 3.40 before, then 3.17, then 3.08, then 2.74, then 2.39, then 2.17,
-       * then 1.94, and 0.82 now. Measured on the index the curve is read by —
-       * `attack` over `resist` against that same ratio at the opening keyframe,
-       * which is what a keyframe is worth against the opening swing — the kill
-       * now lands at x14.0 where it landed at x17.0, at x19.0 and x21.0 before
-       * that, x24.0 before that, and x29.8 to start with. 0.82 is the value
-       * that lands the index on 14.
+       * 3.40 once, then 3.17, 3.08, 2.74, 2.39, 2.17, 1.94, 0.82, and 0.62
+       * now. Measured on the index the curve is read by — `attack` over
+       * `resist` against that same ratio at the opening keyframe — the kill
+       * lands at x9.9 where it landed at x14.0, and at x17.0, x19.0, x21.0,
+       * x24.0 and x29.8 before that.
        *
-       * The third of those steps that does *not* move the top of the curve.
-       * The ending was asked down to 14 on its own, so the wall at 0.88 keeps
-       * the x21.0 it was set to and this line falls a third under it: the
-       * fight peaks when the last quarter arrives and the golem tires into the
-       * kill over the final tenth. Every pass up to the x19.0 one held the
-       * tail level or raised it, on the argument that a boss swinging softer
-       * as it dies reads as the fight giving up — that is the requested
-       * behaviour rather than a failure mode, and it is worth knowing which of
-       * the two you are looking at before putting it back.
+       * A golem swinging softer as it dies is a deliberate reading and not the
+       * fight giving up, and it is worth knowing which of the two you are
+       * looking at before putting it back. The raw swing at the kill has been
+       * under what the boss throws in the medium zone for several passes now:
+       * the index says x9.9 against x6.3 back there and the index is not lying
+       * — it is a ratio, and `resist` at 0.52 against 0.85 is most of what it
+       * is measuring — but the number the player feels is the damage, and the
+       * damage runs downhill from the medium zone to the end of the fight, 10%
+       * of a hero bar per rake at 25% health and 9% at the kill.
        *
-       * WHAT CROSSED OVER HERE, and it is the reason this pass is different
-       * from the two before it: at 0.82 the golem's raw swing at the kill is
-       * *under* the 0.87 it throws at 25% health. The index still says x14.0
-       * against x7.3 back there, and the index is not lying — it is a ratio,
-       * and `resist` at 0.38 against 0.78 is half of what it is measuring. But
-       * the number the player feels is the damage, and the damage now runs
-       * downhill from the medium zone to the end of the fight: 13% of a hero
-       * bar per rake at 25% health, 12% at the kill. A player paying attention
-       * gets hit softer the closer the boss is to dead, which is a different
-       * claim from "the golem tires" and worth deciding on deliberately.
-       *
-       * The gap between the wall and the kill was the number to watch, and it
-       * is now a third of the peak. Past here the honest fix is to bring the
-       * wall at 0.88 down with the tail rather than to keep digging the tail
-       * out from under it — a fight that ends softer than its middle is a
-       * shape the whole staircase should be redrawn for, not one more step on
-       * this line.
-       *
-       * The climb into the wall is untouched either way: everything through
-       * 0.75, where the index is x7.3, is where it was, so the last quarter is
-       * still a threefold jump when it arrives.
-       *
-       * `attack` and not `resist`, and the difference is the whole reason this
-       * is the number that moved. `resist` is how much of the player's damage
-       * lands, so touching it moves the kill time and every figure in the
-       * bracket table above with it; `attack` is only ever how hard the boss
-       * hits back. The bar still needs 1.34 bars of damage to empty and an
-       * ultimate is still worth its 2.5% down here — nothing about the grind
-       * changed. What changed is that the swing which ends runs takes 22% of a
-       * hero bar rather than the 92% it was first written at, and the rake 12%
-       * rather than 51%.
-       *
-       * The brackets above were simulated at 3.40, so read them as the floor
-       * under this build rather than as its measurement: a softer killing blow
-       * can only move a wipe into a win, and it moves nothing else.
+       * `attack` and not `resist` is what moved on this line every previous
+       * time, and the difference is why: `resist` is how much of the player's
+       * damage lands, so touching it moves the kill time and the length of the
+       * creative with it, where `attack` is only ever how hard the boss hits
+       * back. This pass is the first to move both, and it moved `resist`
+       * deliberately — the length was the complaint.
        */
-      { p: 1.0, attack: 0.82, resist: 0.38, ult: 1, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 0.62, resist: 0.52, ult: 1, obsidian: 5, hold: 9 },
     ],
   },
 
@@ -1096,13 +1025,13 @@ export const DIFFICULTY = {
    * the clock. Read and explained in full by Director.pace.
    *
    * `seconds` is the schedule the fight is held to — a straight line from a
-   * full bar at the first playable frame to an empty one here. It is 26 rather
-   * than the 25 that was asked for because damage lands in lumps: the killing
-   * blow overshoots the line by most of a move, and measured over hundreds of
-   * runs a 26 second schedule puts the kill at 24.9 seconds for a player
-   * swiping every 1.8 seconds, 25.2 at 2.2 and 25.7 at 2.6 — the spread across
-   * every pace a person actually plays at is under a second, which is the whole
-   * point of holding a line rather than picking a damage number.
+   * full bar at the first playable frame to an empty one here. It runs a
+   * little longer than the kill it is aiming at, because damage lands in lumps
+   * and the killing blow overshoots the line by most of a move. Holding a line
+   * rather than picking a damage number is what keeps the kill landing on
+   * about the same second whatever speed the player swipes at: measured over
+   * hundreds of runs, the spread across every pace a person actually plays at
+   * came out under a second.
    *
    * That tight spread is also why the schedule survives a bad estimate of what
    * a beat costs. The guard reads the clock, so anything that makes the fight
@@ -1115,51 +1044,59 @@ export const DIFFICULTY = {
    * cap leaves the guard still biting when the deadline collects — which turns
    * every good run into a timeout.
    *
-   * `bite` 3 and `floor` 0.12, up from 2 and 0.18, and the reason is a
-   * requirement the old pair could not hold: the win has to land near 28
-   * seconds for *everybody*, however well they play and however they spend
-   * their skills.
+   * `bite` 2 and `floor` 0.5, loosened from 3 and 0.12, and the requirement
+   * that tightened them has been withdrawn. That pair existed to hold the win
+   * near the deadline for *everybody*: a simulated expert who emptied the bar
+   * in 20.8 seconds was pulled back to 27.3, and every bracket landed between
+   * 26 and 29 seconds against a thirty second cap. It worked, and what came
+   * back about it is that the creative plays too long.
    *
-   * At 2 and 0.18 it did not. The guard only grips a player who is ahead of the
-   * line and it never grips them completely, so a simulated expert — every swap
-   * a five-cell step, cascades half the time, skills banked for the easy half
-   * where `resist` is 1.0 and there is no armour at all to slow them — emptied
-   * the bar in 20.8 seconds and watched a third of the creative play out over a
-   * dead boss. The easy half is exactly what made it possible: it was asked for
-   * as free damage, and free damage is what an expert converts fastest.
+   * So this is a floor under the fight's length again rather than a rail along
+   * it. At 0.5 the least a hit can ever be scaled to is half of itself where
+   * it used to be an eighth, and at bite 2 the grip closes gently instead of
+   * clamping the moment a player edges ahead of the line. Somebody who reads
+   * the board still cannot finish the run in eight seconds; they can finish it
+   * in nineteen, which is the whole of what the change is for.
    *
-   * At 3 and 0.12 the same player finishes at 27.3. Every bracket and both
-   * strategies now land between 26 and 29 seconds — see the table under
-   * DIFFICULTY.curve.
+   * 0.4 was tried first and it was still doing too much: it held a player
+   * landing a cascade on every move to the same eight moves as one landing
+   * bare triples, which is the guard flattening skill rather than floor-ing
+   * the run. At 0.5 the same four brackets — bare triples, triples with a
+   * cascade behind them, four-cell steps, five-cell steps — finish at 24.9,
+   * 22.1, 19.3 and 10.9 seconds against a 32 second cap. Those are computed
+   * off the damage table at a fixed move every 2.8 seconds and not simulated
+   * against a real board, so read the spread rather than the figures.
    *
-   * Do not read the tighter grip as "more difficulty": it is the opposite of a
-   * difficulty knob. The guard is what stops skill from *shortening* the
-   * creative, and every second it holds back is a second the player spends in a
-   * zone the curve has something to say in. What it costs is the bar moving
-   * visibly slower under a very good player's best move, which is the failure
-   * mode to watch — the note above is about why the floor exists at all, and
-   * 0.12 is now the least that ever lands rather than 0.18. Below about 0.08
-   * the bar starts reading as stuck rather than as guarded.
+   * Do not read the looser grip as a difficulty knob in either direction. The
+   * guard has never touched a player who is behind the line — it only ever
+   * clamps somebody already winning faster than the schedule — so everything
+   * it does is about the length of the creative and none of it is about how
+   * hard the fight is. Below about 0.08 the bar reads as stuck rather than as
+   * guarded, which is why the floor exists at all.
    */
   pace: {
     enabled: true,
     /**
-     * 43, and it moved with T.hardCap rather than being retuned.
+     * 22, and this is the first time it has been retuned rather than dragged
+     * along behind T.hardCap.
      *
-     * This is a schedule in *real* seconds, and it has always sat two seconds
-     * under the deadline so that the guard is still pulling when the deadline
-     * arrives. The run went 30 -> 33 -> 40 -> 45 — see T.hardCap and
-     * DOOM.stretch — so this went 28 -> 31 -> 38 -> 43 to keep that distance.
-     * Read the win-time table above as a 30 second run's; every figure in it
-     * slides about fifteen seconds later now, and the shape of the
-     * distribution does not move.
+     * It used to sit two seconds under the deadline, wherever the deadline
+     * was: the run went 30 -> 33 -> 40 -> 45 and this went 28 -> 31 -> 38 ->
+     * 43 to keep that distance, because the guard was supposed to still be
+     * pulling when the deadline arrived. That is exactly what made every run
+     * finish on its last beat, and it is what "it plays too long" was about.
+     *
+     * 22 against a 32 second cap is a schedule that finishes ten seconds
+     * early on purpose. The fight is aimed at the middle of the run now, and
+     * the ten seconds behind it are what a player who fumbles a swipe or
+     * spends a beat reading the board has to spend.
      *
      * Real seconds, so Director.paceGrip converts the world clock back through
      * toReal before it reads this — see WORLD_RATE.
      */
-    seconds: 43,
-    bite: 3,
-    floor: 0.12,
+    seconds: 22,
+    bite: 2,
+    floor: 0.5,
   },
 
   /**
@@ -1214,11 +1151,11 @@ export const DOOM = {
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Forty, and this is the clock the player is *shown* rather than the length
-   * of the run. T.hardCap is 45 and `stretch` below is what reconciles the two:
-   * the strip is never wrong about how much of itself is left, it simply drains
-   * slower than wall time over the last quarter, so forty of its seconds take
-   * forty-five of ours. This is the number on the CATACLYSM readout — see
+   * Twenty-seven, and this is the clock the player is *shown* rather than the
+   * length of the run. T.hardCap is 32 and `stretch` below is what reconciles
+   * the two: the strip is never wrong about how much of itself is left, it
+   * simply drains slower than wall time over the last stretch, so twenty-seven
+   * of its seconds take thirty-two of ours. This is the number on the CATACLYSM readout — see
    * Hud.setDoom — so it is also the largest figure the player ever reads there.
    *
    * The clock is armed the moment the intro is off the screen, so what the
@@ -1229,9 +1166,11 @@ export const DOOM = {
    * This was the length of the creative for as long as the two were the same
    * thing: 15, then 20, then 25, then 30. Then the run went to 33, 40 and 45
    * while the strip stayed at 30, because what was asked for was a clock that
-   * reads less than the fight lasts. It now reads 40 against a 45 second run —
-   * asked for directly, off the readout rather than off this file — so the two
-   * are close again and `stretch` carries the five seconds between them.
+   * reads less than the fight lasts. Then it was pulled back level and read 40
+   * against a 45 second run, asked for directly off the readout rather than
+   * off this file. The run has since been cut to 32 for playing too long — see
+   * T.hardCap — and this came down to 27 with it, keeping the same five
+   * seconds of `stretch` between the two.
    *
    * What that costs is the mechanic in the middle of the fight. The clock
    * cannot reach zero while there is still a fight to land a cataclysm in, so
@@ -1248,22 +1187,22 @@ export const DOOM = {
    * behind it, so the deadline arrived once as a threat and once as proof it
    * was not a bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 40,
+  seconds: 27,
   /**
    * The five seconds the player is given and not told about.
    *
-   * The run is 45 seconds long (T.hardCap) and the countdown on screen is 40
+   * The run is 32 seconds long (T.hardCap) and the countdown on screen is 27
    * (`seconds` above). The difference is not a lie the strip tells at any one
    * moment — the strip is never wrong about how much of *itself* is left — it
-   * is a rate: the clock drains slower than wall time, so forty of its seconds
-   * take forty-five of ours. Nobody counts a countdown against a stopwatch;
+   * is a rate: the clock drains slower than wall time, so twenty-seven of its
+   * seconds take thirty-two of ours. Nobody counts a countdown against a stopwatch;
    * what they feel is how long they had.
    *
    * `window` is the whole of the idea and it is the second thing this was
    * asked for: the stretch is confined to the last `window` seconds of the
    * countdown and there is none at all before them. Outside the window the
-   * clock is wall time to the frame — thirty true seconds — and inside it the
-   * five are handed over. It was a smooth curve over the whole run first, and
+   * clock is wall time to the frame — seventeen true seconds — and inside it
+   * the five are handed over. It was a smooth curve over the whole run first, and
    * the note it earned was that the extra time should land at the end and
    * nowhere else, which is what this is.
    *
@@ -1303,7 +1242,7 @@ export const DOOM = {
    *           steps as it enters. Above 1 the window opens near true speed and
    *           the last digit takes almost all of it.
    *   extra   0 turns the whole mechanism off — the rate is 1, the clock is
-   *           wall time again, and T.hardCap has to come back to 40 to match.
+   *           wall time again, and T.hardCap has to come back to 27 to match.
    *
    * What this does NOT touch is what the deadline means. The cataclysm still
    * lands when the strip reads zero, the warnings at DOOM.warnAt still fire on
@@ -1361,14 +1300,22 @@ export const DOOM = {
   panicAt: 3.5,
 };
 
-export const BOSS_MAX_HP = 10000000;
+export const BOSS_MAX_HP = 8000000;
 export const BOSS_NAME = "KOLTMOS";
 
 /* ------------------------------------------------------------------- timing */
 
 /**
- * How fast the fight animates against wall time. 1 is real time; 0.8 is a fifth
- * slower, which is what it is.
+ * How fast the fight animates against wall time. 1 is real time, which is what
+ * it is.
+ *
+ * It was 0.8 for one pass — a fifth slower — and that was the clock wearing an
+ * animation knob: the run had been stretched to forty-five seconds and slowing
+ * every beat by a fifth was how the fight was made to fill them. What came
+ * back is that the creative plays too long, so the run was cut to 32 and this
+ * went back to 1 in the same pass. A move costs 2.8 seconds again rather than
+ * 3.5, which is the most direct thing in the file for how long a swap feels
+ * like it takes.
  *
  * Everything the creative moves runs on the world clock — the cascade, the
  * boss, the cut-ins, every tween and every delay() — and this is the standing
@@ -1383,7 +1330,7 @@ export const BOSS_NAME = "KOLTMOS";
  * T.hardCap seconds long. Change this number and the fight gets slower or
  * faster; the length of the creative does not move.
  */
-export const WORLD_RATE = 0.8;
+export const WORLD_RATE = 1.0;
 
 export const T = {
   /**
@@ -1602,27 +1549,23 @@ export const T = {
    * the board is told about a control they have never touched by a caption that
    * is gone before they look down.
    *
-   * What it costs to miss is the largest number in the fight: an ultimate is a
-   * quarter of the boss's bar (see DIFFICULTY.ultDamage) and the healer's is
+   * What it costs to miss is the largest number in the fight: an ultimate is
+   * over half the boss's bar (see DIFFICULTY.ultDamage) and the healer's is
    * the only thing in the run that clears obsidian or picks the party up. A
    * creative that never shows it is selling five heroes and demonstrating none.
    */
   ultHints: true,
   /**
-   * How long the callout is given before the lesson's hand arrives.
+   * How long the shout is given before the lesson's hand arrives.
    *
-   * 1.05, and it is the READY call that sets it rather than the shout. The
-   * three beats have to arrive in this order or they are three things happening
-   * at once: the shout names the hero on the frame the bar fills, READY_CALL
-   * rips a ribbon out of that hero's tile and takes 0.36 + 0.46 + 0.44 to land,
-   * hold and fall back into it, and then the hand taps the tile it just watched
-   * the ribbon drop into. See fx/readycall.js.
+   * The two beats have to arrive in this order or they are two things happening
+   * at once: the shout names the hero on the frame the bar fills, and then the
+   * hand taps the card it named.
    *
-   * It was 0.5, against a 0.7 shout and no callout at all. Anything under about
-   * a second now and the hand comes up underneath the announcement — two props
-   * over the same card, which is the one arrangement that reads as a bug.
-   * `ultShout` is 1.4, so the hero's name is still on screen when the hand
-   * lands whatever this is set to inside that.
+   * It was 0.5. Anything under about a second and the hand comes up underneath
+   * the announcement — two props over the same card, which is the one
+   * arrangement that reads as a bug. `ultShout` is 1.4, so the hero's name is
+   * still on screen when the hand lands whatever this is set to inside that.
    */
   ultHintIn: 1.05,
   /**
@@ -1646,7 +1589,7 @@ export const T = {
    * then went quiet, so a player who looked away for those 3.2 seconds was never
    * told again. It now re-offers itself on `ultHintAgain` for as long as a
    * charged hero is still standing there untapped, and this is the ceiling on
-   * that rather than a ration of chances. The run is 45 seconds and the free
+   * that rather than a ration of chances. The run is 32 seconds and the free
    * opening cast is gone — see DIFFICULTY.chargeStart — so the first ultimate is
    * something the player has to be told about while they are already playing.
    *
@@ -1695,8 +1638,8 @@ export const T = {
    * playing itself out, so the fastest the demo ever goes is a move every three
    * and a bit seconds. It only reaches that when the boss is deep enough that
    * the run cannot afford anything slower. It is a pace, not a stampede — but
-   * the whole run is forty-five seconds, and a second of dead air is a
-   * forty-fifth of the ad spent watching nothing.
+   * the whole run is thirty-two seconds, and a second of dead air is a
+   * thirty-second of the ad spent watching nothing.
    */
   autoFloor: 0.35,
   /**
@@ -1713,62 +1656,59 @@ export const T = {
    * creative anybody is still watching.
    *
    * A third of the run and nothing else — a share rather than a duration, so
-   * it moves every time T.hardCap does. It has now moved six times: 5 when the
-   * run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty, 11 at
-   * thirty-three, 13.3 at forty, 15 at forty-five.
+   * it moves every time T.hardCap does. It has now moved seven times: 5 when
+   * the run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty, 11
+   * at thirty-three, 13.3 at forty, 15 at forty-five, and 10.7 now the run is
+   * back down to thirty-two.
    */
-  banner: 15.0,
+  banner: 10.7,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Forty-five seconds in wall time, and the player is shown forty — see
-   * DOOM.stretch, which is the whole of that trick and the only reason these
-   * two numbers are allowed to disagree. Everything else in this file is fitted
-   * to this one rather than the other way round: `banner` so the store button
-   * lands a third of the way in, finaleReserve so the death still gets played,
-   * DIFFICULTY.damagePerGem so the boss can be dead before it, and
-   * DIFFICULTY.pace.seconds so the guard is still pulling when it arrives.
+   * Thirty-two seconds in wall time, and the player is shown twenty-seven —
+   * see DOOM.stretch, which is the whole of that trick and the only reason
+   * these two numbers are allowed to disagree. Everything else in this file is
+   * fitted to this one rather than the other way round: `banner` so the store
+   * button lands a third of the way in, finaleReserve so the death still gets
+   * played, DIFFICULTY.damagePerGem so the boss can be dead before it, and
+   * DIFFICULTY.pace.seconds so the fight is decided well inside it.
    *
    * Measured in wall seconds and not in world ones, which is a distinction this
    * number did not have to make until WORLD_RATE existed. Director.run races
-   * this on the world clock, so it converts through toWorld first; at a rate of
-   * 0.8 the race is armed for 36 world seconds, which is these 45.
+   * this on the world clock, so it converts through toWorld first; at the rate
+   * of 1 it went back to racing these 32 directly.
    *
-   * The fifteen seconds this has gained over the original thirty are a gift and
-   * not a retune: nothing about the fight was made easier to pay for them. What
-   * they buy is the one thing the win-rate table under DIFFICULTY.curve says
-   * the run was short of — every bracket finishing between 26 and 29 seconds
-   * against a 30 second cap is a fight decided in its last beat, and a player
-   * who fumbles one swipe in that window loses to the clock rather than to the
-   * boss. Read every figure in that table as fifteen seconds earlier than the
-   * deadline it is now racing.
+   * DOWN FROM FORTY-FIVE, and this is the first time the number has ever moved
+   * backwards. It went 15, 20, 25, 30, 33, 40, 45, and the last three of those
+   * were asked for rather than needed — a fight balanced to end in five or six
+   * moves was handed room for eleven. What came back is that the creative
+   * plays too long, which is the same observation from the other side: room
+   * nobody needs is time the viewer spends watching a fight that has already
+   * been decided. The fight came down with it rather than being left to rattle
+   * around in a shorter box — see DIFFICULTY.curve.
    *
-   * That last one is the thing to know about this number. The damage curve is
-   * cut to a dead boss in four or five moves, and moveCost puts a move at 2.8
-   * seconds — 3.5 of them at the world rate, which is what a move actually
-   * costs the player now. Forty-five, less about two and a half for the intro
-   * and the 3.5 of finaleReserve, leaves thirty-nine playable seconds — eleven
-   * moves, against a fight balanced to end in five.
+   * Thirty-two, less about two and a half for the intro and the 3.5 of
+   * finaleReserve, leaves twenty-six playable seconds. A move costs 2.8 of
+   * them — see moveCost, and see WORLD_RATE, which came back to 1 in the same
+   * pass so that a move stopped costing 3.5 — so the run holds nine moves
+   * against a fight balanced to end in six or so. That is the slack this
+   * number exists for: a player can lose a move or two to a fumbled swipe or
+   * to reading the board and still finish comfortably.
    *
-   * That gap is the whole reason the number has climbed. At fifteen the
-   * run held nine and a half playable seconds and three moves, and the fight as
-   * balanced did not fit inside it at all: playing well still ended with the
-   * boss standing, which is not difficulty, it is a creative that stops before
-   * its own climax. At twenty it held five and a bit, which is the fight
-   * exactly and no room for a mistake in it — one fumbled swipe and the clock
-   * collected instead of the player. Twenty-five was the first number with
-   * slack in it, thirty was that with a beat spare, and everything past it —
-   * 33, 40, 45 — was asked for rather than needed: a player who reads the board
-   * kills the boss with several moves in hand, and one who spends the opening
-   * working out what a match even is — reads the line, watches the coach show
-   * it once, fumbles a swipe — can still get there comfortably. Nobody is being
-   * given the fight; they are being given the time to lose a move or two to it.
+   * The floor to know about is at twenty. At fifteen the run held nine and a
+   * half playable seconds and three moves, and the fight as balanced did not
+   * fit inside it at all: playing well still ended with the boss standing,
+   * which is not difficulty, it is a creative that stops before its own
+   * climax. At twenty it held the fight exactly and no room for a mistake in
+   * it — one fumbled swipe and the clock collected instead of the player.
+   * Nobody is being given the fight; they are being given the time to lose a
+   * move or two to it.
    *
    * This number is what the run is racing — see Director.run, where it is
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 45.0,
+  hardCap: 32.0,
   /**
    * How long the outcome screen holds itself up before moving on, in seconds.
    *
@@ -2368,15 +2308,11 @@ export const FONT_OUTCOME =
  * Hitzone sits directly behind it, which makes the fallback the previous design
  * rather than a degraded one: the digits print upright in the UI face at 900,
  * exactly as they did before this constant existed. The cut carries `A-Z`,
- * `0-9` and a little punctuation and no lower case — see FONT_READY, which is
- * the same file under a second name, and README-montserrat.md for the subset
- * line that ships.
+ * `0-9` and a little punctuation and no lower case — see README-montserrat.md
+ * for the subset line that ships.
  */
 export const FONT_DAMAGE =
   '"Montserrat It", "Hitzone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-
-export const FONT_READY =
-  '"Montserrat It", "Hitzone Med", "Hitzone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /* ------------------------------------------------------------------ heroes */
 
@@ -2550,146 +2486,6 @@ export const BOSS_ATTACKS = [
  * flare used to hold the screen for 0.42s before the cut-in was allowed to take
  * it, and is now 0.
  */
-/**
- * The READY call — see fx/readycall.js, which is where the reasoning lives.
- *
- * Every length is a fraction of the safe box's width rather than a pixel count,
- * so the banner is the same share of the composition on a tall phone and a
- * short one. See core/layout.js on why the safe box and not the window.
- */
-export const READY_CALL = {
-  /**
-   * How far above the hero row the ribbon sits, as a fraction of a card's
-   * height — and therefore how long the beam between the two is.
-   *
-   * It used to be `y`, a fraction of the safe box's height, because the banner
-   * used to be a thing that landed in the middle of the screen and then had to
-   * travel the whole way down to the row. It is measured off the row itself now
-   * for the same reason the row's own geometry is: what this has to clear is the
-   * top edge of a tile, which moves with the aspect, and what it must not cover
-   * is the board's bottom rank.
-   *
-   * 0.62 of a card is enough beam to read as a beam and short enough that the
-   * ribbon is still unmistakably part of the row rather than floating over the
-   * play field.
-   */
-  lift: 0.62,
-  /**
-   * The ribbon's width against the safe box.
-   *
-   * Full bleed to the gutter. A lower third that stops short of the edges is a
-   * plate, and a plate at this height reads as a second HUD — the whole point
-   * of running it to both edges is that it reads as chrome the fight is wearing
-   * for a second, not as a window that opened.
-   */
-  ribbonW: 0.98,
-  /**
-   * The band's height, as padding over the word's own height.
-   *
-   * Its own, not its texture's: fx/readycall.js takes the style padding back
-   * off before it measures. See typeH() there, and note that 0.34 of a padded
-   * height is nearly half of a real one — the band this number produced before
-   * that correction ate two ranks of the board instead of one.
-   */
-  bandPad: 0.34,
-  /**
-   * The beam's thickness, against a card's width.
-   *
-   * A quarter. It was a sixth and it was a hairline — a soft-ended gradient
-   * loses most of a thin strip to its own falloff, so what actually reached the
-   * screen was three or four pixels of red over a board full of lit gems and
-   * nobody would have followed it anywhere. Wider than this and it stops being
-   * a line pointing at a tile and becomes a column standing on one, which
-   * covers the art it is pointing at.
-   */
-  beam: 0.26,
-  /**
-   * The crown flipbook's size, against a card's width rather than the screen's.
-   *
-   * It burns out of the tile the beam lands on now instead of flanking the
-   * word, so it is measured against the tile. A little over a card wide: the
-   * effect has to be bigger than the thing it is erupting from or it reads as a
-   * decoration sitting on it.
-   */
-  crown: 1.05,
-  /**
-   * How far apart the mirrored pair stands, against a card's width.
-   *
-   * A third, so the two overlap through the middle and `add` builds a bright
-   * core out of the seam — one wide burst with a symmetrical silhouette. They
-   * were set a whole card apart for one revision, one clear of each edge of the
-   * tile, and at this size that is not a frame around anything: it is two small
-   * white claws poking up between three cards, and the eye reads them as debris
-   * rather than as the element.
-   */
-  crownFlank: 0.34,
-  /**
-   * How far the crowns' feet sink past the tile's top edge, against their own
-   * height.
-   *
-   * They stand on the edge at 0 and read as two objects balanced on a line.
-   * A fifth of themselves under it and they are burning out of the card, which
-   * is the thing being pointed at.
-   */
-  crownSink: 0.2,
-  /**
-   * Type, both against the safe box's width.
-   *
-   * Smaller than the centre banner's 0.15 — the word is not carrying the beat
-   * on its own any more. The ribbon, the beam and the crowns are all saying the
-   * same thing, and READY set the full height of a lower third is the one
-   * element that would have to shout over them.
-   */
-  word: 0.105,
-  who: 0.042,
-  wordTrack: 0.06,
-  whoTrack: 0.26,
-  /**
-   * Frames a second for the crown.
-   *
-   * 18 rather than the 24 the sheets were cut at, and it is the call's own
-   * length that sets it: the sixteen-frame sheets burn out in two thirds of a
-   * second at 24 and left the word standing on its own for the whole drop. At
-   * 18 a sixteen-frame burst spans the beat almost exactly. The eight-frame
-   * bolt still finishes early and holds, which is the sheets disagreeing about
-   * their own length rather than something to tune around — see art/readyfx.js,
-   * where the frame count is deliberately not fixed.
-   */
-  fps: 18,
-  /**
-   * Where the collapse lands.
-   *
-   * Roughly a hero tile against the safe box, so it arrives at about the size
-   * of the thing it is arriving in rather than at nothing — a word that shrinks
-   * to zero over a card reads as disappearing, and the whole point of the drop
-   * is that it goes somewhere.
-   */
-  to: 0.2,
-  /**
-   * The word's slam, as the scale it is struck flat from.
-   *
-   * Wide and short on the frame it lands, back to square over `slam`. It is
-   * the one entrance that does not read as a pop: a thing that arrives already
-   * deformed has been thrown, and a thing that grows has been faded up.
-   */
-  slamX: 1.5,
-  slamY: 0.66,
-  /**
-   * The rip out of the card, the slam, the hold, the rip back, and the drop in.
-   *
-   * Under a second and a half all told, and the length is the constraint
-   * rather than a measurement: this runs in the middle of a cascade the player
-   * is still watching resolve, and ULT_PACE.cast is the beat that is allowed to
-   * own the screen. Anything longer here and the announcement competes with the
-   * thing it is announcing.
-   */
-  open: 0.16,
-  slam: 0.2,
-  hold: 0.46,
-  close: 0.12,
-  drop: 0.32,
-};
-
 export const ULT_PACE = {
   rush: 5,
   cast: 1.35,
