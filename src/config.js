@@ -510,7 +510,7 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium    super hard
-   *     attack      0.24 -> 0.68   1.24->1.36   2.64 -> 1.28
+   *     attack      0.154 -> 0.435  0.79->0.87  1.69 -> 0.82
    *     resist      1.00 (none)      0.72       0.50 -> 0.45
    *     obsidian      1 -> 3         5            8 -> 9
    *
@@ -563,14 +563,14 @@ export const DIFFICULTY = {
    * under a boss turn rather than the worst it can do:
    *
    *   boss HP   zone         one rake      best match    ultimate
-   *      100%   super easy   x0.30    5%   38% of boss   41% of boss
-   *       75%   super easy   x0.48    7%   38%           41%
-   *       50%   medium >>>   x0.68   13%   38%           41%   OBSIDIAN HIDE
-   *       40%   medium       x1.24   23%   30%           28%
-   *       25%   hard >>>     x1.70   26%   30%           28%   MOLTEN CORE
-   *       12%   super hard   x27.5   50%   15%            9%
-   *       10%   super hard   x22.0   38%   14%            6%
-   *        0%   super hard   x14.0   24%   11%            6%
+   *      100%   super easy   x0.15    2%   38% of boss   41% of boss
+   *       75%   super easy   x0.25    4%   38%           41%
+   *       50%   medium >>>   x0.44    7%   38%           41%   OBSIDIAN HIDE
+   *       40%   medium       x0.79   12%   30%           28%
+   *       25%   hard >>>     x0.87   13%   30%           28%   MOLTEN CORE
+   *       12%   super hard   x1.69   25%   15%            9%
+   *       10%   super hard   x1.29   19%   14%            6%
+   *        0%   super hard   x0.82   12%   11%            6%
    *
    * Those last three lines are a spike, and the shape is the whole of what the
    * last quarter now is: the wall at 12% is a needle rather than a shelf — the
@@ -582,9 +582,8 @@ export const DIFFICULTY = {
    * `attack` at the kill is under what the boss was throwing back in the medium
    * zone. See the last keyframe, which is where that is argued.
    *
-   * The smash on that last line lands for 43% of a hero bar and the one on the
-   * needle for 89%, which is the hardest single hit the creative has ever
-   * thrown. The ending is where the softening went and the wall is where it was
+   * The smash on that last line lands for 22% of a hero bar and the one on the
+   * needle for 46%, which is the hardest single hit the fight throws. The ending is where the softening went and the wall is where it was
    * taken back from; see the last three keyframes.
    *
    * The last two columns are the other half of what the ending is for. An
@@ -689,7 +688,7 @@ export const DIFFICULTY = {
      * damaging the boss that is all it is — see Director.pressure, which only
      * ever takes the larger of the two. This is the answer to the run the spec
      * does not cover: a player who never damages the boss meeting a golem that
-     * swings at 0.24 for the whole run is not an easy fight, it is no fight,
+     * swings at 0.154 for the whole run is not an easy fight, it is no fight,
      * and an ad that ends on a health bar nobody touched.
      *
      * 0.7 lands a stalled run in the middle of the medium zone by the end of
@@ -737,7 +736,7 @@ export const DIFFICULTY = {
        * party was already chewed before the mechanic had landed — which is most
        * of what "it's too fast, you lose too fast" was about.
        */
-      { p: 0.0, attack: 0.24, resist: 1.0, obsidian: 1, hold: 5 },
+      { p: 0.0, attack: 0.154, resist: 1.0, obsidian: 1, hold: 5 },
       /**
        * Two thirds of a boss left, and still inside the easy zone.
        *
@@ -748,7 +747,7 @@ export const DIFFICULTY = {
        * The creep is small enough that nothing here is what anybody would call
        * difficulty — the swings are still under a tenth of a hero bar.
        */
-      { p: 0.35, attack: 0.44, resist: 1.0, obsidian: 2, hold: 6 },
+      { p: 0.35, attack: 0.282, resist: 1.0, obsidian: 2, hold: 6 },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
        * half.
@@ -765,7 +764,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.68,
+        attack: 0.435,
         resist: 1.0,
         obsidian: 3,
         hold: 8,
@@ -782,11 +781,11 @@ export const DIFFICULTY = {
        * the player cannot feel is not a boundary, and this one is announced a
        * beat before it by the keyframe above.
        */
-      { p: 0.6, attack: 1.24, resist: 0.78, obsidian: 5, hold: 10 },
+      { p: 0.6, attack: 0.79, resist: 0.78, obsidian: 5, hold: 10 },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
-       * The zone behind this line is deliberately near-flat: 1.24 to 1.36 across
+       * The zone behind this line is deliberately near-flat: 0.79 to 0.87 across
        * fifteen percent of the bar. Medium has to be a place the player gets to
        * stand and play, not a ramp they slide down — it is where the roster gets
        * charged and where somebody who has understood the game gets to look good
@@ -794,7 +793,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.75,
-        attack: 1.36,
+        attack: 0.87,
         resist: 0.78,
         obsidian: 5,
         hold: 10,
@@ -810,7 +809,7 @@ export const DIFFICULTY = {
        * this a climax rather than a difficulty setting.
        *
        * THE NEEDLE. This line is the peak of the whole fight and it is drawn as
-       * a spike rather than a shelf: 3.30 is x27.5 on the index the curve is
+       * a spike rather than a shelf: 1.69 is x27.5 on the index the curve is
        * read by — `attack/0.30` over `resist` — and the two keyframes below it
        * fall away to x22.0 and then x14.0. Nothing in the run is this hard
        * before it and nothing is this hard after it.
@@ -818,13 +817,13 @@ export const DIFFICULTY = {
        * The value has been all over the place and the history is the argument.
        * 2.8 (x23.3) while the whole tail climbed past it; 2.52 (x21.0) when the
        * top of the curve was asked for at 21 and this had to come down to stop
-       * the tail running backwards off it; 3.30 now, because what was asked for
+       * the tail running backwards off it; 1.69 now, because what was asked for
        * this time was the *shape* — a needle here and a fall out of it — rather
        * than a number anywhere.
        *
        * So the softening of the last three passes now lives entirely in the
        * fall, not in the wall. A player who reaches 12% health meets the
-       * hardest swing in the creative — 89% of a hero's bar on a smash — and
+       * hardest swing in the creative — 46% of a hero's bar on a smash — and
        * then watches the golem come apart over the last tenth. Lower this first
        * if the spike turns out to wipe parties that had the kill in hand; the
        * fall below is shaped against it and will follow it down.
@@ -836,7 +835,7 @@ export const DIFFICULTY = {
        * whole. Nothing the player owns is a solution to this zone any more; it
        * is a grind, and it is meant to be.
        */
-      { p: 0.88, attack: 2.64, resist: 0.4, obsidian: 8, hold: 11 },
+      { p: 0.88, attack: 1.69, resist: 0.4, obsidian: 8, hold: 11 },
       /**
        * The killing stretch.
        *
@@ -869,8 +868,8 @@ export const DIFFICULTY = {
        * "a couple of percent" and into "why did I press that".
        *
        * THE FALL, and its first and steepest two points. `attack` comes off the
-       * needle's 2.64 (x22.0) to 2.01 here (x17.6) and then down to the kill's
-       * 1.60 (x14.0) — so a fifth of the drop is spent in the two points of
+       * needle's 1.69 (x22.0) to 1.29 here (x17.6) and then down to the kill's
+       * 0.82 (x14.0) — so a fifth of the drop is spent in the two points of
        * health between 12% and 10%, and the remaining tenth of the bar spreads
        * the rest of it out. That is the shape deliberately: the golem comes off
        * the wall hard and then goes quietly, rather than sagging at a constant
@@ -894,16 +893,16 @@ export const DIFFICULTY = {
        * bars of damage now against 1.37, which is about half a second off the
        * fight.
        */
-      { p: 0.9, attack: 2.01, resist: 0.38, obsidian: 8, hold: 12 },
+      { p: 0.9, attack: 1.29, resist: 0.38, obsidian: 8, hold: 12 },
       /**
        * The killing blow, and the one place the last quarter was let out.
        *
        * 3.40 before, then 3.17, then 3.08, then 2.74, then 2.39, then 2.17,
-       * then 1.94, and 1.60 now. Measured on the index the curve is read by —
+       * then 1.94, and 0.82 now. Measured on the index the curve is read by —
        * `attack/0.30` over `resist`, which is what a keyframe is worth against
        * the opening swing — the kill now lands at x14.0 where it landed at
        * x17.0, at x19.0 and x21.0 before that, x24.0 before that, and x29.8 to
-       * start with. 1.60 is the value that lands the index on 14.
+       * start with. 0.82 is the value that lands the index on 14.
        *
        * The third of those steps that does *not* move the top of the curve.
        * The ending was asked down to 14 on its own, so the wall at 0.88 keeps
@@ -916,13 +915,13 @@ export const DIFFICULTY = {
        * the two you are looking at before putting it back.
        *
        * WHAT CROSSED OVER HERE, and it is the reason this pass is different
-       * from the two before it: at 1.60 the golem's raw swing at the kill is
-       * *under* the 1.70 it throws at 25% health. The index still says x14.0
+       * from the two before it: at 0.82 the golem's raw swing at the kill is
+       * *under* the 0.87 it throws at 25% health. The index still says x14.0
        * against x7.3 back there, and the index is not lying — it is a ratio,
        * and `resist` at 0.38 against 0.78 is half of what it is measuring. But
        * the number the player feels is the damage, and the damage now runs
-       * downhill from the medium zone to the end of the fight: 26% of a hero
-       * bar per rake at 25% health, 24% at the kill. A player paying attention
+       * downhill from the medium zone to the end of the fight: 13% of a hero
+       * bar per rake at 25% health, 12% at the kill. A player paying attention
        * gets hit softer the closer the boss is to dead, which is a different
        * claim from "the golem tires" and worth deciding on deliberately.
        *
@@ -943,15 +942,15 @@ export const DIFFICULTY = {
        * bracket table above with it; `attack` is only ever how hard the boss
        * hits back. The bar still needs 1.34 bars of damage to empty and an
        * ultimate is still worth its 2.5% down here — nothing about the grind
-       * changed. What changed is that the swing which ends runs takes 43% of a
-       * hero bar rather than the 92% it was first written at, and the rake 24%
+       * changed. What changed is that the swing which ends runs takes 22% of a
+       * hero bar rather than the 92% it was first written at, and the rake 12%
        * rather than 51%.
        *
        * The brackets above were simulated at 3.40, so read them as the floor
        * under this build rather than as its measurement: a softer killing blow
        * can only move a wipe into a win, and it moves nothing else.
        */
-      { p: 1.0, attack: 1.28, resist: 0.38, obsidian: 9, hold: 12 },
+      { p: 1.0, attack: 0.82, resist: 0.38, obsidian: 9, hold: 12 },
     ],
   },
 
