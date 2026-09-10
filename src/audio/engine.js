@@ -46,6 +46,12 @@ const REBUILD_GAP_MS = 4000;
 /** An attempt per drag frame would be dozens a second. This is the floor. */
 const MOVE_GAP_MS = 120;
 
+const PARK_FADE = 0.07;
+const WAKE_FADE = 0.14;
+const BEAT_MS = 200;
+const WATCH_HOLD = 1.1;
+const WATCH_FALL = 0.45;
+
 const now = () => Date.now();
 
 let ctx = null;
@@ -76,6 +82,10 @@ let noiseBuf = null;
  */
 const live = [];
 let muted = false;
+let parked = false;
+let parkTimer = null;
+let fadeUntil = 0;
+let beatAt = 0;
 /** True once the context has actually reached `running` — not once we tried. */
 let opened = false;
 let watching = false;
@@ -356,6 +366,13 @@ function rebuild() {
   bus = null;
   master = null;
   noiseBuf = null;
+  parked = false;
+  fadeUntil = 0;
+  beatAt = 0;
+  if (parkTimer) {
+    clearTimeout(parkTimer);
+    parkTimer = null;
+  }
   // Those voices belonged to a context that is about to be closed, and none of
   // their `onended` callbacks are ever going to arrive.
   live.length = 0;
@@ -588,10 +605,28 @@ export function audioSleep(asleep) {
   // hardware is busy, and the try/catch never sees it. Unhandled, that is a
   // script error on the compliance run and it fires every time the ad is
   // scrolled back into view on a phone that is already playing something.
+  if (parkTimer) {
+    clearTimeout(parkTimer);
+    parkTimer = null;
+  }
+  parked = !!asleep;
   try {
     if (asleep) {
-      const p = ctx.suspend();
-      if (p && p.catch) p.catch(() => {});
+      fadeMaster(0, PARK_FADE);
+      const dying = ctx;
+      parkTimer = setTimeout(
+        () => {
+          parkTimer = null;
+          if (dying !== ctx) return;
+          try {
+            const p = dying.suspend();
+            if (p && p.catch) p.catch(() => {});
+          } catch (e) {
+            /* nothing left to park */
+          }
+        },
+        Math.round(PARK_FADE * 1000) + 30,
+      );
       return;
     }
     // Waking up is the half that was silently failing. A screen lock leaves the
@@ -608,13 +643,62 @@ export function audioSleep(asleep) {
     // back — which nobody does, so it never came back at all.
     const c = ctx;
     const settle = () => {
-      if (c === ctx && c.state !== "running") staleRefusal();
+      if (c !== ctx) return;
+      if (c.state !== "running") {
+        staleRefusal();
+        return;
+      }
+      fadeMaster(level(), WAKE_FADE);
     };
     const p = c.resume();
     if (p && p.then) p.then(settle, staleRefusal);
     else settle();
   } catch (e) {
     staleRefusal();
+  }
+}
+
+function level() {
+  return muted ? 0 : AUDIO.master;
+}
+
+function fadeMaster(to, seconds) {
+  if (!ctx || !master) return;
+  const g = master.gain;
+  const at = ctx.currentTime;
+  try {
+    const from = g.value;
+    g.cancelScheduledValues(at);
+    g.setValueAtTime(from, at);
+    g.linearRampToValueAtTime(to, at + seconds);
+    fadeUntil = at + seconds;
+  } catch (e) {
+    g.value = to;
+  }
+}
+
+export function audioHeartbeat() {
+  if (!ctx || !master || parked) return;
+  const t = now();
+  if (t - beatAt < BEAT_MS) return;
+  beatAt = t;
+
+  const g = master.gain;
+  const at = ctx.currentTime;
+  if (at < fadeUntil) return;
+
+  const hold = level();
+  if (g.value < hold - 0.001) {
+    fadeMaster(hold, 0.08);
+    return;
+  }
+  try {
+    g.cancelScheduledValues(at);
+    g.setValueAtTime(hold, at);
+    g.linearRampToValueAtTime(hold, at + WATCH_HOLD);
+    g.linearRampToValueAtTime(0, at + WATCH_HOLD + WATCH_FALL);
+  } catch (e) {
+    /* no automation, no watchdog */
   }
 }
 
@@ -631,7 +715,9 @@ function staleRefusal() {
 
 export function setMuted(on) {
   muted = !!on;
-  if (master) master.gain.value = muted ? 0 : AUDIO.master;
+  // Through the ramp, not the value: audioHeartbeat keeps a scheduled fall on
+  // this param, and a plain write is overridden by anything on the timeline.
+  if (master) fadeMaster(parked ? 0 : level(), 0.05);
 }
 
 export function isMuted() {

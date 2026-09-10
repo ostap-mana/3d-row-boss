@@ -65,6 +65,7 @@ import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
 import { EV, eventLog, track, trackOnce } from "./net/analytics.js";
 import { tagReport } from "./net/tags.js";
 import {
+  audioHeartbeat,
   audioSleep,
   installAudioUnlock,
   onAudioOpen,
@@ -598,6 +599,10 @@ async function boot() {
   document.addEventListener("visibilitychange", () =>
     audioSleep(document.hidden),
   );
+  // A locked phone does not always send the one above: some webviews only ever
+  // send this pair, and one of the two has to be the thing that parks the sound.
+  window.addEventListener("pagehide", () => audioSleep(true));
+  window.addEventListener("pageshow", () => audioSleep(document.hidden));
   /**
    * The same thing again, from the container that does not use the document to
    * say it.
@@ -1197,6 +1202,7 @@ async function boot() {
   /* -------------------------------------------------------------- loop */
 
   app.ticker.add((ticker) => {
+    audioHeartbeat();
     // Clamped so a backgrounded tab does not fast-forward the storyboard.
     const real = Math.min(ticker.deltaMS / 1000, 0.05);
     /**
