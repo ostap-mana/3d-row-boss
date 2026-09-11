@@ -2505,6 +2505,51 @@ export const ULT_PACE = {
 };
 
 /**
+ * The ultimate's own attack, thrown by the hero who was spent.
+ *
+ * It used to launch off a point inside the board — `board.x + size/2`, a fifth
+ * of the way down — which is nobody. In portrait that put the bolt's start a
+ * hand's width under the boss, so the biggest attack in the fight travelled
+ * almost nowhere and read as having spawned in mid-air; sideways, where the
+ * board hugs one edge and the beast stands in a column off the other, it read
+ * as something sliding in from the side.
+ *
+ * So it comes off the avatar now. `gather` is the wind-up on the card — the
+ * beat where the light the board just gave that hero collects in their hands —
+ * and everything after it is that light crossing the arena.
+ */
+export const ULT_FX = {
+  gather: 0.22,
+  gatherSize: 0.3,
+  gatherMotes: 18,
+  gatherReach: 0.95,
+  muzzle: 0.62,
+  muzzleLife: 0.26,
+  lanceLife: 0.32,
+  lanceThick: 0.075,
+  lanceCore: 0.2,
+  trailGap: 22,
+  trailSize: 0.26,
+  /**
+   * How big the bolt is while it crosses, as a fraction of the blast's size.
+   *
+   * Deliberately much smaller than it lands at, and not only for the swell. The
+   * board is the brightest thing on the screen and the bolt flies straight over
+   * it: at half the blast's width the drawing stopped reading as a bolt at all
+   * and became an orange wash over the gems, with the painted flame lost in it.
+   * Small and hot crosses a lit board; big and soft does not.
+   */
+  boltSize: 0.3,
+  boltSwell: 0.22,
+  travel: 0.28,
+  blastScale: 1.35,
+  shockWidth: 12,
+  shockReach: 1.5,
+  shockLife: 0.44,
+  sparks: 18,
+};
+
+/**
  * How far Arissa's tide refills the party. Deliberately not a full heal any more:
  * the ultimate has to be worth building towards without erasing every mistake
  * that came before it.

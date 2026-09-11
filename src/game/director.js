@@ -2609,25 +2609,29 @@ export class Director {
     if (this.bossHp <= 0) this.claim("victory");
 
     const target = boss.impactPoint();
-    const origin = {
-      x: layout.board.x + layout.board.size / 2,
-      y: layout.board.y + layout.board.size * 0.2,
-    };
+    // The hero's own card, which is the whole point: this is their ultimate.
+    // It used to leave a point inside the board — `board.x + size/2`, a fifth
+    // of the way down — and so belonged to nobody on screen. In portrait that
+    // start sits a hand's width under the beast, so the biggest attack in the
+    // fight barely travelled; sideways, with the board against one edge and the
+    // beast in a column off the other, it slid in from the side. Neither read
+    // as the mage the player just spent doing anything at all.
+    const origin = heroRow.cardPoint(index);
 
-    // One call for all six. `vfx.spell` looks every mage up by element and
+    // One call for all six. `vfx.ultCast` looks every mage up by element and
     // plays their own sheet, and anyone whose sheet has not been packed yet
     // falls back — Ricklow to the painted fireball, everybody else to `beam`,
     // which is what all six of them threw before the sheets existed, tuned
-    // exactly as it was.
+    // exactly as it was. Both fallbacks now leave from the card too, and both
+    // keep the wind-up and the shock ring around them.
     //
     // This used to branch on `element === "fire"`, comparing a hero's element
     // against a string when every element in config.js is an index. It was
     // never true, so the one painted ultimate in the build had never played:
     // Ricklow fell through to the same beam as everybody else.
-    await vfx.spell(element, origin, target, color, {
+    await vfx.ultCast(element, origin, target, color, light, {
       size: layout.board.size * 1.25,
-      travel: 0.22,
-      beam: { thickness: 64, impact: 2.6, travel: 0.2 },
+      beam: { thickness: 64, impact: 2.6, travel: 0.22 },
     });
     if (this.ended) return;
 

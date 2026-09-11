@@ -22,7 +22,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
-import { FIRE } from "../config.js";
+import { FIRE, ULT_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -406,6 +406,267 @@ export class Vfx extends Container {
       color,
       o,
     );
+  }
+
+  /**
+   * The ultimate, thrown by the hero who was spent.
+   *
+   * Three beats, and the first of them is the reason this exists rather than
+   * `spell` being called with a different origin. The cast used to launch off a
+   * point inside the board — see ULT_FX — so the biggest attack in the fight
+   * belonged to nobody on screen. Now the light gathers on the avatar, leaves
+   * it along a lance that lays the whole path down in one frame, and lands on
+   * the beast with a shock ring under the painted blast.
+   *
+   * The flight is walked here rather than handed to `paintedBolt` because the
+   * trail has to be dropped off the bolt's own positions as it goes, and that
+   * needs the clock that is moving it. The fallbacks are `spell`'s, unchanged:
+   * Ricklow to the painted comet, everybody else to the beam — both of which
+   * now also leave from the card, which was the whole complaint.
+   */
+  async ultCast(element, from, to, color, light, opts) {
+    const o = opts || {};
+    const size = o.size || 420;
+
+    await this.ultGather(from, color, light, size * ULT_FX.gatherSize);
+    this.ultMuzzle(from, to, color, size);
+    this.ultLance(from, to, light, size);
+
+    const frames = spellFrames(SPELL_BY_ELEMENT[element]);
+    if (!frames) {
+      if (element === FIRE) await this.fireball(from, to, color, o);
+      else await this.beam(from, to, color, { ...o, ...(o.beam || {}) });
+      this.ultShock(to, from, color, light, size);
+      return;
+    }
+
+    const bolt = new Sprite(frames[0]);
+    bolt.anchor.set(0.5);
+    bolt.blendMode = "add";
+    bolt.x = from.x;
+    bolt.y = from.y;
+    this.field.addChild(bolt);
+
+    const lead = new Sprite(glowTexture());
+    lead.anchor.set(0.5);
+    lead.blendMode = "add";
+    lead.tint = color;
+    lead.alpha = 0.5;
+    lead.setSize(size * 0.45, size * 0.45);
+    this.field.addChild(lead);
+
+    let last = { x: from.x, y: from.y };
+    let drop = 0;
+
+    await tweenValue(0, 1, o.travel || ULT_FX.travel, (p) => {
+      if (bolt.destroyed) return;
+      // Away slowly, in fast — the bolt is heavy leaving the hand and is at
+      // its quickest on the frame it arrives, which is what sells the hit.
+      const e = p * 0.45 + Ease.quadIn(p) * 0.55;
+      bolt.x = from.x + (to.x - from.x) * e;
+      bolt.y = from.y + (to.y - from.y) * e;
+      lead.x = bolt.x;
+      lead.y = bolt.y;
+
+      const w = size * (ULT_FX.boltSize + e * ULT_FX.boltSwell);
+      const i = Math.floor(e * (SPELL_TRAVEL_LAST + 1));
+      bolt.texture = frames[Math.min(SPELL_TRAVEL_LAST, i)];
+      bolt.setSize(w, w / SPELL_ASPECT);
+
+      drop += Math.hypot(bolt.x - last.x, bolt.y - last.y);
+      if (drop >= ULT_FX.trailGap) {
+        drop = 0;
+        this.ember(
+          bolt.x + rndRange(-10, 10),
+          bolt.y + rndRange(-10, 10),
+          size * ULT_FX.trailSize * rndRange(0.6, 1.1),
+          color,
+        );
+      }
+      last = { x: bolt.x, y: bolt.y };
+    });
+
+    tween(lead, { alpha: 0 }, 0.24).then(() => lead.destroy());
+
+    // The blast stands upright where it landed, same rule as the comet's: the
+    // last five frames are drawn as fire going up off a floor.
+    bolt.x = to.x;
+    bolt.y = to.y;
+    const first = SPELL_TRAVEL_LAST + 1;
+    const n = frames.length - first;
+    tweenValue(0, 1, o.blast || 0.52, (p) => {
+      if (bolt.destroyed) return;
+      const w = size * ULT_FX.blastScale * (1 + p * 0.35);
+      bolt.texture = frames[first + Math.min(n - 1, Math.floor(p * n))];
+      bolt.setSize(w, w / SPELL_ASPECT);
+      // Only the tail fades: an explosion that starts dying on the frame it
+      // arrives never reads as having arrived at all.
+      bolt.alpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
+    }).then(() => bolt.destroy());
+
+    this.ultShock(to, from, color, light, size);
+  }
+
+  /** The wind-up on the avatar: the board's light collecting in their hands. */
+  async ultGather(at, color, light, size) {
+    const core = new Sprite(glowTexture());
+    core.anchor.set(0.5);
+    core.blendMode = "add";
+    core.tint = light;
+    core.x = at.x;
+    core.y = at.y;
+    core.setSize(size, size);
+    core.alpha = 0;
+    this.field.addChild(core);
+    const base = { x: core.scale.x, y: core.scale.y };
+    tweenValue(0, 1, ULT_FX.gather * 1.3, (p) => {
+      if (core.destroyed) return;
+      const k = 0.2 + Ease.expoOut(p) * 1.1;
+      core.scale.set(base.x * k, base.y * k);
+      core.alpha = p < 0.7 ? p / 0.7 : 1 - (p - 0.7) / 0.3;
+    }).then(() => core.destroy());
+
+    // Inward, not outward. Everything else in this file throws particles away
+    // from a point; these are the only ones that arrive at one, and that is
+    // the whole of what reads as a hero winding up rather than as one already
+    // hit.
+    const room = MAX_PARTICLES - this.field.children.length;
+    const n = Math.min(ULT_FX.gatherMotes, Math.max(0, room));
+    for (let i = 0; i < n; i++) {
+      const mote = new Sprite(sparkTexture());
+      mote.anchor.set(0.5);
+      mote.blendMode = "add";
+      mote.tint = i % 3 === 0 ? 0xffffff : color;
+      const w = rndRange(14, 30);
+      mote.setSize(w, w);
+      const a = rndRange(0, Math.PI * 2);
+      const dist = size * ULT_FX.gatherReach * rndRange(0.55, 1);
+      mote.x = at.x + Math.cos(a) * dist;
+      mote.y = at.y + Math.sin(a) * dist;
+      this.field.addChild(mote);
+      const life = ULT_FX.gather * rndRange(0.7, 1.05);
+      tween(mote, { x: at.x, y: at.y }, life, { ease: Ease.quadIn });
+      tween(mote.scale, { x: 0, y: 0 }, life, { ease: Ease.quadIn }).then(() =>
+        mote.destroy(),
+      );
+    }
+
+    await delay(ULT_FX.gather);
+  }
+
+  /**
+   * The flare on the card the bolt leaves from, stretched along its heading.
+   *
+   * This is the beat that says *this hero* threw it, and it does the job a ring
+   * closing on the card could not: a hoop at that size reads as a piece of
+   * interface drawn over the row, while a flare pinned to the launch point and
+   * turned along the line is the light of something leaving a hand.
+   */
+  ultMuzzle(from, to, color, size) {
+    const ang = Math.atan2(to.y - from.y, to.x - from.x);
+    const w = size * ULT_FX.muzzle;
+
+    [
+      { tint: color, scale: 1, alpha: 0.95 },
+      { tint: 0xffffff, scale: 0.5, alpha: 1 },
+    ].forEach(({ tint, scale, alpha }) => {
+      const flare = new Sprite(glowTexture());
+      flare.anchor.set(0.5);
+      flare.blendMode = "add";
+      flare.tint = tint;
+      flare.x = from.x;
+      flare.y = from.y;
+      flare.rotation = ang;
+      flare.setSize(w * 1.6 * scale, w * scale);
+      this.field.addChild(flare);
+      const base = { x: flare.scale.x, y: flare.scale.y };
+      tweenValue(0, 1, ULT_FX.muzzleLife, (p) => {
+        if (flare.destroyed) return;
+        const k = 0.45 + Ease.expoOut(p) * 1.15;
+        flare.scale.set(base.x * k, base.y * k);
+        flare.alpha = alpha * (p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85);
+      }).then(() => flare.destroy());
+    });
+  }
+
+  /**
+   * The path, laid down in one frame as the bolt leaves the card.
+   *
+   * Two lines rather than one. The wide tinted one is the element and the
+   * narrow white one inside it is the heat, and the white is what carries the
+   * line across the board: over a grid of lit gems a single tinted streak is
+   * one more coloured thing among thirty, and the eye does not follow it to
+   * the beast. Both collapse towards nothing as they fade, so what is left a
+   * third of a second later is a hairline rather than a bar.
+   */
+  ultLance(from, to, color, size) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy);
+    const rot = Math.atan2(dy, dx);
+
+    [
+      { tint: color, thick: ULT_FX.lanceThick, alpha: 0.85 },
+      { tint: 0xffffff, thick: ULT_FX.lanceThick * ULT_FX.lanceCore, alpha: 1 },
+    ].forEach(({ tint, thick, alpha }) => {
+      const lance = new Sprite(beamTexture());
+      lance.anchor.set(0, 0.5);
+      lance.blendMode = "add";
+      lance.tint = tint;
+      lance.alpha = alpha;
+      lance.x = from.x;
+      lance.y = from.y;
+      lance.rotation = rot;
+      lance.setSize(len, size * thick);
+      this.field.addChild(lance);
+      tween(lance.scale, { y: lance.scale.y * 0.12 }, ULT_FX.lanceLife, {
+        ease: Ease.quadOut,
+      });
+      tween(lance, { alpha: 0 }, ULT_FX.lanceLife).then(() => lance.destroy());
+    });
+  }
+
+  /** Ring and spray under the blast, thrown back along the bolt's own line. */
+  ultShock(at, from, color, light, size) {
+    const ring = new Graphics();
+    ring.circle(0, 0, 50);
+    ring.stroke({ width: ULT_FX.shockWidth, color: light, alpha: 1 });
+    ring.x = at.x;
+    ring.y = at.y;
+    ring.blendMode = "add";
+    ring.scale.set(0.15);
+    this.field.addChild(ring);
+    const reach = (size * ULT_FX.shockReach) / 100;
+    tween(ring.scale, { x: reach, y: reach * 0.72 }, ULT_FX.shockLife, {
+      ease: Ease.expoOut,
+    });
+    tween(ring, { alpha: 0 }, ULT_FX.shockLife).then(() => ring.destroy());
+
+    const incoming = Math.atan2(at.y - from.y, at.x - from.x);
+    const room = MAX_PARTICLES - this.field.children.length;
+    const n = Math.min(ULT_FX.sparks, Math.max(0, room));
+    for (let i = 0; i < n; i++) {
+      const spark = new Sprite(sparkTexture());
+      spark.anchor.set(0.5);
+      spark.blendMode = "add";
+      spark.tint = i % 4 === 0 ? 0xffffff : color;
+      const w = rndRange(12, 34);
+      spark.setSize(w, w);
+      spark.x = at.x;
+      spark.y = at.y;
+      this.field.addChild(spark);
+      const out = incoming + Math.PI + rndRange(-1.3, 1.3);
+      const dist = rndRange(60, 240);
+      tween(
+        spark,
+        { x: at.x + Math.cos(out) * dist, y: at.y + Math.sin(out) * dist },
+        0.5,
+        { ease: Ease.quadOut },
+      );
+      tween(spark.scale, { x: 0, y: 0 }, 0.5, { ease: Ease.quadIn }).then(() =>
+        spark.destroy(),
+      );
+    }
   }
 
   /**
