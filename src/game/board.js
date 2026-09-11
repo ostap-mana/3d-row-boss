@@ -221,38 +221,6 @@ const SHUFFLE_SETTLE = 0.16;
 const CELL_TINT = [0.07, 0.02];
 const CELL_WASH = 0xe5ce8a;
 
-export function straightRuns(cells, typeOf) {
-  const key = (r, c) => `${r},${c}`;
-  const set = new Set(cells.map((cell) => key(cell.r, cell.c)));
-  const out = [];
-
-  [
-    [0, 1],
-    [1, 0],
-  ].forEach(([dr, dc]) => {
-    cells.forEach((cell) => {
-      const type = typeOf(cell.r, cell.c);
-      if (type < 0) return;
-      if (
-        set.has(key(cell.r - dr, cell.c - dc)) &&
-        typeOf(cell.r - dr, cell.c - dc) === type
-      ) {
-        return;
-      }
-      const line = [cell];
-      for (;;) {
-        const r = cell.r + dr * line.length;
-        const c = cell.c + dc * line.length;
-        if (!set.has(key(r, c)) || typeOf(r, c) !== type) break;
-        line.push({ r, c });
-      }
-      if (line.length >= 3) out.push({ cells: line, type });
-    });
-  });
-
-  return out;
-}
-
 export class Board extends Container {
   constructor() {
     super();
@@ -332,7 +300,6 @@ export class Board extends Container {
 
     /** Hooks the director subscribes to. */
     this.onPop = null;
-    this.onDetonate = null;
     this.onInvalid = null;
     this.onInteract = null;
     /**
@@ -1610,24 +1577,6 @@ export class Board extends Container {
     });
   }
 
-  detonateRuns(cells) {
-    if (!this.onDetonate) return;
-    straightRuns(cells, (r, c) => this.typeAt(r, c)).forEach((run) => {
-      const points = run.cells.map((cell) => {
-        const p = this.cellPos(cell.r, cell.c);
-        return { x: this.x + p.x, y: this.y + p.y };
-      });
-      this.onDetonate(
-        points[0],
-        points[points.length - 1],
-        run.type,
-        run.cells.length,
-        this.cell,
-        points,
-      );
-    });
-  }
-
   /**
    * Blow up a set of cells.
    *
@@ -1652,7 +1601,6 @@ export class Board extends Container {
    * events rather than one effect played twelve times.
    */
   async popCells(cells) {
-    this.detonateRuns(cells);
     // The middle of the run, in cells, so the stagger radiates from it.
     let mr = 0;
     let mc = 0;
