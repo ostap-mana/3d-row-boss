@@ -22,6 +22,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
+import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { FIRE, ULT_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
@@ -226,6 +227,30 @@ export class Vfx extends Container {
       const k = w * (1 + p * 0.35);
       s.setSize(k, k / POP_ASPECT);
       s.alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
+    }).then(() => s.destroy());
+
+    return true;
+  }
+
+  charge(x, y, color, size, life) {
+    const frames = chargeFrames();
+    if (!frames) return false;
+    if (this.field.children.length >= MAX_PARTICLES) return false;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color;
+    s.x = x;
+    s.y = y;
+    const w = size || 128;
+    s.setSize(w * 0.86, (w * 0.86) / CHARGE_ASPECT);
+    this.field.addChild(s);
+
+    tweenValue(0, 1, life || 0.32, (p) => {
+      s.texture = frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
+      const k = w * (0.86 + p * 0.3);
+      s.setSize(k, k / CHARGE_ASPECT);
     }).then(() => s.destroy());
 
     return true;

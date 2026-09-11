@@ -140,6 +140,9 @@ const LEAN_HYST = 1.4;
 const POP_SWELL = 0.1;
 const POP_COLLAPSE = 0.17;
 
+const CHARGE_HOLD = 0.12;
+const CHARGE_LIFE = 0.32;
+
 /**
  * How much of that collapse the board waits out before it drops the stones
  * above into the hole.
@@ -299,6 +302,7 @@ export class Board extends Container {
     this.previewToken = 0;
 
     /** Hooks the director subscribes to. */
+    this.onCharge = null;
     this.onPop = null;
     this.onInvalid = null;
     this.onInteract = null;
@@ -1561,6 +1565,7 @@ export class Board extends Container {
         // One voice for the step, tuned to the rung of the cascade it is on —
         // a sound per gem would be twelve of the same pop inside a second.
         sfx.match(step, cells.length, this.typeAt(cells[0].r, cells[0].c));
+        await this.chargeCells(cells);
         if (onStep) onStep(step, cells);
         // Matches clear and neighbouring obsidian cracks in the same beat.
         await Promise.all([this.popCells(cells), this.breakLocksNear(cells)]);
@@ -1600,6 +1605,18 @@ export class Board extends Container {
    * way, picked per stone, means twelve stones clearing in a cascade are twelve
    * events rather than one effect played twelve times.
    */
+  async chargeCells(cells) {
+    cells.forEach((cell) => {
+      const gem = this.grid[cell.r][cell.c];
+      if (!gem || gem.destroyed) return;
+      glowTo(gem, 1, CHARGE_HOLD);
+      if (this.onCharge) {
+        this.onCharge(this.x + gem.x, this.y + gem.y, gem.type, CHARGE_LIFE);
+      }
+    });
+    await delay(CHARGE_HOLD);
+  }
+
   async popCells(cells) {
     // The middle of the run, in cells, so the stagger radiates from it.
     let mr = 0;
@@ -1943,6 +1960,7 @@ export class Board extends Container {
     // The wipe and the cascade it sets off are claimed separately: resolve()
     // claims for itself, and a job may not claim twice.
     await this.claim(async () => {
+      await this.chargeCells(cells);
       await this.popCells(cells);
       this.applyGravity();
       this.refill(0);

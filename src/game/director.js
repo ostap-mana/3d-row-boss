@@ -261,6 +261,9 @@ export class Director {
     scene.debug = this;
 
     const { board, vfx, hud, hand } = scene;
+    board.onCharge = (x, y, type, life) => {
+      vfx.charge(x, y, GEM_COLORS[type], board.cell * 1.5, life);
+    };
     board.onPop = (x, y, type) => {
       // The sparks first and the painted mark over them. `pop` returns false
       // until its sheet exists, which is the whole of the fallback: the burst
