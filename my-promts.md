@@ -1275,3 +1275,60 @@ sampling the whole clip spends sixteen of twenty frames on nothing moving.
 
 The loss card does not show this sprite yet — `OutcomeScreen` gates it on
 `!this.defeat` in `src/ui/outcome.js`. Packing the sheet is not wiring it.
+
+---
+
+# DEFEAT, as actually built — local Wan 2.2, no Seedance
+
+Seedance kept refusing the job, so the shipped defeat figure was generated on
+this machine instead. Free, reproducible, and it never has to be argued with.
+
+Workflow: `src/source/outcome-workflows/defeat-v1.json`
+Start frame: `src/seedence/ref-pose.png` (frame 200 of the win take)
+Model: Wan2.2-TI2V-5B-Q5_K_M.gguf, umt5_xxl text encoder, wan2.2 VAE
+704x400, 33 frames, 30 steps, uni_pc/simple, cfg 6.5, shift 8, seed 20260915
+
+Launch ComfyUI with `--disable-smart-memory` or it crashes mid-batch in GGUF
+partial unload. Then run the workflow and pack the frames:
+
+```
+ffmpeg -framerate 24 -i output/defeat/v1/f_%05d_.png -c:v libx264 -crf 12 \
+  -pix_fmt yuv420p defeat-v1.mp4
+
+node tools/pack-video-sheet.mjs defeat-v1.mp4 \
+  --crop 620:400:0:0 --frames 20 --cols 5 --cell 320 \
+  --flood --pocket 40 --despill 6 --out src/assets/outcome/spurn.webp
+```
+
+`--crop 620:400:0:0` is not a guess. The subject's bounding box sits at x 87..533
+in a 704-wide frame, so a 620-wide crop from x=0 leaves her centred with 87px
+either side, and 620:400 is 1.55 against the card cell's 1.553. The sheet comes
+out on the same `{cols: 5, cellW: 320, cellH: 206, pad: 2, count: 20}` grid the
+win's toast uses, which is why `art/toast.js` cuts both with one function.
+
+`--pocket 40 --despill 6` rather than the defaults: at the default 20 the key
+left 4245 green-dominant pixels on her, mostly a patch by her shoulder. At 40
+that falls to 273 and only 0.4% of the subject goes with it, and the pale gold
+drink survives.
+
+## Why this take
+
+Measured, not eyeballed. Across the 33 frames the body's right edge swings 7px,
+the top of her head 4px and the bottom 0px, while the glass travels 46px. That
+is the whole point: the figure is nailed down and only the prop moves, which is
+what lets the band cross her at the waist without her sliding against it.
+
+A second take at shift 3 / cfg 5.5 / 25 frames was steadier still (1px of body
+swing) but only moved the glass 28px, and the beat stopped reading. Stability
+was never the scarce thing here; legible motion was.
+
+## Wiring
+
+`art/toast.js` loads both sheets and exports `spurnFrames()` beside
+`toastFrames()`. `OutcomeScreen.figureFrames()` picks by `this.defeat`, and the
+sprite is no longer gated to the win. Everything else — the slot, the sink, the
+size cap, the 9fps playback — is shared, because both sheets are the same grid.
+
+Verified over CDP against the built `dist/km3.html`: both cards opened, the
+sprite measured 429x276 in place on each, animation ran to frame 19, and the
+screenshots were looked at. The win card is unchanged.
