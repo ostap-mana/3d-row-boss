@@ -2061,9 +2061,8 @@ export const AUDIO = {
 /**
  * Where a tap goes.
  *
- * Three destinations rather than two, because the end card wears three badges
- * and each one is a promise about where it leads — see BADGE_STORE below, and
- * net/cta.js, which does the routing.
+ * Two destinations, picked off the device: nothing on the end card names a
+ * platform any more, so there is nothing to route by. See net/cta.js.
  *
  * Locale-free on purpose. `apps.apple.com/app/id…` and the bare Play `details`
  * URL both redirect into the storefront the device is already signed in to; a
@@ -2076,31 +2075,11 @@ export const AUDIO = {
  *            once already and the name is the one field that does not hold still.
  *   android  the same build on Play. The package still says what the game shipped
  *            under; the listing is live under the new name.
- *   pc       the game's own site, which is where the PC and Mac launcher is handed
- *            out. Deliberately not the installer: that download is a signed CDN
- *            URL with an expiry stamped into it, and a creative that runs for a
- *            quarter would start handing out a dead link partway through.
  */
 export const STORE_URL = {
   ios: "https://apps.apple.com/app/id6755186220",
   android:
     "https://play.google.com/store/apps/details?id=hitzone.anima.spirit.guardians",
-  pc: "https://invokers.com/",
-};
-
-/**
- * Which of the three each badge on the end card asks for, keyed by the badge ids
- * in art/brand.js.
- *
- * Anything not in here — the PLAY NOW plate, a tap on the card itself — has no
- * store of its own to ask for and gets the one the device belongs to. That is
- * the whole difference between the plate and the badges: the plate says play,
- * and the badges each say where.
- */
-export const BADGE_STORE = {
-  appstore: "ios",
-  googleplay: "android",
-  pcmac: "pc",
 };
 
 /* -------------------------------------------------------------------- copy */
@@ -2236,8 +2215,8 @@ export const COPY = {
    * The end card used to carry two lines about having lost — "MAGMAROTH WINS"
    * over the wordmark and "BUILD A STRONGER SQUAD" under it. They are gone, and
    * with them the last difference between the two cards: whatever happened in
-   * the fight, the card is the wordmark, the painting, the plate and the badges,
-   * and nothing on it discusses the result.
+   * the fight, the card is the wordmark, the painting and the plate, and
+   * nothing on it discusses the result.
    *
    * The fight still says it out loud while it is happening — `defeat` above is
    * shouted over the wipe. What the pitch does not do any more is open by

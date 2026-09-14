@@ -137,8 +137,8 @@ async function boot() {
   // available when it was made, the arena so it is never briefly a
   // gradient, the painted gems because the board bakes its textures below and
   // a late arrival would miss that, the board frame because the Board constructor
-  // reads it to lay its grid out, the wordmark and the PLAY NOW plate and the
-  // store badges because the Hud and the EndCard both pick them up as they are
+  // reads it to lay its grid out, the wordmark and the PLAY NOW plate
+  // because the Hud and the EndCard both pick them up as they are
   // built — the two CTA surfaces wear the same lockup now, so there is one set
   // of brand art between them and no gem banner any more, the golem because the
   // Boss constructor either builds around the painting or falls back to the

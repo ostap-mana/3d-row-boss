@@ -517,7 +517,7 @@ export const music = {
    * bed and the written theme. What it no longer retires is the music, because
    * the game has a lobby theme and the lobby is exactly what the card is
    * offering: the cut crossfades under the wordmark rather than leaving the
-   * badges in silence. Set `musicEndcard` false for placements that want the
+   * card in silence. Set `musicEndcard` false for placements that want the
    * card quiet, and this goes back to being a stop.
    */
   endcard() {

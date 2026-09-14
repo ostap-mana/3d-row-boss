@@ -3,8 +3,8 @@
  *
  * It is the key art, made interactive: the painting of the phone with the party
  * bursting out of it fills the screen, the INVOKERS wordmark sits over the top
- * of it, and the PLAY NOW plate and the three store badges sit along the
- * bottom. All of that art is in art/brand.js.
+ * of it, and the PLAY NOW plate sits along the bottom. All of that art is in
+ * art/brand.js.
  *
  * The cast used to be six portraits in rings, laid out in a grid over a drawn
  * sunburst. The painting has the cast in it — that is what the painting is —
@@ -13,11 +13,11 @@
  * still drawn, but only on a device that could not decode the painting, where
  * they are the difference between a plain end card and an empty one.
  *
- * Five tap surfaces: the plate, each of the three badges, and the card itself.
- * The badges are the reason the whole-screen listener is registered on the
- * container and every child that wants its own source string stops the event —
- * a tap on the Google badge must be reported as the Google badge, not swallowed
- * by the backdrop behind it.
+ * Three tap surfaces: the plate, the RETRY lockup, and the card itself. The
+ * whole-screen listener is registered on the container and every child that
+ * wants its own source string stops the event — a tap on the plate must be
+ * reported as the plate, not swallowed by the backdrop behind it, and a tap on
+ * RETRY must not also open the store.
  *
  * Two orientations, one stack. Held upright it reads top to bottom, with the
  * painting aimed at the gap left in the middle. Held sideways it splits the way
@@ -39,7 +39,6 @@ import {
   PLAY_FILL,
   PLAY_LABEL,
   PLAY_RIM,
-  badgeSprites,
   bannerHeight,
   bannerSprite,
   fitBanner,
@@ -96,17 +95,13 @@ const SIDE_SCRIM = [
   [1.0, "rgba(7,4,14,0)"],
 ];
 
-/** Gap between store badges, as a fraction of the row's height. */
-const BADGE_GAP = 0.28;
-
 /**
  * The RETRY plate, measured off the PLAY NOW plate directly above it.
  *
- * Off the plate and not off the store row, which is where the rule this
- * replaced was measured from. That rule was a line drawn under the bottom of
- * the card and the bottom of the card is the badges, so it belonged to them.
- * This is a button again, it stands in the plate's column, and the only number
- * that matters about it is how it compares to the plate.
+ * Off the plate and not off anything at the foot of the card, which is where
+ * the rule this replaced was measured from. This is a button again, it stands
+ * in the plate's column, and the only number that matters about it is how it
+ * compares to the plate.
  *
  * 0.64, so that comparison comes out the right way round. A card that shouts
  * louder about the rematch than about the install is a card working against
@@ -214,15 +209,15 @@ const BANNER_COL_ROOM = 0.3;
  *
  * A phone held sideways is the tightest box the creative is solved in — 375
  * points of height on the reference device — and the landscape column was
- * already spending nearly all of it on four rungs. Adding a button to it
+ * already spending nearly all of it on the rungs it has. Adding a button to it
  * overflows: the block is centred, so an overflow is not a scroll, it is a
- * banner clipped at the top of the screen and a store row clipped at the bottom.
+ * banner clipped at the top of the screen and a CTA clipped at the bottom.
  *
  * The banner pays for it because the banner is the rung with the slack. It is
  * the only one sized by a share of the stage rather than by its own content, and
  * a DEFEAT plaque at a fifth of the height is still the biggest thing in the
- * column and still lands as a stamp. The wordmark, the plate and the badges have
- * no give: two of them are the pitch and the third is the button.
+ * column and still lands as a stamp. The wordmark and the plate have no give:
+ * one is the pitch and the other is the button.
  *
  * Only the landscape column needs this. Upright, the retry button is measured up
  * from the bottom of the screen with the rest of the CTA block, and what it
@@ -291,8 +286,8 @@ export class EndCard extends Container {
      * above the painting and the two washes over it, so it is read against a
      * darkened backdrop rather than against whatever the key art happens to have
      * behind it, and *under* everything the card is selling with — the wordmark,
-     * the promise, the plate, the badges — all of which are added after it and
-     * therefore draw over it.
+     * the promise, the plate — all of which are added after it and therefore
+     * draw over it.
      *
      * It is also placed off the stack rather than in it: `placeBanner` lays it
      * in `clear`, the hole the stack leaves for the picture, so it can never
@@ -423,11 +418,11 @@ export class EndCard extends Container {
      * a thumb reaches on a phone.
      *
      * It sat directly under the plate for as long as it was a plate itself, and
-     * moving it below the badges is the same decision as changing the art: a
-     * button in the CTA's own column is part of the offer, and a rule ruled
-     * across the foot of the card is the way out of it. Nothing above it moves
-     * — the stack is still solved from the bottom edge, and this is now the rung
-     * that edge holds. See stackPortrait.
+     * moving it to the foot of the card is the same decision as changing the
+     * art: a button in the CTA's own column is part of the offer, and a rule
+     * ruled across the foot of the card is the way out of it. Nothing above it
+     * moves — the stack is still solved from the bottom edge, and this is now
+     * the rung that edge holds. See stackPortrait.
      *
      * Built here and hidden, the way the outcome line and the promise are —
      * `show` is the first moment the result is known, and the stack reads
@@ -474,19 +469,6 @@ export class EndCard extends Container {
     this.retry.addChild(this.retryText);
     this.retry.visible = false;
     this.addChild(this.retry);
-
-    this.badges = new Container();
-    this.badgeRow = badgeSprites();
-    this.badgeRow.forEach((badge) => {
-      badge.sprite.eventMode = "static";
-      badge.sprite.cursor = "pointer";
-      badge.sprite.on("pointertap", (e) => {
-        e.stopPropagation();
-        this.onCta(badge.id);
-      });
-      this.badges.addChild(badge.sprite);
-    });
-    this.addChild(this.badges);
 
     // Whole-screen tap target, registered last so it sits on top.
     this.eventMode = "static";
@@ -540,9 +522,9 @@ export class EndCard extends Container {
    * plate's width at RETRY_PLATE_W, under a ceiling the layout sets, see
    * RETRY_PLATE_MAX — and `bw`/`bh` are the plate's own box, which is all the
    * drawn pill has ever been sized against. Both callers have every one of
-   * those numbers by the time they get here: portrait lays the badges and the
-   * plate out before it solves the foot of the column, and landscape measures
-   * every rung before it places any of them.
+   * those numbers by the time they get here: portrait sizes the plate before it
+   * solves the foot of the column, and landscape measures every rung before it
+   * places any of them.
    *
    * @returns {{w: number, h: number}}
    */
@@ -611,7 +593,7 @@ export class EndCard extends Container {
    * Sit the retry button at `x, y` and give it the one listener on this card
    * that does not lead to a store.
    *
-   * `stopPropagation` for the same reason the badges have it and for a much
+   * `stopPropagation` for the same reason the plate has it and for a much
    * louder one: the container behind this is a full-screen CTA, so without it
    * every tap on RETRY would open the store *and* restart the fight.
    *
@@ -620,8 +602,8 @@ export class EndCard extends Container {
    * points deep on a phone, which is a control only a mouse can hit, so the box
    * had to be grown around it to a thumb's worth of height. The painting is a
    * hundred points deep and is a thumb's target already — grown by the same
-   * third it would reach up into the store row above it and answer taps meant
-   * for the badges with a rematch.
+   * third it would reach up into the CTA above it and answer taps meant for the
+   * plate with a rematch.
    *
    * The floor stays, because the ceiling in fitRetry can drive the art down on
    * a short window and 44 points is what a touch target has to be. The corners
@@ -643,35 +625,6 @@ export class EndCard extends Container {
       sfx.select();
       this.onRetry();
     });
-  }
-
-  /**
-   * Lay the store badges out in a row centred on the container's origin.
-   *
-   * They are sized by height and never by width: all three arrive 61 pixels
-   * tall out of the packer, so one height puts them on the same baseline with
-   * their type at the same size, which is the whole reason that row reads as a
-   * row. The height is whatever fits `maxW`, capped at `maxH`.
-   *
-   * @returns {{w: number, h: number}} the box the row ended up occupying
-   */
-  layoutBadges(maxW, maxH) {
-    const row = this.badgeRow;
-    if (!row.length) return { w: 0, h: 0 };
-
-    const aspect = row.reduce((sum, b) => sum + b.aspect, 0);
-    const units = aspect + BADGE_GAP * (row.length - 1);
-    const h = Math.min(maxH, maxW / units);
-    const w = h * units;
-
-    let x = -w / 2;
-    row.forEach((badge) => {
-      const bw = h * badge.aspect;
-      badge.sprite.setSize(bw, h);
-      badge.sprite.position.set(x + bw / 2, 0);
-      x += bw + h * BADGE_GAP;
-    });
-    return { w, h };
   }
 
   /** Sit the CTA at `x, y` and hand it its own tap source. */
@@ -851,11 +804,11 @@ export class EndCard extends Container {
      * The cutouts are the half that was missing, and this column is where they
      * cost the most in the creative. Every rung down here is a fraction of `h`
      * measured from one end of the box or the other — the outcome line a
-     * twentieth from the top, the badges a pad up from the bottom — so on a
-     * notched phone the verdict was set under the camera and the store row
-     * under the home indicator, with the RETRY rule, which is a tap target,
-     * sitting on the gesture bar that swipes the browser away. Solved in the
-     * safe box every one of those fractions means what it says.
+     * twentieth from the top, the CTA a pad up from the bottom — so on a
+     * notched phone the verdict was set under the camera and the plate under
+     * the home indicator, with the RETRY rule, which is a tap target, sitting
+     * on the gesture bar that swipes the browser away. Solved in the safe box
+     * every one of those fractions means what it says.
      */
     const s = layout.safeBox;
     const { w, h } = s;
@@ -864,25 +817,21 @@ export class EndCard extends Container {
     /**
      * The CTA block's own width, and the reason it is not the card's.
      *
-     * These three rungs were solved at 94%, 82% and 86% of the safe width, and
-     * on a desktop preview — which is where they were set — that reads as a
-     * confident block. On the phone the creative actually ships to it reads as
-     * furniture that does not fit the room: the store row came out 353 points
-     * across a 393 point screen, which is a twenty point margin either side, and
-     * a painted plate at 82% with a wordmark at 86% over it puts three separate
-     * near-full-width bars down the middle of the card. Nothing was clipped and
-     * everything was oversized, which is the failure that does not show up in a
-     * bounds check.
+     * These rungs were solved at 82% and 86% of the safe width, and on a desktop
+     * preview — which is where they were set — that reads as a confident block.
+     * On the phone the creative actually ships to it reads as furniture that
+     * does not fit the room: a painted plate at 82% with a wordmark at 86% over
+     * it puts near-full-width bars down the middle of the card. Nothing was
+     * clipped and everything was oversized, which is the failure that does not
+     * show up in a bounds check.
      *
-     * The numbers below are set off the phone instead. The row keeps a real
-     * gutter, the plate is narrower than the row it sits over, and the wordmark
-     * stays the widest of the three — the order the card sells in, now with air
-     * around it. The `* ui` ceilings come down with them for the same reason
-     * they exist: they are the same measurement written for a big screen, and a
-     * cap that no longer agrees with the fraction under it is a card that
-     * changes proportion halfway up the size range.
+     * The numbers below are set off the phone instead. The plate keeps a real
+     * gutter and the wordmark stays the wider of the two — the order the card
+     * sells in, now with air around it. The `* ui` ceilings come down with them
+     * for the same reason they exist: they are the same measurement written for
+     * a big screen, and a cap that no longer agrees with the fraction under it
+     * is a card that changes proportion halfway up the size range.
      */
-    const badge = this.layoutBadges(Math.min(w * 0.84, 460 * ui), 29 * ui);
     const bw = Math.min(w * 0.64, 330 * ui);
     const bh = this.fitPlay(bw);
 
@@ -892,13 +841,12 @@ export class EndCard extends Container {
      * `foot` is the running underside: the bottom margin on a win, and on a
      * wipe the underside of the RETRY rule, which is the rung that now holds
      * that edge. Written as one running number rather than as two branches so
-     * the badges and the CTA above them are each placed by one line whichever
-     * card is up — the bottom of this column is the one edge that must not move,
-     * and everything down here is measured up from it.
+     * the CTA is placed by one line whichever card is up — the bottom of this
+     * column is the one edge that must not move, and everything down here is
+     * measured up from it.
      *
-     * The rule is clamped to the same width the store row was allowed, so on a
-     * narrow phone where the badges are already spanning the card the two come
-     * out flush instead of the rule hanging off the sides.
+     * The rule is clamped to the plate's own width, so the two come out flush
+     * instead of the rule hanging off the sides.
      */
     let foot = s.bottom - pad;
     if (this.retry.visible) {
@@ -913,10 +861,7 @@ export class EndCard extends Container {
       foot = ry - r.h / 2 - this.retryClear(h, r.h);
     }
 
-    const badgeY = foot - badge.h / 2;
-    this.badges.position.set(s.cx, badgeY);
-
-    const buttonY = badgeY - badge.h / 2 - Math.max(10, h * 0.024) - bh / 2;
+    const buttonY = foot - bh / 2;
     this.placeButton(s.cx, buttonY, bw, bh);
 
     const outSize = this.fitLine(
@@ -983,7 +928,6 @@ export class EndCard extends Container {
 
     // Every rung is measured before any of them is placed: the column is
     // centred on the screen as one block, so its height has to be known first.
-    const badge = this.layoutBadges(Math.min(colW * 0.94, 460 * ui), 30 * ui);
     const bw = Math.min(colW * 0.86, 380 * ui);
     const bh = this.fitPlay(bw);
     const outSize = this.fitLine(
@@ -1018,11 +962,11 @@ export class EndCard extends Container {
      * wants under it.
      *
      * Built as a list rather than placed one after another in a straight line of
-     * statements, because two of the five are optional now and the height of the
+     * statements, because four of the six are optional and the height of the
      * block has to be known before any of it is placed — the column is centred
-     * on the screen as one thing. The gap total was the literal 2.8, which is
-     * the four transitions between five rungs; with a rung missing that was a
-     * gap the column reserved and never used.
+     * on the screen as one thing. The gap total used to be a literal, one term
+     * per transition; with a rung missing that was a gap the column reserved
+     * and never used.
      */
     const rungs = [];
     /**
@@ -1072,16 +1016,11 @@ export class EndCard extends Container {
     }
     rungs.push({
       h: bh,
-      gap: 0.9,
-      place: (y) => this.placeButton(cx, y + bh / 2, bw, bh),
-    });
-    rungs.push({
-      h: badge.h,
       // The clearance the lockup asks for, expressed in this column's own gap
       // unit because that is the only currency the rung list has. Upright the
       // same number is subtracted directly; see retryClear, which both call.
       gap: retry ? this.retryClear(h, retry.h) / gap : 0,
-      place: (y) => this.badges.position.set(cx, y + badge.h / 2),
+      place: (y) => this.placeButton(cx, y + bh / 2, bw, bh),
     });
     if (retry) {
       rungs.push({
@@ -1164,17 +1103,12 @@ export class EndCard extends Container {
     this.introducing = false;
     killTweensOf(this);
     this.alpha = 1;
-    [
-      this.outcome,
-      this.brand,
-      this.sub,
-      this.button,
-      this.retry,
-      this.badges,
-    ].forEach((el) => {
-      killTweensOf(el);
-      el.alpha = 1;
-    });
+    [this.outcome, this.brand, this.sub, this.button, this.retry].forEach(
+      (el) => {
+        killTweensOf(el);
+        el.alpha = 1;
+      },
+    );
     if (this.bannerArt) {
       killTweensOf(this.banner);
       killTweensOf(this.banner.scale);
@@ -1221,8 +1155,8 @@ export class EndCard extends Container {
    *   reads as a bug, and a losing player is the one most worth re-pitching.
    *
    * Only the outcome line and the promise under the wordmark change. The
-   * painting, the plate and the badges do not: the pitch is the same pitch
-   * whether the golem died or the party did.
+   * painting and the plate do not: the pitch is the same pitch whether the
+   * golem died or the party did.
    */
   /**
    * @param {"victory"|"defeat"} outcome
@@ -1260,8 +1194,8 @@ export class EndCard extends Container {
      *
      * They were a win's and only a win's — the defeat card already dropped them
      * — and dropping them from both is the end of the same argument the defeat
-     * card settled: the card is the wordmark, the painting, the plate and the
-     * badges, and nothing on it discusses the result. The fight has already said
+     * card settled: the card is the wordmark, the painting and the plate, and
+     * nothing on it discusses the result. The fight has already said
      * it out loud by the time the card is up — the outcome card stamps the
      * verdict one screen earlier, and that is the only place it is said. See
      * ui/outcome.js.
@@ -1304,14 +1238,7 @@ export class EndCard extends Container {
     this.visible = true;
     this.alpha = 0;
 
-    const els = [
-      this.outcome,
-      this.brand,
-      this.sub,
-      this.button,
-      this.retry,
-      this.badges,
-    ];
+    const els = [this.outcome, this.brand, this.sub, this.button, this.retry];
     els.forEach((el) => {
       el.alpha = 0;
     });
@@ -1412,29 +1339,20 @@ export class EndCard extends Container {
     const by = this.button.y;
     this.button.y = by + 30;
     tween(this.button, { alpha: 1 }, 0.25);
-    // The plate, on the sting the card itself arrived on — and the first of the
-    // three hits down the stack, about 570 ms behind the card's own.
+    // The plate, on the sting the card itself arrived on — and the second of
+    // the two hits down the stack, about 570 ms behind the card's own.
     sfx.endcard(this.defeat);
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
-    if (!this.introducing) return;
-
-    // The badges after the CTA: they are the reassurance under it, not a second
-    // thing competing with it for the tap.
-    const gy = this.badges.y;
-    this.badges.y = gy + 14;
-    tween(this.badges, { alpha: 1 }, 0.3);
-    sfx.endcard(this.defeat);
-    await tween(this.badges, { y: gy }, 0.34, { ease: Ease.cubicOut });
     if (!this.introducing) return;
 
     /**
      * The rematch last of all.
      *
      * Order is the argument here as much as size is. The plate lands first and
-     * lands hardest, the store row settles under it, and only then does the way
-     * out draw itself in — so the card offers the game and then, at the bottom,
-     * mentions the fight, rather than putting the two up together and letting
-     * the player pick which one the screen was about.
+     * lands hardest, and only then does the way out draw itself in — so the
+     * card offers the game and then, at the bottom, mentions the fight, rather
+     * than putting the two up together and letting the player pick which one
+     * the screen was about.
      *
      * A fade with barely any slide under it, which is what a rule can do and a
      * button cannot: it is eight points deep, so a 22-point drop on it is not an

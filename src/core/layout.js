@@ -362,11 +362,11 @@ function stageBox(w, h, portrait) {
  * is measured against `safe` where it touches an edge, because each of them is
  * a different distance from a different edge. The screens that do need it are
  * the two that are solved as a *column*: the outcome card and the end card,
- * where a headline, a plate, a CTA and a store row are placed as fractions of
- * one box from one end of it to the other. Those were solved against the stage,
- * which is the window on every phone — so on a notched one the win banner sat
- * under the camera and the store badges under the home indicator, and the
- * fraction that put them there was correct about a box that was the wrong box.
+ * where a headline, a plate and a CTA are placed as fractions of one box from
+ * one end of it to the other. Those were solved against the stage, which is the
+ * window on every phone — so on a notched one the win banner sat under the
+ * camera and the CTA under the home indicator, and the fraction that put them
+ * there was correct about a box that was the wrong box.
  *
  * So they are handed this instead, and they go on being one expression each:
  * `s.y + s.h * 0.05` is a twentieth of the way down whatever the player can

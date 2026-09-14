@@ -5,7 +5,7 @@
  * AppLovin/Unity/ironSource all inject it, then the vendor-specific hooks.
  */
 
-import { STORE_URL, BADGE_STORE } from "../config.js";
+import { STORE_URL } from "../config.js";
 import * as sfx from "../audio/sfx.js";
 import { openStore } from "./mraid.js";
 import { EV, track } from "./analytics.js";
@@ -16,11 +16,9 @@ let fired = false;
 /**
  * Where this tap leads.
  *
- * A badge asks for its own store, and it gets it: the Apple badge is a picture of
- * the App Store, and opening Play from it on an Android phone would make three
- * badges into one badge drawn three ways. Everything else asks for nothing —
- * PLAY NOW, a tap on the card — and is sent to the store the device belongs to,
- * which is the only sensible reading of a tap that did not name a platform.
+ * Nothing on the card names a platform any more — PLAY NOW, a tap on the card —
+ * so every tap is sent to the store the device belongs to, which is the only
+ * sensible reading of a tap that did not ask for one.
  *
  * Worth something only where the destination is ours to pick: standalone, and
  * under MRAID, which takes a URL. Meta, ExitApi and the `install()` family run
@@ -28,9 +26,7 @@ let fired = false;
  * ctaClick, where a wrapper overriding the choice is the normal case and not a
  * failure.
  */
-function storeUrl(source) {
-  const named = BADGE_STORE[source];
-  if (named && STORE_URL[named]) return STORE_URL[named];
+function storeUrl() {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
     ? STORE_URL.ios
     : STORE_URL.android;
@@ -38,8 +34,7 @@ function storeUrl(source) {
 
 /**
  * Send the player to the store.
- * @param {string} source which surface was tapped — the analytics label, and the
- *   store the badges route by. See storeUrl.
+ * @param {string} source which surface was tapped — the analytics label.
  */
 export function ctaClick(source) {
   // Networks dislike duplicate open() calls; one per session is plenty.
@@ -48,7 +43,7 @@ export function ctaClick(source) {
   track(EV.cta, { source });
   sfx.cta();
 
-  const url = clickUrl(storeUrl(source));
+  const url = clickUrl(storeUrl());
   const w = window;
 
   try {

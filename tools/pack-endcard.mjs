@@ -1,6 +1,6 @@
 /**
- * Pack the end card's brand art — the wordmark, the PLAY NOW plate and the
- * three store badges — into something a playable ad can actually carry.
+ * Pack the end card's brand art — the key art, the wordmark and the PLAY NOW
+ * plate — into something a playable ad can actually carry.
  *
  *   node tools/pack-endcard.mjs           # -> src/assets/brand/*.webp
  *   node tools/pack-endcard.mjs --png     # keep intermediate PNGs too
@@ -15,9 +15,9 @@
  * So each one is trimmed to its own ink and re-encoded as WebP, under names the
  * code can `import` without quoting a space. The plate goes lossy: it is a
  * painted gem with gradients across it and q88 is indistinguishable from the
- * source at the size it is drawn. The wordmark and the badges go lossless —
- * they are flat colour and small type, which is exactly what lossy smears, and
- * lossless WebP still beats their PNGs.
+ * source at the size it is drawn. The wordmark goes lossless — it is flat
+ * colour and small type, which is exactly what lossy smears, and lossless WebP
+ * still beats its PNG.
  *
  * Trimming is the reason this runs at all rather than the files being imported
  * where they lie: the layout centres each of these in a box, and a bitmap with
@@ -88,27 +88,6 @@ const JOBS = [
     width: 0,
     mode: "flat",
     what: "wordmark",
-  },
-  {
-    src: "Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917 2.png",
-    out: "badge-app-store",
-    width: 0,
-    mode: "flat",
-    what: "App Store badge",
-  },
-  {
-    src: "GetItOnGooglePlay_Badge_Web_color_English 2.png",
-    out: "badge-google-play",
-    width: 0,
-    mode: "flat",
-    what: "Google Play badge",
-  },
-  {
-    src: "Play_now_on_PC_Mac 3.png",
-    out: "badge-pc-mac",
-    width: 0,
-    mode: "flat",
-    what: "PC/Mac badge",
   },
 ];
 

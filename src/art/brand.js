@@ -1,17 +1,15 @@
 /**
- * The brand furniture on the end card: the wordmark, the PLAY NOW plate, and
- * the three store badges.
+ * The brand furniture on the end card: the wordmark and the PLAY NOW plate.
  *
- * All five are packed out of the marketing key art by tools/pack-endcard.mjs —
+ * Both are packed out of the marketing key art by tools/pack-endcard.mjs —
  * trimmed to their own ink, re-encoded as WebP, and renamed to something that
  * can be imported without quoting a space. The originals stay in src/letters
  * next to them.
  *
- * None of it is nine-sliced, and none of it may be stretched. The plate is a
- * painted gem with a faceted field, a gold frame and a diamond finial off each
- * end; the wordmark is type; the badges are somebody else's trade dress and
- * their proportions are not ours to change. So every fit here takes a width and
- * hands back the height that width implies.
+ * Neither is nine-sliced, and neither may be stretched. The plate is a painted
+ * gem with a faceted field, a gold frame and a diamond finial off each end; the
+ * wordmark is type. So every fit here takes a width and hands back the height
+ * that width implies.
  *
  * The end card is laid out around those returned heights rather than around
  * numbers of its own, which is what lets one stack solve for a phone held
@@ -26,9 +24,6 @@ import keyArtUrl from "../assets/brand/key-art.webp";
 import logoUrl from "../assets/brand/logo-invokers.webp";
 import playUrl from "../assets/brand/play-now.webp";
 import retryPlateUrl from "../assets/brand/retry-plate.webp";
-import appStoreUrl from "../assets/brand/badge-app-store.webp";
-import googlePlayUrl from "../assets/brand/badge-google-play.webp";
-import pcMacUrl from "../assets/brand/badge-pc-mac.webp";
 
 /** Natural size of the packed art, and so the only aspect each may be drawn at. */
 export const LOGO_ART = { w: 558, h: 131 };
@@ -137,25 +132,6 @@ export const DEFEAT_ART = { w: 1024, h: 390 };
 export const KEY_ART_FOCUS = { x: 0.6, y: 0.49 };
 
 /**
- * The store row, in the order the key art has it.
- *
- * `id` is what gets handed to ctaClick, so a network's report can tell an
- * install that came off the Google badge from one that came off the plate — and
- * so the badge opens the store it is a picture of, which it looks up by that same
- * id. See BADGE_STORE in config.js.
- *
- * A badge is a promise about where it leads and it keeps it wherever the
- * destination is ours to pick — standalone, and under MRAID. A network wrapper
- * that runs its own booked click-through overrides all three, and nothing here
- * can or should change that.
- */
-const BADGES = [
-  { id: "appstore", url: appStoreUrl },
-  { id: "googleplay", url: googlePlayUrl },
-  { id: "pcmac", url: pcMacUrl },
-];
-
-/**
  * The plate's own colours, sampled off the art.
  *
  * Exported because the end card draws a stand-in when the bitmap does not
@@ -173,7 +149,6 @@ let playTexture = null;
 let retryPlateTexture = null;
 let victoryTexture = null;
 let defeatTexture = null;
-const badgeTextures = {};
 
 async function decode(url) {
   const img = new Image();
@@ -192,7 +167,7 @@ async function decode(url) {
  * Never rejects, and not all-or-nothing either: each piece is caught on its own,
  * so a device that cannot read one of these still gets the rest. The card draws
  * its own headline when the wordmark is missing and its own pill when the plate
- * is, and simply leaves out any badge that did not arrive.
+ * is.
  */
 export async function loadBrandArt() {
   await Promise.all([
@@ -216,13 +191,6 @@ export async function loadBrandArt() {
         retryPlateTexture = t;
       })
       .catch(() => {}),
-    ...BADGES.map((b) =>
-      decode(b.url)
-        .then((t) => {
-          badgeTextures[b.id] = t;
-        })
-        .catch(() => {}),
-    ),
   ]);
 }
 
@@ -275,21 +243,6 @@ export function playPlateSprite() {
  */
 export function retryPlateSprite() {
   return sprite(retryPlateTexture);
-}
-
-/**
- * The badges that decoded, in key-art order, each centred on its own origin.
- * @returns {Array<{id: string, sprite: Sprite, aspect: number}>}
- */
-export function badgeSprites() {
-  return BADGES.filter((b) => badgeTextures[b.id]).map((b) => {
-    const tex = badgeTextures[b.id];
-    return {
-      id: b.id,
-      sprite: sprite(tex),
-      aspect: tex.width / tex.height,
-    };
-  });
 }
 
 function sprite(texture) {
