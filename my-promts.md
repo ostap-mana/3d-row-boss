@@ -1181,97 +1181,73 @@ pair is ratio `adaptive` + duration `-1`, and expect the toast to come back.
 The output has to key and pack exactly like the win one or the card gets two
 figures at two different scales.
 
-Seedance takes no negative prompt. Paste the negative below only if your node
-exposes a field for it; otherwise drop it — every constraint in it is already
-carried positively in the prompt.
+Seedance takes no negative prompt and does not want one. Everything a negative
+list would have carried is stated positively below.
 
 ```
-The camera is completely locked off and never moves: no push-in, no pull-back,
-no pan, no tilt, no zoom, no orbit, no roll, no handheld shake, no parallax.
-The frame is perfectly static from the first frame to the last, and she stays
-at exactly the same size and in exactly the same place in it the whole time.
+Locked-off static camera, no zoom, no pan, no push-in, no shake. The framing
+never changes and she never changes scale or position.
 
-FRAMING — identical to the reference:
-Landscape frame. She is framed from the waist up, standing right of centre,
-facing the viewer, with a wide band of empty background down the left side
-where her raised hand holds the glass. Her waist runs off the bottom edge and
-that is the only edge she touches. The whole glass — the cup, its rim, its
-stem and every finger around it — stays inside the frame for the entire clip,
-with empty space above it and to the left of it. She never drifts, leans,
-steps, turns away or changes scale.
+She refuses the toast. Slowly she turns her wrist and tips the raised glass
+away from the viewer, lowering it a few centimetres, and the pale glow in the
+liquid dims out. Then the hand resting on her chest opens and turns palm up
+toward the viewer in one small unhurried offer — come back and try again — and
+stays in front of her chest. She watches the viewer the whole time with a small
+closed amused smile, one eyebrow slightly raised, eyes calm and half-lidded.
+She breathes once, blinks twice, and loose strands of her blue-black hair drift
+and settle. All motion is slow and small; she never drinks, never laughs and
+never turns away.
 
-THE BEAT — she withholds the toast:
-She does not drink. She lowers the glass a few centimetres and tips it slowly
-away from the viewer, turning her wrist so the toast is taken back rather than
-offered. The pale glow inside the liquid fades down as she does it.
-She shakes her head slowly, twice, a few degrees each way — a small "not this
-time", not a big refusal. Her chin stays level.
-Then the hand at her chest opens and turns palm up toward the viewer in one
-small, unhurried offer: come back and try again. The hand stays in front of her
-chest and never reaches out past her shoulder.
-Her chest rises and falls once with a slow breath. She blinks twice. Loose
-strands of her blue-black hair drift and settle. Every movement is small, slow
-and continuous — no snap, no jerk, no sudden pose change, and the first and
-last frames hold the same pose.
+Her face, makeup, hair buns with red roses, choker, red and black dress,
+shoulder spikes, dark wings and gloves stay identical to the reference in every
+frame. She stays framed from the waist up, right of centre, with the whole
+glass inside the frame.
 
-EXPRESSION:
-Amused and unimpressed, never cruel. One eyebrow lifts slightly. A small closed
-smile at one corner of her mouth. Her eyes stay calm, half-lidded and on the
-viewer the whole time. No wide grin, no visible teeth, no laughing, no sneer,
-no snarl, no contempt, no pity, no sadness. She is daring the viewer to go
-again, not gloating over them.
-
-NOTHING ELSE CHANGES:
-Her face, her makeup, her hairstyle, both hair buns and the red roses in them,
-her choker, her red and black dress, her shoulder spikes, the small dark wings
-at her back and her gloves stay exactly as they are in the reference, in every
-frame. Her palette stays crimson, black and pale gold. No new props, no second
-character, no weapon, no effects, no particles, no sparks, no smoke, no magic,
-no text.
-
-BACKGROUND:
-Flat, solid chroma green, one single pure tone, identical in all four corners,
-perfectly even and perfectly still, with no gradient, no shading, no shadow and
-nothing appearing in it at any point. No green light spills onto her: her black
-and her crimson stay black and crimson at the edges. Her outline stays crisp on
-every side, with no haze, no glow bleed, no motion blur and no stray wisps.
+The background is flat even chroma green, perfectly still and completely empty.
+No green spills onto her; her outline stays crisp with no haze and no motion
+blur.
 ```
 
-Negative:
+## Why this is short
+
+The first draft of this was 2883 characters and mostly prohibitions. It was
+replaced because all three of its problems are the same problem — it asked the
+model to hold too much at once:
+
+- **Negation does not steer video models the way it steers image models.** A
+  long "no X, no Y" list dilutes the one thing the clip is actually about, and
+  names the thing you do not want often enough to invite it. The win prompt
+  that worked was 1533 characters. This is 1160.
+- **Three sequential beats do not fit in ten seconds.** The draft asked for the
+  glass tipped away, then two head shakes, then the palm turned up. Seedance
+  holds one or two clear actions; a third gets blurred into the others or
+  dropped.
+- **The head shake was the redundant beat.** It says the same thing the tipped
+  glass already says. What survives is the pair that does not overlap: the
+  glass going away is the loss, the palm turning up is the RETRY under it.
+
+The framing paragraph also shrank to one sentence. In reference-to-video the
+framing comes from the reference image, not the text — the same thing noted at
+the end of FINAL v2 — so paragraphs of it spend attention and change nothing.
+
+## Swap block — the pour, if the refusal does not read
+
+At card size she is about 400 points wide behind a band. A wrist turning a
+glass a few degrees can vanish at that size; liquid leaving a glass never does.
+Replace the second sentence of the prompt — "Slowly she turns her wrist ...
+dims out" — with this, and leave the rest alone:
+
 ```
-camera movement, zoom, push-in, pull-back, pan, tilt, dolly, orbit, roll,
-handheld shake, parallax, scale change, character drifting out of frame, cut,
-scene change, flicker, colour shift in the background, morphing face, changing
-hairstyle, changing makeup, changing dress, changing armour, extra arms, extra
-fingers, drinking, glass to her lips, glass tipped toward the camera, spilled
-liquid, empty glass, glass leaving the frame, cropped glass, cup cut off, rim
-cut off, cropped hand, cropped fingers, cropped hair buns, head cut off,
-shoulders cut off, arm cut off, arm extended sideways, outstretched arm, arms
-spread wide, big gesture, turning away, walking, stepping, leaning, standing
-up, sitting down, laughing, open mouth, bared teeth, manic grin, crazed eyes,
-wide staring eyes, sneer, snarl, contempt, sadness, crying, pity, background,
-scenery, environment, props, particles, sparks, smoke, embers, fire, magic
-circle, aura, glow behind the character, vignette, gradient background, drop
-shadow, cast shadow, green spill, soft edges, motion blur, text, watermark,
-logo, UI, second character.
+She turns her wrist over slowly and pours the drink out to one side in a thin
+steady stream, watching the viewer the whole time and never watching the glass.
+The stream falls straight down, stays thin and leaves the frame at the bottom
+edge, never splashing and never crossing in front of her body, and the pale
+glow in the glass fades out as it empties.
 ```
 
-## Swap block — the pour, if the head shake does not read
-
-At card size she is about 400 points wide behind a band. A two-degree head
-shake can vanish at that size; liquid leaving a glass never does. Replace the
-first paragraph of THE BEAT with this and leave the rest alone:
-
-```
-She does not drink. She turns her wrist over slowly and pours the drink out to
-one side in a thin steady stream, watching the viewer the whole time and never
-watching the glass. The stream falls straight down, stays thin, and leaves the
-frame at the bottom edge; it never splashes, never sprays and never crosses in
-front of her body. The pale glow inside the glass fades out as it empties.
-```
-
-Then drop `empty glass` and `spilled liquid` from the negative — they are the
-point now — and keep everything else.
+It is the louder read and the riskier one: a pour is liquid crossing the matte
+edge every frame, and `pack-video-sheet` has to key it. Pale gold against green
+keys fine, but check the stream at card size before committing to this take.
 
 ## Packing it
 
