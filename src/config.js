@@ -562,8 +562,8 @@ export const DIFFICULTY = {
    *     zone         super easy     medium       hard
    *     attack      0.120 -> 0.330  0.58->0.64  1.05 -> 0.62
    *     resist      1.00 (none)      0.85       0.54 -> 0.52
-   *     obsidian      2 -> 3         4            6
-   *     crust           0          0.35 -> 0.8      1
+   *     obsidian      2 -> 4         5            7
+   *     crust        0 -> 0.35     0.7 -> 1         1
    *
    * `p` is how much of the boss's bar is gone, so 0.5 is the first zone
    * boundary and 0.75 the second. Everything else is linearly interpolated
@@ -767,8 +767,10 @@ export const DIFFICULTY = {
        * opening rake is under two percent of a hero bar and two bare obsidian
        * blocks sit on a board of twenty-five: the screen shaking is telling
        * the truth, and it is costing nothing at all. Bare is the word doing
-       * the work — `crust` is 0 for the whole easy half, so a stone here is
-       * one match away from gone.
+       * the work — `crust` is 0 at this keyframe alone, so a stone here is one
+       * match away from gone. It is the last keyframe that can say so: the
+       * shell starts coming in a third of the way down the bar now, which is
+       * where the fight stops teaching and starts asking.
        *
        * The old curve opened at a flat 1.0 and compounded from there, and the
        * party was already chewed before the mechanic had landed — which is most
@@ -798,9 +800,9 @@ export const DIFFICULTY = {
         attack: 0.22,
         resist: 1.0,
         ult: 1,
-        obsidian: 3,
-        hold: 7,
-        crust: 0,
+        obsidian: 4,
+        hold: 8,
+        crust: 0.35,
       },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
@@ -821,9 +823,9 @@ export const DIFFICULTY = {
         attack: 0.33,
         resist: 1.0,
         ult: 1,
-        obsidian: 3,
-        hold: 8,
-        crust: 0.35,
+        obsidian: 4,
+        hold: 9,
+        crust: 0.7,
         name: "OBSIDIAN HIDE",
       },
       /**
@@ -842,9 +844,9 @@ export const DIFFICULTY = {
         attack: 0.58,
         resist: 0.88,
         ult: 1,
-        obsidian: 4,
-        hold: 9,
-        crust: 0.6,
+        obsidian: 5,
+        hold: 10,
+        crust: 0.9,
       },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
@@ -860,9 +862,9 @@ export const DIFFICULTY = {
         attack: 0.64,
         resist: 0.88,
         ult: 1,
-        obsidian: 4,
-        hold: 9,
-        crust: 0.8,
+        obsidian: 5,
+        hold: 11,
+        crust: 1,
         name: "MOLTEN CORE",
       },
       /**
@@ -906,8 +908,8 @@ export const DIFFICULTY = {
         attack: 1.05,
         resist: 0.8,
         ult: 1,
-        obsidian: 6,
-        hold: 10,
+        obsidian: 7,
+        hold: 12,
         crust: 1,
       },
       /**
@@ -936,8 +938,8 @@ export const DIFFICULTY = {
         attack: 0.95,
         resist: 0.72,
         ult: 1,
-        obsidian: 6,
-        hold: 10,
+        obsidian: 7,
+        hold: 12,
         crust: 1,
       },
       /**
@@ -971,8 +973,8 @@ export const DIFFICULTY = {
         attack: 0.62,
         resist: 0.72,
         ult: 1,
-        obsidian: 6,
-        hold: 10,
+        obsidian: 7,
+        hold: 12,
         crust: 1,
       },
     ],
