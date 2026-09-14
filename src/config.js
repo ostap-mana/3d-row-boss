@@ -1238,6 +1238,28 @@ export const RUN_SEED = 0x2f6e2b1;
  */
 export const DOOM = {
   /**
+   * The burial: the last stretch of the clock, where the board seals for good.
+   *
+   * The fight had no way of saying "you are out of time" other than the
+   * cataclysm, and the cataclysm lands on the hard cap — so a player who was
+   * never going to win found that out on the frame the run ended. This is the
+   * same verdict delivered early enough to be read: past `at` of the clock the
+   * lava stops aiming at the player's options and simply fills the board, a few
+   * cells every `every` seconds, until there is nothing left to swap.
+   *
+   * It is deliberately not survivable. Everything else the boss does is bounded
+   * by MIN_SWAPS, because pressure that ends the run on its own is a softlock
+   * wearing a costume; this one is the exception the whole mode ends on, and it
+   * is allowed to be one because it cannot start until the clock is nearly out
+   * and the run is over seconds later whatever the board looks like.
+   *
+   * `at` is a fraction of the shown clock, so it moves with DOOM.seconds rather
+   * than being a second count that has to be retuned beside it. 0.32 of 27 is
+   * about eight and a half seconds of visible burial.
+   */
+  bury: { at: 0.32, every: 1.15, perTick: 3 },
+
+  /**
    * Seconds from the first playable frame to the first cataclysm.
    *
    * Twenty-seven, and this is the clock the player is *shown* rather than the

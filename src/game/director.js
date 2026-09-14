@@ -282,6 +282,8 @@ export class Director {
     this.doomFiring = false;
     this.doomLeft = DOOM.seconds;
     this.doomTotal = DOOM.seconds;
+    this.buryWait = 0;
+    this.burying = false;
     this.doomWarned = [];
 
     scene.debug = this;
@@ -1297,6 +1299,8 @@ export class Director {
       // in and the mix leans forward. See music.setTension.
       music.setTension(1 - this.doomLeft / this.doomTotal);
 
+      this.buryTick(dt);
+
       for (let i = 0; i < DOOM.warnAt.length; i++) {
         const at = DOOM.warnAt[i];
         if (this.doomLeft > at || this.doomWarned.indexOf(at) !== -1) continue;
@@ -1409,9 +1413,13 @@ export class Director {
    * clock — the boss does not get tired, and the fight has to end.
    *
    * It used to open by taking the board away and dropping whatever swap the
-   * player was in the middle of. It does not touch the board at all now: the
-   * cataclysm is the loudest thing in the fight and it still does not get to be
-   * the thing that stops the player playing.
+   * player was in the middle of. The cast itself still does not touch the board
+   * at all: the cataclysm is the loudest thing in the fight and it does not get
+   * to be the thing that stops the player playing. What does is the clock it
+   * rides in on, and that starts long before this lands — see DOOM.bury and
+   * Director.buryTick, which seal the board over the last third of the strip so
+   * that running out of time is something the player watches happen rather than
+   * something they are told on the final frame.
    */
   async castDoom(lethal) {
     const { boss, hud, vfx, shake, hitStop, layout } = this.s;
@@ -2003,11 +2011,15 @@ export class Director {
    * rather than by an author remembering it, and it caps any column at three
    * blocks. The board never holds more than this turn's ceiling at once — and
    * that ceiling climbs with the turn, so the pressure does not merely stay on,
-   * it tightens, without the board ever quite becoming a wall.
+   * it tightens, without this ever being the thing that walls the board in.
    *
    * Within those rules the boss plays to hurt. Each candidate is scored by
    * what sealing it actually costs the player, and the blocks are placed one
    * at a time so every pick sees the damage the previous one did.
+   *
+   * None of which survives the end of the clock. Past DOOM.bury.at the board is
+   * sealed on a timer instead, straight through this ceiling and the floor
+   * under it — see buryTick. Everything here describes the fight up to there.
    */
   pickObsidian(attack) {
     const board = this.s.board;
@@ -2063,6 +2075,67 @@ export class Director {
         if (!cell) break;
         // Held as locked while the rest of the wave is chosen, so two blocks
         // never both aim at the same swap and waste each other.
+        board.setProbe(cell.r, cell.c, true);
+        taken.push(cell);
+      }
+    } finally {
+      taken.forEach((p) => board.setProbe(p.r, p.c, false));
+    }
+    return taken.map((cell) => ({ ...cell, crust: this.crustLayers() }));
+  }
+
+  /**
+   * Whether the clock has run far enough down to start sealing the board.
+   *
+   * See DOOM.bury. Read off the shown clock rather than wall time, so it lands
+   * where the player watched it land — the strip and the burial agree.
+   */
+  burialDue() {
+    const cfg = DOOM.bury;
+    if (!cfg || !this.doomArmed || this.ended) return false;
+    if (!(this.doomTotal > 0) || this.doomLeft <= 0) return false;
+    return this.doomLeft / this.doomTotal <= cfg.at;
+  }
+
+  /**
+   * Seal a few more cells, on the clock rather than on the boss's turn.
+   *
+   * It cannot ride a boss turn, which is what every other wave does: a turn
+   * costs a player move, and the whole point of this beat is that the player
+   * runs out of moves halfway through it. Hung off the turn loop the burial
+   * would stop at the exact moment it started working.
+   */
+  buryTick(dt) {
+    if (!this.burialDue() || this.burying) return;
+    const board = this.s.board;
+    if (!board || board.busy) return;
+    this.buryWait -= dt;
+    if (this.buryWait > 0) return;
+    this.buryWait = DOOM.bury.every;
+    const cells = this.pickBurial(DOOM.bury.perTick);
+    if (!cells.length) return;
+    this.burying = true;
+    const done = () => {
+      this.burying = false;
+    };
+    board.lockCells(cells).then(done, done);
+  }
+
+  /**
+   * Cells for the burial — the same aim as a wave, with the floor taken off.
+   *
+   * Still scored rather than sprayed, and for the one reason that survives the
+   * board becoming unwinnable: worstCell picks whatever costs the player the
+   * most, so the moves die in order of how much they were worth and the last
+   * thing to go is the least useful corner.
+   */
+  pickBurial(n) {
+    const board = this.s.board;
+    const taken = [];
+    try {
+      while (taken.length < n) {
+        const cell = this.worstCell(true);
+        if (!cell) break;
         board.setProbe(cell.r, cell.c, true);
         taken.push(cell);
       }
@@ -2150,7 +2223,7 @@ export class Director {
    * after run, which is exactly the "he always spits in the same place" the
    * aiming was supposed to fix.
    */
-  worstCell() {
+  worstCell(bury) {
     const board = this.s.board;
     const before = board.countSwaps();
     const mid = (COLS - 1) / 2;
@@ -2162,8 +2235,11 @@ export class Director {
         const left = board.probeLock(r, c, () => board.countSwaps());
         // Never a cell that takes the board under its floor — the player is
         // owed MIN_SWAPS, and a squeeze that spends them is a squeeze that
-        // hands the turn straight to the reshuffle. See blockAnOption.
-        if (left < MIN_SWAPS) continue;
+        // hands the turn straight to the reshuffle. See blockAnOption. The
+        // burial is the one caller that is allowed past it, and is allowed
+        // because taking the last move is the whole of what it is for: see
+        // DOOM.bury and pickBurial.
+        if (!bury && left < MIN_SWAPS) continue;
         const water = board.typeAt(r, c) === WATER ? 1 : 0;
         const central = 1 - Math.abs(c - mid) / (mid || 1);
         scored.push({
