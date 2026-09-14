@@ -633,3 +633,51 @@ arms, extra fingers, UI elements moving, layout shifting, gems moving, board
 changing, character drifting out of frame, zooming into the character, cut,
 scene change, flicker, colour shift
 ```
+
+---
+
+## H. NO BACKGROUND — drop-in block
+
+Paste this in place of the BACKGROUND block in prompt E, or append it to the
+Seedance prompt when the character is generated on her own.
+
+```
+NO BACKGROUND AT ALL.
+There is no scene, no environment and no setting of any kind. Nothing exists in
+this image except the character herself — an isolated cutout.
+No room, no wall, no sky, no clouds, no ground, no floor, no horizon, no
+furniture, no props, no scenery, no landscape, no arena, no architecture, no
+depth, no perspective, no atmosphere, no fog, no haze, no light rays, no
+particles, no sparks, no smoke, no embers, no confetti, no fireworks, no
+magic circle, no aura, no glow behind her, no vignette, no gradient, no
+texture, no pattern, no logo, no text, no shadow cast onto anything behind her.
+Nothing is behind her and nothing is beside her.
+If a transparent background is possible, the background is fully transparent
+with a clean alpha channel. Otherwise the background is flat, solid chroma
+green — one single pure tone, identical in all four corners, perfectly even,
+with no gradient, no shading and no variation whatsoever.
+No green light spills onto the character. Her black armour stays black at the
+edges and picks up no green tint anywhere.
+Her outline is crisp and cleanly separated from the background on every side,
+with no soft haze, no glow bleed, no motion blur and no stray wisps.
+```
+
+Add to the negative:
+```
+background, scenery, environment, setting, room, wall, sky, ground, floor,
+horizon, landscape, architecture, props, furniture, depth of field, bokeh,
+atmosphere, fog, haze, light rays, particles, sparks, smoke, embers, confetti,
+fireworks, aura, glow behind the character, vignette, gradient background,
+textured background, patterned background, drop shadow, cast shadow, green
+spill, soft edges, motion blur
+```
+
+For the Seedance pass on an isolated plate, append this so the emptiness holds
+for the whole clip:
+```
+The background stays completely empty for every frame: one flat, solid, even
+chroma green with nothing in it. Nothing appears, forms, drifts or fades in
+behind her at any point. No particles, no sparks, no smoke, no light, no
+shapes, no colour shift. The background is identical in the first frame and the
+last.
+```
