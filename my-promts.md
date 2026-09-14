@@ -722,3 +722,36 @@ moves toward the camera, never grows larger, never drifts toward any edge and
 is never cropped at any point. The framing and her size on screen are identical
 in the first frame and the last.
 ```
+
+---
+
+## J. Finish the blink — drop-in block for any of the video prompts
+
+The clip was ending mid-blink, on a closed-eye frame. Replace the blink line in
+prompt F1, F2 or G with this, and append the settle block. Works the same in
+all three.
+
+Blink line:
+```
+She blinks twice, and both blinks are fully completed early in the clip. Her
+eyes open again completely after each one.
+```
+
+Append at the end, after the motion description:
+```
+THE CLIP ENDS SETTLED. Every movement finishes and comes to rest before the
+final frames — nothing is cut off mid-motion. Her eyes are wide open, clear and
+steady for the whole last second and on the very last frame. She never blinks
+near the end. She is never caught with her eyes closed or half-closed in the
+closing frames, and her eyelids are not moving as the clip ends. Her head
+finishes lifting and holds still, her breath completes, her hair settles, and
+her calm, warm expression holds open and steady to the end. The final frame is
+a clean, held pose with her eyes fully open, looking at the viewer.
+```
+
+Add to the negative:
+```
+ending on a blink, mid-blink final frame, eyes closed at the end, eyes closed,
+half-closed eyes, drooping eyelids, squinting, eyelids moving at the end,
+motion cut off mid-movement, unfinished gesture, frozen mid-blink
+```
