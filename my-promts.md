@@ -163,3 +163,97 @@ Negative for every shot:
 morphing face, changing hairstyle, extra arms, extra fingers, wings, text,
 watermark, warped armour, character drifting out of frame, cuts, scene change
 ```
+
+---
+
+## A. Repair pass — fix the artifacts on an image you already have
+
+Feed the bad output as the ONLY image. Mask the area behind her shoulders if
+the node supports masking; if not, this alone usually does it.
+
+```
+Keep this image exactly as it is except for one region: the area behind and
+around her shoulders and upper back.
+
+In that region, remove every leftover shape. There must be nothing attached to
+her back and nothing floating behind her. Delete any wing, any wing-like
+membrane, any feather, any bone spur, any horn, any fin, any spike cluster, any
+drifting fabric, any smoke shape, any dark mass.
+
+Replace all of it with the clean purple arena background that is already in
+this image — the same purple tone, the same green fireworks and confetti,
+continued naturally behind her as if nothing had ever been there. The hero
+portrait cards behind her stay fully visible and unobstructed.
+
+Her silhouette from the waist up must read as a plain human outline: head,
+neck, two shoulders with spiked pauldrons, two arms. Nothing wider than her
+shoulders except her raised arm.
+
+Change nothing else. Do not touch her face, her hair, her armour, her goblet,
+the VICTORY banner, the PLAY NOW button, the hero cards, the board or the
+background anywhere outside that region.
+```
+
+---
+
+## B. VICTORY end card v3 — clean back, no artifacts
+
+Node wiring changed: DISCONNECT ref4 (the back view with wings spread). It is
+the single biggest source of the junk behind her shoulders. Use ref1 = VICTORY
+screenshot, ref2 = toast photo, ref3 = full-body front, ref5 = face close-up.
+
+```
+Use image 1 as a locked background plate. Composite the woman from images 3
+and 5 into it as the hero of the celebration.
+
+SILHOUETTE — read this first, it overrides every reference:
+From the waist up her outline is a plain human shape: head, neck, two shoulders
+with spiked pauldrons, two arms. Nothing extends past the width of her
+shoulders except her raised arm. Her back is bare armour plate. Nothing is
+attached to it and nothing floats behind it.
+The area behind her shoulders and head is the purple arena background of image
+1, fully visible and unobstructed, with its green fireworks and confetti
+continuing normally. Treat that area as background, not as part of her.
+
+CHARACTER — images 3 and 5 are one single character, keep her identical:
+Face and hair from the close-up: porcelain-pale skin, heavy black eyeliner,
+deep red lips, blue-black hair swept back into two crimson twin buns, black
+spiked choker. Body and armour from the full-body view: black and crimson
+plated armour with spiked pauldrons, bare midriff, red leather straps, clawed
+gauntlets. Hold her exact palette: crimson, black, hot-pink rim light.
+Take her face, her hair, her armour and her colours from the references. Do not
+take anything that was behind her in them.
+
+POSE — take ONLY the attitude from image 2, nothing else:
+She is toasting the win. Head tilted slightly back, wide cocky smirk, eyes on
+the viewer, right arm raised high holding a golden goblet of glowing green
+liquid, left hand on her hip. Triumphant, celebratory, pleased with herself.
+Do NOT copy the man, his face, his tuxedo, the photographic rendering or the
+bokeh background from image 2.
+
+PLACEMENT:
+She stands centred BEHIND the green VICTORY banner, scaled so the banner
+crosses her at the waist. Only her head, shoulders, both arms and the goblet
+rise above the banner. Everything below the banner is hidden. She must not
+touch or overlap the red PLAY NOW button — keep a clear margin around it.
+
+KEEP PIXEL-IDENTICAL, do not redraw:
+the word VICTORY, the green banner and its gold ornaments; the red PLAY NOW
+button and its text; every hero portrait card and frame; the match-3 board and
+every gem on it; the purple arena background with its green fireworks and
+confetti; the aspect ratio and resolution of image 1.
+
+LIGHTING:
+Light her from below-front with the green glow of the VICTORY banner and the
+fireworks so she belongs to this scene. Thin hot-pink rim light along the edge
+of her shoulders and arms, drawn tight to her outline — it must not bloom out
+into a shape behind her. Soft contact shadow where the banner crosses her body.
+Match the painted, high-saturation mobile-game splash-art rendering of image 1
+— not photographic, no 3D render look.
+
+NEGATIVE: anything attached to her back, anything behind her shoulders, wings,
+wing membrane, feathers, bone spurs, horns, fins, spike clusters, cape, cloak,
+mantle, banner behind her, drifting fabric, smoke shapes, dark mass behind the
+figure, glow bloom shaped like wings, added text, watermark, second character,
+extra limbs, any change to existing UI elements.
+```
