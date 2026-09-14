@@ -1168,7 +1168,15 @@ Wiring — FEED STILLS, NOT THE CLIP:
 ref 1 = `src/seedence/ref-pose.png`, ref 2 = `src/seedence/ref-face.png`. Both
 are frame 200 of the win take, so they carry her exact face, dress, wings,
 roses and placement without carrying its motion.
-Ratio 16:9, duration 10 s, 24 fps, 720p — the settings the win take ran on.
+Ratio `adaptive`, duration 10 s, 24 fps, 720p. Adaptive rather than an explicit
+16:9 because adaptive is the one ratio legal in every Seedance task type, and
+the reference still is already 16:9 so it inherits 16:9 regardless. An explicit
+ratio is the parameter that goes illegal the moment the job is classified as an
+edit, an extend, or a first-frame task rather than a plain reference job.
+
+Keep the prompt pure ASCII. The win take's prompt is ASCII throughout; the
+first defeat draft carried em dashes, and that is the only difference in
+character class between a text that ran and a text that did not.
 
 Handing it the win .mp4 as the reference is what throws `Invalid parameters in
 input`. A video reference reclassifies the job from reference-to-video to an
@@ -1191,12 +1199,12 @@ never changes and she never changes scale or position.
 She refuses the toast. Slowly she turns her wrist and tips the raised glass
 away from the viewer, lowering it a few centimetres, and the pale glow in the
 liquid dims out. Then the hand resting on her chest opens and turns palm up
-toward the viewer in one small unhurried offer — come back and try again — and
-stays in front of her chest. She watches the viewer the whole time with a small
-closed amused smile, one eyebrow slightly raised, eyes calm and half-lidded.
-She breathes once, blinks twice, and loose strands of her blue-black hair drift
-and settle. All motion is slow and small; she never drinks, never laughs and
-never turns away.
+toward the viewer in one small unhurried offer, inviting them to come back and
+try again, and stays in front of her chest. She watches the viewer the whole
+time with a small closed amused smile, one eyebrow slightly raised, eyes calm
+and half-lidded. She breathes once, blinks twice, and loose strands of her
+blue-black hair drift and settle. All motion is slow and small; she never
+drinks, never laughs and never turns away.
 
 Her face, makeup, hair buns with red roses, choker, red and black dress,
 shoulder spikes, dark wings and gloves stay identical to the reference in every
