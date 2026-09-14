@@ -485,7 +485,7 @@ export class Director {
 
       // A boss beat ended the fight while the player was still holding their
       // move. The checks at the top of the loop are what act on it.
-      if (action === "wiped") continue;
+      if (action === "wiped" || action === "buried") continue;
       if (action === "doom") {
         this.castDoomSoon();
         continue;
@@ -509,6 +509,26 @@ export class Director {
 
   partyWiped() {
     return this.s.heroRow.aliveCount() === 0;
+  }
+
+  /**
+   * Every cell under stone — the other way to lose.
+   *
+   * A board with nothing left to swap is a fight the player cannot win and
+   * cannot act in, and waiting for the clock to notice would spend the last
+   * seconds of the run on a screen where nothing can happen. So it is a verdict
+   * of its own, read here beside the wipe. See DOOM.bury, which is the only
+   * thing that can seal a board this far.
+   */
+  boardSealed() {
+    const board = this.s.board;
+    if (!board || !board.locks) return false;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!board.isLocked(r, c)) return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -563,7 +583,7 @@ export class Director {
   verdict() {
     if (this.outcome) return this.outcome;
     if (this.bossHp <= 0) this.claim("victory");
-    else if (this.partyWiped()) this.claim("defeat");
+    else if (this.partyWiped() || this.boardSealed()) this.claim("defeat");
     return this.outcome;
   }
 
@@ -1507,11 +1527,15 @@ export class Director {
   /**
    * Wait for the player to do something.
    *
-   * Four ways out: they swap, they spend a charged hero, the clock beats them to
-   * it, or the boss's track ends the fight under them. Whichever lands first,
+   * Five ways out: they swap, they spend a charged hero, the clock beats them
+   * to it, the boss's track ends the fight under them, or the burial seals the
+   * last cell and there is no longer a board to play on. Whichever lands first,
    * the rest stop listening.
    *
-   * @returns {Promise<"swap"|"ult"|"doom"|"wiped">}
+   * The last two both arrive through `interrupt` and neither is a move: the
+   * loop takes them straight back to the verdict at the top. See buryTick.
+   *
+   * @returns {Promise<"swap"|"ult"|"doom"|"wiped"|"buried">}
    */
   async playerTurn() {
     const board = this.s.board;
@@ -2117,6 +2141,11 @@ export class Director {
     this.burying = true;
     const done = () => {
       this.burying = false;
+      // The stone that sealed the last cell is the end of the fight. Claimed
+      // here and the player's turn woken with it, because that turn is parked
+      // on a board it can no longer be played on and nothing else is coming to
+      // wake it. See playFight, which re-reads the verdict on the way round.
+      if (this.boardSealed() && this.claim("defeat")) this.interrupt("buried");
     };
     board.lockCells(cells).then(done, done);
   }

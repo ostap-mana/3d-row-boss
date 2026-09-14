@@ -1255,9 +1255,18 @@ export const DOOM = {
    *
    * `at` is a fraction of the shown clock, so it moves with DOOM.seconds rather
    * than being a second count that has to be retuned beside it. 0.32 of 27 is
-   * about eight and a half seconds of visible burial.
+   * about eight and a half seconds in which the burial can land.
+   *
+   * Five a tick rather than three, which changes what the beat is for. At three
+   * the board sealed with seconds to spare and those seconds were dead — no
+   * move to make and nothing to watch. At five it closes in about three ticks
+   * from wherever the fight had got to, and the run ends on the stone that
+   * seals the last cell: a sealed board is its own defeat now, claimed where it
+   * happens rather than collected by the clock afterwards. So there are two
+   * ways to lose — the party goes down, or the board does. See
+   * Director.boardSealed.
    */
-  bury: { at: 0.32, every: 1.15, perTick: 3 },
+  bury: { at: 0.32, every: 1.15, perTick: 5 },
 
   /**
    * Seconds from the first playable frame to the first cataclysm.
