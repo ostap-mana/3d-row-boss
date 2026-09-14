@@ -3,10 +3,13 @@
  *
  * A block encases the gem sitting in that cell: the gem cannot be swapped and
  * cannot match while it is trapped. Clearing a match next to the block breaks
- * it open — unless it was laid with a crust on it, in which case the first
- * match next door only blows the crust off and the stone itself survives to be
- * broken by a second one. Blocks never move, which is why the lava script only
- * ever stacks them from the bottom of a column upward.
+ * it open — unless it was laid with a crust on it, in which case the match next
+ * door only blows one layer of that crust off and the stone itself survives to
+ * be broken by a later one. Past the halfway line of the fight the crust runs
+ * two layers deep and the stone costs three matches, so the shell is drawn as
+ * two rings rather than one: what a block is going to cost is readable before
+ * the move is spent rather than after. Blocks never move, which is why the lava
+ * script only ever stacks them from the bottom of a column upward.
  */
 
 import { Container, Graphics, Sprite } from "pixi.js";
@@ -60,6 +63,22 @@ const SLAB = [
 ];
 
 const CRUST = 0.9;
+
+/**
+ * The second ring, as a fraction of the first — the tell for a two-layer crust.
+ *
+ * A shell used to be one thing or nothing, which was enough while `crust` never
+ * went past 1. It does now — see DIFFICULTY.curve, where the last quarter lays
+ * stones at 1.7 — and a block costing three matches that looks exactly like one
+ * costing two is the board lying about the only thing the player reads it for.
+ * The same texture again, smaller and concentric, so a doubled shell is drawn
+ * rather than tinted: multiply tint can only darken, and a hotter stone going
+ * darker reads backwards.
+ *
+ * 0.62 puts the inner seam at 0.56 of the slab, clear inside the outer ring at
+ * 0.9 and clear of the middle where the trapped gem still shows through.
+ */
+const CORE_RING = 0.62;
 
 let blockTex = null;
 let crustTex = null;
@@ -160,6 +179,12 @@ export class ObsidianView extends Container {
     this.crust.visible = false;
     this.slab.addChild(this.crust);
 
+    this.core = new Sprite(crustTexture());
+    this.core.anchor.set(0.5);
+    this.core.scale.set(CORE_RING);
+    this.core.visible = false;
+    this.slab.addChild(this.core);
+
     this.armor = 0;
     this.t = Math.random() * 6;
   }
@@ -169,6 +194,7 @@ export class ObsidianView extends Container {
     this.crust.visible = this.armor > 0;
     this.crust.alpha = 1;
     this.crust.scale.set(1);
+    this.core.visible = this.armor > 1;
   }
 
   resize(cell) {

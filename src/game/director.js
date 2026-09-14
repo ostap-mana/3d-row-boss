@@ -78,11 +78,19 @@ const OPTIONS_IN_PLAY = 2;
  *
  * The roll was flat, which is a coin: half the time the boss buried the obvious
  * move and half the time it buried the other one, and a coin is a boss who is
- * not really aiming. Two times in three is aiming — the move you had your
- * finger over is usually the one that goes — and the third is what keeps it
- * from being a rule the player can read and plan around.
+ * not really aiming. Four times in five is aiming hard — the move you had your
+ * finger over is nearly always the one that goes — and the fifth is what keeps
+ * it from being a rule the player can read and plan around.
+ *
+ * It sat at two in three until the stone pass, which asked for the blocks to be
+ * a nuisance and not only a wall. This is the knob that does that: a stone that
+ * lands somewhere is scenery, and a stone that lands on the swap the player was
+ * halfway through reaching for is the boss playing against them. Nothing it can
+ * take is ever the last move — blockAnOption leaves MIN_SWAPS standing — so the
+ * price of raising it is annoyance rather than a softlock, which is exactly
+ * what was wanted.
  */
-const AIM_BITE = 2 / 3;
+const AIM_BITE = 0.8;
 
 /**
  * How deep into the player's options the ranking below looks.
@@ -2088,8 +2096,10 @@ export class Director {
     const taken = [];
     try {
       // The headline block: one of the player's options, gone.
-      const aimed = this.blockAnOption();
-      if (aimed) {
+      const aims = this.curveAt("crust", this.pressure(), 0) > 0 ? 2 : 1;
+      for (let i = 0; i < aims && taken.length < budget; i++) {
+        const aimed = this.blockAnOption();
+        if (!aimed) break;
         board.setProbe(aimed.r, aimed.c, true);
         taken.push(aimed);
       }
@@ -2241,11 +2251,16 @@ export class Director {
    * The single most inconvenient cell on the board to seal right now.
    *
    * Aiming at the player's actual move is blockAnOption()'s job; this is the
-   * rest of the wave, and it deliberately does not hunt options — two blocks
-   * both eating a move would take the choice away entirely. It squeezes
+   * rest of the wave, and it deliberately does not hunt options. It squeezes
    * instead: swaps denied is the player's freedom measured directly, water
    * starves the only ultimate in the fight, and the middle of the board is
    * where more matches run through.
+   *
+   * How many of the wave do hunt is pickObsidian's call and it is two from the
+   * moment the stones start wearing a shell — your best idea and the one you
+   * would have fallen back on. The floor under it is MIN_SWAPS and not this
+   * function: a board is always left with a move, it is simply left with the
+   * move nobody wanted.
    *
    * The pick is randomised across everything within reach of the top score. A
    * strict argmax on a scoring function this smooth lands in the same cells run

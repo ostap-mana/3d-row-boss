@@ -471,7 +471,7 @@ export const DIFFICULTY = {
    * What keeps a late cast from being an outright mistake even so is everything
    * an ultimate does that is not damage: it clears its whole colour off the
    * board, and the healer's clears every obsidian block, on a board carrying
-   * eleven of them.
+   * thirteen of them.
    *
    * Set 1 and an ultimate is resisted exactly like a match, which is where this
    * started before any of it was asked for.
@@ -560,10 +560,11 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium       hard
-   *     attack      0.120 -> 0.330  0.58->0.64  1.05 -> 0.62
-   *     resist      1.00 (none)      0.85       0.54 -> 0.52
-   *     obsidian      2 -> 4         5            7
-   *     crust        0 -> 0.35     0.7 -> 1         1
+   *     attack      0.050 -> 0.140  0.24->0.27  0.44 -> 0.26
+   *     resist      1.00 (none)      0.88       0.80 -> 0.72
+   *     obsidian      3 -> 6         7            9
+   *     hold          8 -> 11       12           13
+   *     crust        0 -> 1       1.2 -> 1.4   1.7 -> 1.8
    *
    * `p` is how much of the boss's bar is gone, so 0.5 is the first zone
    * boundary and 0.75 the second. Everything else is linearly interpolated
@@ -588,7 +589,10 @@ export const DIFFICULTY = {
    *             blocks in five, so the wall thickens a bit at a time like
    *             everything else here rather than arriving as a cliff. A mixed
    *             wave also reads at a glance: the bright ones are the expensive
-   *             ones. See Director.crustLayers and Board.breakLocksNear.
+   *             ones, and past one layer the shell burns hotter still, so a
+   *             three-match stone is told apart from a two-match one before
+   *             the move is spent rather than after. See Director.crustLayers,
+   *             ObsidianView.setArmor and Board.breakLocksNear.
    *   name      shouted the moment the bar crosses this keyframe, so a zone
    *             change is a beat the player sees rather than a bar that
    *             quietly starts moving slower. Both names sit on a zone
@@ -601,18 +605,35 @@ export const DIFFICULTY = {
    * third watching a bar crawl behind a wall. The softening is spent almost
    * entirely there.
    *
-   *   attack    down about a third at every keyframe, and the needle at
-   *             p: 0.88 from 1.69 to 1.05 — the peak index falls from x27.4 to
-   *             x16.2, so the wall is a little over half the wall it was.
+   *   attack    every keyframe multiplied by 0.42, which leaves the shape of
+   *             the column exactly as it was and takes 58% off what any one
+   *             swing is worth. It is the other half of the stone pass rather
+   *             than a softening of its own: T.bossPress went 4 -> 2.2 in the
+   *             same breath, so the golem swings about eleven times in a run
+   *             where it swung six, and every swing arrives with a wave of
+   *             obsidian behind it. Eleven swings at 0.42 is roughly three
+   *             quarters of the damage the party used to take across a run,
+   *             delivered in twice as many pieces. What the player is supposed
+   *             to feel is a boss who will not leave the board alone, not a
+   *             boss who hits hard.
    *   resist    0.78 -> 0.85 through medium and 0.38 -> 0.52 across the last
    *             tenth. This is the one that shortens the run: the bar takes
    *             1.21 bars of damage to empty where it took 1.35.
-   *   obsidian  the endgame board carries ten blocks of twenty-five rather
-   *             than twelve, so there is still somewhere to play at the wall —
-   *             and from the halfway line those blocks come in crusted, which
-   *             is where the squeeze in this table now lives. Cost the player
-   *             tempo rather than health: a crusted stone is two matches to
-   *             remove, not a hidden multiplier on anything.
+   *   obsidian  THE STONE PASS, and the one column that goes the other way
+   *             from everything above it. Asked for in as many words: more of
+   *             them, harder, and they are meant to be a nuisance. The wave is
+   *             up by half at every keyframe — three on the opening turn
+   *             rather than two, nine at the wall rather than seven — the
+   *             ceiling reaches twelve at the medium shoulder rather than at
+   *             the needle and stops at thirteen, and `crust` carries the
+   *             rest: a whole layer from the halfway line and close to two at
+   *             the wall, so a late stone is three matches to remove rather
+   *             than two. Still tempo and not health — nothing in this column
+   *             multiplies anything — but the endgame is now fought against
+   *             the board as much as against the bar. Director.AIM_BITE went
+   *             with it: the stone lands on the move the player was looking at
+   *             four times in five rather than two in three, which is the part
+   *             that is supposed to be irritating rather than merely heavy.
    *
    * It landed on top of a separate 20% health cut — see damagePerGem and
    * BOSS_MAX_HP — and the two together take a fight of nine plain triples down
@@ -644,20 +665,27 @@ export const DIFFICULTY = {
    * out of anybody running ahead of schedule:
    *
    *   boss HP   zone         one rake      best match    ultimate
-   *      100%   super easy   x1.0     2%   59% of boss   58% of boss
-   *       75%   super easy   x1.6     3%   59%           58%
-   *       50%   medium >>>   x2.8     5%   59%           58%   OBSIDIAN HIDE
-   *       40%   medium       x5.7     9%   50%           40%
-   *       25%   hard >>>     x6.3    10%   50%           40%   MOLTEN CORE
-   *       12%   hard         x16.2   16%   32%           15%
-   *       10%   hard         x15.2   14%   31%           14%
-   *        0%   hard         x9.9     9%   31%           14%
+   *      100%   super easy   x1.0     1%   59% of boss   58% of boss
+   *       75%   super easy   x1.6     1%   59%           58%
+   *       50%   medium >>>   x2.8     2%   59%           58%   OBSIDIAN HIDE
+   *       40%   medium       x5.5     4%   50%           40%
+   *       25%   hard >>>     x6.1     4%   50%           40%   MOLTEN CORE
+   *       12%   hard         x11.0    7%   32%           15%
+   *       10%   hard         x11.1    6%   31%           14%
+   *        0%   hard         x7.2     4%   31%           14%
+   *
+   * Read the rake column against T.bossPress rather than against a move: at
+   * 2.2 seconds the golem swings about eleven times in a run, so 4% a rake in
+   * the hard zone is a hero bar coming apart steadily rather than a swing to
+   * brace for. That is the trade the stone pass made — the damage went into
+   * the clock and the pressure went onto the board.
    *
    * The index is `attack` over `resist` against that same ratio at the opening
    * keyframe: what a keyframe is worth measured against the opening swing. The
-   * heaviest swing in the rotation, the smash, lands for 28% of a hero bar on
-   * the needle and 17% at the kill, where before this pass those same two
-   * swings were 46% and 22%.
+   * heaviest swing in the rotation, the smash, lands for 12% of a hero bar on
+   * the needle and 7% at the kill, where two passes ago those same two swings
+   * were 46% and 22%. It also lands twice as often, which is the only reason
+   * a cut this deep is not a fight that stopped fighting.
    *
    * The last column is the other half of what the ending is for, and it moved
    * furthest. An ultimate used to be worth 3% of the bar in the last tenth: a
@@ -677,10 +705,11 @@ export const DIFFICULTY = {
    * describe. What can be said from arithmetic alone: the bar needs 11% less
    * damage to empty, a plain triple is worth a quarter more of it, the hardest
    * swing in the run takes under a third off a hero instead of a half, and the
-   * board at the wall has one more cell to play in than the pass before this
-   * one. The last of those is the one that turned back around: the cells are
-   * held longer now, because every stone laid past the halfway line has to be
-   * matched next to twice.
+   * board at the wall is the tightest it has been: thirteen of twenty-five
+   * cells sealed, laid nine a turn, and every stone past the halfway line
+   * matched beside two or three times before it breaks. That last figure is
+   * the only one the stone pass moved, and it moved against the grain of the
+   * rest — the fight got shorter and softer on health, and harder on room.
    *
    * The kill is expected to land well inside the run now rather than on its
    * last beat, and that is a change of intent rather than a side effect. It
@@ -760,17 +789,22 @@ export const DIFFICULTY = {
       /**
        * A full boss, and the easiest moment in the fight by a wide margin.
        *
-       * bossPress is 4 seconds and it starts with the fight, so the first swing
-       * lands on somebody who has made one match and may not yet have worked
-       * out that this is a match-three at all. Whatever sits here is what the
-       * game does to a player it has not finished teaching. At 0.12 the
-       * opening rake is under two percent of a hero bar and two bare obsidian
-       * blocks sit on a board of twenty-five: the screen shaking is telling
-       * the truth, and it is costing nothing at all. Bare is the word doing
-       * the work — `crust` is 0 at this keyframe alone, so a stone here is one
-       * match away from gone. It is the last keyframe that can say so: the
-       * shell starts coming in a third of the way down the bar now, which is
-       * where the fight stops teaching and starts asking.
+       * bossPress is 2.2 seconds and it starts with the fight, so the first
+       * swing lands on somebody who has made one match and may not yet have
+       * worked out that this is a match-three at all. Whatever sits here is
+       * what the game does to a player it has not finished teaching. At 0.05
+       * the opening rake is under one percent of a hero bar and three bare
+       * obsidian blocks sit on a board of twenty-five: the screen shaking is
+       * telling the truth, and it is costing nothing at all. Bare is the word
+       * doing the work — `crust` is 0 at this keyframe alone, so a stone here
+       * is one match away from gone. It is the last keyframe that can say so:
+       * the shell starts coming in a third of the way down the bar now, which
+       * is where the fight stops teaching and starts asking.
+       *
+       * Three rather than two, because this wave is also the only lesson the
+       * player ever gets in what a stone is. Two of them read as scenery; a
+       * third is a wall beginning, and all three are still one match each away
+       * from being gone.
        *
        * The old curve opened at a flat 1.0 and compounded from there, and the
        * party was already chewed before the mechanic had landed — which is most
@@ -778,11 +812,11 @@ export const DIFFICULTY = {
        */
       {
         p: 0.0,
-        attack: 0.12,
+        attack: 0.05,
         resist: 1.0,
         ult: 1,
-        obsidian: 2,
-        hold: 6,
+        obsidian: 3,
+        hold: 8,
         crust: 0,
       },
       /**
@@ -797,12 +831,12 @@ export const DIFFICULTY = {
        */
       {
         p: 0.35,
-        attack: 0.22,
+        attack: 0.09,
         resist: 1.0,
         ult: 1,
-        obsidian: 4,
-        hold: 8,
-        crust: 0.35,
+        obsidian: 5,
+        hold: 10,
+        crust: 0.5,
       },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
@@ -820,38 +854,38 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.33,
+        attack: 0.14,
         resist: 1.0,
         ult: 1,
-        obsidian: 4,
-        hold: 9,
-        crust: 0.7,
+        obsidian: 6,
+        hold: 11,
+        crust: 1,
         name: "OBSIDIAN HIDE",
       },
       /**
        * The shoulder into the medium zone — ten percent of the bar, and the
        * sharpest turn on the curve.
        *
-       * The boss's damage nearly doubles and armour appears from nothing, so a
-       * good match stops being worth three fifths of the bar and starts being
-       * worth half of it. The fight the player spent half the run getting
+       * The boss's damage nearly doubles — 0.14 to 0.24 — and armour appears
+       * from nothing, so a good match stops being worth three fifths of the
+       * bar and starts being worth half of it. The fight the player spent half the run getting
        * comfortable in turns out to have been the tutorial. Steep on purpose:
        * a zone boundary the player cannot feel is not a boundary, and this one
        * is announced a beat before it by the keyframe above.
        */
       {
         p: 0.6,
-        attack: 0.58,
+        attack: 0.24,
         resist: 0.88,
         ult: 1,
-        obsidian: 5,
-        hold: 10,
-        crust: 0.9,
+        obsidian: 7,
+        hold: 12,
+        crust: 1.2,
       },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
-       * The zone behind this line is deliberately near-flat: 0.58 to 0.64
+       * The zone behind this line is deliberately near-flat: 0.24 to 0.27
        * across fifteen percent of the bar. Medium has to be a place the player gets to
        * stand and play, not a ramp they slide down — it is where the roster gets
        * charged and where somebody who has understood the game gets to look good
@@ -859,12 +893,12 @@ export const DIFFICULTY = {
        */
       {
         p: 0.75,
-        attack: 0.64,
+        attack: 0.27,
         resist: 0.88,
         ult: 1,
-        obsidian: 5,
-        hold: 11,
-        crust: 1,
+        obsidian: 7,
+        hold: 12,
+        crust: 1.4,
         name: "MOLTEN CORE",
       },
       /**
@@ -884,19 +918,24 @@ export const DIFFICULTY = {
        * than the entire easy half of the fight, which is a bar crawling
        * through the back third of every run.
        *
-       * 1.05, 0.54 and six blocks a turn. The smash lands for 28% of a hero
-       * bar rather than 46%, a five-cell step takes 32% off the boss rather
-       * than 19%, and the board holds ten blocks rather than eleven. Against
-       * x2.8 at the medium boundary this is still by a distance the hardest
-       * thing in the creative — it simply no longer takes longer to play than
-       * the rest of the fight put together.
+       * 0.44 and 0.8 are the softened half of this keyframe and the stone pass
+       * softened them again: the smash lands for 12% of a hero bar where it
+       * once landed for 46%, and a five-cell step takes 32% off the boss
+       * rather than 19%. Against x2.8 at the medium boundary this is still by
+       * a distance the hardest thing in the creative, and it arrives twice as
+       * often as it used to — see T.bossPress. The wall is a rate now, not a
+       * weight.
        *
-       * `crust` is 1 here and it is the whole of what this keyframe learned
-       * last: every block laid in the last quarter wears a shell, so the wall
-       * costs twenty matches to clear rather than ten. Ten cells held out of
-       * twenty-five is a number the reshuffle can live with; ten cells held
-       * *twice as long* is the squeeze, and it is paid in tempo against
-       * T.hardCap rather than in health.
+       * The board half went the other way. Nine blocks a turn against a
+       * ceiling of thirteen out of twenty-five, where this quarter carried
+       * seven against ten a pass ago, and `crust` at 1.7 means a stone laid at
+       * the wall is very nearly always two shells deep — three matches beside
+       * it before it breaks, not one. Thirteen cells is a number the reshuffle
+       * can still live with, because a wave will not seal a cell that takes
+       * the board under MIN_SWAPS — see Director.worstCell — and thirteen
+       * cells held *three times as long* is the squeeze. It is paid in tempo
+       * against T.hardCap rather than in health, which is the whole of why it
+       * is allowed to be this heavy.
        *
        * Raise `attack` here first if the wall stops reading as a wall; lower
        * `resist` if the ending stops being a grind at all. They are separate
@@ -905,12 +944,12 @@ export const DIFFICULTY = {
        */
       {
         p: 0.88,
-        attack: 1.05,
+        attack: 0.44,
         resist: 0.8,
         ult: 1,
-        obsidian: 7,
-        hold: 12,
-        crust: 1,
+        obsidian: 9,
+        hold: 13,
+        crust: 1.7,
       },
       /**
        * BOSS AT TEN PERCENT — and `resist` goes flat from here to the kill.
@@ -923,11 +962,11 @@ export const DIFFICULTY = {
        * here would keep collapsing that figure through the last seconds of the
        * run.
        *
-       * THE FALL. `attack` comes off the needle's 1.05 (x16.2) to 0.95 here
-       * (x15.2) and then to the kill's 0.62 (x9.9): the golem comes off the
+       * THE FALL. `attack` comes off the needle's 0.44 (x11.0) to 0.40 here
+       * (x11.1) and then to the kill's 0.26 (x7.2): the golem comes off the
        * wall hard and then goes quietly, rather than sagging at a constant
-       * rate from the moment it peaks. That shape is the one the revision
-       * before this had; only its height moved.
+       * rate from the moment it peaks. That shape has survived every pass that
+       * moved this column; only its height moves.
        *
        * What flattening `resist` hands the board is small and it is the honest
        * cost of holding the ultimate still: a five-cell step lands for 31%
@@ -935,21 +974,21 @@ export const DIFFICULTY = {
        */
       {
         p: 0.9,
-        attack: 0.95,
+        attack: 0.4,
         resist: 0.72,
         ult: 1,
-        obsidian: 7,
-        hold: 12,
-        crust: 1,
+        obsidian: 9,
+        hold: 13,
+        crust: 1.8,
       },
       /**
        * The killing blow.
        *
-       * 3.40 once, then 3.17, 3.08, 2.74, 2.39, 2.17, 1.94, 0.82, and 0.62
-       * now. Measured on the index the curve is read by — `attack` over
+       * 3.40 once, then 3.17, 3.08, 2.74, 2.39, 2.17, 1.94, 0.82, 0.62, and
+       * 0.26 now. Measured on the index the curve is read by — `attack` over
        * `resist` against that same ratio at the opening keyframe — the kill
-       * lands at x9.9 where it landed at x14.0, and at x17.0, x19.0, x21.0,
-       * x24.0 and x29.8 before that.
+       * lands at x7.2, and the whole column being scaled by one factor is why
+       * that moved at all: the shape is untouched, the height is not.
        *
        * A golem swinging softer as it dies is a deliberate reading and not the
        * fight giving up, and it is worth knowing which of the two you are
@@ -970,12 +1009,12 @@ export const DIFFICULTY = {
        */
       {
         p: 1.0,
-        attack: 0.62,
+        attack: 0.26,
         resist: 0.72,
         ult: 1,
-        obsidian: 7,
-        hold: 12,
-        crust: 1,
+        obsidian: 9,
+        hold: 13,
+        crust: 1.8,
       },
     ],
   },
@@ -990,14 +1029,14 @@ export const DIFFICULTY = {
    * pressure the player has no way to read.
    *
    * The growth carries the squeeze rather than the base: an opening wave of
-   * three still leaves the board readable for a first-timer, and 1.2 a turn
+   * four still leaves the board readable for a first-timer, and 1.5 a turn
    * means the endgame is fought on a board the player is visibly running out
    * of. This costs tempo rather than health, which is the honest way to make a
    * match-3 harder — a smaller board is fewer options to read, not a hidden
    * multiplier on anything.
    */
-  obsidianBase: 3,
-  obsidianGrowth: 1.2,
+  obsidianBase: 4,
+  obsidianGrowth: 1.5,
   /**
    * Never hold more than this many cells at once, out of 25 — except that the
    * ceiling itself climbs, by obsidianMaxGrowth per boss turn, up to
@@ -1009,13 +1048,21 @@ export const DIFFICULTY = {
    * endgame is played on a third of a board, which is where the fight is meant
    * to be decided.
    *
-   * 12 is the hard stop rather than 25: past that ensurePlayable() spends most
+   * 13 is the hard stop rather than 25: past that ensurePlayable() spends most
    * turns reshuffling a dozen gems in a corner, and a board that reshuffles
    * every move is random, not hard.
+   *
+   * It was 12 until the stone pass, and the extra cell is safe for a reason
+   * worth writing down rather than rediscovering: a wave never places into a
+   * cell that would take the board under MIN_SWAPS — see Director.worstCell —
+   * so this clamp only decides how crowded the board is allowed to *look*, and
+   * the swap floor is what keeps it playable. DOOM.bury is the one caller
+   * allowed past both, and it is allowed because sealing the last move is the
+   * whole of what it is for.
    */
   obsidianMax: 9,
   obsidianMaxGrowth: 0.9,
-  obsidianMaxCap: 12,
+  obsidianMaxCap: 13,
 
   /**
    * Boss attack damage, multiplied by this to the power of the turn index.
@@ -1503,29 +1550,37 @@ export const T = {
    * own — BOSS_ATTACKS, and `turn` walks it whoever moved last — so all this
    * does is let it advance on time instead of on permission.
    *
-   * 4 against moveCost's 2.8: comfortably longer than a move takes to play out,
-   * so a player mid-cascade is not interrupted by a swing they did not earn,
-   * and short enough that the twenty-four and a half playable seconds of a
-   * thirty second run hold six of them.
+   * 2.2 against moveCost's 2.8, and it is deliberately the shorter of the two
+   * now. It was 4 for as long as the rule was that a swing must never land on
+   * a player mid-cascade: comfortably longer than a move, six swings in the
+   * twenty-four and a half playable seconds of a run, and the boss politely
+   * waiting its turn. The brief that replaced it is the opposite one — the
+   * golem should not leave the board alone — so the press now fires inside a
+   * move rather than between two of them, about eleven times in a run.
    *
-   * Six, where a twenty second run held four, and the two extra are not free:
-   * the rotation aims at whoever is closest to falling, so a run that goes the
-   * full distance now drops a hero or two on the way. Left as it is on purpose.
-   * A fight cut to end in four or five moves is over before the sixth beat is
-   * ever played, so the only player who meets those two is the one who is not
-   * killing the boss — which is precisely who the pressure is for. It is still
-   * not a wipe: partyWiped wants all six down, and the cataclysm at the end is
-   * what does that. See Director.timeUp.
+   * What makes that an annoyance rather than a beating is that it was paid
+   * for: DIFFICULTY.curve's whole `attack` column was multiplied by 0.42 in
+   * the same pass, so eleven swings come to roughly three quarters of the
+   * damage six used to do. What doubles at full strength is the thing the
+   * player is meant to notice — every boss turn lays a wave of obsidian, so
+   * twice the turns is twice the stone. See Director.pickObsidian.
    *
-   * A share of the run rather than a fixed beat, which is why it moved when
-   * the run did: 3.2 held six inside twenty-five, and 4 holds six inside
-   * thirty. Left at 3.2 the longer run would have handed the golem two extra
-   * swings nobody asked for. Shorten the run and this comes back down with it.
+   * The floor under it is the queue and not this number: queueBoss refuses at
+   * two deep, so a press that arrives while the last swing is still playing
+   * loses its beat rather than stacking. Halving this again would buy nothing
+   * — the queue would simply drop more of them.
+   *
+   * It is still a share of the run and still moves with it: 3.2 held six
+   * inside twenty-five and 4 held six inside thirty, so a longer run wants a
+   * longer press. It is also still true that the rotation aims at whoever is
+   * closest to falling, and a run that goes the full distance drops a hero or
+   * two on the way. Not a wipe: partyWiped wants all six down, and the
+   * cataclysm at the end is what does that. See Director.timeUp.
    *
    * The clock restarts on every player turn, so a swipe is always answered by
    * the swing it earned rather than by two of them at once.
    */
-  bossPress: 4.0,
+  bossPress: 2.2,
   /**
    * The hand under the player's own thumb — off.
    *
@@ -2529,7 +2584,7 @@ export const BOSS_ATTACKS = [
    *
    * A two-beat rotation is learned in one pass and after that it is weather.
    * This one arrives exactly when the player believes they have the pattern:
-   * everybody takes real damage, and `obsidianBonus` puts two extra
+   * everybody takes real damage, and `obsidianBonus` puts three extra
    * blocks on the board on top of the turn's usual wave, so the turn that hurts
    * most is also the turn that costs the most room to answer it.
    *
@@ -2540,7 +2595,7 @@ export const BOSS_ATTACKS = [
     kind: "smash",
     targets: "all",
     damage: 0.11,
-    obsidianBonus: 2,
+    obsidianBonus: 3,
     shout: COPY.eruption,
     from: 3,
   },
