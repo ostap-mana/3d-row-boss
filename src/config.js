@@ -85,6 +85,15 @@ export const OBSIDIAN = {
 /**
  * The interrupt: the boss answering the move rather than the clock.
  *
+ * OFF. `on` is false, and everything below describes a beat that no longer
+ * fires. It was turned off deliberately: a stone that lands in the middle of a
+ * gesture reads as the game refusing an input, and the fight wanted a beast
+ * that out-thinks the player rather than one that interrupts them. The whole
+ * of the pressure is on the wave now — see Director.pickObsidian, where every
+ * block hunts a move the player was about to make, on the boss's turn instead
+ * of inside theirs. Flip `on` back to true to get this beat back; nothing else
+ * has to change.
+ *
  * Every other swing in the fight is on a timer — see T.bossPress — which means
  * the blocks land between the player's ideas rather than on one. This is the
  * other half, and it is wired to the swipe itself. The board asks before it
@@ -147,7 +156,7 @@ export const OBSIDIAN = {
  * a move that did not happen and nothing yet saying why.
  */
 export const SNAP = {
-  on: true,
+  on: false,
   times: 6,
   from: 0.08,
   over: 2,

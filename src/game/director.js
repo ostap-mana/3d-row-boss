@@ -353,7 +353,8 @@ export class Director {
     board.onInvalid = () => {
       this.restartIdle(true);
     };
-    // The beast answers the move, not the clock — see SNAP and interceptSwap.
+    // Wired but dormant: SNAP.on is false, so interceptSwap refuses every swipe
+    // it is offered and the beast answers on its turn instead — see SNAP.
     board.onIntercept = (a, b) => this.interceptSwap(a, b);
     board.onInteract = () => {
       this.playerActed = true;
@@ -2148,16 +2149,18 @@ export class Director {
 
     const taken = [];
     try {
-      // The headline block: one of the player's options, gone.
-      const shell = this.curveAt("crust", this.pressure(), 0);
-      const aims = shell >= 1 ? 3 : shell > 0 ? 2 : 1;
-      for (let i = 0; i < aims && taken.length < budget; i++) {
+      // Every block in the wave hunts an option. The beast reads the moves the
+      // player is about to make and takes them on its own turn, before the
+      // gesture, rather than catching one in the act of being made. It stops
+      // when blockAnOption runs out of cells it can seal without dropping the
+      // board under MIN_SWAPS, which is the floor that keeps this playable.
+      while (taken.length < budget) {
         const aimed = this.blockAnOption();
         if (!aimed) break;
         board.setProbe(aimed.r, aimed.c, true);
         taken.push(aimed);
       }
-      // Whatever the wave has left over just squeezes the board.
+      // Whatever the wave could not aim just squeezes the board.
       while (taken.length < budget) {
         const cell = this.worstCell();
         if (!cell) break;
@@ -2498,15 +2501,12 @@ export class Director {
    * starves the only ultimate in the fight, and the middle of the board is
    * where more matches run through.
    *
-   * How many of the wave do hunt is pickObsidian's call: one on the opening
-   * turn, two from the moment the stones start wearing a shell, and three from
-   * OBSIDIAN HIDE on — your best idea, the one you would have fallen back on,
-   * and the one after that. The third does not make the wave any bigger; it
-   * comes out of this function's share of it, so past the halfway line the same
-   * nine blocks land on the moves the player was looking at rather than on the
-   * empty middle of the board. The floor under it is MIN_SWAPS and not this
-   * function: a board is always left with a move, it is simply left with the
-   * move nobody wanted.
+   * How many of the wave hunt is no longer a number: every block in it does,
+   * until blockAnOption runs out of cells it can take. This function is the
+   * remainder rather than the bulk of the wave, and on an open board it may
+   * place nothing at all. The floor is MIN_SWAPS and it is enforced inside
+   * blockAnOption, not here: a board is always left with a move, it is simply
+   * left with the move nobody wanted.
    *
    * The pick is randomised across everything within reach of the top score. A
    * strict argmax on a scoring function this smooth lands in the same cells run
