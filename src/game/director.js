@@ -99,13 +99,17 @@ const AIM_BITE = 0.8;
  * idea off them — and the thing worth doing, because now they have to find
  * another match instead of playing the one they had.
  *
- * Four seconds is long enough to cover the gap between a gesture and the boss
- * turn that answers it — the turn waits out the board and then the hand, see
- * whenQuiet and handsOff — and short enough that it is still the move they are
- * on. Longer and the boss starts burying cells the player has already moved on
- * from, which reads as the lava landing at random again.
+ * Five and a half seconds. Four was measured against the gesture and not
+ * against the turn that answers it: the boss waits out the board and then the
+ * hand — see whenQuiet and handsOff — and after a cascade that wait alone spent
+ * the memory, so the wave arrived with nothing recorded and fell back to
+ * ranking cells nobody had touched. That is the exact failure this constant
+ * exists to prevent, and it was happening on the busiest turns in the run. The
+ * ceiling has not moved: longer still and the boss starts burying cells the
+ * player has already moved on from, which reads as the lava landing at random
+ * again.
  */
-const AIM_MEMORY = 4;
+const AIM_MEMORY = 5.5;
 
 /**
  * How deep into the player's options the ranking below looks.
@@ -2145,7 +2149,8 @@ export class Director {
     const taken = [];
     try {
       // The headline block: one of the player's options, gone.
-      const aims = this.curveAt("crust", this.pressure(), 0) > 0 ? 2 : 1;
+      const shell = this.curveAt("crust", this.pressure(), 0);
+      const aims = shell >= 1 ? 3 : shell > 0 ? 2 : 1;
       for (let i = 0; i < aims && taken.length < budget; i++) {
         const aimed = this.blockAnOption();
         if (!aimed) break;
@@ -2192,7 +2197,7 @@ export class Director {
     // ceiling exactly, this fires perhaps once a run: waves keep the board at
     // its cap for most of the fight, and "the board is already as full as a
     // turn may make it" is not a reason for the one beat that is supposed to
-    // be answering the player. SNAP.times is the real cap on it — five stones
+    // be answering the player. SNAP.times is the real cap on it — six stones
     // across a whole run, each of them breakable by a match next door.
     if (this.snapHeld() >= this.snapCeiling() + SNAP.over) return null;
 
@@ -2493,9 +2498,13 @@ export class Director {
    * starves the only ultimate in the fight, and the middle of the board is
    * where more matches run through.
    *
-   * How many of the wave do hunt is pickObsidian's call and it is two from the
-   * moment the stones start wearing a shell — your best idea and the one you
-   * would have fallen back on. The floor under it is MIN_SWAPS and not this
+   * How many of the wave do hunt is pickObsidian's call: one on the opening
+   * turn, two from the moment the stones start wearing a shell, and three from
+   * OBSIDIAN HIDE on — your best idea, the one you would have fallen back on,
+   * and the one after that. The third does not make the wave any bigger; it
+   * comes out of this function's share of it, so past the halfway line the same
+   * nine blocks land on the moves the player was looking at rather than on the
+   * empty middle of the board. The floor under it is MIN_SWAPS and not this
    * function: a board is always left with a move, it is simply left with the
    * move nobody wanted.
    *

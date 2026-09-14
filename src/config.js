@@ -102,7 +102,7 @@ export const OBSIDIAN = {
  * - `times` is the budget for the whole run. On a cooldown alone the interrupt
  *   fires when the player is busiest, which is early, while the board is open
  *   and every swipe is a match — and the run is over in twenty seconds with a
- *   sealed board and no boss fight in it. Five, dealt across the clock, is a
+ *   sealed board and no boss fight in it. Six, dealt across the clock, is a
  *   fight that keeps tightening instead.
  * - only a swipe that would actually have matched is ever taken. A swap that
  *   was going to bounce anyway is not worth a swing and would read as the game
@@ -110,7 +110,7 @@ export const OBSIDIAN = {
  * - `leave` is the floor this beat is held to, and it is the one place in the
  *   fight that does not use MIN_SWAPS. Every wave leaves two moves standing,
  *   because a wave takes one of the player's options every single turn and a
- *   floor of one would hand it the last of them. This fires five times in a
+ *   floor of one would hand it the last of them. This fires six times in a
  *   run, so it is not the thing that can grind a board down, and held to two
  *   it fired about once: past the halfway line a board carrying ten blocks has
  *   two or three legal swaps on it, and "sealing this would leave only one"
@@ -126,7 +126,7 @@ export const OBSIDIAN = {
  *   the beat that is answering the player rather than the clock. Two cells is
  *   the whole of the licence, and `times` is the real cap either way.
  *
- * The five are dealt one per window and rolled inside it, so their count and
+ * The six are dealt one per window and rolled inside it, so their count and
  * their spread are fixed and their moments are not — the player can neither
  * count on one nor plan around the next. A window whose match never came stays
  * owed and is spent on the next one; `gap` is the floor underneath that, so a
@@ -148,7 +148,7 @@ export const OBSIDIAN = {
  */
 export const SNAP = {
   on: true,
-  times: 5,
+  times: 6,
   from: 0.08,
   over: 2,
   leave: 1,
