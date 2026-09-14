@@ -273,6 +273,22 @@ export function charged(element) {
   });
 }
 
+/** The quiet nag under a charged card nobody has tapped. */
+export function ultCall(element, gain) {
+  const v = voice(element);
+  const g = 0.05 * (gain === undefined ? 1 : gain);
+  [1, 1.5].forEach((mul, i) => {
+    tone({
+      freq: v.note * 2 * mul,
+      dur: 0.22,
+      gain: g,
+      type: "triangle",
+      delay: i * 0.09,
+      cut: 5200,
+    });
+  });
+}
+
 /**
  * A hero swinging.
  *

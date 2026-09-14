@@ -23,7 +23,8 @@ import {
 } from "../art/spells.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
-import { FIRE, ULT_FX } from "../config.js";
+import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
+import { FIRE, ULT_CALL, ULT_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -692,6 +693,136 @@ export class Vfx extends Container {
         spark.destroy(),
       );
     }
+  }
+
+  ultSummon(cells, to, color, light, size, cell) {
+    const cfg = ULT_CALL.summon;
+    if (!cells.length || !size) return;
+
+    let cx = 0;
+    let cy = 0;
+    cells.forEach((p) => {
+      cx += p.x;
+      cy += p.y;
+    });
+    const from = { x: cx / cells.length, y: cy / cells.length };
+
+    this.beam(from, to, color, {
+      thickness: (cell || size) * cfg.thickness,
+      travel: cfg.travel,
+      impact: cfg.impact,
+    });
+
+    const picks = cells.slice(0, cfg.motes);
+    picks.forEach((seed, i) => {
+      if (MAX_PARTICLES - this.field.children.length <= 0) return;
+
+      const head = new Sprite(glowTexture());
+      head.anchor.set(0.5);
+      head.blendMode = "add";
+      head.tint = light;
+      const w = size * cfg.head;
+      head.setSize(w, w);
+      head.x = seed.x;
+      head.y = seed.y;
+      head.alpha = 0;
+      this.field.addChild(head);
+
+      const core = new Sprite(sparkTexture());
+      core.anchor.set(0.5);
+      core.blendMode = "add";
+      core.tint = 0xffffff;
+      core.setSize(w * 0.5, w * 0.5);
+      core.x = seed.x;
+      core.y = seed.y;
+      core.alpha = 0;
+      this.field.addChild(core);
+
+      const drop = to.y - seed.y;
+      const side = (i % 2 ? 1 : -1) * rndRange(0.5, 1) * cfg.bow;
+      const bowX = (seed.x + to.x) / 2 + drop * side;
+      const bowY = seed.y + drop * 0.5;
+
+      let lastX = seed.x;
+      let lastY = seed.y;
+
+      delay(i * cfg.stagger).then(() => {
+        if (head.destroyed) return;
+        tweenValue(0, 1, cfg.dur, (p) => {
+          const q = 1 - p;
+          const x = q * q * seed.x + 2 * q * p * bowX + p * p * to.x;
+          const y = q * q * seed.y + 2 * q * p * bowY + p * p * to.y;
+          head.x = x;
+          head.y = y;
+          core.x = x;
+          core.y = y;
+          const fade = p < 0.12 ? p / 0.12 : 1;
+          head.alpha = fade;
+          core.alpha = fade;
+          const k = w * (1 - p * 0.35);
+          head.setSize(k, k);
+          core.setSize(k * 0.5, k * 0.5);
+          if (Math.hypot(x - lastX, y - lastY) >= cfg.trail) {
+            lastX = x;
+            lastY = y;
+            this.ember(x, y, k * 0.9, color);
+          }
+        }).then(() => {
+          head.destroy();
+          core.destroy();
+          this.burst(to.x, to.y, light, 5, 0.9);
+          if (i === picks.length - 1)
+            this.ring(to.x, to.y, light, size * cfg.land, 6);
+        });
+      });
+    });
+  }
+
+  ultBeckon(at, element, color, light, w, h, urgent) {
+    const cfg = ULT_CALL.beckon;
+    const grow = urgent ? cfg.urgentGrow : 1;
+
+    const top = at.y - h * 0.44;
+
+    const shaft = new Sprite(glowTexture());
+    shaft.anchor.set(0.5, 1);
+    shaft.blendMode = "add";
+    shaft.tint = color;
+    shaft.x = at.x;
+    shaft.y = top;
+    shaft.alpha = 0;
+    this.field.addChild(shaft);
+
+    const sw = w * cfg.shaft.w * grow;
+    const sh = h * cfg.shaft.h * grow;
+    tweenValue(0, 1, cfg.shaft.dur, (p) => {
+      const rise = p < 0.45 ? p / 0.45 : 1;
+      shaft.setSize(sw * (0.7 + rise * 0.3), sh * rise);
+      shaft.alpha = cfg.shaft.alpha * (p < 0.45 ? rise : 1 - (p - 0.45) / 0.55);
+    }).then(() => shaft.destroy());
+
+    this.ring(at.x, at.y, light, w * cfg.ring.size * grow, cfg.ring.width);
+
+    const frames = readyCrownFrames(element);
+    if (!frames) return;
+
+    const lick = new Sprite(frames[0]);
+    lick.anchor.set(0.5, 1);
+    lick.blendMode = "add";
+    lick.tint = light;
+    const lh = h * cfg.lick.h * grow;
+    lick.setSize(lh * CROWN_CELL.aspect, lh);
+    lick.x = at.x;
+    lick.y = top;
+    lick.alpha = cfg.lick.alpha;
+    this.field.addChild(lick);
+
+    tweenValue(0, 1, cfg.lick.dur, (p) => {
+      lick.texture =
+        frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
+      lick.y = top - h * cfg.lick.rise * p;
+      lick.alpha = cfg.lick.alpha * (p < 0.5 ? 1 : 1 - (p - 0.5) / 0.5);
+    }).then(() => lick.destroy());
   }
 
   /**

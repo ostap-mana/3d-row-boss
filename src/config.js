@@ -2558,6 +2558,48 @@ export const ULT_PACE = {
   tail: 0.22,
 };
 
+export const ULT_RIM = {
+  inset: 0.008,
+  alpha: 1,
+  rate: 1,
+  in: 0.4,
+  out: 0.28,
+  swap: 0.3,
+  breath: { rate: 2.3, depth: 0.26 },
+  burstGrow: 1.08,
+  burstDur: 0.9,
+  burstTail: 0.5,
+  stop: 0.55,
+  flash: 0.3,
+  flashDur: 0.4,
+};
+
+export const ULT_CALL = {
+  summon: {
+    motes: 5,
+    dur: 0.5,
+    stagger: 0.05,
+    head: 0.75,
+    bow: 0.26,
+    trail: 18,
+    land: 3.4,
+    thickness: 0.55,
+    travel: 0.16,
+    impact: 1.1,
+  },
+  beckon: {
+    every: 1.9,
+    urgentAfter: 4.5,
+    urgentEvery: 1.1,
+    urgentGrow: 1.25,
+    shaft: { w: 2.1, h: 2.2, dur: 0.6, alpha: 0.4 },
+    lick: { h: 1.65, dur: 0.5, rise: 0.7, alpha: 0.85 },
+    ring: { size: 3.4, width: 6 },
+    punch: 0.1,
+    gain: 0.5,
+  },
+};
+
 /**
  * The ultimate's own attack, thrown by the hero who was spent.
  *

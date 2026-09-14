@@ -1399,6 +1399,8 @@ export class HeroCard extends Container {
 
     this.t = 0;
     this.pulseT = 0;
+    this.readyFor = 0;
+    this.beckonK = { v: 1 };
 
     /**
      * A hero can be dealt already charged — see DIFFICULTY.chargeStart.
@@ -2384,14 +2386,24 @@ export class HeroCard extends Container {
 
     this.lightReady();
 
-    if (!this.pulsing) return;
+    if (!this.pulsing) {
+      this.readyFor = 0;
+      return;
+    }
+    this.readyFor += dt;
     this.pulseT += dt;
     const beat = Math.sin(this.pulseT * 6.5);
     // Scale is the whole of the beat now. The card used to breathe in light
     // as well — a wash over the portrait and a halo off the border — and both
     // are gone: six cards blooming under the board was the brightest thing on a
     // screen whose subject is the boss.
-    this.scale.set(READY_SCALE * (1 + beat * READY_SWING));
+    this.scale.set(READY_SCALE * (1 + beat * READY_SWING) * this.beckonK.v);
+  }
+
+  beckon(amount) {
+    killTweensOf(this.beckonK);
+    this.beckonK.v = 1 + amount;
+    tween(this.beckonK, { v: 1 }, 0.42, { ease: Ease.elasticOut });
   }
 
   /**
@@ -2657,6 +2669,15 @@ export class HeroRow extends Container {
 
   update(dt) {
     this.cards.forEach((c) => c.update(dt));
+  }
+
+  leadCharged() {
+    let pick = -1;
+    this.cards.forEach((card, i) => {
+      if (!card.ready || card.downed || !card.pulsing) return;
+      if (pick === -1 || card.readyFor > this.cards[pick].readyFor) pick = i;
+    });
+    return pick;
   }
 
   /**

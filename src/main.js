@@ -59,6 +59,7 @@ import { FREEZE_LIFT, FREEZE_STEPS, OutcomeScreen } from "./ui/outcome.js";
 import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
+import { UltRim } from "./fx/ultrim.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
 import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
@@ -282,6 +283,7 @@ async function boot() {
     // pass is about, and it re-solves them every time the board moves under it.
     const spotlight = new Spotlight();
     coach.useSpotlight(spotlight);
+    const ultRim = new UltRim();
     const cutin = new CutIn();
     /**
      * The fight's own verdict, and the screen the run ends on.
@@ -341,7 +343,7 @@ async function boot() {
       coach,
       hand,
     );
-    overlay.addChild(cutin, outcome, endcard, prompt);
+    overlay.addChild(ultRim, cutin, outcome, endcard, prompt);
 
     Object.assign(scene, {
       bg,
@@ -354,6 +356,7 @@ async function boot() {
       hand,
       spotlight,
       vfx,
+      ultRim,
       cutin,
       outcome,
       endcard,
@@ -466,6 +469,7 @@ async function boot() {
     scene.spotlight.resize(layout);
     scene.coach.resize(layout);
     scene.vfx.resize(layout);
+    scene.ultRim.resize(layout);
     scene.cutin.resize(layout);
     scene.outcome.resize(layout);
     scene.endcard.resize(layout);
@@ -1232,6 +1236,7 @@ async function boot() {
     scene.boss.update(dt);
     scene.board.update(dt);
     scene.heroRow.update(dt);
+    scene.ultRim.update(dt);
     scene.hud.update(dt);
     scene.spotlight.update(dt);
     scene.outcome.update(dt);

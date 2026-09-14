@@ -40,6 +40,8 @@ import {
   ROWS,
   SCRIPTED_HINT,
   T,
+  ULT_CALL,
+  ULT_RIM,
   ULT_HEAL_FLOOR,
   ULT_HEAL_TO,
   ULT_PACE,
@@ -70,6 +72,29 @@ const OBSIDIAN_SLACK = 7;
  * which one it is going to take.
  */
 const OPTIONS_IN_PLAY = 2;
+
+/**
+ * How often that roll comes up on the move the player was actually looking at.
+ *
+ * The roll was flat, which is a coin: half the time the boss buried the obvious
+ * move and half the time it buried the other one, and a coin is a boss who is
+ * not really aiming. Two times in three is aiming — the move you had your
+ * finger over is usually the one that goes — and the third is what keeps it
+ * from being a rule the player can read and plan around.
+ */
+const AIM_BITE = 2 / 3;
+
+/**
+ * How deep into the player's options the ranking below looks.
+ *
+ * It has to look past the top score because on a five-by-five almost every
+ * option is a plain three, so a sort on cells cleared alone leaves the whole
+ * board tied and the tie resolved by scan order — which would aim the boss at
+ * the top-left corner and nowhere else. Six is enough to find the one that
+ * actually costs the player something, and bounded because every candidate
+ * here is two probeLocks and this runs inside a boss turn.
+ */
+const RANK_DEPTH = 6;
 
 /**
  * The longest the hard cap will hold for an ending that had already started
@@ -173,6 +198,7 @@ export class Director {
      */
     this.ultToken = 0;
     this.ultLive = false;
+    this.beckonAt = ULT_CALL.beckon.every;
     this.ultTaught = false;
     this.ultShows = 0;
     this.moveToken = 0;
@@ -1246,6 +1272,7 @@ export class Director {
    * middle of a cascade animation and steps on it.
    */
   update(dt) {
+    this.callUlt(dt);
     if (!this.doomArmed || this.ended || this.doomFiring) return;
 
     // Held for an ultimate: the fuse stops where it is, the strip holds the
@@ -1678,18 +1705,33 @@ export class Director {
    * the doom clock is aimed at.
    */
   chargeParty(cells) {
-    const { board, heroRow, hud } = this.s;
+    const { board, heroRow, hud, vfx } = this.s;
 
     const counts = [];
+    const spots = [];
     cells.forEach((cell) => {
       const type = board.typeAt(cell.r, cell.c);
-      if (type >= 0) counts[type] = (counts[type] || 0) + 1;
+      if (type < 0) return;
+      counts[type] = (counts[type] || 0) + 1;
+      const p = board.cellPos(cell.r, cell.c);
+      (spots[type] || (spots[type] = [])).push({
+        x: board.x + p.x,
+        y: board.y + p.y,
+      });
     });
 
     heroRow.cards.forEach((card, index) => {
       const gems = counts[card.hero.element];
       if (!gems) return;
       if (!card.addCharge(gems * card.chargeRate())) return;
+      vfx.ultSummon(
+        spots[card.hero.element] || [],
+        { x: card.x, y: card.y },
+        GEM_COLORS[card.hero.element],
+        GEM_LIGHT[card.hero.element],
+        card.cardW || 0,
+        board.cell,
+      );
       // The shout names the hero on the frame the bar fills and the lesson's
       // hand then taps the card it named. Fired and not awaited — this is the
       // middle of a cascade, and nothing in a cascade waits on a hand. See
@@ -2041,14 +2083,22 @@ export class Director {
    * Bury one of the moves the player can actually see.
    *
    * The board guarantees at least two legal swaps at all times, and this takes
-   * exactly one of them: it lists the player's options strongest first, rolls
-   * between the top few, and drops a block on whichever cell kills the one it
-   * rolled. Which of your ideas dies is not predictable, and there is always
-   * another one left — that is the difference between pressure and a softlock.
+   * exactly one of them: it ranks the player's options by what they are worth
+   * and then by what killing them costs everything else, rolls between the top
+   * few — weighted at the strongest, see AIM_BITE — and seals the cell that
+   * kills the one it rolled. There is always another one left, which is the
+   * difference between pressure and a softlock.
    *
-   * Always taking the single best option instead would be both crueller and
-   * more boring: the player would learn that the obvious move is the one that
-   * always gets taken, and simply stop looking for it.
+   * Ranking on cells cleared alone is what it used to do, and on a board this
+   * small that is a tie between almost every option, broken by the order the
+   * grid happens to be scanned in. Weighting a roll over that order would have
+   * aimed the boss at the top-left corner for the whole fight. See RANK_DEPTH.
+   *
+   * Always taking the single best option would be both crueller and more
+   * boring: the player would learn that the obvious move is the one that always
+   * gets taken, and simply stop looking for it. Two times in three is the
+   * middle — often enough that the boss is felt to be reading the board over
+   * the player's shoulder, rarely enough that it is never worth playing around.
    */
   blockAnOption() {
     const board = this.s.board;
@@ -2061,20 +2111,28 @@ export class Director {
     // makes "he takes one of your ideas" the whole of what happens.
     if (swaps.length <= MIN_SWAPS) return null;
 
-    const shortlist = swaps.slice(0, Math.min(OPTIONS_IN_PLAY, swaps.length));
-    const target = shortlist[rndInt(shortlist.length)];
-
-    // Either end of the swap kills it. Prefer the one that costs the player
-    // more elsewhere, and never one that would leave the board with no move.
-    const ends = [target.a, target.b];
-    let best = null;
-    ends.forEach((cell) => {
-      const left = board.probeLock(cell.r, cell.c, () => board.countSwaps());
-      if (left < MIN_SWAPS) return;
-      const denied = swaps.length - left;
-      if (!best || denied > best.denied) best = { cell, denied };
+    // Either end of a swap kills it. Prefer the one that costs the player more
+    // elsewhere, and never one that would leave the board under its floor.
+    const ranked = [];
+    swaps.slice(0, RANK_DEPTH).forEach((swap) => {
+      let best = null;
+      [swap.a, swap.b].forEach((cell) => {
+        const left = board.probeLock(cell.r, cell.c, () => board.countSwaps());
+        if (left < MIN_SWAPS) return;
+        const denied = swaps.length - left;
+        if (!best || denied > best.denied) best = { cell, denied };
+      });
+      if (best) ranked.push({ ...best, score: swap.score });
     });
-    return best ? best.cell : null;
+    if (ranked.length === 0) return null;
+    ranked.sort((x, y) => y.score - x.score || y.denied - x.denied);
+
+    const shortlist = ranked.slice(0, Math.min(OPTIONS_IN_PLAY, ranked.length));
+    const target =
+      shortlist.length > 1 && rnd() >= AIM_BITE
+        ? shortlist[rndInt(shortlist.length - 1) + 1]
+        : shortlist[0];
+    return target.cell;
   }
 
   /**
@@ -3003,6 +3061,49 @@ export class Director {
     this.openingLive = false;
     this.openingToken++;
     this.retireLesson();
+  }
+
+  /* ------------------------------------------------------- the ult callout */
+
+  callUlt(dt) {
+    const { heroRow, vfx, ultRim } = this.s;
+    const cfg = ULT_CALL.beckon;
+
+    const lead = this.ended || this.ultCasting ? -1 : heroRow.leadCharged();
+    if (ultRim) {
+      if (lead < 0) ultRim.disarm();
+      else if (ultRim.arm(heroRow.cards[lead].hero.element)) {
+        const element = heroRow.cards[lead].hero.element;
+        this.s.hitStop(ULT_RIM.stop);
+        vfx.flash(GEM_LIGHT[element], ULT_RIM.flash, ULT_RIM.flashDur);
+      }
+    }
+
+    const index = this.ultLive || this.ultQueue.length ? -1 : lead;
+    if (index < 0) {
+      this.beckonAt = cfg.every;
+      return;
+    }
+
+    this.beckonAt -= dt;
+    if (this.beckonAt > 0) return;
+
+    const card = heroRow.cards[index];
+    const urgent = card.readyFor >= cfg.urgentAfter;
+    this.beckonAt = urgent ? cfg.urgentEvery : cfg.every;
+
+    const element = card.hero.element;
+    vfx.ultBeckon(
+      { x: card.x, y: card.y },
+      element,
+      GEM_COLORS[element],
+      GEM_LIGHT[element],
+      card.cardW || 0,
+      card.cardH || 0,
+      urgent,
+    );
+    card.beckon(cfg.punch * (urgent ? 1.5 : 1));
+    sfx.ultCall(element, cfg.gain * (urgent ? 1.6 : 1));
   }
 
   /* -------------------------------------------------------- the ult lesson */
