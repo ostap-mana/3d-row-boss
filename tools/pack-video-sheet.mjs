@@ -111,6 +111,7 @@ for (let i = 0; i < count; i++) {
 }
 const unique = [...new Set(picks)];
 const rows = Math.ceil(unique.length / cols);
+const PAD = 2;
 const even = (n) => Math.round(n / 2) * 2;
 const cellH = even((cellW * srcH) / srcW);
 
@@ -119,7 +120,7 @@ const chain = [
   "format=rgba",
   `colorkey=0x${key}:${similarity}:${blend}`,
   `scale=${cellW}:${cellH}:flags=lanczos`,
-  `tile=${cols}x${rows}:color=#00000000`,
+  `tile=${cols}x${rows}:padding=${PAD}:margin=${PAD}:color=#00000000`,
 ].join(",");
 
 mkdirSync(dirname(out), { recursive: true });
@@ -157,7 +158,8 @@ const kb = (f) => (statSync(f).size / 1024).toFixed(1);
 process.stdout.write(
   `${basename(input)}  ${srcW}x${srcH} ${total}f  ->  ` +
     `${unique.length} frames  ${cols}x${rows} grid of ${cellW}x${cellH}  ` +
-    `${cols * cellW}x${rows * cellH}  key #${key}  ${kb(out)} kB\n${out}\n\n` +
+    `${cols * (cellW + PAD) + PAD}x${rows * (cellH + PAD) + PAD}  ` +
+    `key #${key}  ${kb(out)} kB\n${out}\n\n` +
     `const SHEET = { cols: ${cols}, cellW: ${cellW}, cellH: ${cellH}, ` +
-    `count: ${unique.length} };\n`,
+    `pad: ${PAD}, count: ${unique.length} };\n`,
 );

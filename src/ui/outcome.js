@@ -101,6 +101,7 @@ import {
   retryPlateSprite,
 } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
+import { toastFrames, TOAST_ASPECT, TOAST_FPS } from "../art/toast.js";
 import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -336,6 +337,8 @@ const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 
 /** Where the band sits down the stage, and where the tap line sits under it. */
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
+const TOAST_H = { portrait: 0.42, landscape: 0.5 };
+const TOAST_SINK = 0.12;
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
@@ -562,6 +565,16 @@ export class OutcomeScreen extends Container {
 
     this.fireworks = new Fireworks();
     this.addChild(this.fireworks);
+
+    this.toast = new Sprite();
+    this.toast.anchor.set(0.5, 1);
+    this.toast.eventMode = "none";
+    this.toast.visible = false;
+    this.toast.alpha = 0;
+    this.addChild(this.toast);
+    this.toastAt = 0;
+    this.toastArmed = false;
+    this.toastH = 0;
 
     /* --------------------------------------------------------- the verdict */
 
@@ -820,6 +833,10 @@ export class OutcomeScreen extends Container {
       pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
+    this.toastH = s.h * TOAST_H[key];
+    this.toast.position.set(s.cx, cy + ph * TOAST_SINK);
+    this.fitToast();
+
     if (this.painted) {
       // Taken back off `fitVerdict` rather than trusted: `ph` above and the
       // height the art module works out are the same division done in two files,
@@ -946,6 +963,27 @@ export class OutcomeScreen extends Container {
    * rather than stretched — a photograph shown at the wrong size is a
    * photograph, and one shown at the wrong aspect is a funhouse mirror.
    */
+  fitToast() {
+    const frames = toastFrames();
+    if (!frames) return null;
+    if (!this.toastArmed) {
+      this.toastArmed = true;
+      this.toast.texture = frames[0];
+    }
+    if (this.toastH > 0) {
+      this.toast.setSize(this.toastH * TOAST_ASPECT, this.toastH);
+    }
+    return frames;
+  }
+
+  playToast(dt) {
+    if (!this.toast.visible) return;
+    const frames = toastFrames();
+    if (!frames) return;
+    this.toastAt = Math.min(frames.length - 1, this.toastAt + dt * TOAST_FPS);
+    this.toast.texture = frames[this.toastAt | 0];
+  }
+
   reframe(w, h) {
     const at = this.stillAt;
     if (!at || (at.w === w && at.h === h)) {
@@ -1145,6 +1183,10 @@ export class OutcomeScreen extends Container {
      * transparent. The tap line is off on both — it asked for a tap that used to
      * advance to the store card, and there is no card to advance to.
      */
+    this.toast.visible = !this.defeat && !!this.fitToast();
+    this.toastAt = 0;
+    if (this.toast.visible) this.toast.texture = toastFrames()[0];
+
     this.retry.visible = this.terminal;
     this.tap.visible = false;
     if (this.retryArt) this.retryArt.visible = this.defeat;
@@ -1286,6 +1328,8 @@ export class OutcomeScreen extends Container {
       ease: Ease.backOut,
     });
     tween(this.bloom, { alpha: this.defeat ? 0.3 : 0.42 }, 0.5, { delay: 0.1 });
+    if (this.toast.visible)
+      tween(this.toast, { alpha: 1 }, 0.4, { delay: 0.1 });
 
     await delay(0.62);
     if (!this.introducing) return done;
@@ -1317,6 +1361,10 @@ export class OutcomeScreen extends Container {
     if (!this.introducing) return;
     this.introducing = false;
 
+    if (this.toast.visible) {
+      killTweensOf(this.toast);
+      this.toast.alpha = 1;
+    }
     [this.card, this.tap, this.retry].forEach((el) => {
       killTweensOf(el);
       killTweensOf(el.scale);
@@ -1385,6 +1433,7 @@ export class OutcomeScreen extends Container {
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
+    this.playToast(dt);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;
