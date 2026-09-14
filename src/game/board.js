@@ -328,6 +328,15 @@ export class Board extends Container {
     this.onTouchEnd = null;
     this.onShatter = null;
     this.onShuffle = null;
+    /**
+     * Fired on a press that lands on a gem some legal swap runs through.
+     *
+     * The board's way of saying "this one is going for a match", which is the
+     * cue the boss interrupts on — see Director.onScheme and SNAP. Reported at
+     * press and not at the lean, because the lean is already two thirds of the
+     * way through the gesture and whatever answers this has to travel.
+     */
+    this.onScheme = null;
 
     this.eventMode = "static";
     this.hitArea = new Rectangle(0, 0, this.size, this.size);
@@ -681,6 +690,7 @@ export class Board extends Container {
     this.drag = { start: cell, x: p.x, y: p.y, fired: false };
     this.noteFocus(cell);
     this.press(cell);
+    if (this.onScheme && this.inSwap(cell)) this.onScheme(cell);
     if (this.onTouchStart) this.onTouchStart(p.x, p.y);
   }
 
@@ -892,6 +902,32 @@ export class Board extends Container {
   focusedCells(within) {
     const cut = now() - within;
     return this.focus.filter((f) => f.at >= cut);
+  }
+
+  /**
+   * Whether any legal swap runs through this cell.
+   *
+   * listSwaps' question asked about one cell — four probes against its fifty,
+   * which is what lets it sit on the press path where the whole board scan
+   * could not.
+   */
+  inSwap(cell) {
+    if (this.isLocked(cell.r, cell.c)) return false;
+    const around = [
+      { r: cell.r - 1, c: cell.c },
+      { r: cell.r + 1, c: cell.c },
+      { r: cell.r, c: cell.c - 1 },
+      { r: cell.r, c: cell.c + 1 },
+    ];
+    for (let i = 0; i < around.length; i++) {
+      const b = around[i];
+      if (!this.inBounds(b) || this.isLocked(b.r, b.c)) continue;
+      this.swapModel(cell, b);
+      const made = this.findMatches().length > 0;
+      this.swapModel(cell, b);
+      if (made) return true;
+    }
+    return false;
   }
 
   /**
@@ -2340,10 +2376,16 @@ export class Board extends Container {
    * rest of the board through it. The restock afterwards moves gems, and that
    * has to have the board to itself.
    */
-  async lockCells(cells) {
+  async lockCells(cells, opts) {
     // The wave waits out a swipe already in flight rather than landing on top
     // of it. See handsOff — bounded, so a parked thumb cannot stall the fight.
-    await this.handsOff();
+    //
+    // `onto` is the one caller that does not wait, and it is the interrupt:
+    // landing on top of the gesture is the entire beat, and a block that
+    // politely queued behind the swipe it was thrown at would arrive after the
+    // match it was thrown to stop. The player is not left wondering what
+    // happened — the beast spat, on screen, a third of a second earlier.
+    if (!(opts && opts.onto)) await this.handsOff();
     // A block written over a gem the lesson has drawn somewhere else would
     // trap the wrong stone on screen.
     this.cancelPreview();

@@ -39,6 +39,7 @@ import {
   OBSIDIAN,
   ROWS,
   SCRIPTED_HINT,
+  SNAP,
   T,
   ULT_CALL,
   ULT_RIM,
@@ -300,6 +301,11 @@ export class Director {
     /** Token for the boss's own clock — see armBossPress. */
     this.pressToken = 0;
 
+    /** The run's interrupts, as fractions of the clock — see dealSnaps. */
+    this.snaps = [];
+    this.snapAt = undefined;
+    this.snapping = false;
+
     this.doomArmed = false;
     this.doomFiring = false;
     this.doomLeft = DOOM.seconds;
@@ -343,6 +349,8 @@ export class Director {
     board.onInvalid = () => {
       this.restartIdle(true);
     };
+    // The beast answers the hand, not the clock — see SNAP and bossSnap.
+    board.onScheme = () => this.onScheme();
     board.onInteract = () => {
       this.playerActed = true;
       // A finger on the glass ends the lesson, and ends it for good. It used
@@ -1304,7 +1312,34 @@ export class Director {
     this.doomLeft = DOOM.seconds;
     this.doomTotal = DOOM.seconds;
     this.doomWarned = [];
+    this.dealSnaps();
     this.s.hud.setDoom(this.doomLeft, this.doomTotal);
+  }
+
+  /**
+   * Deal the run's interrupts across the clock — see SNAP.
+   *
+   * Held as fractions of the countdown rather than as seconds, so they survive
+   * the clock being stretched or squeezed: WORLD_RATE and the ult's rushes both
+   * move what a second is worth, and a schedule in seconds would bunch up at
+   * one end of a run that was retimed. The player experiences the spread, and
+   * the spread is in clock read, not in wall time.
+   *
+   * One per window, rolled inside it. The windows are equal and they stop where
+   * the burial starts, because from there the board seals itself.
+   */
+  dealSnaps() {
+    const times = (SNAP && SNAP.times) || 0;
+    this.snaps = [];
+    this.snapAt = undefined;
+    if (!times) return;
+    const last = 1 - ((DOOM.bury && DOOM.bury.at) || 0);
+    const open = Math.max(0, last - SNAP.from);
+    if (open <= 0) return;
+    const window = open / times;
+    for (let i = 0; i < times; i++) {
+      this.snaps.push(SNAP.from + (i + rnd()) * window);
+    }
   }
 
   /**
@@ -2130,6 +2165,138 @@ export class Director {
       taken.forEach((p) => board.setProbe(p.r, p.c, false));
     }
     return taken.map((cell) => ({ ...cell, crust: this.crustLayers() }));
+  }
+
+  /**
+   * A finger has come down on a match. Answer it now.
+   *
+   * Everything else the boss does is on its own clock, and a block that lands
+   * between two ideas is a block that lands on neither. This is the one beat
+   * aimed at the idea itself: the press says which gem is being picked up,
+   * blockAnOption reads the same press out of Board.focus and takes the swap it
+   * belongs to, and the stone arrives while the thumb is still moving.
+   *
+   * Cheap and heavily fenced, because it rides an input event and can be asked
+   * a dozen times a second. Everything expensive is behind `snapDue`.
+   */
+  onScheme() {
+    if (!this.snapDue()) return;
+    this.snapAt = now();
+    this.snaps.shift();
+    // Deliberately not on the boss's track. That track is a queue, and a queue
+    // is the one thing this beat cannot be in: the press it answers is over in
+    // a third of a second, and a swing that waits its turn arrives after the
+    // match it was thrown to stop. It is safe off the track because the only
+    // two things it touches are serialised anyway — the board by claim(), and
+    // the beast's own pose by `solo` in bossSnap.
+    this.snapping = true;
+    this.bossSnap()
+      .catch(() => {})
+      .then(() => {
+        this.snapping = false;
+      });
+  }
+
+  /**
+   * Whether the interrupt may fire — the whole of its fencing, in one place.
+   *
+   * The cooldown is the headline (see SNAP.gap), but most of these are about
+   * not talking over something the player is being shown: a lesson mid-prop, a
+   * cast mid-cut-in, a board mid-cascade. An interrupt that lands in any of
+   * those is not read as the boss answering a reach, which is the only thing it
+   * is for.
+   */
+  snapDue() {
+    if (!SNAP.on || this.ended || this.settled()) return false;
+    // The run's budget, dealt at armDoom and spent one window at a time.
+    if (!this.doomArmed || !this.snaps || !this.snaps.length) return false;
+    if (!(this.doomTotal > 0)) return false;
+    if (1 - this.doomLeft / this.doomTotal < this.snaps[0]) return false;
+    // Nothing is thrown across a lesson, a cast or the opening prop: see
+    // teachUlt and pointOpeningHint, both of which own the screen while up.
+    if (this.ultLive || this.ultInFlight) return false;
+    if (this.openingLive && !this.openingSpent) return false;
+    // A board still writing itself is a board whose swaps are about to change,
+    // so both the aim and the press that asked for it are already stale.
+    const board = this.s.board;
+    if (!board || board.busy) return false;
+    // One interrupt at a time. The boss's own swing is not a reason to hold
+    // this one — its track is busy most of the fight, and fencing against it
+    // silenced the interrupt almost every time it was asked for.
+    if (this.snapping) return false;
+    // The floor under a backlog: windows the player idled through are all owed
+    // at once, and two interrupts inside one gesture is a glitch, not a fight.
+    return (
+      now() - (this.snapAt === undefined ? -SNAP.gap : this.snapAt) >= SNAP.gap
+    );
+  }
+
+  /**
+   * The interrupt itself: spit, and one block on the move being reached for.
+   *
+   * A wave in miniature, and it obeys the wave's rules — blockAnOption for the
+   * aim so MIN_SWAPS survives, and the same hold ceiling pickObsidian works to,
+   * so interrupting cannot put more stone on the board than the boss was
+   * already allowed to hold. It takes no turn and no damage with it: this
+   * costs the player a move, and a move is enough.
+   *
+   * `boss.spit()` is the animation, and it was written for this and never used
+   * — a third of a second from the wind-up to the glob leaving, which is what a
+   * beat has to fit into if it is going to arrive inside a gesture.
+   */
+  async bossSnap() {
+    const { board, boss, hud, vfx, shake } = this.s;
+    if (this.snapHeld() >= this.snapCeiling()) return;
+    const cell = this.blockAnOption();
+    if (!cell) return;
+
+    hud.shout(COPY.snap, 0.3, { fill: 0xff5a6e, from: 1.2 });
+    // The body animation only when the beast is not already mid-swing: pose is
+    // one set of numbers and two attacks writing it is neither attack. The
+    // glob is thrown either way — it leaves the mouth whether or not the mouth
+    // had time to open for it, and the glob is the part that has to be seen.
+    const thrown = this.bossQueued === 0 ? boss.spit() : null;
+    const p = board.cellPos(cell.r, cell.c);
+    await vfx.lob(
+      boss.mouthPoint(),
+      { x: board.x + p.x, y: board.y + p.y },
+      0xff6a10,
+      { duration: SNAP.flight, size: board.cell * 0.9 },
+    );
+    if (this.settled()) return;
+    shake(8, 0.2);
+    // Straight onto the finger — see lockCells' `onto`. Waiting out the gesture
+    // here would mean the block landing after the swipe it was thrown to stop.
+    await board.lockCells([{ ...cell, crust: this.crustLayers() }], {
+      onto: true,
+    });
+    if (thrown) await thrown;
+    this.refreshHint();
+  }
+
+  /** Blocks standing on the board right now. */
+  snapHeld() {
+    const board = this.s.board;
+    let held = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (board.isLocked(r, c)) held++;
+    }
+    return held;
+  }
+
+  /** The same hold ceiling a wave works to — see pickObsidian. */
+  snapCeiling() {
+    return Math.floor(
+      Math.min(
+        DIFFICULTY.obsidianMaxCap,
+        this.curveAt(
+          "hold",
+          this.pressure(),
+          DIFFICULTY.obsidianMax +
+            this.turn * (DIFFICULTY.obsidianMaxGrowth || 0),
+        ),
+      ),
+    );
   }
 
   /**

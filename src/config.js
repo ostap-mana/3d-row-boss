@@ -82,6 +82,64 @@ export const OBSIDIAN = {
   seamHot: 0xffc247,
 };
 
+/**
+ * The interrupt: the boss answering the hand rather than the clock.
+ *
+ * Every other swing in the fight is on a timer — see T.bossPress — which means
+ * the blocks land between the player's ideas rather than on one. This is the
+ * other half. The instant a finger comes down on a gem that a legal swap runs
+ * through, the beast spits, and a block lands on the move that press was the
+ * beginning of. The player is not blocked in the abstract; they are blocked
+ * mid-reach, on the match they had already found, and they have to go and find
+ * another one.
+ *
+ * It is deliberately the cruellest thing in the creative, and it is fenced in
+ * three directions so that it stays a provocation rather than a wall:
+ *
+ * - `gap` is the cooldown, so a player poking at the board cannot summon a
+ *   block a second. It is longer than a gesture and shorter than a boss turn:
+ *   the interrupt is a thing that happens to you, not a rhythm you can learn.
+ * - the aim runs through blockAnOption, so MIN_SWAPS still stands and the board
+ *   is never taken below the moves it owes.
+ * - the hold ceiling is the wave's — see pickObsidian — so an interrupt cannot
+ *   push more stone onto the board than the turn it interrupted was allowed to.
+ *
+ * `flight` is what decides whether the player ever beats it. A press to a
+ * completed swipe is roughly a third of a second on a phone, and the glob is in
+ * the air for most of that: fast hands land the match, everyone else watches it
+ * turn to stone under their thumb. That race is the whole point — make the
+ * flight much shorter and the board simply steals moves, much longer and the
+ * interrupt always arrives too late to have been about anything.
+ *
+ * `times` is the budget for the whole run, and it is a budget rather than a
+ * cooldown for a reason. On a pure cooldown the interrupt fires whenever the
+ * player is busiest — which is early, while the board is still open and every
+ * press lands on a match — and the run is over in twenty seconds with a sealed
+ * board and no boss fight in it. Five, dealt across the clock, is a fight that
+ * keeps tightening: the stones are still arriving at the last swipe, and the
+ * player spends the whole run fighting them rather than losing to them at once.
+ *
+ * The five are dealt one per window and rolled inside it, so their count and
+ * their spread are fixed and their moments are not — the player can neither
+ * count on one nor plan around the next. A window whose press never came stays
+ * owed and is spent on the next one, because a slot the player idled through is
+ * a beat they have not had, not a beat they have earned their way out of.
+ *
+ * `from` is the share of the clock at the top of the run the interrupt keeps
+ * out of — long enough for a first match to land uninterrupted, because the
+ * first thing a playable has to teach is that matching works at all. The tail
+ * is not configured here: the last window closes where DOOM.bury opens, since
+ * past that the board is being sealed on a timer anyway and one more block is
+ * not a beat anybody can read.
+ */
+export const SNAP = {
+  on: true,
+  times: 5,
+  from: 0.08,
+  gap: 2.6,
+  flight: 0.34,
+};
+
 /* ---------------------------------------------------------------- the fight */
 
 /**
@@ -2355,6 +2413,8 @@ export const COPY = {
 
   lava: "LAVA SPREADS!",
   lavaHint: "BREAK IT",
+  /** The interrupt — short, because it has to be read mid-gesture. See SNAP. */
+  snap: "NOT THAT ONE!",
   ultClear: "BOARD CLEARED!",
   breath: "LAVA BREATH!",
   smash: "MAGMA SLAM!",
