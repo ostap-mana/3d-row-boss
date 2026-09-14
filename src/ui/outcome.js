@@ -259,19 +259,22 @@ const BAND_ALPHA = 0.9;
  * The plate this replaced was 11.24:1 and was pulled into whatever box the card
  * handed it — 1.06 of the stage upright, deliberately wider than the screen, so
  * its fades ran off both edges and left two hairlines crossing the frame. That
- * does not carry over. Run a banner past the edge and it loses a chevron and
- * then the word, so it is contained instead: 0.92 upright leaves a margin for
- * the fades to die in, which is what the art is drawn to do.
+ * does not carry over: run a banner past the edge and it loses a chevron and
+ * then the word. It is contained instead, and the safe box is what contains it —
+ * upright the banner now takes all of it, which is the whole of the safe width
+ * and still inside every cutout, with the art's own fades dying on that edge
+ * rather than past it.
  *
- * The height is a cap and not a target, and upright it never bites — 0.92 of a
- * 390-point phone comes back 117 points tall against a cap of 117, which is the
- * height the stretched plate was given and is not a coincidence. Laid on its
- * side the stage is wide and short, and a band at 0.92 of it would be a third of
- * the screen; past the cap the width is taken back off the height, so the aspect
- * survives and the band gets smaller instead of squarer.
+ * The height is a cap and not a target, and it has to be loose enough not to
+ * take that width back: the full safe width of a 430-point phone comes back
+ * about 140 points tall, so a cap tuned for the old 0.92 would quietly shrink
+ * the banner instead of leaving it alone. Laid on its side the stage is wide and
+ * short and the cap is the thing doing the work; past it the width is taken back
+ * off the height, so the aspect survives and the band gets smaller rather than
+ * squarer.
  */
-const VERDICT_W = { portrait: 0.92, landscape: 0.46 };
-const VERDICT_H = { portrait: 0.15, landscape: 0.24 };
+const VERDICT_W = { portrait: 1.0, landscape: 0.52 };
+const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 
 /** Where the band sits down the stage, and where the tap line sits under it. */
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
@@ -315,6 +318,17 @@ const LINE_W = { portrait: 0.44, landscape: 0.26 };
  */
 const RETRY_W = { portrait: 0.56, landscape: 0.34 };
 const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
+
+/**
+ * The same slot, narrower, for the PLAY NOW plate on a win.
+ *
+ * The two controls are not the same kind of thing and must not read as the same
+ * size. RETRY is the only thing on a losing card and can have the room; the
+ * plate shares its screen with the verdict, which is the biggest object in the
+ * creative and has to stay that way. At the rematch's own 0.56 the two were
+ * within a hair of each other upright and the card read as two headlines.
+ */
+const PLAY_W = { portrait: 0.44, landscape: 0.26 };
 
 /** Air between the control and whatever bounds it, in UI points. */
 const RETRY_AIR = 12;
@@ -736,7 +750,7 @@ export class OutcomeScreen extends Container {
      * The cap is the one thing that can still take the width off its own share.
      * See VERDICT_H — it is landscape that needs it.
      */
-    const cap = clamp(s.h * VERDICT_H[key], 52 * ui, 150 * ui);
+    const cap = clamp(s.h * VERDICT_H[key], 52 * ui, 176 * ui);
     let pw = s.w * VERDICT_W[key];
     let ph = (pw * VERDICT_ART.h) / VERDICT_ART.w;
     if (ph > cap) {
@@ -827,7 +841,7 @@ export class OutcomeScreen extends Container {
     const room = Math.max(44 * ui, sill - roof);
 
     const box = this.fitRetry(
-      s.w * RETRY_W[key],
+      s.w * (this.defeat ? RETRY_W[key] : PLAY_W[key]),
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
       ui,
     );
