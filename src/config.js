@@ -1238,59 +1238,79 @@ export const DIFFICULTY = {
    * cap leaves the guard still biting when the deadline collects — which turns
    * every good run into a timeout.
    *
-   * `bite` 2 and `floor` 0.5, loosened from 3 and 0.12, and the requirement
-   * that tightened them has been withdrawn. That pair existed to hold the win
-   * near the deadline for *everybody*: a simulated expert who emptied the bar
-   * in 20.8 seconds was pulled back to 27.3, and every bracket landed between
-   * 26 and 29 seconds against a thirty second cap. It worked, and what came
-   * back about it is that the creative plays too long.
+   * `bite` 3 and `floor` 0.25 — a rail along the fight's length again rather
+   * than a floor under it, which is the third position this pair has held and
+   * worth reading as a history rather than as a setting.
    *
-   * So this is a floor under the fight's length again rather than a rail along
-   * it. At 0.5 the least a hit can ever be scaled to is half of itself where
-   * it used to be an eighth, and at bite 2 the grip closes gently instead of
-   * clamping the moment a player edges ahead of the line. Somebody who reads
-   * the board still cannot finish the run in eight seconds; they can finish it
-   * in nineteen, which is the whole of what the change is for.
+   * It began at 3 and 0.12, to hold the win near the deadline for *everybody*:
+   * a simulated expert who emptied the bar in 20.8 seconds was pulled back to
+   * 27.3, and every bracket landed between 26 and 29 seconds against a thirty
+   * second cap. It worked, and what came back about it was that the creative
+   * played too long, so it was loosened to 2 and 0.5 and then to 0.7 — the
+   * least a hit could be scaled to went from an eighth of itself to seven
+   * tenths, which is barely a guard at all.
    *
-   * 0.4 was tried first and it was still doing too much: it held a player
-   * landing a cascade on every move to the same eight moves as one landing
-   * bare triples, which is the guard flattening skill rather than floor-ing
-   * the run. At 0.5 the same four brackets — bare triples, triples with a
-   * cascade behind them, four-cell steps, five-cell steps — finish at 24.9,
-   * 22.1, 19.3 and 10.9 seconds against a 32 second cap. Those are computed
-   * off the damage table at a fixed move every 2.8 seconds and not simulated
-   * against a real board, so read the spread rather than the figures.
+   * What that bought is an empty second half. Driven over CDP, a bot playing
+   * the strongest swap every move won with 56% of the countdown still on the
+   * strip, at 0.7 and at `seconds` 26 alike — because the floor, not the
+   * schedule, was the binding constraint, and a schedule the floor overrides
+   * is not a schedule. Everything the back half of the fight is built out of
+   * plays to an empty theatre: the second crust layer, the burial at
+   * DOOM.bury.at, the interrupts in SNAP.
    *
-   * Do not read the looser grip as a difficulty knob in either direction. The
+   * 0.25 puts the grip back within reach of where it started without going all
+   * the way: a quarter of a hit at the extreme rather than an eighth, and bite
+   * 3 so it stays gentle until somebody is well clear of the line. The cost is
+   * the one the 0.12 pass was criticised for and it is real — a player landing
+   * a cascade every move is held closer to one landing bare triples than their
+   * play deserves. That is the trade being made on purpose: a fight that is
+   * still being fought when the clock runs out, rather than skill expressed
+   * into a victory card with half the run left.
+   *
+   * Either number is a straight dial on run length. Raising `floor` back
+   * towards 0.5 buys skill expression and shortens the top bracket; lowering
+   * it past about 0.08 makes the bar read as stuck rather than as guarded,
+   * which is why a floor exists at all.
+   *
+   * Not a difficulty knob in either direction, whatever it is set to. The
    * guard has never touched a player who is behind the line — it only ever
-   * clamps somebody already winning faster than the schedule — so everything
-   * it does is about the length of the creative and none of it is about how
-   * hard the fight is. Below about 0.08 the bar reads as stuck rather than as
-   * guarded, which is why the floor exists at all.
+   * clamps somebody already winning faster than the schedule.
    */
   pace: {
     enabled: true,
     /**
-     * 22, and this is the first time it has been retuned rather than dragged
-     * along behind T.hardCap.
+     * 26, back up against the deadline after a pass at 22.
      *
-     * It used to sit two seconds under the deadline, wherever the deadline
-     * was: the run went 30 -> 33 -> 40 -> 45 and this went 28 -> 31 -> 38 ->
-     * 43 to keep that distance, because the guard was supposed to still be
-     * pulling when the deadline arrived. That is exactly what made every run
-     * finish on its last beat, and it is what "it plays too long" was about.
+     * The history: this used to sit two seconds under the cap wherever the cap
+     * was — 28 -> 31 -> 38 -> 43 as the run went 30 -> 33 -> 40 -> 45 — so the
+     * guard was still pulling when the deadline arrived and every run finished
+     * on its last beat. 22 against a 32 second cap was the answer to that, a
+     * schedule deliberately finishing ten seconds early, and it did what it
+     * was asked: it took "it plays too long" off the table.
      *
-     * 22 against a 32 second cap is a schedule that finishes ten seconds
-     * early on purpose. The fight is aimed at the middle of the run now, and
-     * the ten seconds behind it are what a player who fumbles a swipe or
-     * spends a beat reading the board has to spend.
+     * What it also did is empty the end of the run. The bar is gone by the
+     * middle, and everything the second half was built to do — the crust
+     * running two layers deep, the burial at DOOM.bury.at, the interrupts in
+     * SNAP — happens to a fight that is already decided, or does not happen at
+     * all because the creative has cut to VICTORY before the clock got there.
+     * Driven over CDP, a bot playing the strongest swap every time won with
+     * more than half the countdown still on the strip.
+     *
+     * 26 against a 27 second countdown is the fight aimed at the end of it
+     * again, and that is the whole intent: stones still landing on the last
+     * swipe, the beast still alive to throw them. It is not a difficulty
+     * change and it cannot be — the guard has never touched a player who is
+     * behind the line, only one already winning faster than the schedule. What
+     * it costs is the ten seconds of slack a fumbled swipe used to have, which
+     * is the trade: a run that is tense at the end instead of over at the
+     * middle. Drop it back towards 22 to buy that slack back.
      *
      * Real seconds, so Director.paceGrip converts the world clock back through
      * toReal before it reads this — see WORLD_RATE.
      */
-    seconds: 22,
-    bite: 2,
-    floor: 0.7,
+    seconds: 26,
+    bite: 3,
+    floor: 0.25,
   },
 
   /**
