@@ -292,7 +292,7 @@ const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
 const TOAST_H = { portrait: 0.33, landscape: 0.4 };
 const TOAST_W = { portrait: 0.92, landscape: 0.46 };
-const TOAST_SINK = 0.12;
+const TOAST_SINK = 0.04;
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
