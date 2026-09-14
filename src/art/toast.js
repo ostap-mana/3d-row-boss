@@ -2,7 +2,7 @@ import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import toastUrl from "../assets/outcome/toast.webp";
 
-const SHEET = { cols: 5, cellW: 168, cellH: 298, pad: 2, count: 20 };
+const SHEET = { cols: 5, cellW: 320, cellH: 234, pad: 2, count: 20 };
 
 export const TOAST_ASPECT = SHEET.cellW / SHEET.cellH;
 export const TOAST_FPS = 9;

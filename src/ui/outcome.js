@@ -110,46 +110,14 @@ import { fitFont } from "./text.js";
 /**
  * The wash over the frozen fight — one curve per orientation.
  *
- * Deliberately not a flat dim. The player is meant to still see the fight they
- * just had underneath, and a flat wash either hides it or fails to hold the
- * type, so the darkening is aimed instead: it opens over the arena and the boss
- * and closes over the board.
+ * It opens over the arena and closes over the board, because the board is what
+ * the band and the control stand on. The curve used to do the opposite, and the
+ * verdict stood on a wall of gems.
  *
- * WHICH WAY ROUND MATTERS, and it used to be the other one. The curve darkened
- * the top and the bottom of the frame and let the middle through, on the
- * argument that the middle is where the band goes. That reads correctly on a
- * paper diagram and wrong on the screen, because of what is actually *in* those
- * thirds: the top is the arena, painted, muted and the one part of the picture
- * worth leaving legible, and the middle is the board — forty saturated discs in
- * a grid, the busiest and loudest surface the creative owns. The old curve lit
- * the grid and dimmed the painting, and the result was VICTORY standing on a
- * wall of gems with PLAY NOW sitting in the middle of it.
- *
- * So the corridor the card's own furniture lives in — the band, and the control
- * under it — is now the darkest part of the frame, and the arena above it is the
- * brightest it has ever been. The fight is more readable than before, not less:
- * what got darker is the part that was never the fight.
- *
- * Two curves because the screen is not two shapes of the same composition. The
- * upright layout stacks arena, board, party down the frame and a vertical
- * gradient can address each in turn. Sideways the board is a column down the
- * right and the party a row along the left, both spanning the same heights, so
- * there is nothing for a vertical curve to separate and it goes flatter and
- * deeper instead.
- *
- * Neutral, and the same wash on both endings. It was a blue-black on a win and
- * an oxblood on a loss, and the loss also had a red light added under it — a
- * whole room repainted by the result. That was asked off: what is behind the
- * verdict is the fight, darkened, and nothing else. The colour of the ending
- * lives on the band and only on the band, which is where the game itself puts
- * it.
+ * Neutral, and the same wash on both endings: the colour of the ending lives on
+ * the band and only on the band, which is where the game itself puts it.
  */
 const SCRIM = {
-  /**
-   * 0.00 the boss bar, held back — 0.16 to 0.34 the arena, wide open — 0.44
-   * the board begins and the band lands on it — 0.80 through the control —
-   * 0.90 the party lifts back out at the foot.
-   */
   portrait: [
     [0.0, "rgba(8,8,9,0.88)"],
     [0.16, "rgba(8,8,9,0.44)"],
@@ -159,11 +127,6 @@ const SCRIM = {
     [0.9, "rgba(8,8,9,0.7)"],
     [1.0, "rgba(8,8,9,0.84)"],
   ],
-  /**
-   * Flatter and deeper, and the one window it opens is the band of sky the
-   * boss's head stands in. Below that the board runs the full height of the
-   * right-hand side, so there is no row this can spare.
-   */
   landscape: [
     [0.0, "rgba(8,8,9,0.88)"],
     [0.13, "rgba(8,8,9,0.5)"],
@@ -175,16 +138,6 @@ const SCRIM = {
   ],
 };
 
-/**
- * The wash for an orientation, built once and kept.
- *
- * `gradientTexture` caches on the key it is handed, so the two curves need two
- * keys or the second orientation asked for would be served the first one's
- * bitmap for the life of the page. Naming the key after the curve is the whole
- * of the fix, and it is why this is a function rather than two calls.
- *
- * @param {"portrait"|"landscape"} key
- */
 function scrimTexture(key) {
   return gradientTexture(`outcome-scrim-${key}`, SCRIM[key]);
 }
@@ -337,7 +290,8 @@ const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 
 /** Where the band sits down the stage, and where the tap line sits under it. */
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
-const TOAST_H = { portrait: 0.42, landscape: 0.5 };
+const TOAST_H = { portrait: 0.33, landscape: 0.4 };
+const TOAST_W = { portrait: 0.92, landscape: 0.46 };
 const TOAST_SINK = 0.12;
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
@@ -792,9 +746,6 @@ export class OutcomeScreen extends Container {
     // The still covers the window and not the stage: it is a photograph of the
     // whole screen, and it goes back exactly where it was taken from.
     if (this.still) this.reframe(w, h);
-    // The wash is aimed at the composition and the composition changes shape
-    // with the screen, so the curve is re-chosen here rather than fixed at
-    // construction. Both are cached by key — see SCRIM and `scrimTexture`.
     this.scrim.texture = scrimTexture(key);
     this.scrim.setSize(w, h);
     this.fireworks.resize(layout);
@@ -833,7 +784,10 @@ export class OutcomeScreen extends Container {
       pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
-    this.toastH = s.h * TOAST_H[key];
+    this.toastH = Math.min(
+      s.h * TOAST_H[key],
+      (s.w * TOAST_W[key]) / TOAST_ASPECT,
+    );
     this.toast.position.set(s.cx, cy + ph * TOAST_SINK);
     this.fitToast();
 
@@ -936,6 +890,27 @@ export class OutcomeScreen extends Container {
     if (this.introducing) this.settle();
   }
 
+  fitToast() {
+    const frames = toastFrames();
+    if (!frames) return null;
+    if (!this.toastArmed) {
+      this.toastArmed = true;
+      this.toast.texture = frames[0];
+    }
+    if (this.toastH > 0) {
+      this.toast.setSize(this.toastH * TOAST_ASPECT, this.toastH);
+    }
+    return frames;
+  }
+
+  playToast(dt) {
+    if (!this.toast.visible) return;
+    const frames = toastFrames();
+    if (!frames) return;
+    this.toastAt = Math.min(frames.length - 1, this.toastAt + dt * TOAST_FPS);
+    this.toast.texture = frames[this.toastAt | 0];
+  }
+
   /**
    * The still, fitted to a window that may not be the one it was taken in.
    *
@@ -963,27 +938,6 @@ export class OutcomeScreen extends Container {
    * rather than stretched — a photograph shown at the wrong size is a
    * photograph, and one shown at the wrong aspect is a funhouse mirror.
    */
-  fitToast() {
-    const frames = toastFrames();
-    if (!frames) return null;
-    if (!this.toastArmed) {
-      this.toastArmed = true;
-      this.toast.texture = frames[0];
-    }
-    if (this.toastH > 0) {
-      this.toast.setSize(this.toastH * TOAST_ASPECT, this.toastH);
-    }
-    return frames;
-  }
-
-  playToast(dt) {
-    if (!this.toast.visible) return;
-    const frames = toastFrames();
-    if (!frames) return;
-    this.toastAt = Math.min(frames.length - 1, this.toastAt + dt * TOAST_FPS);
-    this.toast.texture = frames[this.toastAt | 0];
-  }
-
   reframe(w, h) {
     const at = this.stillAt;
     if (!at || (at.w === w && at.h === h)) {

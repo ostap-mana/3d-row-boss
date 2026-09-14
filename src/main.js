@@ -668,28 +668,6 @@ async function boot() {
    * to be excluded. It goes back on the same synchronous line, so nothing is
    * ever drawn without it.
    *
-   * ## The coaching comes off too, and that is the same rule
-   *
-   * The `quiet` list below is the overlay's own argument applied inside `world`.
-   * The sparks, the shout, the floating damage, the pointing hand and the
-   * lesson's dim and marks are all mid-animation things: they are on screen for
-   * half a second each, on their way somewhere, and they are only ever legible
-   * because they move. Stopped dead they are debris — a run that ended on the
-   * beat after a cascade froze the word ERUPTION! across the frame, half a
-   * dozen spark motes hanging in the air under it, and the hand still pointing
-   * at a swap nobody is going to make an inch above the verdict.
-   *
-   * `vfx` whole and not its `field`: everything that container owns is a
-   * particle on a tween that destroys it, and the screen flash over them is the
-   * same kind of thing. There is nothing in it that outlives the beat it was
-   * made for, which is exactly why none of it belongs in a photograph.
-   *
-   * What is left in the picture is the fight itself: the arena, the boss, the
-   * board as it stands, the party, and the bars that say how it went. That is
-   * what the card is for. These go back on the same synchronous line as the
-   * overlay, and each is restored to the visibility it had rather than to true,
-   * because half of them were already hidden when the fight ended.
-   *
    * Never throws. A renderer that will not hand over a render texture — an
    * ancient webview, a context that was lost a frame ago — gets a card with no
    * still behind it, which is the scrim and the band, and still says what
