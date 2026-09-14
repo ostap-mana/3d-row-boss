@@ -1154,3 +1154,123 @@ Still cropping? It is the reference, not the text — the node copies the framin
 of whatever you feed it. Run the result through
 `node tools/pad-canvas.mjs <file> --square --fill 0.4 --top 0.65` and feed the
 padded image back in.
+
+---
+
+# DEFEAT — Seedance 2.5, green-screen plate
+
+The loss beat, cut to the same pattern as the win take in
+`src/seedence/Playable Ostap_Seedance 2.5 Reference_2026-09-14_20-09-52.mp4`:
+same character, same placement, same locked camera, same flat green. Only the
+meaning flips — she does not drink to you, and she asks you to go again.
+
+Wiring: Seedance 2.5, reference mode, image/clip 1 = the win take or its plate.
+Landscape, 10 s, 24 fps. The clip has to key and pack exactly like the win one
+or the card gets two figures at two different scales.
+
+```
+The camera is completely locked off and never moves: no push-in, no pull-back,
+no pan, no tilt, no zoom, no orbit, no roll, no handheld shake, no parallax.
+The frame is perfectly static from the first frame to the last, and she stays
+at exactly the same size and in exactly the same place in it the whole time.
+
+FRAMING — identical to the reference:
+Landscape frame. She is framed from the waist up, standing right of centre,
+facing the viewer, with a wide band of empty background down the left side
+where her raised hand holds the glass. Her waist runs off the bottom edge and
+that is the only edge she touches. The whole glass — the cup, its rim, its
+stem and every finger around it — stays inside the frame for the entire clip,
+with empty space above it and to the left of it. She never drifts, leans,
+steps, turns away or changes scale.
+
+THE BEAT — she withholds the toast:
+She does not drink. She lowers the glass a few centimetres and tips it slowly
+away from the viewer, turning her wrist so the toast is taken back rather than
+offered. The pale glow inside the liquid fades down as she does it.
+She shakes her head slowly, twice, a few degrees each way — a small "not this
+time", not a big refusal. Her chin stays level.
+Then the hand at her chest opens and turns palm up toward the viewer in one
+small, unhurried offer: come back and try again. The hand stays in front of her
+chest and never reaches out past her shoulder.
+Her chest rises and falls once with a slow breath. She blinks twice. Loose
+strands of her blue-black hair drift and settle. Every movement is small, slow
+and continuous — no snap, no jerk, no sudden pose change, and the first and
+last frames hold the same pose.
+
+EXPRESSION:
+Amused and unimpressed, never cruel. One eyebrow lifts slightly. A small closed
+smile at one corner of her mouth. Her eyes stay calm, half-lidded and on the
+viewer the whole time. No wide grin, no visible teeth, no laughing, no sneer,
+no snarl, no contempt, no pity, no sadness. She is daring the viewer to go
+again, not gloating over them.
+
+NOTHING ELSE CHANGES:
+Her face, her makeup, her hairstyle, both hair buns and the red roses in them,
+her choker, her red and black dress, her shoulder spikes, the small dark wings
+at her back and her gloves stay exactly as they are in the reference, in every
+frame. Her palette stays crimson, black and pale gold. No new props, no second
+character, no weapon, no effects, no particles, no sparks, no smoke, no magic,
+no text.
+
+BACKGROUND:
+Flat, solid chroma green, one single pure tone, identical in all four corners,
+perfectly even and perfectly still, with no gradient, no shading, no shadow and
+nothing appearing in it at any point. No green light spills onto her: her black
+and her crimson stay black and crimson at the edges. Her outline stays crisp on
+every side, with no haze, no glow bleed, no motion blur and no stray wisps.
+```
+
+Negative:
+```
+camera movement, zoom, push-in, pull-back, pan, tilt, dolly, orbit, roll,
+handheld shake, parallax, scale change, character drifting out of frame, cut,
+scene change, flicker, colour shift in the background, morphing face, changing
+hairstyle, changing makeup, changing dress, changing armour, extra arms, extra
+fingers, drinking, glass to her lips, glass tipped toward the camera, spilled
+liquid, empty glass, glass leaving the frame, cropped glass, cup cut off, rim
+cut off, cropped hand, cropped fingers, cropped hair buns, head cut off,
+shoulders cut off, arm cut off, arm extended sideways, outstretched arm, arms
+spread wide, big gesture, turning away, walking, stepping, leaning, standing
+up, sitting down, laughing, open mouth, bared teeth, manic grin, crazed eyes,
+wide staring eyes, sneer, snarl, contempt, sadness, crying, pity, background,
+scenery, environment, props, particles, sparks, smoke, embers, fire, magic
+circle, aura, glow behind the character, vignette, gradient background, drop
+shadow, cast shadow, green spill, soft edges, motion blur, text, watermark,
+logo, UI, second character.
+```
+
+## Swap block — the pour, if the head shake does not read
+
+At card size she is about 400 points wide behind a band. A two-degree head
+shake can vanish at that size; liquid leaving a glass never does. Replace the
+first paragraph of THE BEAT with this and leave the rest alone:
+
+```
+She does not drink. She turns her wrist over slowly and pours the drink out to
+one side in a thin steady stream, watching the viewer the whole time and never
+watching the glass. The stream falls straight down, stays thin, and leaves the
+frame at the bottom edge; it never splashes, never sprays and never crosses in
+front of her body. The pale glow inside the glass fades out as it empties.
+```
+
+Then drop `empty glass` and `spilled liquid` from the negative — they are the
+point now — and keep everything else.
+
+## Packing it
+
+Same line as the win's sheet, same reasons. `--flood` is not optional: the
+backdrop trapped between her raised arm and her body is an enclosed pocket, and
+a flat colour key leaves it on her chest as a lime blob.
+
+```
+node tools/pack-video-sheet.mjs "src/seedence/<defeat clip>.mp4" \
+  --crop 1120:720:80:0 --frames 20 --cols 5 --cell 320 \
+  --flood --range <a>:<b> --out src/assets/outcome/spurn.webp
+```
+
+`--range` picks the stretch where the beat actually happens. On a ten-second
+take the refusal lands in the middle two seconds and the rest is a hold, so
+sampling the whole clip spends sixteen of twenty frames on nothing moving.
+
+The loss card does not show this sprite yet — `OutcomeScreen` gates it on
+`!this.defeat` in `src/ui/outcome.js`. Packing the sheet is not wiring it.
