@@ -879,3 +879,136 @@ large, cramped composition, edge-to-edge composition
 If it still crops: shrink her further — change "about sixty percent of the image
 height" to "about forty-five percent", and raise the margins from one fifth to
 one quarter.
+
+---
+
+# FINAL — isolated character plate for compositing
+
+Supersedes every block above (E, H, I, K, L and their negatives). Use only this
+one. Conflicts resolved: half body wins, small-in-frame wins, no background
+wins. Wiring: image 1 = full-body front view, image 2 = face close-up. Node
+aspect ratio 1:1 or 4:5.
+
+```
+Generate one isolated character on an empty background. This is a cutout plate
+that will be composited onto finished artwork later, so the character must be
+complete, uncropped and surrounded by empty space. Images 1 and 2 are one single
+character — keep her identical to them.
+
+NO BACKGROUND AT ALL:
+Nothing exists in this image except the character herself. There is no scene, no
+environment and no setting of any kind.
+No room, no wall, no sky, no ground, no floor, no horizon, no furniture, no
+props, no scenery, no landscape, no arena, no architecture, no depth, no
+perspective, no atmosphere, no fog, no haze, no light rays, no particles, no
+sparks, no smoke, no embers, no confetti, no fireworks, no magic circle, no
+aura, no glow behind her, no vignette, no gradient, no texture, no pattern, no
+logo, no text, no shadow cast behind her. Nothing is behind her and nothing is
+beside her.
+If a transparent background is possible, the background is fully transparent
+with a clean alpha channel. Otherwise the background is flat, solid chroma green
+— one single pure tone, identical in all four corners, perfectly even, with no
+gradient, no shading and no variation whatsoever.
+No green light spills onto the character. Her black armour stays black at the
+edges and picks up no green tint anywhere.
+Her outline is crisp and cleanly separated from the background on every side,
+with no soft haze, no glow bleed, no motion blur and no stray wisps.
+
+FRAMING — half body, small in a wide empty frame:
+Wide, zoomed-out framing with a great deal of negative space. She is SMALL in
+the frame and fills only about sixty percent of the image height and about half
+of the image width. Plenty of empty room all around her.
+She is framed from the waist up. Her legs are not in the image at all — no
+thighs, no knees, no shins, no feet. Her torso continues downward and runs off
+the bottom edge of the frame, so the bottom border cuts through her waist at the
+frame edge itself. There is no floating cut-off inside the picture, no visible
+stump, no fade and no soft edge at the bottom.
+Her waist at the bottom border is the ONLY place she meets an edge. Everywhere
+else she is complete, with clear empty space beyond her:
+- The raised goblet is the highest point in the picture and it is whole — the
+  cup, its rim, its lip, its stem and every finger around it fully visible, with
+  a band of empty space above it at least one fifth of the image height.
+- Empty space of at least one fifth of the image width runs down the left edge
+  and the right edge, past her widest point: past both pauldron spikes, both
+  elbows and both hair buns.
+- Her head, both hair buns, both shoulders, both arms, both hands and every
+  finger are complete and fully inside the frame.
+She is centred horizontally and faces the viewer. Zoom out far enough that every
+part of her fits with room to spare.
+
+COMPOSITION — keep her footprint compact:
+Her silhouette is tall and narrow rather than wide, so that when she is placed
+into artwork she covers as little of it as possible. Her raised arm is held
+close in front of her shoulder, not flung out to the side. Her left hand rests
+flat against her chest, tucked in. Her elbows stay near her body. She does not
+spread out horizontally.
+
+EXPRESSION — this overrides the references:
+She is looking at the viewer with genuine respect. She is honouring a winner.
+Warm, sincere, impressed, proud of them.
+Her mouth is closed or barely parted in a soft, gentle smile. No wide grin, no
+visible teeth, no bared teeth. The corners of her mouth lift only slightly.
+The smile reaches her eyes: her lower eyelids are lifted and there is a soft
+crease under each eye. Her upper eyelids are relaxed and lowered so the upper
+lid covers the top of the iris. No white of the eye is visible above or below
+the iris. Her eyes are calm and soft, not wide, not staring.
+Her eyebrows are relaxed and level, with the inner ends lifted very slightly.
+Her brow is smooth. No furrow, no angled-down eyebrows.
+Her chin is tipped slightly DOWN toward her chest in a small bow of
+acknowledgement, and she looks up at the viewer from under relaxed lids. Her
+head is NOT tilted back and she is NOT looking down her nose.
+Keep her black eyeliner and deep red lips as makeup, but the eyes underneath
+must read calm and kind. The makeup is style, not mood.
+
+GESTURE:
+She raises a golden goblet of glowing green liquid and inclines it slightly
+toward the viewer in a salute. Her left hand is open and rests flat over her
+heart. Her shoulders are squared, her posture upright and proud. This is a toast
+to the person she is looking at, not a celebration of herself.
+
+SILHOUETTE — this overrides the references:
+From the waist up her outline is a plain human shape: head, neck, two shoulders
+with spiked pauldrons, two arms. Nothing extends past the width of her shoulders
+except her raised arm. Her back is bare armour plate. Nothing is attached to it
+and nothing floats behind it.
+
+CHARACTER:
+Face and hair from the close-up: porcelain-pale skin, black eyeliner, deep red
+lips, blue-black hair swept back into two crimson twin buns, black spiked
+choker. Body and armour from the full-body view: black and crimson plated armour
+with spiked pauldrons, bare midriff, red leather straps, clawed gauntlets. Hold
+her exact palette: crimson, black, hot-pink rim light.
+Take her face, her hair, her armour and her colours from the references. Do not
+take her expression from them, and do not take anything that was behind her.
+
+LIGHTING:
+Soft, even, frontal key light. Her face is evenly lit — no hard shadow under the
+brow, no shadow across the eyes, nothing that turns the face sinister. A thin
+hot-pink rim light traces the edge of her shoulders and arms, drawn tight to her
+outline, and must not bloom out past her silhouette. Painted, high-saturation
+mobile-game splash art — not photographic, no 3D render look.
+
+NEGATIVE: background, scenery, environment, setting, room, wall, sky, ground,
+floor, horizon, landscape, architecture, props, furniture, depth of field,
+bokeh, atmosphere, fog, haze, light rays, particles, sparks, smoke, embers,
+confetti, fireworks, aura, glow behind the character, vignette, gradient
+background, textured background, patterned background, drop shadow, cast shadow,
+green spill, soft edges, motion blur, legs, thighs, knees, shins, feet, boots,
+full body, full figure, floating torso, cut-off body inside the frame, visible
+stump, faded bottom edge, cropped goblet, cut goblet, goblet touching the top
+edge, cup cut off, rim cut off, cropped hand, cropped fingers, cropped
+pauldrons, cropped hair buns, cropped elbow, head cut off, shoulders cut off,
+touching the frame edge, no margin, tight framing, zoomed in, close-up, extreme
+close-up, headshot, subject fills the frame, subject too large, cramped
+composition, arms spread wide, wide stance, psychopathic, unhinged, manic grin,
+crazed eyes, wide staring eyes, white of the eye visible above the iris, sneer,
+snarl, smirk, bared teeth, evil grin, sinister, mocking, contempt, looking down
+the nose, head tilted back, furrowed brow, hard shadow across the eyes, anything
+attached to her back, anything behind her shoulders, wings, wing membrane,
+feathers, bone spurs, horns, fins, cape, cloak, mantle, drifting fabric, tuxedo,
+suit, modern clothing, text, watermark, logo, UI, second character, extra limbs,
+extra fingers.
+```
+
+If it still crops: lower "about sixty percent of the image height" to "about
+forty-five percent" and raise both margins from one fifth to one quarter.
