@@ -344,3 +344,102 @@ feathers, bone spurs, horns, fins, cape, cloak, mantle, drifting fabric, dark
 mass behind the figure, glow bloom shaped like wings, added text, watermark,
 second character, extra limbs, any change to existing UI elements.
 ```
+
+---
+
+## D. VICTORY end card v5 — blade salute, no DiCaprio reference
+
+Wiring cut down to three: image 1 = VICTORY screenshot, image 2 = full-body
+front view, image 3 = face close-up. The toast photo and the back view are
+DISCONNECTED. Numbering below assumes that.
+
+```
+Use image 1 as a locked background plate. Composite the woman from images 2
+and 3 into it as the champion of this victory screen.
+
+EXPRESSION — read this first, it overrides every reference:
+She is looking at the viewer with genuine respect. She is honouring a winner.
+Warm, sincere, impressed, proud of them.
+Her mouth is closed or barely parted in a soft, gentle smile. No wide grin. No
+visible teeth. No bared teeth. The corners of her mouth lift only slightly.
+The smile reaches her eyes: her lower eyelids are lifted and there is a soft
+crease under each eye. Her upper eyelids are relaxed and lowered so the upper
+lid covers the top of the iris. No white of the eye is visible above or below
+the iris. Her eyes are calm and soft, not wide, not staring.
+Her eyebrows are relaxed and level, with the inner ends lifted very slightly.
+Her brow is smooth. No furrow, no angled-down eyebrows, no raised single brow.
+Her chin is tipped slightly DOWN toward her chest in a small bow of
+acknowledgement, and she looks up at the viewer from under relaxed lids. Her
+head is NOT tilted back and she is NOT looking down her nose.
+Keep her black eyeliner and deep red lips as her makeup, but the eyes
+underneath them must read calm and kind. The makeup is style, not mood.
+
+GESTURE — the warrior's salute:
+Her right arm is raised and holds her crimson blade straight up, vertical,
+point to the sky, the flat of the blade facing the viewer, held close in front
+of her right shoulder. Her left hand is open and rests flat over her heart.
+Her shoulders are squared and her posture is upright and proud. This is a
+salute to the champion, not an attack and not a celebration of herself. The
+blade never points at the viewer and is never swung.
+
+SILHOUETTE — also overrides every reference:
+From the waist up her outline is a plain human shape: head, neck, two shoulders
+with spiked pauldrons, two arms, and the vertical blade. Nothing else extends
+past the width of her shoulders. Her back is bare armour plate. Nothing is
+attached to it and nothing floats behind it.
+The area behind her shoulders and head is the purple arena background of image
+1, fully visible and unobstructed, with its green fireworks and confetti
+continuing normally. Treat that area as background, not as part of her.
+
+CHARACTER — images 2 and 3 are one single character, keep her identical:
+Face and hair from the close-up: porcelain-pale skin, black eyeliner, deep red
+lips, blue-black hair swept back into two crimson twin buns, black spiked
+choker. Body and armour from the full-body view: black and crimson plated
+armour with spiked pauldrons, bare midriff, red leather straps, clawed
+gauntlets. The blade is hers from the full-body view: crimson, jagged, edged in
+hot pink. Hold her exact palette: crimson, black, hot-pink rim light.
+Take her face, her hair, her armour, her blade and her colours from the
+references. Do not take her expression from them, and do not take anything that
+was behind her.
+
+PLACEMENT:
+She stands centred BEHIND the green VICTORY banner, scaled so the banner
+crosses her at the waist. Only her head, shoulders, both arms and the raised
+blade rise above the banner. Everything below the banner is hidden. The blade
+runs up through the empty space above her and must not cross the word VICTORY.
+She must not touch or overlap the red PLAY NOW button — keep a clear margin
+around it.
+
+KEEP PIXEL-IDENTICAL, do not redraw:
+the word VICTORY, the green banner and its gold ornaments; the red PLAY NOW
+button and its text; every hero portrait card and frame; the match-3 board and
+every gem on it; the purple arena background with its green fireworks and
+confetti; the aspect ratio and resolution of image 1.
+
+LIGHTING:
+Light her from below-front with the green glow of the VICTORY banner and the
+fireworks so she belongs to this scene. Keep the light on her face soft and
+even — no hard shadow under the brow, no shadow across the eyes, nothing that
+turns the face sinister. A clean specular highlight runs down the raised blade.
+Thin hot-pink rim light along the edge of her shoulders and arms, drawn tight
+to her outline — it must not bloom out into a shape behind her. Soft contact
+shadow where the banner crosses her body. Match the painted, high-saturation
+mobile-game splash-art rendering of image 1 — not photographic, no 3D render
+look.
+
+NEGATIVE: psychopathic, unhinged, manic grin, crazed eyes, wide staring eyes,
+white of the eye visible above the iris, sneer, snarl, smirk, bared teeth, evil
+grin, sinister, mocking, contempt, looking down the nose, head tilted back,
+furrowed brow, angled-down eyebrows, hard shadow across the eyes, blade
+pointing at the viewer, combat pose, mid-swing, blood, anything attached to her
+back, anything behind her shoulders, wings, wing membrane, feathers, bone
+spurs, horns, fins, cape, cloak, mantle, drifting fabric, dark mass behind the
+figure, glow bloom shaped like wings, goblet, wine glass, drink, tuxedo, suit,
+modern clothing, added text, watermark, second character, extra limbs, any
+change to existing UI elements.
+```
+
+No-weapon swap: replace the GESTURE block with — "Her right fist is raised
+shoulder-high in a firm, controlled salute, knuckles toward the viewer. Her
+left hand is open and rests flat over her heart." Then add `sword, blade,
+weapon` to NEGATIVE.
