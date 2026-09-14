@@ -832,3 +832,50 @@ behind her at any point. No particles, no sparks, no smoke, no light, no
 shapes, no colour shift. The background is identical in the first frame and the
 last.
 ```
+
+---
+
+## L. Wider frame, goblet never cropped — replaces the FRAMING block in K
+
+The fix is subject size, not a crop prohibition: state how much of the frame she
+fills and the margins follow. Set the node to 1:1 or 4:5.
+
+```
+FRAMING — small in a wide frame, half body:
+Wide, zoomed-out framing on a large empty canvas with a great deal of negative
+space. She is SMALL in the frame and occupies only about sixty percent of the
+image height and about half of the image width. Plenty of empty room all around
+her.
+
+The raised goblet is the highest point in the picture and it is complete and
+whole — the cup, its rim, the lip, the stem and her fingers around it are all
+fully visible. Above the goblet there is a wide band of empty space, at least
+one fifth of the image height. There is also clear empty space to the side of
+the goblet and to the side of her raised elbow.
+Empty space of at least one fifth of the image width runs down the left edge and
+the right edge, beyond her widest point — beyond both pauldron spikes, both
+elbows and both hair buns.
+
+She is framed from the waist up. Her legs are not in the image at all — no
+thighs, no knees, no shins, no feet. Her torso continues downward and runs off
+the bottom edge of the frame, so the bottom border cuts through her waist at the
+frame edge itself. No floating cut-off inside the picture, no visible stump, no
+fade, no soft bottom edge.
+
+Nothing except her waist touches or crosses any edge of the image. She is
+centred horizontally. Zoom out far enough that every part of her fits with room
+to spare.
+```
+
+Add to the negative:
+```
+cropped goblet, cut goblet, goblet touching the top edge, cup cut off, rim cut
+off, cropped hand, cropped fingers, cropped pauldrons, cropped hair buns,
+cropped elbow, touching the frame edge, no margin, tight framing, zoomed in,
+close-up, extreme close-up, headshot, subject fills the frame, subject too
+large, cramped composition, edge-to-edge composition
+```
+
+If it still crops: shrink her further — change "about sixty percent of the image
+height" to "about forty-five percent", and raise the margins from one fifth to
+one quarter.
