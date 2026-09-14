@@ -389,6 +389,7 @@ export class Hand extends Container {
     this.held = 0;
     killTweensOf(this);
     killTweensOf(this.sprite);
+    killTweensOf(this.shade);
     tween(this, { alpha: 0 }, 0.18).then(() => {
       // The token, not the alpha: a touch arriving mid-fade has already put the
       // hand back at alpha 1 through grab(), and reading the alpha here would
