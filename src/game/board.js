@@ -33,6 +33,16 @@ const SWIPE_RATIO = 0.34;
 const REFUSE_GAP = 0.22;
 
 /**
+ * How many cells of the player's attention the board keeps, newest first.
+ *
+ * Six is two gestures' worth — a press and the cell it leaned at, three times
+ * over. Past that it is not attention any more, it is history, and the boss
+ * aiming at a cell the player looked at four moves ago is the boss aiming at
+ * nothing.
+ */
+const FOCUS_KEEP = 6;
+
+/**
  * Take one gem's glow to `alpha`, whatever was already writing it.
  *
  * Held against the gem rather than against the cell it happens to be standing
@@ -343,6 +353,17 @@ export class Board extends Container {
      * instead of trusting a point read half a gesture ago.
      */
     this.lean = null;
+    /**
+     * Where the player has just been reaching, newest first — see noteFocus.
+     *
+     * The board's one record of intent as opposed to outcome. A swap that
+     * happened is on the grid for anyone to read; this is the move that was
+     * being assembled, which is the only thing that says which of a dozen
+     * legal options the player had actually decided on. Director.blockAnOption
+     * is the reader, and it is what lets the lava land on the match somebody
+     * was two hundred milliseconds away from making.
+     */
+    this.focus = [];
 
     this.build();
     this.prewarm();
@@ -658,6 +679,7 @@ export class Board extends Container {
       return;
     }
     this.drag = { start: cell, x: p.x, y: p.y, fired: false };
+    this.noteFocus(cell);
     this.press(cell);
     if (this.onTouchStart) this.onTouchStart(p.x, p.y);
   }
@@ -828,7 +850,13 @@ export class Board extends Container {
       this.homeStone(lean.partner, lean.pcell);
       lean.partner = partner;
       lean.pcell = partner ? to : null;
-      if (partner) killTweensOf(partner);
+      if (partner) {
+        killTweensOf(partner);
+        // The far end of the gesture: with the pressed cell already recorded,
+        // this is the pair the player is trying to make, not merely the stone
+        // they happen to have a thumb on.
+        this.noteFocus(to);
+      }
     }
 
     // Clamped rather than eased towards the cap: one to one with the finger is
@@ -840,6 +868,30 @@ export class Board extends Container {
     const raw = horiz ? dx : dy;
     lean.off = Math.max(-reach, Math.min(reach, raw));
     return dir;
+  }
+
+  /**
+   * Remember that the player just reached for this cell.
+   *
+   * Stamped with the game clock, not wall time, so a memory measured in
+   * seconds shortens exactly as much as the fight speeds up.
+   *
+   * Deduplicated by cell rather than appended to: a finger rocking between two
+   * gems would otherwise fill the whole list with one of them and push the
+   * other — the half of the pair that says what the move was going to be —
+   * straight off the end.
+   */
+  noteFocus(cell) {
+    if (!cell) return;
+    this.focus = this.focus.filter((f) => f.r !== cell.r || f.c !== cell.c);
+    this.focus.unshift({ r: cell.r, c: cell.c, at: now() });
+    if (this.focus.length > FOCUS_KEEP) this.focus.length = FOCUS_KEEP;
+  }
+
+  /** The cells reached for inside the last `within` seconds, newest first. */
+  focusedCells(within) {
+    const cut = now() - within;
+    return this.focus.filter((f) => f.at >= cut);
   }
 
   /**

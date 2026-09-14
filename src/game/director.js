@@ -74,23 +74,37 @@ const OBSIDIAN_SLACK = 7;
 const OPTIONS_IN_PLAY = 2;
 
 /**
- * How often that roll comes up on the move the player was actually looking at.
+ * How often that roll comes up on the strongest of the moves left.
  *
  * The roll was flat, which is a coin: half the time the boss buried the obvious
  * move and half the time it buried the other one, and a coin is a boss who is
- * not really aiming. Four times in five is aiming hard — the move you had your
- * finger over is nearly always the one that goes — and the fifth is what keeps
- * it from being a rule the player can read and plan around.
+ * not really aiming. Four times in five is aiming hard, and the fifth is what
+ * keeps it from being a rule the player can read and plan around.
  *
- * It sat at two in three until the stone pass, which asked for the blocks to be
- * a nuisance and not only a wall. This is the knob that does that: a stone that
- * lands somewhere is scenery, and a stone that lands on the swap the player was
- * halfway through reaching for is the boss playing against them. Nothing it can
- * take is ever the last move — blockAnOption leaves MIN_SWAPS standing — so the
- * price of raising it is annoyance rather than a softlock, which is exactly
- * what was wanted.
+ * This is the fallback and not the aim. It decides between options the player
+ * has shown no interest in; the moment they have reached for one, the roll does
+ * not happen at all and the cell they reached for is taken — see AIM_MEMORY and
+ * blockAnOption.
  */
 const AIM_BITE = 0.8;
+
+/**
+ * How long the boss keeps hold of where the player was reaching, in seconds of
+ * game clock — see Board.noteFocus.
+ *
+ * The whole difference between a wall and an opponent. A stone that lands on a
+ * good cell is scenery; a stone that lands on the two gems somebody had a thumb
+ * between, in the second they were closing the gesture, is the boss taking the
+ * idea off them — and the thing worth doing, because now they have to find
+ * another match instead of playing the one they had.
+ *
+ * Four seconds is long enough to cover the gap between a gesture and the boss
+ * turn that answers it — the turn waits out the board and then the hand, see
+ * whenQuiet and handsOff — and short enough that it is still the move they are
+ * on. Longer and the boss starts burying cells the player has already moved on
+ * from, which reads as the lava landing at random again.
+ */
+const AIM_MEMORY = 4;
 
 /**
  * How deep into the player's options the ranking below looks.
@@ -2195,26 +2209,33 @@ export class Director {
    * Bury one of the moves the player can actually see.
    *
    * The board guarantees at least two legal swaps at all times, and this takes
-   * exactly one of them: it ranks the player's options by what they are worth
-   * and then by what killing them costs everything else, rolls between the top
-   * few — weighted at the strongest, see AIM_BITE — and seals the cell that
-   * kills the one it rolled. There is always another one left, which is the
+   * exactly one of them. There is always another one left, which is the
    * difference between pressure and a softlock.
+   *
+   * Which one it takes is decided in two tiers. The first is the player: every
+   * press and every cell a gesture leaned at is recorded — see Board.noteFocus
+   * — and a swap with one of those cells in it is taken ahead of anything else
+   * on the board, at the end the finger was actually on. That is the beat worth
+   * having. You spot the match, you start pulling the gem across, and the thing
+   * you were reaching for goes to stone under your hand; the board still has
+   * moves on it, they are simply not the move you had.
+   *
+   * The second tier is for a player who has touched nothing this turn — an
+   * opening, a cascade they are watching, a thumb off the glass. Then it falls
+   * back to ranking the options by what they are worth and by what killing them
+   * costs everything else, and rolls between the top few (see AIM_BITE).
    *
    * Ranking on cells cleared alone is what it used to do, and on a board this
    * small that is a tie between almost every option, broken by the order the
    * grid happens to be scanned in. Weighting a roll over that order would have
    * aimed the boss at the top-left corner for the whole fight. See RANK_DEPTH.
-   *
-   * Always taking the single best option would be both crueller and more
-   * boring: the player would learn that the obvious move is the one that always
-   * gets taken, and simply stop looking for it. Two times in three is the
-   * middle — often enough that the boss is felt to be reading the board over
-   * the player's shoulder, rarely enough that it is never worth playing around.
    */
   blockAnOption() {
     const board = this.s.board;
     const swaps = board.listSwaps();
+    const focus = board.focusedCells(AIM_MEMORY);
+    const reached = (cell) =>
+      focus.some((f) => f.r === cell.r && f.c === cell.c) ? 1 : 0;
     // Never take the board under the floor it owes the player. It used to be
     // allowed down to a single move, which meant the boss itself was the thing
     // triggering most reshuffles: it buried an option, ensurePlayable found the
@@ -2223,27 +2244,50 @@ export class Director {
     // makes "he takes one of your ideas" the whole of what happens.
     if (swaps.length <= MIN_SWAPS) return null;
 
-    // Either end of a swap kills it. Prefer the one that costs the player more
-    // elsewhere, and never one that would leave the board under its floor.
+    // The strongest options, plus any option the player has reached for however
+    // weak it scored: the match somebody is in the middle of making is rarely
+    // the biggest one on the board, and RANK_DEPTH alone would never see it.
+    const pool = swaps.slice(0, RANK_DEPTH);
+    swaps.slice(RANK_DEPTH).forEach((swap) => {
+      if (reached(swap.a) || reached(swap.b)) pool.push(swap);
+    });
+
+    // Either end of a swap kills it. Prefer the end the finger was on — that is
+    // the gem that has to turn to stone for the player to feel robbed rather
+    // than merely blocked — then the one that costs them more elsewhere, and
+    // never one that would leave the board under its floor.
     const ranked = [];
-    swaps.slice(0, RANK_DEPTH).forEach((swap) => {
+    pool.forEach((swap) => {
       let best = null;
       [swap.a, swap.b].forEach((cell) => {
         const left = board.probeLock(cell.r, cell.c, () => board.countSwaps());
         if (left < MIN_SWAPS) return;
         const denied = swaps.length - left;
-        if (!best || denied > best.denied) best = { cell, denied };
+        const seen = reached(cell);
+        const better =
+          !best ||
+          seen > best.seen ||
+          (seen === best.seen && denied > best.denied);
+        if (better) best = { cell, denied, seen };
       });
-      if (best) ranked.push({ ...best, score: swap.score });
+      if (best) {
+        const watched = Math.max(best.seen, reached(swap.a), reached(swap.b));
+        ranked.push({ ...best, score: swap.score, watched });
+      }
     });
     if (ranked.length === 0) return null;
-    ranked.sort((x, y) => y.score - x.score || y.denied - x.denied);
+    ranked.sort(
+      (x, y) =>
+        y.watched - x.watched || y.score - x.score || y.denied - x.denied,
+    );
 
+    // A move the player has reached for is taken outright: rolling on it would
+    // only mean sometimes missing the one beat this whole mechanism is for.
     const shortlist = ranked.slice(0, Math.min(OPTIONS_IN_PLAY, ranked.length));
     const target =
-      shortlist.length > 1 && rnd() >= AIM_BITE
-        ? shortlist[rndInt(shortlist.length - 1) + 1]
-        : shortlist[0];
+      shortlist[0].watched || shortlist.length < 2 || rnd() < AIM_BITE
+        ? shortlist[0]
+        : shortlist[rndInt(shortlist.length - 1) + 1];
     return target.cell;
   }
 
