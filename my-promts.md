@@ -755,3 +755,80 @@ ending on a blink, mid-blink final frame, eyes closed at the end, eyes closed,
 half-closed eyes, drooping eyelids, squinting, eyelids moving at the end,
 motion cut off mid-movement, unfinished gesture, frozen mid-blink
 ```
+
+---
+
+## K. Half body, no legs, no background — SUPERSEDES blocks E-FRAMING and I
+
+Block I (full body, head to feet) is cancelled for this use. This is the plate
+that gets composited into the card later, so it is deliberately cut at the
+waist and carries no background at all. Set the node's aspect ratio to 1:1 or
+3:4.
+
+Replace the FRAMING and BACKGROUND blocks with these two.
+
+```
+FRAMING — half body, cut at the waist:
+Half-body shot. She is framed from the waist up. Her legs are not in the image
+at all — no thighs, no knees, no shins, no feet.
+Her torso continues downward and runs off the bottom edge of the frame, so the
+bottom of the image cuts through her waist at the frame border itself. There is
+no floating cut-off inside the picture, no visible stump, no fade and no soft
+edge at the bottom — her body simply carries on past the boundary.
+Everything else is fully inside the frame with clear empty space beyond it:
+the very top of whatever she holds raised, the top of her head and both hair
+buns, every spike on both pauldrons, both elbows, both hands and every finger.
+Leave a clear empty margin of at least one tenth of the frame above the highest
+point of her and to the left and right of her widest point. Nothing except her
+waist touches or crosses an edge.
+She is centred horizontally and faces the viewer.
+
+NO BACKGROUND AT ALL.
+There is no scene, no environment and no setting of any kind. Nothing exists in
+this image except the character herself — an isolated cutout meant to be
+composited onto artwork later.
+No room, no wall, no sky, no clouds, no ground, no floor, no horizon, no
+furniture, no props, no scenery, no landscape, no arena, no architecture, no
+depth, no perspective, no atmosphere, no fog, no haze, no light rays, no
+particles, no sparks, no smoke, no embers, no confetti, no fireworks, no magic
+circle, no aura, no glow behind her, no vignette, no gradient, no texture, no
+pattern, no logo, no text, no shadow cast onto anything behind her.
+Nothing is behind her and nothing is beside her.
+If a transparent background is possible, the background is fully transparent
+with a clean alpha channel. Otherwise the background is flat, solid chroma
+green — one single pure tone, identical in all four corners, perfectly even,
+with no gradient, no shading and no variation whatsoever.
+No green light spills onto the character. Her black armour stays black at the
+edges and picks up no green tint anywhere.
+Her outline is crisp and cleanly separated from the background on every side,
+with no soft haze, no glow bleed, no motion blur and no stray wisps.
+```
+
+Negative:
+```
+legs, thighs, knees, shins, feet, boots, full body, full figure, wide shot,
+floating torso, cut-off body inside the frame, visible stump, faded bottom
+edge, soft bottom edge, cropped hands, cropped goblet, cropped blade tip,
+cropped hair, cropped pauldrons, head cut off, elbows cut off, touching the
+frame edge, close-up, extreme close-up, headshot, zoomed in, tight framing,
+background, scenery, environment, setting, room, wall, sky, ground, floor,
+horizon, landscape, architecture, props, furniture, depth of field, bokeh,
+atmosphere, fog, haze, light rays, particles, sparks, smoke, embers, confetti,
+fireworks, aura, glow behind the character, vignette, gradient background,
+textured background, patterned background, drop shadow, cast shadow, green
+spill, soft edges, motion blur
+```
+
+For the Seedance pass on this plate, append:
+```
+The framing never changes. She stays exactly where she is, never moves toward
+the camera, never grows larger, never drifts toward any edge, and her waist
+stays at the bottom edge of the frame for every frame of the clip. Her raised
+hand, her head and her pauldrons stay fully inside the frame throughout and are
+never clipped. Her legs never come into view.
+The background stays completely empty for every frame: one flat, solid, even
+chroma green with nothing in it. Nothing appears, forms, drifts or fades in
+behind her at any point. No particles, no sparks, no smoke, no light, no
+shapes, no colour shift. The background is identical in the first frame and the
+last.
+```
