@@ -124,7 +124,7 @@ ffmpeg([
 
 const pct = (n) => `${Math.round(n * 100)}%`;
 process.stdout.write(
-  `${srcW}x${srcH} -> ${dstW}x${dstH}  pad #${color}  subject fills ${pct(
-    (srcW * srcH) / (dstW * dstH),
-  )} of the area\n${out}\n`,
+  `${srcW}x${srcH} -> ${dstW}x${dstH}  pad #${color}  ` +
+    `old image now fills ${pct(srcW / dstW)} of the width, ` +
+    `${pct(srcH / dstH)} of the height\n${out}\n`,
 );
