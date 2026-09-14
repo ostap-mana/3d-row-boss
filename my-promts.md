@@ -1012,3 +1012,145 @@ extra fingers.
 
 If it still crops: lower "about sixty percent of the image height" to "about
 forty-five percent" and raise both margins from one fifth to one quarter.
+
+---
+
+# FINAL v2 — everything folded in
+
+Supersedes FINAL above. Three real changes: the raised arm is bent and tucked
+(an outstretched arm is why the goblet kept flying off frame, not the crop), the
+FRAMING block moved to the top where it is weighted more, and the numbers got
+harsher — 40% of the height instead of 60%, quarter margins instead of fifths.
+Node aspect ratio 1:1. Wiring: image 1 = full-body front, image 2 = close-up.
+
+```
+Generate one isolated character on an empty background. This is a cutout plate
+that will be composited onto finished artwork later, so the character must be
+complete, uncropped and surrounded by a lot of empty space. Images 1 and 2 are
+one single character — keep her identical to them.
+
+FRAMING — READ THIS FIRST. Small figure, huge empty frame:
+Extreme wide shot with a great deal of negative space. She is SMALL in the
+frame: she fills only about forty percent of the image height and about one
+third of the image width. Most of this image is empty background.
+At least one quarter of the image height is empty above the highest point of
+her. At least one quarter of the image width is empty down the left edge and
+one quarter down the right edge, past her widest point.
+She is framed from the waist up. Her legs are not in the image at all — no
+thighs, no knees, no shins, no feet. Her torso continues downward and runs off
+the bottom edge of the frame, so the bottom border cuts through her waist at the
+frame edge itself. There is no floating cut-off inside the picture, no visible
+stump, no fade and no soft edge at the bottom.
+Her waist at the bottom border is the ONLY place she meets an edge. Everything
+else is complete, with clear empty space beyond it: the whole goblet including
+its cup, its rim, its lip, its stem and every finger around it; the top of her
+head and both hair buns; every spike on both pauldrons; both elbows; both hands
+and every finger.
+She is centred horizontally and faces the viewer.
+WHEN IN DOUBT, ZOOM OUT FURTHER. Too much empty space is always correct.
+Cutting any part of her is always wrong.
+
+GESTURE — compact, arm tucked in:
+She raises a golden goblet of glowing green liquid in a respectful salute.
+Her raised arm is BENT and held CLOSE in front of her own shoulder, forearm
+vertical, upper arm down against her ribs, elbow tucked in at her side. The
+goblet sits directly beside her head, almost touching her hair. She does NOT
+extend her arm out to the side, does NOT reach away from her body and does NOT
+hold the goblet at arm's length.
+Her left hand is open and rests flat against her chest over her heart, tucked
+in. Her shoulders are squared, her posture upright and proud. This is a toast to
+the person she is looking at, not a celebration of herself.
+
+COMPOSITION — narrow silhouette:
+Her silhouette is tall and narrow rather than wide, so that when she is placed
+into artwork she covers as little of it as possible. Both elbows stay near her
+body. She does not spread out horizontally.
+
+NO BACKGROUND AT ALL:
+Nothing exists in this image except the character herself. There is no scene, no
+environment and no setting of any kind.
+No room, no wall, no sky, no ground, no floor, no horizon, no furniture, no
+props, no scenery, no landscape, no arena, no architecture, no depth, no
+perspective, no atmosphere, no fog, no haze, no light rays, no particles, no
+sparks, no smoke, no embers, no confetti, no fireworks, no magic circle, no
+aura, no glow behind her, no vignette, no gradient, no texture, no pattern, no
+logo, no text, no shadow cast behind her. Nothing is behind her and nothing is
+beside her.
+If a transparent background is possible, the background is fully transparent
+with a clean alpha channel. Otherwise the background is flat, solid chroma green
+— one single pure tone, identical in all four corners, perfectly even, with no
+gradient, no shading and no variation whatsoever.
+No green light spills onto the character. Her black armour stays black at the
+edges and picks up no green tint anywhere.
+Her outline is crisp and cleanly separated from the background on every side,
+with no soft haze, no glow bleed, no motion blur and no stray wisps.
+
+EXPRESSION — this overrides the references:
+She is looking at the viewer with genuine respect. She is honouring a winner.
+Warm, sincere, impressed, proud of them.
+Her mouth is closed or barely parted in a soft, gentle smile. No wide grin, no
+visible teeth, no bared teeth. The corners of her mouth lift only slightly.
+The smile reaches her eyes: her lower eyelids are lifted and there is a soft
+crease under each eye. Her upper eyelids are relaxed and lowered so the upper
+lid covers the top of the iris. No white of the eye is visible above or below
+the iris. Her eyes are calm and soft, not wide, not staring.
+Her eyebrows are relaxed and level, with the inner ends lifted very slightly.
+Her brow is smooth. No furrow, no angled-down eyebrows.
+Her chin is tipped slightly DOWN toward her chest in a small bow of
+acknowledgement, and she looks up at the viewer from under relaxed lids. Her
+head is NOT tilted back and she is NOT looking down her nose.
+Keep her black eyeliner and deep red lips as makeup, but the eyes underneath
+must read calm and kind. The makeup is style, not mood.
+
+SILHOUETTE — this overrides the references:
+From the waist up her outline is a plain human shape: head, neck, two shoulders
+with spiked pauldrons, two arms. Nothing extends past the width of her shoulders
+except her raised forearm. Her back is bare armour plate. Nothing is attached to
+it and nothing floats behind it.
+
+CHARACTER:
+Face and hair from the close-up: porcelain-pale skin, black eyeliner, deep red
+lips, blue-black hair swept back into two crimson twin buns, black spiked
+choker. Body and armour from the full-body view: black and crimson plated armour
+with spiked pauldrons, bare midriff, red leather straps, clawed gauntlets. Hold
+her exact palette: crimson, black, hot-pink rim light.
+Take her face, her hair, her armour and her colours from the references. Do not
+take her expression from them, do not take her framing from them, and do not
+take anything that was behind her.
+
+LIGHTING:
+Soft, even, frontal key light. Her face is evenly lit — no hard shadow under the
+brow, no shadow across the eyes, nothing that turns the face sinister. A thin
+hot-pink rim light traces the edge of her shoulders and arms, drawn tight to her
+outline, and must not bloom out past her silhouette. Painted, high-saturation
+mobile-game splash art — not photographic, no 3D render look.
+
+NEGATIVE: cropped, cut off, out of frame, touching the frame edge, clipped,
+cropped goblet, cut goblet, goblet touching an edge, goblet outside the frame,
+cup cut off, rim cut off, cropped hand, cropped fingers, cropped pauldrons,
+cropped hair buns, cropped elbow, head cut off, shoulders cut off, arm cut off,
+no margin, tight framing, zoomed in, close-up, extreme close-up, headshot,
+subject fills the frame, subject too large, cramped composition, edge-to-edge
+composition, arm extended sideways, outstretched arm, arm reaching out, arm away
+from body, arm at full length, elbow out, goblet far from her head, arms spread
+wide, wide stance, background, scenery, environment, setting, room, wall, sky,
+ground, floor, horizon, landscape, architecture, props, furniture, depth of
+field, bokeh, atmosphere, fog, haze, light rays, particles, sparks, smoke,
+embers, confetti, fireworks, aura, glow behind the character, vignette, gradient
+background, textured background, patterned background, drop shadow, cast shadow,
+green spill, soft edges, motion blur, legs, thighs, knees, shins, feet, boots,
+full body, full figure, floating torso, cut-off body inside the frame, visible
+stump, faded bottom edge, psychopathic, unhinged, manic grin, crazed eyes, wide
+staring eyes, white of the eye visible above the iris, sneer, snarl, smirk,
+bared teeth, evil grin, sinister, mocking, contempt, looking down the nose, head
+tilted back, furrowed brow, hard shadow across the eyes, anything attached to
+her back, anything behind her shoulders, wings, wing membrane, feathers, bone
+spurs, horns, fins, cape, cloak, mantle, drifting fabric, tuxedo, suit, modern
+clothing, text, watermark, logo, UI, second character, extra limbs, extra
+fingers.
+```
+
+Still cropping? It is the reference, not the text — the node copies the framing
+of whatever you feed it. Run the result through
+`node tools/pad-canvas.mjs <file> --square --fill 0.4 --top 0.65` and feed the
+padded image back in.
