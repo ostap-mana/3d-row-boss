@@ -1,5 +1,5 @@
 /**
- * The outcome card — the fight's verdict, the way the game itself gives it.
+ * The outcome card — the fight's verdict, and the last screen of the run.
  *
  * The game does not stop a fight and put a scoreboard over it. It freezes the
  * frame, flashes, and lays one word inside a thin gold band with a line under it
@@ -58,21 +58,24 @@
  *
  * ## How it ends
  *
- * On a win: a tap anywhere, or the hold running out, and the store card comes
- * up behind it. See ui/endcard.js.
+ * It does not. This is the last screen of the run on both endings, and there is
+ * no card behind it: the store screen it used to advance to is gone, and its
+ * PLAY NOW plate — the same painted lockup, see art/brand.js — stands on this
+ * card instead, in the slot the rematch uses on the other ending.
  *
- * On a loss it does not end at all — it is the last screen of the run. There is
- * one control on it, RETRY, and no card behind it: the store screen was asked
- * off the losing path outright. A player who has just been wiped is being sold
- * to on the frame they most want another go, and the tap they are reaching for
- * is the rematch — so that is the only thing on the screen to hit. The pitch
- * still has the banner in the HUD, all the way through the fight, and it still
- * has the whole end card on a win.
+ * On a win: the verdict, and PLAY NOW under it. Nothing times out, and a tap on
+ * the frozen fight answers nothing, because the only thing left to ask for is
+ * the install and it has its own button.
  *
- * That is the one asymmetry on this card, and everything it touches is named
- * `terminal` below: the hold is not armed, the whole-screen tap answers nothing,
- * and `show` settles as soon as the verdict is up rather than when the player
- * leaves — because on this path they do not.
+ * On a loss: the verdict, and RETRY. A player who has just been wiped is being
+ * sold to on the frame they most want another go, and the tap they are reaching
+ * for is the rematch — so that is the only thing on the screen to hit. The
+ * pitch still has the banner in the HUD, all the way through the fight.
+ *
+ * Everything that follows is named `terminal` below, and it is now true of both
+ * endings: the hold is not armed, the whole-screen tap answers nothing, and
+ * `show` settles as soon as the verdict is up rather than when the player
+ * leaves — because they do not.
  */
 
 import { Container, Graphics, Rectangle, Sprite, Text } from "pixi.js";
@@ -87,7 +90,16 @@ import {
   lineSprite,
   verdictSprite,
 } from "../art/outcomeui.js";
-import { PLAY_RIM, fitRetryPlate, retryPlateSprite } from "../art/brand.js";
+import {
+  PLAY_ART,
+  PLAY_FILL,
+  PLAY_LABEL,
+  PLAY_RIM,
+  fitRetryPlate,
+  playHeight,
+  playPlateSprite,
+  retryPlateSprite,
+} from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
@@ -394,11 +406,12 @@ export class OutcomeScreen extends Container {
    * There is still no `onContinue`. On a win, leaving is what `show` resolving
    * means and a tap anywhere is how it is done.
    */
-  constructor(freeze, onRetry) {
+  constructor(freeze, onRetry, onCta) {
     super();
     this.visible = false;
     this.freeze = freeze || (() => null);
     this.onRetry = onRetry || null;
+    this.onCta = onCta || null;
     /**
      * Whether this showing of the card is the last screen of the run.
      *
@@ -610,21 +623,42 @@ export class OutcomeScreen extends Container {
       },
     });
     this.retryText.anchor.set(0.5);
-    // The plate carries no word, so the Text is the word on both paths.
+    // The RETRY plate carries no word, so the Text is the word on that path.
     this.retryText.visible = true;
     this.retry.addChild(this.retryText);
+
+    this.playArt = playPlateSprite();
+    if (this.playArt) {
+      this.playArt.visible = false;
+      this.retry.addChild(this.playArt);
+    }
+    this.playText = new Text({
+      text: COPY.cta,
+      style: {
+        fontFamily: FONT,
+        fontSize: 26,
+        fontWeight: "900",
+        fill: PLAY_LABEL,
+        letterSpacing: 2,
+      },
+    });
+    this.playText.anchor.set(0.5);
+    this.playText.visible = false;
+    this.retry.addChild(this.playText);
     this.retry.visible = false;
     this.retry.alpha = 0;
     this.retry.eventMode = "static";
     this.retry.cursor = "pointer";
     this.retry.on("pointertap", (e) => {
-      // The card behind it takes taps of its own on a win, and this control is
-      // only ever up on a loss — but the guard is free and the day the two ever
-      // overlap is not the day to find out that a rematch also left the card.
       e.stopPropagation();
-      if (!this.onRetry || this.arming > 0) return;
-      sfx.select();
-      this.onRetry();
+      if (this.arming > 0) return;
+      if (this.defeat) {
+        if (!this.onRetry) return;
+        sfx.select();
+        this.onRetry();
+        return;
+      }
+      if (this.onCta) this.onCta("outcome");
     });
     this.addChild(this.retry);
 
@@ -643,10 +677,11 @@ export class OutcomeScreen extends Container {
     this.addChild(this.flash);
 
     /**
-     * The whole card is the button.
+     * Kept for the frozen fight behind the controls, which answers nothing.
      *
-     * There is nothing else on it to press, which is the point: the game's own
-     * card says tap to continue and means anywhere.
+     * This used to be a whole-screen tap target that advanced to the store
+     * card. Both endings are terminal now — see `leave`, which returns on one —
+     * so the only things on this screen that do anything are PLAY NOW and RETRY.
      */
     this.eventMode = "static";
     this.on("pointertap", () => this.leave("tap"));
@@ -896,6 +931,33 @@ export class OutcomeScreen extends Container {
    */
   fitRetry(w, maxH, ui) {
     this.retryBg.clear();
+    if (!this.defeat && this.playArt) {
+      let pw = w;
+      let ph = playHeight(pw);
+      if (maxH > 0 && ph > maxH) {
+        ph = maxH;
+        pw = (ph * PLAY_ART.w) / PLAY_ART.h;
+      }
+      this.playArt.setSize(pw, ph);
+      return { w: pw, h: ph };
+    }
+    if (!this.defeat) {
+      const sb = this.layout.safeBox;
+      const pw = sb.w * RETRY_PILL.w;
+      const ph = clamp(sb.h * RETRY_PILL.h, 34 * ui, 64 * ui);
+      const r = ph * 0.42;
+      this.retryBg.roundRect(-pw / 2, -ph / 2, pw, ph, r);
+      this.retryBg.fill({ color: PLAY_FILL, alpha: 0.92 });
+      this.retryBg.roundRect(-pw / 2, -ph / 2, pw, ph, r);
+      this.retryBg.stroke({
+        width: Math.max(1.5, ph * 0.06),
+        color: PLAY_RIM,
+        alpha: 0.95,
+      });
+      fitFont(this.playText, pw * 0.72, Math.max(12, ph * 0.4));
+      this.playText.position.set(0, 0);
+      return { w: pw, h: ph };
+    }
     if (this.retryArt) {
       const box = fitRetryPlate(this.retryArt, w, maxH);
       fitFont(
@@ -924,15 +986,15 @@ export class OutcomeScreen extends Container {
   /**
    * Whether the card would be the last screen of the run for this result.
    *
-   * Asked by Director.finish before it shows the card, because the decision
-   * belongs to the same object that acts on it: a card holding a rematch and a
-   * director queueing a store screen behind it would put the pitch up over the
-   * top of a button offering to take it down. See the header.
+   * True on both endings now — there is no card behind this one to advance to.
+   * It is still asked, and still answered here, because the director reads it to
+   * know the run is over on this screen, and because a loss with no `onRetry`
+   * wired has no control at all and must not be treated as finished.
    *
    * @param {"victory"|"defeat"} outcome
    */
   terminalFor(outcome) {
-    return outcome === "defeat" && !!this.onRetry;
+    return outcome === "defeat" ? !!this.onRetry : true;
   }
 
   /**
@@ -988,11 +1050,10 @@ export class OutcomeScreen extends Container {
    * Put the verdict up, and resolve when the player leaves it.
    *
    * @param {"victory"|"defeat"} outcome
-   * @returns {Promise<void>} on a win, settles when the player leaves the card
-   *   and the end card goes up next — see Director.finish. On a loss it settles
-   *   as soon as the verdict and the button are up and the card then stays
-   *   where it is: there is nothing to go on to, and the only way off it is the
-   *   rematch. See `terminal`.
+   * @returns {Promise<void>} settles as soon as the verdict and its control are
+   *   up. The card then stays where it is on both endings: there is nothing to
+   *   go on to, and the only things that answer a tap are PLAY NOW on a win and
+   *   RETRY on a loss. See `terminal`.
    */
   async show(outcome) {
     this.defeat = outcome === "defeat";
@@ -1001,15 +1062,19 @@ export class OutcomeScreen extends Container {
     this.aim();
 
     /**
-     * Which of the two prompts this showing has under the verdict.
+     * Which control this showing stands in the slot under the verdict.
      *
-     * Never both, and the one that is off is off rather than transparent: the
-     * card is a whole-screen tap target on a win, and a tap line left up at
-     * alpha zero under a RETRY button would be a sentence the player cannot
-     * read telling them a tap does something it no longer does.
+     * One container, two faces: the painted PLAY NOW plate on a win and the
+     * RETRY lockup on a loss, and whichever is off is hidden rather than
+     * transparent. The tap line is off on both — it asked for a tap that used to
+     * advance to the store card, and there is no card to advance to.
      */
     this.retry.visible = this.terminal;
-    this.tap.visible = !this.terminal;
+    this.tap.visible = false;
+    if (this.retryArt) this.retryArt.visible = this.defeat;
+    this.retryText.visible = this.defeat;
+    if (this.playArt) this.playArt.visible = !this.defeat;
+    this.playText.visible = !this.defeat && !this.playArt;
 
     /**
      * The room the verdict is read in, and the only place the result is allowed
@@ -1199,18 +1264,19 @@ export class OutcomeScreen extends Container {
   /**
    * Leave — once.
    *
-   * Every way off this card comes through here, and the guard is the point of
-   * it: a tap and the hold can fire inside the same frame, and a card that
-   * resolved twice would put two end cards up.
+   * Nothing reaches the far side of it any more: both endings are terminal, so
+   * the `terminal` return below is the whole of this method on the shipped
+   * routes. The rest is left standing because a host that wires no `onRetry`
+   * makes a loss non-terminal, and that path still has to settle exactly once.
    *
    * @param {"tap"|"hold"} how
    */
   leave(how) {
     if (!this.leaving) return;
     if (this.arming > 0) return;
-    // Nowhere to go. On a loss this card is the end of the run and the tap the
-    // player is making is either the rematch — which has its own listener and
-    // stops the event before it reaches the card — or a tap on the frozen
+    // Nowhere to go. This card is the end of the run and the tap the player is
+    // making is either one of its own controls — which have their own listener
+    // and stop the event before it reaches the card — or a tap on the frozen
     // fight, which is not an instruction to do anything. See the header.
     if (this.terminal) return;
 
@@ -1222,8 +1288,8 @@ export class OutcomeScreen extends Container {
     // moved on by itself is the creative pretending to have been touched.
     if (how !== "hold") sfx.select();
 
-    // Faded, because the end card comes up over this and fades itself in from
-    // nothing: for a third of a second the two are one dissolve.
+    // Faded, for a host that left this card non-terminal and has something of
+    // its own to put up behind it.
     this.fireworks.stop();
     killTweensOf(this);
     tween(this, { alpha: 0 }, 0.4).then(() => {

@@ -3434,36 +3434,29 @@ export class Director {
     this.idleHint = null;
   }
 
-  /* --------------------------------------------------- the two last screens */
+  /* ------------------------------------------------------- the last screen */
 
   /**
-   * The verdict, then the store — in that order, and both from here.
+   * The verdict, and the pitch on it — one screen, not two.
    *
-   * This used to be one screen. The fight ended, the music crossed over, and the
-   * end card came up with a plaque stamped into the hole in the key art. What
-   * that spent was the one beat the player had actually earned: the moment they
-   * beat a boss, or a boss beat them, went by inside an advert.
+   * It was one screen, then two, and it is one again. The two-screen split
+   * existed because the end card came up with a plaque stamped into the key art
+   * and spent the one beat the player had actually earned: the moment they beat
+   * a boss, or a boss beat them, went by inside an advert. Splitting them gave
+   * the verdict its own screen and put the store behind it.
    *
-   * So there are two screens now. The outcome screen says what happened and
-   * shows what the player did — see ui/outcome.js — and the end card that
-   * follows it does what an end card is for, with the plaque left off because
-   * the screen before it has already stamped one. Neither is new *content*: the
-   * plaque, the party and the button were all in the bundle already; what is new
-   * is that the verdict is no longer competing with the pitch for the same
-   * screen.
+   * What that cost is a whole extra screen between the fight and the install —
+   * a dissolve, a second card to read, and a second tap before the only tap that
+   * matters. So the store card is gone and its PLAY NOW plate stands on the
+   * verdict instead: the player wins, reads it, and the button under the word is
+   * the store. See OutcomeScreen, which owns both endings now.
    *
-   * The rematch is the one path that stops here. RETRY rebuilds the whole cast
-   * on the spot — see main.js `restart` — so this run's last act is to not show
-   * a card over the top of a fight that has already started again.
-   *
-   * And on a loss there are two screens no longer: the store card was asked off
-   * the losing path outright, so a wipe ends on the verdict with RETRY on it and
-   * nothing behind it. Which of the two the card is doing is the card's own
-   * answer — see OutcomeScreen.terminalFor — because the alternative is this
-   * method deciding it and the card deciding it separately, and the failure that
-   * gets you is a pitch fading up over a button offering to take it away. The
-   * install is still asked for twice on that path: the banner in the HUD is up
-   * for the whole fight, and a win still gets the whole card.
+   * Both endings are therefore terminal and this method ends on `show`. A win
+   * ends on PLAY NOW, a wipe on RETRY — which rebuilds the whole cast on the
+   * spot, see main.js `restart`, so this run's last act is to not put a card
+   * over a fight that has already started again. Which control the card stands
+   * is the card's own answer; the install is still asked for twice on both
+   * paths, because the banner in the HUD is up for the whole fight.
    */
   async finish() {
     if (this.ended) return;
@@ -3507,13 +3500,6 @@ export class Director {
     // takes a tap or about three seconds and there is no way off it but forward.
     await this.s.outcome.show(outcome);
 
-    // A wipe stops here, on a card with RETRY on it. See the note above.
     if (terminal) return;
-
-    // `true`: the verdict has been stamped once already, and a card that stamps
-    // it a second time is the creative telling the player something they read
-    // three seconds ago. See EndCard.show.
-    track(EV.endcard, { outcome });
-    await this.s.endcard.show(outcome, true);
   }
 }

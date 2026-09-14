@@ -301,7 +301,11 @@ async function boot() {
      * RETRY is the only thing on it, wired to the same `restart` the end card's
      * own button has always called.
      */
-    const outcome = new OutcomeScreen(freezeFight, () => restart());
+    const outcome = new OutcomeScreen(
+      freezeFight,
+      () => restart(),
+      (source) => ctaClick(source),
+    );
     // Two ways off this card: the store, and back into the fight. The second is
     // only offered on a wipe — see ui/endcard.js — and it is the only tap in the
     // creative that does not lead to a store page. A wipe no longer reaches this
