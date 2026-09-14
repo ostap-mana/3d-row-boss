@@ -71,15 +71,23 @@ export const START_BOARD = START_BOARD_KEYS.map((row) =>
 export const SCRIPTED_HINT = { a: { r: 2, c: 2 }, b: { r: 3, c: 2 } };
 
 /**
- * Obsidian colours: cooled crust with the heat still trapped inside.
+ * Obsidian colours: cold stone, cut with the marks that say what it costs.
  * Kept a step lighter than the empty-cell background so a block never reads
  * as a hole in the board.
+ *
+ * The stone itself carries no heat any more — the molten pair is what the lava
+ * bomb throws off as it lands and as a block comes apart (see director.js), a
+ * flash that is gone in a fraction of a second. What sits on the board between
+ * those flashes is `vein` and `veinLit`: the same marks, carved rather than
+ * burning, so a shelf of blocks reads as rock instead of a row of embers.
  */
 export const OBSIDIAN = {
   rock: 0x36293f,
   edge: 0x60486e,
   seam: 0xff5a1f,
   seamHot: 0xffc247,
+  vein: 0x241a2c,
+  veinLit: 0xb9a3c8,
 };
 
 /* ---------------------------------------------------------------- the fight */

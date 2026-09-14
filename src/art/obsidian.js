@@ -14,7 +14,6 @@
 
 import { Container, Graphics, Sprite } from "pixi.js";
 import { OBSIDIAN } from "../config.js";
-import { glowTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { tween, Ease } from "../core/tween.js";
 
@@ -72,8 +71,8 @@ const CRUST = 0.9;
  * stones at 1.7 — and a block costing three matches that looks exactly like one
  * costing two is the board lying about the only thing the player reads it for.
  * The same texture again, smaller and concentric, so a doubled shell is drawn
- * rather than tinted: multiply tint can only darken, and a hotter stone going
- * darker reads backwards.
+ * rather than tinted: multiply tint can only darken, and the tougher stone
+ * coming out the dimmer of the two reads backwards.
  *
  * 0.62 puts the inner seam at 0.56 of the slab, clear inside the outer ring at
  * 0.9 and clear of the middle where the trapped gem still shows through.
@@ -83,7 +82,7 @@ const CORE_RING = 0.62;
 let blockTex = null;
 let crustTex = null;
 
-/** Craggy slab with heat still glowing in the cracks. */
+/** Craggy slab, cut across by seams the light picks out. */
 function drawBlock(g) {
   g.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
   g.fill({ color: 0xffffff, alpha: 0 });
@@ -106,7 +105,7 @@ function drawBlock(g) {
   g.lineTo(42, -34);
   g.stroke({ width: 5, color: 0xa888b0, alpha: 0.55 });
 
-  // Molten seams
+  // Cut seams — a shadowed groove with the light catching its edge
   const seams = [
     [-30, -6, -8, 6, -14, 30],
     [10, -14, 26, 4, 18, 34],
@@ -115,10 +114,10 @@ function drawBlock(g) {
   seams.forEach((pts) => {
     g.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
-    g.stroke({ width: 9, color: OBSIDIAN.seam, alpha: 0.9 });
+    g.stroke({ width: 9, color: OBSIDIAN.vein, alpha: 0.9 });
     g.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
-    g.stroke({ width: 3.5, color: OBSIDIAN.seamHot, alpha: 0.95 });
+    g.stroke({ width: 3.5, color: OBSIDIAN.veinLit, alpha: 0.7 });
   });
 }
 
@@ -128,9 +127,9 @@ function drawCrust(g) {
 
   const ring = SLAB.map((v) => v * CRUST);
   g.poly(ring);
-  g.stroke({ width: 12, color: OBSIDIAN.seam, alpha: 0.5 });
+  g.stroke({ width: 12, color: OBSIDIAN.vein, alpha: 0.55 });
   g.poly(ring);
-  g.stroke({ width: 4.5, color: OBSIDIAN.seamHot, alpha: 0.95 });
+  g.stroke({ width: 4.5, color: OBSIDIAN.veinLit, alpha: 0.75 });
 }
 
 function blockTexture() {
@@ -163,13 +162,6 @@ export class ObsidianView extends Container {
   constructor() {
     super();
 
-    this.heat = new Sprite(glowTexture());
-    this.heat.anchor.set(0.5);
-    this.heat.blendMode = "add";
-    this.heat.tint = OBSIDIAN.seam;
-    this.heat.alpha = 0.4;
-    this.addChild(this.heat);
-
     this.slab = new Sprite(blockTexture());
     this.slab.anchor.set(0.5);
     this.addChild(this.slab);
@@ -186,7 +178,6 @@ export class ObsidianView extends Container {
     this.slab.addChild(this.core);
 
     this.armor = 0;
-    this.t = Math.random() * 6;
   }
 
   setArmor(layers) {
@@ -203,12 +194,6 @@ export class ObsidianView extends Container {
     // to be scaled up by exactly that ratio to leave the stone at a gem's size.
     const span = (cell * FOOTPRINT * (ART + PAD * 2)) / BODY;
     this.slab.setSize(span, span);
-    this.heat.setSize(cell * 1.5, cell * 1.5);
-  }
-
-  update(dt) {
-    this.t += dt;
-    this.heat.alpha = 0.32 + Math.sin(this.t * 2.4) * 0.16;
   }
 
   /** Slam into existence where the lava landed. */

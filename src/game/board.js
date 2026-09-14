@@ -2414,20 +2414,16 @@ export class Board extends Container {
   }
 
   /**
-   * The board's frame: the blocks breathing, and the pair under the finger.
+   * The board's frame: the pair of gems leaning under the finger.
    *
-   * Was updateLocks, when the blocks were the only thing in here that moved
-   * on its own. The lean is the second — it is answering a pointer that fires
-   * on its own schedule, and a chase that only advances when an event happens
-   * stalls halfway home the moment a finger stops moving.
+   * Was updateLocks, back when the blocks pulsed a glow of their own and were
+   * the only thing in here that moved without an event. They are cold stone
+   * now and animate nothing per frame, so the lean is all that is left — it is
+   * answering a pointer that fires on its own schedule, and a chase that only
+   * advances when an event happens stalls halfway home the moment a finger
+   * stops moving.
    */
   update(dt) {
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const lock = this.locks[r][c];
-        if (lock) lock.update(dt);
-      }
-    }
     this.updateLean(dt);
   }
 
