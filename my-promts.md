@@ -1164,9 +1164,26 @@ The loss beat, cut to the same pattern as the win take in
 same character, same placement, same locked camera, same flat green. Only the
 meaning flips — she does not drink to you, and she asks you to go again.
 
-Wiring: Seedance 2.5, reference mode, image/clip 1 = the win take or its plate.
-Landscape, 10 s, 24 fps. The clip has to key and pack exactly like the win one
-or the card gets two figures at two different scales.
+Wiring — FEED STILLS, NOT THE CLIP:
+ref 1 = `src/seedence/ref-pose.png`, ref 2 = `src/seedence/ref-face.png`. Both
+are frame 200 of the win take, so they carry her exact face, dress, wings,
+roses and placement without carrying its motion.
+Ratio 16:9, duration 10 s, 24 fps, 720p — the settings the win take ran on.
+
+Handing it the win .mp4 as the reference is what throws `Invalid parameters in
+input`. A video reference reclassifies the job from reference-to-video to an
+edit/extend task, and an edit may only run at ratio `adaptive` with duration
+`-1`; 16:9 and 10 s are then illegal and the API rejects the whole request. An
+edit is the wrong tool here anyway — it inherits the source's motion, which is
+the raise we are trying to replace. If you do want the clip in there, the legal
+pair is ratio `adaptive` + duration `-1`, and expect the toast to come back.
+
+The output has to key and pack exactly like the win one or the card gets two
+figures at two different scales.
+
+Seedance takes no negative prompt. Paste the negative below only if your node
+exposes a field for it; otherwise drop it — every constraint in it is already
+carried positively in the prompt.
 
 ```
 The camera is completely locked off and never moves: no push-in, no pull-back,
