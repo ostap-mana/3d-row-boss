@@ -443,3 +443,144 @@ No-weapon swap: replace the GESTURE block with — "Her right fist is raised
 shoulder-high in a firm, controlled salute, knuckles toward the viewer. Her
 left hand is open and rests flat over her heart." Then add `sword, blade,
 weapon` to NEGATIVE.
+
+---
+
+## E. Isolated character plate — her alone, keyable background
+
+Wiring: image 1 = full-body front view, image 2 = face close-up. The VICTORY
+screenshot, the toast photo and the back view are all DISCONNECTED. This plate
+is generated on its own and composited over the UI later.
+
+```
+Generate a single character on a flat chroma-green background. Images 1 and 2
+are one single character — keep her identical to them.
+
+BACKGROUND:
+Flat, solid chroma green, pure and even across the whole frame, the same tone
+in every corner. No gradient, no vignette, no texture, no pattern, no objects,
+no floor, no horizon line, no cast shadow on the backdrop, no glow, no
+particles, no smoke, no sparks. Nothing in the frame except the character.
+No green light spills onto the character — her black armour must stay black at
+the edges and pick up no green tint.
+
+FRAMING:
+She is centred, facing the viewer, cropped at mid-thigh. Clear empty margin on
+all four sides — her raised blade, both spiked pauldrons and every strand of
+hair stay well inside the frame and are never cut off by the edge.
+
+EXPRESSION — this overrides the references:
+She is looking at the viewer with genuine respect. She is honouring a winner.
+Warm, sincere, impressed, proud of them.
+Her mouth is closed or barely parted in a soft, gentle smile. No wide grin. No
+visible teeth. No bared teeth. The corners of her mouth lift only slightly.
+The smile reaches her eyes: her lower eyelids are lifted and there is a soft
+crease under each eye. Her upper eyelids are relaxed and lowered so the upper
+lid covers the top of the iris. No white of the eye is visible above or below
+the iris. Her eyes are calm and soft, not wide, not staring.
+Her eyebrows are relaxed and level, with the inner ends lifted very slightly.
+Her brow is smooth. No furrow, no angled-down eyebrows, no raised single brow.
+Her chin is tipped slightly DOWN toward her chest in a small bow of
+acknowledgement, and she looks up at the viewer from under relaxed lids. Her
+head is NOT tilted back and she is NOT looking down her nose.
+Keep her black eyeliner and deep red lips as her makeup, but the eyes
+underneath them must read calm and kind. The makeup is style, not mood.
+
+GESTURE — the warrior's salute:
+Her right arm is raised and holds her crimson blade straight up, vertical,
+point to the sky, the flat of the blade facing the viewer, held close in front
+of her right shoulder. Her left hand is open and rests flat over her heart.
+Her shoulders are squared and her posture is upright and proud. This is a
+salute to the champion, not an attack. The blade never points at the viewer.
+
+SILHOUETTE — this overrides the references:
+Her outline is a plain human shape: head, neck, two shoulders with spiked
+pauldrons, two arms, the vertical blade, torso and hips. Nothing else extends
+past the width of her shoulders. Her back is bare armour plate. Nothing is
+attached to it and nothing floats behind it. Every edge of her is crisp and
+clean against the green, with no soft haze, no glow bleed and no stray wisps.
+
+CHARACTER:
+Face and hair from the close-up: porcelain-pale skin, black eyeliner, deep red
+lips, blue-black hair swept back into two crimson twin buns, black spiked
+choker. Body and armour from the full-body view: black and crimson plated
+armour with spiked pauldrons, bare midriff, red leather straps, clawed
+gauntlets. The blade is hers: crimson, jagged, edged in hot pink. Hold her
+exact palette: crimson, black, hot-pink rim light.
+Take her face, her hair, her armour, her blade and her colours from the
+references. Do not take her expression from them, and do not take anything that
+was behind her.
+
+LIGHTING:
+Soft, even, frontal key light. Her face is evenly lit — no hard shadow under
+the brow, no shadow across the eyes, nothing that turns the face sinister. A
+clean specular highlight runs down the raised blade. A thin hot-pink rim light
+traces the edge of her shoulders and arms, drawn tight to her outline, and must
+not bloom out past her silhouette. Painted, high-saturation mobile-game splash
+art — not photographic, no 3D render look.
+
+NEGATIVE: background scenery, environment, room, sky, ground, floor, shadow on
+the backdrop, gradient background, green spill on the character, psychopathic,
+unhinged, manic grin, crazed eyes, wide staring eyes, white of the eye visible
+above the iris, sneer, snarl, smirk, bared teeth, evil grin, sinister, mocking,
+contempt, looking down the nose, head tilted back, furrowed brow, hard shadow
+across the eyes, blade pointing at the viewer, combat pose, mid-swing, blood,
+anything attached to her back, anything behind her shoulders, wings, wing
+membrane, feathers, bone spurs, horns, fins, cape, cloak, mantle, drifting
+fabric, goblet, wine glass, tuxedo, text, watermark, logo, UI, second
+character, extra limbs, cropped blade, cropped shoulders.
+```
+
+---
+
+## F. Seedance i2v — animate that plate
+
+Feed the plate from E as the input image. LOCKED CAMERA is the whole point: the
+clip is composited over a static UI, so any camera move slides her against the
+interface and the composite falls apart.
+
+### F1. The salute — the main beat
+```
+The camera is completely locked off and does not move at any point: no push-in,
+no pull-back, no pan, no tilt, no zoom, no orbit, no handheld shake. The frame
+is static.
+
+She completes her salute. She raises the crimson blade the last few centimetres
+until it is perfectly vertical and holds it steady. She bows her head slowly a
+few degrees, then lifts it again and returns her calm, warm gaze to the viewer,
+her gentle closed-mouth smile deepening slightly. Her left hand stays flat over
+her heart throughout. Loose strands of her blue-black hair drift and settle.
+Her chest rises and falls once with a slow, calm breath.
+
+She stays exactly where she is in the frame and never drifts, leans or steps.
+Her face, her hairstyle and her armour do not change. The background stays flat
+solid chroma green, perfectly even, with nothing appearing in it.
+```
+
+### F2. Idle loop — if the card holds on screen
+```
+The camera is completely locked off and does not move at any point: no push-in,
+no pull-back, no pan, no tilt, no zoom, no orbit, no handheld shake. The frame
+is static.
+
+She holds the salute and breathes. Her chest rises and falls slowly and evenly.
+The blade stays perfectly vertical and steady in her raised hand. Loose strands
+of blue-black hair sway very gently. She blinks twice, calmly. Her soft
+closed-mouth smile holds. Her left hand stays flat over her heart. The motion
+is subtle and continuous so the first and last frames match.
+
+She stays exactly where she is in the frame and never drifts, leans or steps.
+Her face, her hairstyle and her armour do not change. The background stays flat
+solid chroma green, perfectly even, with nothing appearing in it.
+```
+
+Negative for both:
+```
+camera movement, zoom, pan, tilt, dolly, orbit, handheld shake, morphing face,
+changing hairstyle, changing armour, extra arms, extra fingers, wings, cape,
+background elements, particles, sparks, smoke, text, watermark, character
+drifting out of frame, cut, scene change, colour shift in the background
+```
+
+Sparks, embers and confetti are deliberately kept OUT of the plate — they key
+badly against green. Add them in compositing, over the UI.
