@@ -81,7 +81,7 @@ const sampleCorner = () => {
       "-i",
       input,
       "-vf",
-      "crop=1:1:0:0",
+      "format=rgb24,crop=1:1:0:0",
       "-frames:v",
       "1",
       "-f",
