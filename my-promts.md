@@ -681,3 +681,44 @@ behind her at any point. No particles, no sparks, no smoke, no light, no
 shapes, no colour shift. The background is identical in the first frame and the
 last.
 ```
+
+---
+
+## I. NOTHING CROPPED — drop-in FRAMING block
+
+Replaces the FRAMING block in prompt E — that one said "cropped at mid-thigh",
+which is itself a crop. Set the node's aspect ratio to vertical (9:16 or 3:4)
+first; a standing figure with a raised arm cannot fit a landscape frame.
+
+```
+FRAMING — full figure, nothing cropped:
+Full body shot, head to feet, the entire character completely inside the frame.
+Wide framing, zoomed out, with generous empty space on all four sides.
+Nothing is cut off by any edge of the image. No part of her touches or crosses
+the border. Every one of these is fully visible with clear empty space beyond
+it: the very top of whatever she holds raised, the top of her head and both
+hair buns, every spike on both pauldrons, both elbows, both hands, every
+finger, the full width of her hips, both legs and both feet including the
+soles.
+Leave a clear empty margin of at least one tenth of the frame above the highest
+point of her, below her feet, and to the left and right of her widest point.
+She is centred in the frame and fully contained within it.
+This is a wide full-body shot, not a close-up, not a portrait crop, not a
+half-body shot and not a cowboy shot.
+```
+
+Add to the negative:
+```
+cropped, cut off, out of frame, touching the frame edge, clipped, truncated,
+partial figure, close-up, extreme close-up, portrait crop, headshot, bust shot,
+half-body, waist-up, cowboy shot, zoomed in, tight framing, feet cut off, head
+cut off, hands cut off, blade tip cut off, goblet cut off, shoulders cut off
+```
+
+For the Seedance pass, append this so she does not grow out of frame mid-clip:
+```
+She stays fully inside the frame for every single frame of the clip. She never
+moves toward the camera, never grows larger, never drifts toward any edge and
+is never cropped at any point. The framing and her size on screen are identical
+in the first frame and the last.
+```
