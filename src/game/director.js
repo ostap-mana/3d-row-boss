@@ -117,11 +117,17 @@ const AIM_MEMORY = 5.5;
  * It has to look past the top score because on a five-by-five almost every
  * option is a plain three, so a sort on cells cleared alone leaves the whole
  * board tied and the tie resolved by scan order — which would aim the boss at
- * the top-left corner and nowhere else. Six is enough to find the one that
- * actually costs the player something, and bounded because every candidate
- * here is two probeLocks and this runs inside a boss turn.
+ * the top-left corner and nowhere else.
+ *
+ * Ten rather than six since the whole wave hunts: with one aimed stone a
+ * shallow look was enough, because only the best option was ever going to be
+ * taken. Now the wave works its way down the list, and a depth of six meant the
+ * later blocks in a big wave fell off the end of the ranking and landed on
+ * whatever the scan order offered. Still bounded — every candidate here is two
+ * probeLocks and this runs inside a boss turn — and a five-by-five rarely
+ * offers ten legal swaps anyway, so this is a ceiling more than a cost.
  */
-const RANK_DEPTH = 6;
+const RANK_DEPTH = 10;
 
 /**
  * The longest the hard cap will hold for an ending that had already started
@@ -2423,8 +2429,18 @@ export class Director {
    *
    * The second tier is for a player who has touched nothing this turn — an
    * opening, a cascade they are watching, a thumb off the glass. Then it falls
-   * back to ranking the options by what they are worth and by what killing them
-   * costs everything else, and rolls between the top few (see AIM_BITE).
+   * back to reading the board: how many other swaps die with this cell, how
+   * close to the middle it sits, whether it is water the ultimate is waiting
+   * on, and how big the match would have been. It rolls between the top few
+   * (see AIM_BITE).
+   *
+   * The middle carries real weight there, and not as a decoration. Every match
+   * on a five-by-five runs through a row and a column, and the centre cells are
+   * in more of both than the corners are — so a stone in the middle denies
+   * moves the player has not thought of yet on top of the one it is taking,
+   * while a stone in a corner denies almost nothing twice. It is the cheapest
+   * way to look further ahead than one move without searching further than one
+   * move.
    *
    * Ranking on cells cleared alone is what it used to do, and on a board this
    * small that is a tie between almost every option, broken by the order the
@@ -2457,6 +2473,14 @@ export class Director {
     // the gem that has to turn to stone for the player to feel robbed rather
     // than merely blocked — then the one that costs them more elsewhere, and
     // never one that would leave the board under its floor.
+    const midR = (ROWS - 1) / 2;
+    const midC = (COLS - 1) / 2;
+    const central = (cell) =>
+      1 -
+      (Math.abs(cell.r - midR) / (midR || 1) +
+        Math.abs(cell.c - midC) / (midC || 1)) /
+        2;
+
     const ranked = [];
     pool.forEach((swap) => {
       let best = null;
@@ -2465,11 +2489,11 @@ export class Director {
         if (left < MIN_SWAPS) return;
         const denied = swaps.length - left;
         const seen = reached(cell);
+        const water = board.typeAt(cell.r, cell.c) === WATER ? 1 : 0;
+        const cost = denied * 6 + central(cell) * 6 + water * 3;
         const better =
-          !best ||
-          seen > best.seen ||
-          (seen === best.seen && denied > best.denied);
-        if (better) best = { cell, denied, seen };
+          !best || seen > best.seen || (seen === best.seen && cost > best.cost);
+        if (better) best = { cell, denied, seen, cost };
       });
       if (best) {
         const watched = Math.max(best.seen, reached(swap.a), reached(swap.b));
@@ -2479,7 +2503,7 @@ export class Director {
     if (ranked.length === 0) return null;
     ranked.sort(
       (x, y) =>
-        y.watched - x.watched || y.score - x.score || y.denied - x.denied,
+        y.watched - x.watched || y.cost + y.score * 2 - (x.cost + x.score * 2),
     );
 
     // A move the player has reached for is taken outright: rolling on it would
@@ -2517,6 +2541,7 @@ export class Director {
     const board = this.s.board;
     const before = board.countSwaps();
     const mid = (COLS - 1) / 2;
+    const midRow = (ROWS - 1) / 2;
     const scored = [];
 
     for (let r = 0; r < ROWS; r++) {
@@ -2531,7 +2556,11 @@ export class Director {
         // DOOM.bury and pickBurial.
         if (!bury && left < MIN_SWAPS) continue;
         const water = board.typeAt(r, c) === WATER ? 1 : 0;
-        const central = 1 - Math.abs(c - mid) / (mid || 1);
+        const central =
+          1 -
+          (Math.abs(r - midRow) / (midRow || 1) +
+            Math.abs(c - mid) / (mid || 1)) /
+            2;
         scored.push({
           r,
           c,

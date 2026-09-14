@@ -107,28 +107,86 @@ import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
 
 /**
- * The wash over the frozen fight.
+ * The wash over the frozen fight — one curve per orientation.
  *
- * Deliberately not a flat dim. The shipped card leaves the arena readable — the
- * player is meant to still see the fight they just had underneath — and it
- * darkens the top and the bottom of the frame rather than the middle, which is
- * where the band goes. Flat, the same amount of darkening either hides the arena
- * or fails to hold the type.
+ * Deliberately not a flat dim. The player is meant to still see the fight they
+ * just had underneath, and a flat wash either hides it or fails to hold the
+ * type, so the darkening is aimed instead: it opens over the arena and the boss
+ * and closes over the board.
+ *
+ * WHICH WAY ROUND MATTERS, and it used to be the other one. The curve darkened
+ * the top and the bottom of the frame and let the middle through, on the
+ * argument that the middle is where the band goes. That reads correctly on a
+ * paper diagram and wrong on the screen, because of what is actually *in* those
+ * thirds: the top is the arena, painted, muted and the one part of the picture
+ * worth leaving legible, and the middle is the board — forty saturated discs in
+ * a grid, the busiest and loudest surface the creative owns. The old curve lit
+ * the grid and dimmed the painting, and the result was VICTORY standing on a
+ * wall of gems with PLAY NOW sitting in the middle of it.
+ *
+ * So the corridor the card's own furniture lives in — the band, and the control
+ * under it — is now the darkest part of the frame, and the arena above it is the
+ * brightest it has ever been. The fight is more readable than before, not less:
+ * what got darker is the part that was never the fight.
+ *
+ * Two curves because the screen is not two shapes of the same composition. The
+ * upright layout stacks arena, board, party down the frame and a vertical
+ * gradient can address each in turn. Sideways the board is a column down the
+ * right and the party a row along the left, both spanning the same heights, so
+ * there is nothing for a vertical curve to separate and it goes flatter and
+ * deeper instead.
  *
  * Neutral, and the same wash on both endings. It was a blue-black on a win and
  * an oxblood on a loss, and the loss also had a red light added under it — a
  * whole room repainted by the result. That was asked off: what is behind the
- * verdict now is the fight, blurred and darkened, and nothing else. The colour
- * of the ending lives on the band and only on the band, which is where the game
- * itself puts it. The alpha curve is untouched, because the composition was
- * never what was wrong with it.
+ * verdict is the fight, darkened, and nothing else. The colour of the ending
+ * lives on the band and only on the band, which is where the game itself puts
+ * it.
  */
-const SCRIM = [
-  [0.0, "rgba(8,8,9,0.9)"],
-  [0.3, "rgba(8,8,9,0.62)"],
-  [0.62, "rgba(8,8,9,0.68)"],
-  [1.0, "rgba(8,8,9,0.94)"],
-];
+const SCRIM = {
+  /**
+   * 0.00 the boss bar, held back — 0.16 to 0.34 the arena, wide open — 0.44
+   * the board begins and the band lands on it — 0.80 through the control —
+   * 0.90 the party lifts back out at the foot.
+   */
+  portrait: [
+    [0.0, "rgba(8,8,9,0.88)"],
+    [0.16, "rgba(8,8,9,0.44)"],
+    [0.34, "rgba(8,8,9,0.54)"],
+    [0.45, "rgba(8,8,9,0.87)"],
+    [0.8, "rgba(8,8,9,0.89)"],
+    [0.9, "rgba(8,8,9,0.7)"],
+    [1.0, "rgba(8,8,9,0.84)"],
+  ],
+  /**
+   * Flatter and deeper, and the one window it opens is the band of sky the
+   * boss's head stands in. Below that the board runs the full height of the
+   * right-hand side, so there is no row this can spare.
+   */
+  landscape: [
+    [0.0, "rgba(8,8,9,0.88)"],
+    [0.13, "rgba(8,8,9,0.5)"],
+    [0.26, "rgba(8,8,9,0.64)"],
+    [0.44, "rgba(8,8,9,0.84)"],
+    [0.64, "rgba(8,8,9,0.87)"],
+    [0.82, "rgba(8,8,9,0.76)"],
+    [1.0, "rgba(8,8,9,0.88)"],
+  ],
+};
+
+/**
+ * The wash for an orientation, built once and kept.
+ *
+ * `gradientTexture` caches on the key it is handed, so the two curves need two
+ * keys or the second orientation asked for would be served the first one's
+ * bitmap for the life of the page. Naming the key after the curve is the whole
+ * of the fix, and it is why this is a function rather than two calls.
+ *
+ * @param {"portrait"|"landscape"} key
+ */
+function scrimTexture(key) {
+  return gradientTexture(`outcome-scrim-${key}`, SCRIM[key]);
+}
 
 /**
  * The still is tinted as well as dimmed, and the dim on its own is not enough.
@@ -143,7 +201,7 @@ const SCRIM = [
  * is a vertex colour, it costs nothing, and it works on every device that can
  * draw a sprite at all.
  */
-const STILL_TINT = 0x9a9aa0;
+const STILL_TINT = 0x8a8a92;
 
 /**
  * How many times the still is halved on its way to being the blur.
@@ -471,7 +529,7 @@ export class OutcomeScreen extends Container {
     /** Raised when the still no longer matches the screen. See `reframe`. */
     this.stale = false;
 
-    this.scrim = new Sprite(gradientTexture("outcome-scrim", SCRIM));
+    this.scrim = new Sprite(scrimTexture("portrait"));
     this.addChild(this.scrim);
 
     /**
@@ -721,6 +779,10 @@ export class OutcomeScreen extends Container {
     // The still covers the window and not the stage: it is a photograph of the
     // whole screen, and it goes back exactly where it was taken from.
     if (this.still) this.reframe(w, h);
+    // The wash is aimed at the composition and the composition changes shape
+    // with the screen, so the curve is re-chosen here rather than fixed at
+    // construction. Both are cached by key — see SCRIM and `scrimTexture`.
+    this.scrim.texture = scrimTexture(key);
     this.scrim.setSize(w, h);
     this.fireworks.resize(layout);
 
