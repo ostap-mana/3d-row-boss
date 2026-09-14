@@ -584,3 +584,52 @@ drifting out of frame, cut, scene change, colour shift in the background
 
 Sparks, embers and confetti are deliberately kept OUT of the plate — they key
 badly against green. Add them in compositing, over the UI.
+
+---
+
+## G. Seedance 2.5 i2v — animate the finished VICTORY card directly
+
+Chained: Seedance node 1 outputs the composited card, its Result feeds Seedance
+node 2, and this goes in node 2's Prompt. No green screen, no compositing pass
+— the whole card is animated as one plate.
+
+The camera lock is what keeps the lettering intact. Every line below that
+forbids motion is load-bearing, not filler.
+
+```
+The camera is completely locked off and never moves: no push-in, no pull-back,
+no pan, no tilt, no zoom, no orbit, no roll, no handheld shake, no parallax.
+The frame is perfectly static from the first frame to the last.
+
+The woman breathes. Her chest rises and falls once, slowly and calmly. She
+blinks twice. She tips her head down a few degrees in a small bow of
+acknowledgement, then lifts it again and returns her warm, calm gaze to the
+viewer, her soft closed-mouth smile deepening slightly. Her left hand stays
+flat over her heart. The goblet in her raised hand stays steady; the green
+liquid inside it glows and pulses gently. Loose strands of her blue-black hair
+drift and settle.
+
+Behind her the fireworks continue to sparkle and the confetti drifts slowly
+downward. A soft highlight sweeps once from left to right across the green
+VICTORY banner. The red PLAY NOW button pulses with a slow, gentle glow.
+
+EVERYTHING ELSE IS FROZEN. All text stays perfectly sharp, legible and
+unchanged: the letters of VICTORY, the words PLAY NOW, and every name and
+number on the hero cards. No letter warps, wobbles, melts, shifts, duplicates
+or changes shape. The banner, the button, the hero portrait cards, the frames
+and the game board do not move, scale, drift or change. Every gem on the board
+stays exactly where it is. The layout and framing are identical in every frame.
+
+The woman stays exactly where she is and never drifts, leans, steps, turns or
+changes size. Her face, her hairstyle, her makeup and her armour do not change.
+```
+
+Negative:
+```
+camera movement, zoom, pan, tilt, dolly, orbit, handheld shake, parallax,
+warping text, melting letters, wobbling text, illegible text, changing words,
+duplicated letters, morphing face, changing hairstyle, changing armour, extra
+arms, extra fingers, UI elements moving, layout shifting, gems moving, board
+changing, character drifting out of frame, zooming into the character, cut,
+scene change, flicker, colour shift
+```
