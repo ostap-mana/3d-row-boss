@@ -244,7 +244,11 @@ export function obsidianBreak(count) {
   }
 }
 
-/** A thumb dragging a block that will not move. */
+/**
+ * Every touch the board cannot take: a block that will not move, a stone the
+ * cascade is still writing, a swipe off the edge, a finger on a board the
+ * boss's turn has taken away. The sound of being heard and told no.
+ */
 export function knock() {
   if (samples.play("knock")) return;
   tone({ freq: 140, to: 96, dur: 0.11, gain: 0.13, type: "sine", cut: 600 });

@@ -30,6 +30,8 @@ import * as sfx from "../audio/sfx.js";
 const GEM_TYPES = GEM_COLORS.length;
 const SWIPE_RATIO = 0.34;
 
+const REFUSE_GAP = 0.22;
+
 /**
  * Take one gem's glow to `alpha`, whatever was already writing it.
  *
@@ -332,6 +334,7 @@ export class Board extends Container {
     this.highlit = null;
     /** The stone the finger is currently holding down — see press(). */
     this.pressed = null;
+    this.refusedAt = 0;
     /**
      * The pair the finger is currently pulling apart, or null — see leanTo.
      *
@@ -647,10 +650,13 @@ export class Board extends Container {
 
   handleDown(e) {
     if (this.onInteract) this.onInteract();
-    if (!this.inputEnabled) return;
     const p = e.getLocalPosition(this);
     const cell = this.cellAt(p.x, p.y);
     if (!cell) return;
+    if (!this.inputEnabled) {
+      this.refuse();
+      return;
+    }
     this.drag = { start: cell, x: p.x, y: p.y, fired: false };
     this.press(cell);
     if (this.onTouchStart) this.onTouchStart(p.x, p.y);
@@ -675,10 +681,17 @@ export class Board extends Container {
     // Not while the board is writing itself. A stone halfway through a
     // collapse is not the player's to pick up, and taking its scale over would
     // leave it wearing the shape its fall was in the middle of giving it.
-    if (this.busy) return;
-    if (this.locks[cell.r] && this.locks[cell.r][cell.c]) return;
+    if (this.busy) {
+      this.refuse();
+      return;
+    }
+    if (this.locks[cell.r] && this.locks[cell.r][cell.c]) {
+      this.refuse();
+      return;
+    }
     const gem = this.grid[cell.r][cell.c];
     if (!gem || gem.destroyed) return;
+    sfx.select();
     this.pressed = gem;
     // Brought to the front for as long as the finger has it. A stone lifted a
     // tenth inside its own socket overlapped nothing and the display order
@@ -716,6 +729,13 @@ export class Board extends Container {
     if (!gem || gem.destroyed) return;
     killTweensOf(gem.scale);
     tween(gem.scale, { x: 1, y: 1 }, 0.16, { ease: Ease.backOut });
+  }
+
+  refuse() {
+    const t = now();
+    if (this.refusedAt && t - this.refusedAt < REFUSE_GAP) return;
+    this.refusedAt = t;
+    sfx.knock();
   }
 
   /**
@@ -923,6 +943,7 @@ export class Board extends Container {
     if (this.onTouchEnd) this.onTouchEnd();
     this.clearSelection();
     if (this.inBounds(target)) this.attemptSwap(from, target);
+    else this.refuse();
   }
 
   handleUp(e) {
@@ -966,7 +987,6 @@ export class Board extends Container {
     this.clearSelection();
     this.selected = cell;
     this.selectedGem = this.grid[cell.r][cell.c];
-    sfx.select();
     glowTo(this.selectedGem, 0.55, 0.12);
   }
 
@@ -1256,7 +1276,7 @@ export class Board extends Container {
   nudgeLock(cell) {
     const lock = this.locks[cell.r] && this.locks[cell.r][cell.c];
     if (!lock) return;
-    sfx.knock();
+    this.refuse();
     killTweensOf(lock.slab);
     lock.slab.rotation = 0;
     tween(lock.slab, { rotation: 0.16 }, 0.06)
