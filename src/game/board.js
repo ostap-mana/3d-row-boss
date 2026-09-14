@@ -329,14 +329,18 @@ export class Board extends Container {
     this.onShatter = null;
     this.onShuffle = null;
     /**
-     * Fired on a press that lands on a gem some legal swap runs through.
+     * Asked before a swipe that would make a match is allowed to happen.
      *
-     * The board's way of saying "this one is going for a match", which is the
-     * cue the boss interrupts on — see Director.onScheme and SNAP. Reported at
-     * press and not at the lean, because the lean is already two thirds of the
-     * way through the gesture and whatever answers this has to travel.
+     * The boss's one chance to answer the move itself rather than the board it
+     * happened on — see Director.interceptSwap and SNAP. Answers with the cell
+     * it is sealing, and the swap is refused on the spot; answers null and the
+     * swap goes through untouched.
+     *
+     * On the swipe and not on the press, because the press only says which gem
+     * is being picked up. The swipe says which match was being made, and that
+     * is the thing worth taking.
      */
-    this.onScheme = null;
+    this.onIntercept = null;
 
     this.eventMode = "static";
     this.hitArea = new Rectangle(0, 0, this.size, this.size);
@@ -690,7 +694,6 @@ export class Board extends Container {
     this.drag = { start: cell, x: p.x, y: p.y, fired: false };
     this.noteFocus(cell);
     this.press(cell);
-    if (this.onScheme && this.inSwap(cell)) this.onScheme(cell);
     if (this.onTouchStart) this.onTouchStart(p.x, p.y);
   }
 
@@ -904,30 +907,12 @@ export class Board extends Container {
     return this.focus.filter((f) => f.at >= cut);
   }
 
-  /**
-   * Whether any legal swap runs through this cell.
-   *
-   * listSwaps' question asked about one cell — four probes against its fifty,
-   * which is what lets it sit on the press path where the whole board scan
-   * could not.
-   */
-  inSwap(cell) {
-    if (this.isLocked(cell.r, cell.c)) return false;
-    const around = [
-      { r: cell.r - 1, c: cell.c },
-      { r: cell.r + 1, c: cell.c },
-      { r: cell.r, c: cell.c - 1 },
-      { r: cell.r, c: cell.c + 1 },
-    ];
-    for (let i = 0; i < around.length; i++) {
-      const b = around[i];
-      if (!this.inBounds(b) || this.isLocked(b.r, b.c)) continue;
-      this.swapModel(cell, b);
-      const made = this.findMatches().length > 0;
-      this.swapModel(cell, b);
-      if (made) return true;
-    }
-    return false;
+  /** Whether swapping these two would land a match. */
+  wouldMatch(a, b) {
+    this.swapModel(a, b);
+    const made = this.findMatches().length > 0;
+    this.swapModel(a, b);
+    return made;
   }
 
   /**
@@ -1155,6 +1140,25 @@ export class Board extends Container {
       this.nudgeLock(this.isLocked(a.r, a.c) ? a : b);
       if (this.onInvalid) this.onInvalid();
       return;
+    }
+
+    // The beast's interrupt, and the only place in the board where a swap the
+    // rules allow is refused anyway. It is asked about the move being made
+    // rather than about the board, so it can only ever take a match somebody
+    // was in the middle of landing — see Director.interceptSwap.
+    //
+    // Refused here rather than after the gems have travelled: the shift is
+    // what is being blocked, so it does not get to happen. The stone that says
+    // why is a third of a second behind the shout that came with it.
+    if (this.onIntercept && this.wouldMatch(a, b)) {
+      const taken = this.onIntercept(a, b);
+      if (taken) {
+        this.refuse();
+        this.homeLean();
+        this.shrug(this.grid[a.r][a.c], this.grid[b.r][b.c]);
+        if (this.onInvalid) this.onInvalid();
+        return;
+      }
     }
 
     this.busy = true;

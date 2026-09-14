@@ -83,47 +83,54 @@ export const OBSIDIAN = {
 };
 
 /**
- * The interrupt: the boss answering the hand rather than the clock.
+ * The interrupt: the boss answering the move rather than the clock.
  *
  * Every other swing in the fight is on a timer — see T.bossPress — which means
  * the blocks land between the player's ideas rather than on one. This is the
- * other half. The instant a finger comes down on a gem that a legal swap runs
- * through, the beast spits, and a block lands on the move that press was the
- * beginning of. The player is not blocked in the abstract; they are blocked
- * mid-reach, on the match they had already found, and they have to go and find
- * another one.
+ * other half, and it is wired to the swipe itself. The board asks before it
+ * moves the gems (Board.attemptSwap -> Director.interceptSwap); if the beast
+ * takes it, the swipe is refused where it stands, the shout lands at once and
+ * the glob is a third of a second behind it, and the cell the gem was being
+ * dragged into goes to stone. The player is not blocked in the abstract. They
+ * are blocked on the match they were in the middle of landing, and they have
+ * to go and find another one.
  *
- * It is deliberately the cruellest thing in the creative, and it is fenced in
- * three directions so that it stays a provocation rather than a wall:
+ * It is deliberately the cruellest thing in the creative, and it is the only
+ * place in the board where a swap the rules allow is refused anyway — so it is
+ * fenced in four directions to keep it a provocation rather than a wall:
  *
- * - `gap` is the cooldown, so a player poking at the board cannot summon a
- *   block a second. It is longer than a gesture and shorter than a boss turn:
- *   the interrupt is a thing that happens to you, not a rhythm you can learn.
- * - the aim runs through blockAnOption, so MIN_SWAPS still stands and the board
- *   is never taken below the moves it owes.
- * - the hold ceiling is the wave's — see pickObsidian — so an interrupt cannot
- *   push more stone onto the board than the turn it interrupted was allowed to.
- *
- * `flight` is what decides whether the player ever beats it. A press to a
- * completed swipe is roughly a third of a second on a phone, and the glob is in
- * the air for most of that: fast hands land the match, everyone else watches it
- * turn to stone under their thumb. That race is the whole point — make the
- * flight much shorter and the board simply steals moves, much longer and the
- * interrupt always arrives too late to have been about anything.
- *
- * `times` is the budget for the whole run, and it is a budget rather than a
- * cooldown for a reason. On a pure cooldown the interrupt fires whenever the
- * player is busiest — which is early, while the board is still open and every
- * press lands on a match — and the run is over in twenty seconds with a sealed
- * board and no boss fight in it. Five, dealt across the clock, is a fight that
- * keeps tightening: the stones are still arriving at the last swipe, and the
- * player spends the whole run fighting them rather than losing to them at once.
+ * - `times` is the budget for the whole run. On a cooldown alone the interrupt
+ *   fires when the player is busiest, which is early, while the board is open
+ *   and every swipe is a match — and the run is over in twenty seconds with a
+ *   sealed board and no boss fight in it. Five, dealt across the clock, is a
+ *   fight that keeps tightening instead.
+ * - only a swipe that would actually have matched is ever taken. A swap that
+ *   was going to bounce anyway is not worth a swing and would read as the game
+ *   glitching rather than as the boss doing something.
+ * - `leave` is the floor this beat is held to, and it is the one place in the
+ *   fight that does not use MIN_SWAPS. Every wave leaves two moves standing,
+ *   because a wave takes one of the player's options every single turn and a
+ *   floor of one would hand it the last of them. This fires five times in a
+ *   run, so it is not the thing that can grind a board down, and held to two
+ *   it fired about once: past the halfway line a board carrying ten blocks has
+ *   two or three legal swaps on it, and "sealing this would leave only one"
+ *   was true of nearly every match the player made. One is what it takes
+ *   instead — the board is never left dead, and Board.ensurePlayable is the
+ *   backstop it always was. The cell taken is the one being dragged into, or
+ *   the one being dragged from, whichever leaves more standing; if neither
+ *   clears the floor the swap simply goes through untouched.
+ * - the hold ceiling is the wave's — see pickObsidian — plus `over`, which is
+ *   the interrupt's own allowance on top of it. Held to the ceiling exactly it
+ *   fired about once a run: the waves keep the board at its cap for most of
+ *   the fight, and "a turn could not have put this here" is not a reason for
+ *   the beat that is answering the player rather than the clock. Two cells is
+ *   the whole of the licence, and `times` is the real cap either way.
  *
  * The five are dealt one per window and rolled inside it, so their count and
  * their spread are fixed and their moments are not — the player can neither
- * count on one nor plan around the next. A window whose press never came stays
- * owed and is spent on the next one, because a slot the player idled through is
- * a beat they have not had, not a beat they have earned their way out of.
+ * count on one nor plan around the next. A window whose match never came stays
+ * owed and is spent on the next one; `gap` is the floor underneath that, so a
+ * backlog cannot empty itself into two consecutive swipes.
  *
  * `from` is the share of the clock at the top of the run the interrupt keeps
  * out of — long enough for a first match to land uninterrupted, because the
@@ -131,11 +138,20 @@ export const OBSIDIAN = {
  * is not configured here: the last window closes where DOOM.bury opens, since
  * past that the board is being sealed on a timer anyway and one more block is
  * not a beat anybody can read.
+ *
+ * `flight` is how long the glob is in the air, and it is the gap between the
+ * refusal and the thing that explains it. It used to be a race — the interrupt
+ * fired on the press and a fast enough swipe could beat the stone to the cell
+ * — and the race is gone now that the swipe itself is what is being answered.
+ * Keep it short. Everything past about half a second is the player looking at
+ * a move that did not happen and nothing yet saying why.
  */
 export const SNAP = {
   on: true,
   times: 5,
   from: 0.08,
+  over: 2,
+  leave: 1,
   gap: 2.6,
   flight: 0.34,
 };
@@ -1296,19 +1312,29 @@ export const DIFFICULTY = {
      * Driven over CDP, a bot playing the strongest swap every time won with
      * more than half the countdown still on the strip.
      *
-     * 26 against a 27 second countdown is the fight aimed at the end of it
-     * again, and that is the whole intent: stones still landing on the last
-     * swipe, the beast still alive to throw them. It is not a difficulty
-     * change and it cannot be — the guard has never touched a player who is
-     * behind the line, only one already winning faster than the schedule. What
-     * it costs is the ten seconds of slack a fumbled swipe used to have, which
-     * is the trade: a run that is tense at the end instead of over at the
-     * middle. Drop it back towards 22 to buy that slack back.
+     * 21, and the number it has to be read against is not T.hardCap but the
+     * burial. DOOM.bury opens with 32% of a 27 second countdown left — about
+     * 18 seconds in — and from there the board is sealed five cells at a time
+     * until there is nothing to swap on, which is a defeat the player cannot
+     * outplay. A schedule aimed past that is not a longer fight, it is a lost
+     * one: 26 was tried and every run driven over CDP ended with all 25 cells
+     * under stone and the party wiped.
+     *
+     * 21 aims the kill at the burial's opening seconds instead. The last of
+     * the fight is fought on a board visibly closing — stones still landing on
+     * the last swipe, the beast still alive to throw them, the bar coming down
+     * against a clock that is now taking cells as well — and it is still a
+     * fight that can be won. That was the intent of moving off 22; the mistake
+     * was reading the deadline off the cap rather than off the burial.
+     *
+     * It is not a difficulty change and it cannot be — the guard has never
+     * touched a player who is behind the line, only one already winning faster
+     * than the schedule.
      *
      * Real seconds, so Director.paceGrip converts the world clock back through
      * toReal before it reads this — see WORLD_RATE.
      */
-    seconds: 26,
+    seconds: 21,
     bite: 3,
     floor: 0.25,
   },
@@ -1379,8 +1405,7 @@ export const DOOM = {
    * and the run is over seconds later whatever the board looks like.
    *
    * `at` is a fraction of the shown clock, so it moves with DOOM.seconds rather
-   * than being a second count that has to be retuned beside it. 0.32 of 27 is
-   * about eight and a half seconds in which the burial can land.
+   * than being a second count that has to be retuned beside it.
    *
    * Five a tick rather than three, which changes what the beat is for. At three
    * the board sealed with seconds to spare and those seconds were dead — no
@@ -1390,8 +1415,24 @@ export const DOOM = {
    * happens rather than collected by the clock afterwards. So there are two
    * ways to lose — the party goes down, or the board does. See
    * Director.boardSealed.
+   *
+   * `at` 0.32 -> 0.22 is the arithmetic that goes with five a tick, and it was
+   * wrong for as long as the boss was dying before the burial ever ran. Five
+   * cells every 1.15 seconds seals 25 in about 5.7, and 0.32 of 27 opened a
+   * window of 8.6 — so the board was always fully sealed with roughly three
+   * seconds still on the strip, and those three seconds are the dead ones the
+   * perTick change was meant to remove, moved to the end. Worse, once the pace
+   * guard started holding the beast alive into this stretch (see
+   * DIFFICULTY.pace) the burial finished every run first: measured over CDP
+   * the party was wiped on a fully sealed board with the boss at 9% health.
+   *
+   * 0.22 of 27 is 5.9 seconds against the 5.7 the burial needs. The board now
+   * closes on the last beat of the clock rather than before it, which is what
+   * "it cannot start until the run is over seconds later" was always supposed
+   * to mean — and it leaves the fight winnable in its teeth, which is the only
+   * thing that makes the closing board worth watching.
    */
-  bury: { at: 0.32, every: 1.15, perTick: 5 },
+  bury: { at: 0.22, every: 1.15, perTick: 5 },
 
   /**
    * Seconds from the first playable frame to the first cataclysm.

@@ -349,8 +349,8 @@ export class Director {
     board.onInvalid = () => {
       this.restartIdle(true);
     };
-    // The beast answers the hand, not the clock — see SNAP and bossSnap.
-    board.onScheme = () => this.onScheme();
+    // The beast answers the move, not the clock — see SNAP and interceptSwap.
+    board.onIntercept = (a, b) => this.interceptSwap(a, b);
     board.onInteract = () => {
       this.playerActed = true;
       // A finger on the glass ends the lesson, and ends it for good. It used
@@ -2168,33 +2168,62 @@ export class Director {
   }
 
   /**
-   * A finger has come down on a match. Answer it now.
+   * A swipe that was about to land a match, caught in the act.
    *
    * Everything else the boss does is on its own clock, and a block that lands
    * between two ideas is a block that lands on neither. This is the one beat
-   * aimed at the idea itself: the press says which gem is being picked up,
-   * blockAnOption reads the same press out of Board.focus and takes the swap it
-   * belongs to, and the stone arrives while the thumb is still moving.
+   * aimed at an idea: the board asks before it moves the gems, and the answer
+   * is the cell being sealed. Nothing here is a guess about what the player
+   * meant — the swap in hand is the match they were making.
    *
-   * Cheap and heavily fenced, because it rides an input event and can be asked
-   * a dozen times a second. Everything expensive is behind `snapDue`.
+   * The cell taken is the one the gem was being dragged *into* where that is
+   * allowed, because that is the place the three would have met; the cell it
+   * came from is the fallback, and if neither can be sealed without taking the
+   * board under MIN_SWAPS then nothing is, and the swap goes through. The
+   * player is never blocked into a corner — only out of one move.
+   *
+   * Returns synchronously, because the board is holding the swipe open waiting
+   * for it. The swing itself is fired and not awaited.
    */
-  onScheme() {
-    if (!this.snapDue()) return;
+  interceptSwap(a, b) {
+    if (!this.snapDue()) return null;
+    const board = this.s.board;
+    // The wave's hold ceiling plus the interrupt's own allowance. Held to the
+    // ceiling exactly, this fires perhaps once a run: waves keep the board at
+    // its cap for most of the fight, and "the board is already as full as a
+    // turn may make it" is not a reason for the one beat that is supposed to
+    // be answering the player. SNAP.times is the real cap on it — five stones
+    // across a whole run, each of them breakable by a match next door.
+    if (this.snapHeld() >= this.snapCeiling() + SNAP.over) return null;
+
+    // Whichever end of the swap leaves the player more to work with, and the
+    // cell being dragged into on a tie — that is where the three would have
+    // met. SNAP.leave and not MIN_SWAPS: see the note on it for why this one
+    // beat is allowed a lower floor than every wave.
+    let best = null;
+    [b, a].forEach((c) => {
+      const left = board.probeLock(c.r, c.c, () => board.countSwaps());
+      if (left < SNAP.leave) return;
+      if (!best || left > best.left) best = { cell: c, left };
+    });
+    if (!best) return null;
+    const cell = best.cell;
+
     this.snapAt = now();
     this.snaps.shift();
     // Deliberately not on the boss's track. That track is a queue, and a queue
-    // is the one thing this beat cannot be in: the press it answers is over in
-    // a third of a second, and a swing that waits its turn arrives after the
-    // match it was thrown to stop. It is safe off the track because the only
-    // two things it touches are serialised anyway — the board by claim(), and
-    // the beast's own pose by `solo` in bossSnap.
+    // is the one thing this beat cannot be in: the swipe it answers is already
+    // being refused on screen, and a swing that waits its turn would leave the
+    // refusal unexplained for as long as it queued. It is safe off the track
+    // because the only two things it touches are serialised anyway — the board
+    // by claim(), and the beast's own pose by `solo` in bossSnap.
     this.snapping = true;
-    this.bossSnap()
+    this.bossSnap(cell)
       .catch(() => {})
       .then(() => {
         this.snapping = false;
       });
+    return cell;
   }
 
   /**
@@ -2244,11 +2273,8 @@ export class Director {
    * — a third of a second from the wind-up to the glob leaving, which is what a
    * beat has to fit into if it is going to arrive inside a gesture.
    */
-  async bossSnap() {
+  async bossSnap(cell) {
     const { board, boss, hud, vfx, shake } = this.s;
-    if (this.snapHeld() >= this.snapCeiling()) return;
-    const cell = this.blockAnOption();
-    if (!cell) return;
 
     hud.shout(COPY.snap, 0.3, { fill: 0xff5a6e, from: 1.2 });
     // The body animation only when the beast is not already mid-swing: pose is
