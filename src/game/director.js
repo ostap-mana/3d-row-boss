@@ -48,7 +48,7 @@ import {
 import { MIN_SWAPS } from "./board.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
-import { rndInt } from "../core/rng.js";
+import { rnd, rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
 import { EV, track, trackOnce } from "../net/analytics.js";
@@ -649,7 +649,7 @@ export class Director {
    * the corners off the one feature the shape exists for — the moment the floor
    * drops.
    *
-   * @param {string} field one of attack, resist, ult, obsidian, hold
+   * @param {string} field one of attack, resist, ult, obsidian, hold, crust
    * @param {number} p where to read it — progress() for every column except
    *   resist and ult, which are read at wounds(). See both for why there are
    *   two axes.
@@ -2027,7 +2027,14 @@ export class Director {
     } finally {
       taken.forEach((p) => board.setProbe(p.r, p.c, false));
     }
-    return taken;
+    return taken.map((cell) => ({ ...cell, crust: this.crustLayers() }));
+  }
+
+  crustLayers() {
+    const want = this.curveAt("crust", this.pressure(), 0);
+    if (!(want > 0)) return 0;
+    const whole = Math.floor(want);
+    return whole + (rnd() < want - whole ? 1 : 0);
   }
 
   /**

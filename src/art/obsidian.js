@@ -2,9 +2,11 @@
  * Obsidian blocks — the boss's answer to the player.
  *
  * A block encases the gem sitting in that cell: the gem cannot be swapped and
- * cannot match while it is trapped. Clearing a match next to the block cracks
- * it open. Blocks never move, which is why the lava script only ever stacks
- * them from the bottom of a column upward.
+ * cannot match while it is trapped. Clearing a match next to the block breaks
+ * it open — unless it was laid with a crust on it, in which case the first
+ * match next door only blows the crust off and the stone itself survives to be
+ * broken by a second one. Blocks never move, which is why the lava script only
+ * ever stacks them from the bottom of a column upward.
  */
 
 import { Container, Graphics, Sprite } from "pixi.js";
@@ -16,8 +18,8 @@ import { tween, Ease } from "../core/tween.js";
 const ART = 100;
 const PAD = 6;
 /**
- * The slab silhouette's own span, in ART units — see `body` in drawBlock, whose
- * outermost points are -47 and +47.
+ * The slab silhouette's own span, in ART units — see SLAB, whose outermost
+ * points are -47 and +47.
  *
  * This is the number `resize` has to size against, and sizing against ART
  * instead is what had the blocks crowding their neighbours. The texture is a
@@ -51,21 +53,25 @@ const FOOTPRINT = 0.86;
  */
 const TILT = 0.085;
 
+// Slab silhouette — deliberately irregular so it never reads as a UI panel.
+const SLAB = [
+  -44, -38, -18, -46, 16, -44, 42, -34, 46, -6, 40, 26, 20, 44, -14, 47, -40,
+  38, -47, 8,
+];
+
+const CRUST = 0.9;
+
 let blockTex = null;
+let crustTex = null;
 
 /** Craggy slab with heat still glowing in the cracks. */
 function drawBlock(g) {
   g.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
   g.fill({ color: 0xffffff, alpha: 0 });
 
-  // Slab silhouette — deliberately irregular so it never reads as a UI panel.
-  const body = [
-    -44, -38, -18, -46, 16, -44, 42, -34, 46, -6, 40, 26, 20, 44, -14, 47, -40,
-    38, -47, 8,
-  ];
-  g.poly(body);
+  g.poly(SLAB);
   g.fill({ color: OBSIDIAN.rock });
-  g.poly(body);
+  g.poly(SLAB);
   g.stroke({ width: 6, color: 0x0a0610, alpha: 0.95 });
 
   // Upper facets catching light
@@ -97,6 +103,17 @@ function drawBlock(g) {
   });
 }
 
+function drawCrust(g) {
+  g.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
+  g.fill({ color: 0xffffff, alpha: 0 });
+
+  const ring = SLAB.map((v) => v * CRUST);
+  g.poly(ring);
+  g.stroke({ width: 12, color: OBSIDIAN.seam, alpha: 0.5 });
+  g.poly(ring);
+  g.stroke({ width: 4.5, color: OBSIDIAN.seamHot, alpha: 0.95 });
+}
+
 function blockTexture() {
   if (blockTex) return blockTex;
   const g = new Graphics();
@@ -108,6 +125,19 @@ function blockTexture() {
   });
   g.destroy();
   return blockTex;
+}
+
+function crustTexture() {
+  if (crustTex) return crustTex;
+  const g = new Graphics();
+  drawCrust(g);
+  crustTex = getRenderer().generateTexture({
+    target: g,
+    resolution: 2,
+    antialias: true,
+  });
+  g.destroy();
+  return crustTex;
 }
 
 export class ObsidianView extends Container {
@@ -125,7 +155,20 @@ export class ObsidianView extends Container {
     this.slab.anchor.set(0.5);
     this.addChild(this.slab);
 
+    this.crust = new Sprite(crustTexture());
+    this.crust.anchor.set(0.5);
+    this.crust.visible = false;
+    this.slab.addChild(this.crust);
+
+    this.armor = 0;
     this.t = Math.random() * 6;
+  }
+
+  setArmor(layers) {
+    this.armor = Math.max(0, Math.round(layers || 0));
+    this.crust.visible = this.armor > 0;
+    this.crust.alpha = 1;
+    this.crust.scale.set(1);
   }
 
   resize(cell) {
@@ -151,6 +194,12 @@ export class ObsidianView extends Container {
       tween(this, { alpha: 1 }, 0.14),
       tween(this.scale, { x: 1, y: 1 }, 0.34, { ease: Ease.backOut }),
     ]);
+  }
+
+  chip() {
+    if (this.armor <= 0) return false;
+    this.setArmor(this.armor - 1);
+    return true;
   }
 
   /** Crack apart when a match lands next door. */

@@ -202,6 +202,29 @@ export function obsidianForm(count) {
   }
 }
 
+export function obsidianChip(count) {
+  const n = Math.max(1, count || 1);
+  noise({ type: "bandpass", freq: 1800, to: 900, dur: 0.14, gain: 0.12 });
+  tone({
+    freq: 240,
+    to: 150,
+    dur: 0.12,
+    gain: 0.07,
+    type: "square",
+    cut: 1600,
+  });
+  for (let i = 1; i < Math.min(n, 3); i++) {
+    noise({
+      type: "bandpass",
+      freq: 1500,
+      to: 800,
+      dur: 0.1,
+      gain: 0.06,
+      delay: i * 0.06,
+    });
+  }
+}
+
 /** A block cracking open — the one genuinely bright sound the board makes. */
 export function obsidianBreak(count) {
   if (samples.play("obsBreak", { gain: 0.85 + Math.min(count, 4) * 0.08 })) {

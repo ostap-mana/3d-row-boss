@@ -562,7 +562,8 @@ export const DIFFICULTY = {
    *     zone         super easy     medium       hard
    *     attack      0.120 -> 0.330  0.58->0.64  1.05 -> 0.62
    *     resist      1.00 (none)      0.85       0.54 -> 0.52
-   *     obsidian      1 -> 2         3            5
+   *     obsidian      2 -> 3         4            6
+   *     crust           0          0.35 -> 0.8      1
    *
    * `p` is how much of the boss's bar is gone, so 0.5 is the first zone
    * boundary and 0.75 the second. Everything else is linearly interpolated
@@ -579,6 +580,15 @@ export const DIFFICULTY = {
    *             ultResistance, which is where it is read.
    *   obsidian  blocks laid per boss turn. See pickObsidian.
    *   hold      most blocks the board carries at once, out of 25.
+   *   crust     extra matches a freshly laid block eats before it breaks. 0 is
+   *             a stone that goes on the first match next door; 1 is one that
+   *             only loses its glowing shell to it and has to be hit again.
+   *             Read as a count, and the fraction between two whole numbers is
+   *             spent as a chance rather than rounded off — 0.6 crusts three
+   *             blocks in five, so the wall thickens a bit at a time like
+   *             everything else here rather than arriving as a cliff. A mixed
+   *             wave also reads at a glance: the bright ones are the expensive
+   *             ones. See Director.crustLayers and Board.breakLocksNear.
    *   name      shouted the moment the bar crosses this keyframe, so a zone
    *             change is a beat the player sees rather than a bar that
    *             quietly starts moving slower. Both names sit on a zone
@@ -597,8 +607,12 @@ export const DIFFICULTY = {
    *   resist    0.78 -> 0.85 through medium and 0.38 -> 0.52 across the last
    *             tenth. This is the one that shortens the run: the bar takes
    *             1.21 bars of damage to empty where it took 1.35.
-   *   obsidian  the endgame board carries nine blocks of twenty-five rather
-   *             than twelve, so there is still somewhere to play at the wall.
+   *   obsidian  the endgame board carries ten blocks of twenty-five rather
+   *             than twelve, so there is still somewhere to play at the wall —
+   *             and from the halfway line those blocks come in crusted, which
+   *             is where the squeeze in this table now lives. Cost the player
+   *             tempo rather than health: a crusted stone is two matches to
+   *             remove, not a hidden multiplier on anything.
    *
    * It landed on top of a separate 20% health cut — see damagePerGem and
    * BOSS_MAX_HP — and the two together take a fight of nine plain triples down
@@ -663,8 +677,10 @@ export const DIFFICULTY = {
    * describe. What can be said from arithmetic alone: the bar needs 11% less
    * damage to empty, a plain triple is worth a quarter more of it, the hardest
    * swing in the run takes under a third off a hero instead of a half, and the
-   * board at the wall has two more cells to play in. Every one of those moves
-   * the fight the same way.
+   * board at the wall has one more cell to play in than the pass before this
+   * one. The last of those is the one that turned back around: the cells are
+   * held longer now, because every stone laid past the halfway line has to be
+   * matched next to twice.
    *
    * The kill is expected to land well inside the run now rather than on its
    * last beat, and that is a change of intent rather than a side effect. It
@@ -748,15 +764,25 @@ export const DIFFICULTY = {
        * lands on somebody who has made one match and may not yet have worked
        * out that this is a match-three at all. Whatever sits here is what the
        * game does to a player it has not finished teaching. At 0.12 the
-       * opening rake is under two percent of a hero bar and a single obsidian
-       * block sits on a board of twenty-five: the screen shaking is telling
-       * the truth, and it is costing nothing at all.
+       * opening rake is under two percent of a hero bar and two bare obsidian
+       * blocks sit on a board of twenty-five: the screen shaking is telling
+       * the truth, and it is costing nothing at all. Bare is the word doing
+       * the work — `crust` is 0 for the whole easy half, so a stone here is
+       * one match away from gone.
        *
        * The old curve opened at a flat 1.0 and compounded from there, and the
        * party was already chewed before the mechanic had landed — which is most
        * of what "it's too fast, you lose too fast" was about.
        */
-      { p: 0.0, attack: 0.12, resist: 1.0, ult: 1, obsidian: 1, hold: 5 },
+      {
+        p: 0.0,
+        attack: 0.12,
+        resist: 1.0,
+        ult: 1,
+        obsidian: 2,
+        hold: 6,
+        crust: 0,
+      },
       /**
        * Two thirds of a boss left, and still inside the easy zone.
        *
@@ -767,7 +793,15 @@ export const DIFFICULTY = {
        * The creep is small enough that nothing here is what anybody would call
        * difficulty — the swings are still under a tenth of a hero bar.
        */
-      { p: 0.35, attack: 0.22, resist: 1.0, ult: 1, obsidian: 2, hold: 6 },
+      {
+        p: 0.35,
+        attack: 0.22,
+        resist: 1.0,
+        ult: 1,
+        obsidian: 3,
+        hold: 7,
+        crust: 0,
+      },
       /**
        * HALF THE BOSS GONE — the first zone boundary, and the end of the easy
        * half.
@@ -787,8 +821,9 @@ export const DIFFICULTY = {
         attack: 0.33,
         resist: 1.0,
         ult: 1,
-        obsidian: 2,
-        hold: 7,
+        obsidian: 3,
+        hold: 8,
+        crust: 0.35,
         name: "OBSIDIAN HIDE",
       },
       /**
@@ -802,7 +837,15 @@ export const DIFFICULTY = {
        * a zone boundary the player cannot feel is not a boundary, and this one
        * is announced a beat before it by the keyframe above.
        */
-      { p: 0.6, attack: 0.58, resist: 0.88, ult: 1, obsidian: 3, hold: 8 },
+      {
+        p: 0.6,
+        attack: 0.58,
+        resist: 0.88,
+        ult: 1,
+        obsidian: 4,
+        hold: 9,
+        crust: 0.6,
+      },
       /**
        * A QUARTER LEFT — the second boundary, and the end of medium.
        *
@@ -817,8 +860,9 @@ export const DIFFICULTY = {
         attack: 0.64,
         resist: 0.88,
         ult: 1,
-        obsidian: 3,
-        hold: 8,
+        obsidian: 4,
+        hold: 9,
+        crust: 0.8,
         name: "MOLTEN CORE",
       },
       /**
@@ -838,19 +882,34 @@ export const DIFFICULTY = {
        * than the entire easy half of the fight, which is a bar crawling
        * through the back third of every run.
        *
-       * 1.05, 0.54 and five blocks a turn. The smash lands for 28% of a hero
+       * 1.05, 0.54 and six blocks a turn. The smash lands for 28% of a hero
        * bar rather than 46%, a five-cell step takes 32% off the boss rather
-       * than 19%, and the board holds nine blocks rather than eleven. Against
+       * than 19%, and the board holds ten blocks rather than eleven. Against
        * x2.8 at the medium boundary this is still by a distance the hardest
        * thing in the creative — it simply no longer takes longer to play than
        * the rest of the fight put together.
+       *
+       * `crust` is 1 here and it is the whole of what this keyframe learned
+       * last: every block laid in the last quarter wears a shell, so the wall
+       * costs twenty matches to clear rather than ten. Ten cells held out of
+       * twenty-five is a number the reshuffle can live with; ten cells held
+       * *twice as long* is the squeeze, and it is paid in tempo against
+       * T.hardCap rather than in health.
        *
        * Raise `attack` here first if the wall stops reading as a wall; lower
        * `resist` if the ending stops being a grind at all. They are separate
        * complaints and these are separate knobs — see the note under
        * DIFFICULTY.ultHideBite, which is the third.
        */
-      { p: 0.88, attack: 1.05, resist: 0.8, ult: 1, obsidian: 5, hold: 9 },
+      {
+        p: 0.88,
+        attack: 1.05,
+        resist: 0.8,
+        ult: 1,
+        obsidian: 6,
+        hold: 10,
+        crust: 1,
+      },
       /**
        * BOSS AT TEN PERCENT — and `resist` goes flat from here to the kill.
        *
@@ -872,7 +931,15 @@ export const DIFFICULTY = {
        * cost of holding the ultimate still: a five-cell step lands for 31%
        * across the last tenth where a sliding hide would have taken it lower.
        */
-      { p: 0.9, attack: 0.95, resist: 0.72, ult: 1, obsidian: 5, hold: 9 },
+      {
+        p: 0.9,
+        attack: 0.95,
+        resist: 0.72,
+        ult: 1,
+        obsidian: 6,
+        hold: 10,
+        crust: 1,
+      },
       /**
        * The killing blow.
        *
@@ -899,7 +966,15 @@ export const DIFFICULTY = {
        * back. This pass is the first to move both, and it moved `resist`
        * deliberately — the length was the complaint.
        */
-      { p: 1.0, attack: 0.62, resist: 0.72, ult: 1, obsidian: 5, hold: 9 },
+      {
+        p: 1.0,
+        attack: 0.62,
+        resist: 0.72,
+        ult: 1,
+        obsidian: 6,
+        hold: 10,
+        crust: 1,
+      },
     ],
   },
 

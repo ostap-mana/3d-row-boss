@@ -1583,6 +1583,25 @@ export class Board extends Container {
   }
 
   /**
+   * The run lighting up in the instant before it goes.
+   *
+   * Held for CHARGE_HOLD and no longer: this is the anticipation frame the pop
+   * is the answer to, and anything more than a beat of it reads as the board
+   * hesitating rather than as the match gathering.
+   */
+  async chargeCells(cells) {
+    cells.forEach((cell) => {
+      const gem = this.grid[cell.r][cell.c];
+      if (!gem || gem.destroyed) return;
+      glowTo(gem, 1, CHARGE_HOLD);
+      if (this.onCharge) {
+        this.onCharge(this.x + gem.x, this.y + gem.y, gem.type, CHARGE_LIFE);
+      }
+    });
+    await delay(CHARGE_HOLD);
+  }
+
+  /**
    * Blow up a set of cells.
    *
    * The beat the whole genre is built on, so it is worth the four extra lines.
@@ -1605,18 +1624,6 @@ export class Board extends Container {
    * way, picked per stone, means twelve stones clearing in a cascade are twelve
    * events rather than one effect played twelve times.
    */
-  async chargeCells(cells) {
-    cells.forEach((cell) => {
-      const gem = this.grid[cell.r][cell.c];
-      if (!gem || gem.destroyed) return;
-      glowTo(gem, 1, CHARGE_HOLD);
-      if (this.onCharge) {
-        this.onCharge(this.x + gem.x, this.y + gem.y, gem.type, CHARGE_LIFE);
-      }
-    });
-    await delay(CHARGE_HOLD);
-  }
-
   async popCells(cells) {
     // The middle of the run, in cells, so the stagger radiates from it.
     let mr = 0;
@@ -2284,6 +2291,7 @@ export class Board extends Container {
       if (!this.inBounds(cell) || this.isLocked(cell.r, cell.c)) return;
       const lock = new ObsidianView();
       lock.resize(this.cell);
+      lock.setArmor(cell.crust || 0);
       const p = this.cellPos(cell.r, cell.c);
       lock.x = p.x;
       lock.y = p.y;
@@ -2302,7 +2310,14 @@ export class Board extends Container {
     return made;
   }
 
-  /** Every block orthogonally touching one of these cells cracks open. */
+  /**
+   * Every block orthogonally touching one of these cells takes a hit.
+   *
+   * A bare stone breaks. A crusted one only loses its crust and stays where it
+   * is, so the wall the boss lays late in the fight costs two matches a cell
+   * rather than one — and the player can see which is which before they spend
+   * the move, because the crust is the bright thing on the board.
+   */
   async breakLocksNear(cells) {
     const hit = {};
     const targets = [];
@@ -2322,7 +2337,27 @@ export class Board extends Container {
       });
     });
     if (targets.length === 0) return 0;
-    await this.releaseLocks(targets);
+
+    const crusted = targets.filter((n) => this.armorAt(n.r, n.c) > 0);
+    const broken = targets.filter((n) => this.armorAt(n.r, n.c) <= 0);
+    this.chipLocks(crusted);
+    await this.releaseLocks(broken);
+    return broken.length;
+  }
+
+  armorAt(r, c) {
+    if (!this.inBounds({ r, c })) return 0;
+    const lock = this.locks[r][c];
+    return lock && lock.armor ? lock.armor : 0;
+  }
+
+  chipLocks(targets) {
+    if (!targets.length) return 0;
+    sfx.obsidianChip(targets.length);
+    targets.forEach((n) => {
+      const lock = this.locks[n.r][n.c];
+      if (lock && lock.chip) lock.chip();
+    });
     return targets.length;
   }
 
