@@ -6,14 +6,17 @@
  * it open — unless it was laid with a crust on it, in which case the match next
  * door only blows one layer of that crust off and the stone itself survives to
  * be broken by a later one. Past the halfway line of the fight the crust runs
- * two layers deep and the stone costs three matches, so the shell is drawn as
- * two rings rather than one: what a block is going to cost is readable before
- * the move is spent rather than after. Blocks never move, which is why the lava
- * script only ever stacks them from the bottom of a column upward.
+ * two layers deep and the stone costs three matches. None of that shows on the
+ * slab: the crust used to be drawn as a ring of molten seam around the stone,
+ * and a second ring inside it for the deeper shell, and those rings are gone —
+ * a block looks the same whatever it is carrying. Blocks never move, which is
+ * why the lava script only ever stacks them from the bottom of a column
+ * upward.
  */
 
 import { Container, Graphics, Sprite } from "pixi.js";
 import { OBSIDIAN } from "../config.js";
+import { glowTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { tween, Ease } from "../core/tween.js";
 
@@ -36,10 +39,19 @@ const BODY = 94;
  * What a stone occupies of its cell — GemView.resize in art/gems.js, and the
  * same number the board's own tiles are drawn to (see the inset in board.js).
  *
- * A block encases a gem. It is the same piece on the board as the gem it traps,
- * it sits in the same cell, and it has no business being bigger than one.
+ * A block encases a gem, so it cannot leave its cell — but it has no reason to
+ * be polite inside one. A gem takes 0.86 and leaves a clean gutter all round;
+ * a stone taking the same crops up as one more round piece in the row instead
+ * of the thing standing in the row's way. At 0.94 the slab eats that gutter,
+ * its points come within a hair of its neighbours, and a column with three of
+ * them in it reads as a wall rather than as three tiles of a different colour.
+ *
+ * The ceiling is the tilt: a slab turned by TILT bounds FOOTPRINT * 1.086, so
+ * 0.94 lands at 1.02 of a cell at the corners of its box — past the cell only
+ * where the silhouette has already pulled in, which is what makes the points
+ * bite into the gap without the bodies ever touching.
  */
-const FOOTPRINT = 0.86;
+const FOOTPRINT = 0.94;
 
 /**
  * How far a block is allowed to sit off square, in radians.
@@ -49,63 +61,59 @@ const FOOTPRINT = 0.86;
  * bounds s * (cos t + sin t), so the ±0.25 this used to be swelled a slab to
  * 1.21 of its own width — past the cell however it was sized.
  *
- * At 0.085 the bound is 1.086, which puts a turned slab at 0.93 of a cell: off
- * square enough to see, still clear of the four cells around it. Raising this
- * means lowering FOOTPRINT to pay for it.
+ * At 0.085 the bound is 1.086. Raising this means lowering FOOTPRINT to pay
+ * for it, and FOOTPRINT is the louder of the two here — see its note.
  */
 const TILT = 0.085;
 
-// Slab silhouette — deliberately irregular so it never reads as a UI panel.
+/**
+ * Slab silhouette — deliberately irregular so it never reads as a UI panel, and
+ * spiked so it never reads as furniture either.
+ *
+ * The shape used to be a rounded lump, which is the shape of something that
+ * belongs on the board. This one alternates out and in: every second point is
+ * driven to the edge of the box and the one after it is pulled well back, so
+ * the rim comes to a run of teeth. Against five columns of discs that is the
+ * only piece on the board with a corner on it, and the eye lands on it before
+ * it lands on the match it was looking for — which is the point, because what
+ * it is there to say is that this cell is not available.
+ */
 const SLAB = [
-  -44, -38, -18, -46, 16, -44, 42, -34, 46, -6, 40, 26, 20, 44, -14, 47, -40,
-  38, -47, 8,
+  -46, -26, -32, -44, -8, -34, 12, -47, 28, -30, 47, -18, 34, 2, 47, 22, 26, 30,
+  14, 47, -10, 36, -26, 47, -38, 28, -47, 6,
 ];
 
-const CRUST = 0.9;
-
-/**
- * The second ring, as a fraction of the first — the tell for a two-layer crust.
- *
- * A shell used to be one thing or nothing, which was enough while `crust` never
- * went past 1. It does now — see DIFFICULTY.curve, where the last quarter lays
- * stones at 1.7 — and a block costing three matches that looks exactly like one
- * costing two is the board lying about the only thing the player reads it for.
- * The same texture again, smaller and concentric, so a doubled shell is drawn
- * rather than tinted: multiply tint can only darken, and the tougher stone
- * coming out the dimmer of the two reads backwards.
- *
- * 0.62 puts the inner seam at 0.56 of the slab, clear inside the outer ring at
- * 0.9 and clear of the middle where the trapped gem still shows through.
- */
-const CORE_RING = 0.62;
-
 let blockTex = null;
-let crustTex = null;
 
-/** Craggy slab, cut across by seams the light picks out. */
+/** Craggy slab with heat still glowing in the cracks. */
 function drawBlock(g) {
   g.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
   g.fill({ color: 0xffffff, alpha: 0 });
 
+  // Dropped shadow — the slab sits ON the board, over the cell it has taken
+  g.poly(SLAB.map((v, i) => v + (i % 2 ? 7 : 5)));
+  g.fill({ color: 0x000000, alpha: 0.55 });
+
   g.poly(SLAB);
   g.fill({ color: OBSIDIAN.rock });
   g.poly(SLAB);
-  g.stroke({ width: 6, color: 0x0a0610, alpha: 0.95 });
+  g.stroke({ width: 8, color: 0x0a0610, alpha: 1 });
 
   // Upper facets catching light
-  g.poly([-44, -38, -18, -46, 16, -44, 4, -18, -26, -12]);
+  g.poly([-46, -26, -32, -44, -8, -34, 12, -47, 6, -16, -26, -8]);
   g.fill({ color: OBSIDIAN.edge, alpha: 0.75 });
-  g.poly([42, -34, 46, -6, 24, 6, 10, -20]);
+  g.poly([28, -30, 47, -18, 34, 2, 12, -8]);
   g.fill({ color: OBSIDIAN.edge, alpha: 0.45 });
 
   // Lit top edge — makes the slab read as raised stone rather than a hole
-  g.moveTo(-44, -38);
-  g.lineTo(-18, -46);
-  g.lineTo(16, -44);
-  g.lineTo(42, -34);
+  g.moveTo(-46, -26);
+  g.lineTo(-32, -44);
+  g.lineTo(-8, -34);
+  g.lineTo(12, -47);
+  g.lineTo(28, -30);
   g.stroke({ width: 5, color: 0xa888b0, alpha: 0.55 });
 
-  // Cut seams — a shadowed groove with the light catching its edge
+  // Molten seams
   const seams = [
     [-30, -6, -8, 6, -14, 30],
     [10, -14, 26, 4, 18, 34],
@@ -114,22 +122,11 @@ function drawBlock(g) {
   seams.forEach((pts) => {
     g.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
-    g.stroke({ width: 9, color: OBSIDIAN.vein, alpha: 0.9 });
+    g.stroke({ width: 9, color: OBSIDIAN.seam, alpha: 0.9 });
     g.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
-    g.stroke({ width: 3.5, color: OBSIDIAN.veinLit, alpha: 0.7 });
+    g.stroke({ width: 3.5, color: OBSIDIAN.seamHot, alpha: 0.95 });
   });
-}
-
-function drawCrust(g) {
-  g.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
-  g.fill({ color: 0xffffff, alpha: 0 });
-
-  const ring = SLAB.map((v) => v * CRUST);
-  g.poly(ring);
-  g.stroke({ width: 12, color: OBSIDIAN.vein, alpha: 0.55 });
-  g.poly(ring);
-  g.stroke({ width: 4.5, color: OBSIDIAN.veinLit, alpha: 0.75 });
 }
 
 function blockTexture() {
@@ -145,47 +142,27 @@ function blockTexture() {
   return blockTex;
 }
 
-function crustTexture() {
-  if (crustTex) return crustTex;
-  const g = new Graphics();
-  drawCrust(g);
-  crustTex = getRenderer().generateTexture({
-    target: g,
-    resolution: 2,
-    antialias: true,
-  });
-  g.destroy();
-  return crustTex;
-}
-
 export class ObsidianView extends Container {
   constructor() {
     super();
+
+    this.heat = new Sprite(glowTexture());
+    this.heat.anchor.set(0.5);
+    this.heat.blendMode = "add";
+    this.heat.tint = OBSIDIAN.seam;
+    this.heat.alpha = 0.4;
+    this.addChild(this.heat);
 
     this.slab = new Sprite(blockTexture());
     this.slab.anchor.set(0.5);
     this.addChild(this.slab);
 
-    this.crust = new Sprite(crustTexture());
-    this.crust.anchor.set(0.5);
-    this.crust.visible = false;
-    this.slab.addChild(this.crust);
-
-    this.core = new Sprite(crustTexture());
-    this.core.anchor.set(0.5);
-    this.core.scale.set(CORE_RING);
-    this.core.visible = false;
-    this.slab.addChild(this.core);
-
     this.armor = 0;
+    this.t = Math.random() * 6;
   }
 
   setArmor(layers) {
     this.armor = Math.max(0, Math.round(layers || 0));
-    this.crust.visible = this.armor > 0;
-    this.crust.alpha = 1;
-    this.crust.scale.set(1);
-    this.core.visible = this.armor > 1;
   }
 
   resize(cell) {
@@ -194,6 +171,12 @@ export class ObsidianView extends Container {
     // to be scaled up by exactly that ratio to leave the stone at a gem's size.
     const span = (cell * FOOTPRINT * (ART + PAD * 2)) / BODY;
     this.slab.setSize(span, span);
+    this.heat.setSize(cell * 1.5, cell * 1.5);
+  }
+
+  update(dt) {
+    this.t += dt;
+    this.heat.alpha = 0.32 + Math.sin(this.t * 2.4) * 0.16;
   }
 
   /** Slam into existence where the lava landed. */
