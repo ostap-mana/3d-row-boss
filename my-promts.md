@@ -1332,3 +1332,152 @@ size cap, the 9fps playback — is shared, because both sheets are the same grid
 Verified over CDP against the built `dist/km3.html`: both cards opened, the
 sprite measured 429x276 in place on each, animation ran to frame 19, and the
 screenshots were looked at. The win card is unchanged.
+
+---
+
+# DEFEAT v2 — SILANTH, the drink goes out
+
+The outcome figure is SILANTH: the arcane card in `HEROES` (`config.js`), skill
+VOID ECLIPSE, the same blue-black twin buns and red eyes as
+`src/assets/heroes/portrait-arcane.webp`. So the loss beat is hers, and the
+thing that happens to the drink can be arcane rather than polite.
+
+Why v1 is replaced: across the twenty packed frames of `spurn.webp` the only
+thing that changes is the coupe drifting down and rolling a few degrees. At the
+429x276 the sprite measures on the card that is a prop sliding, not a refusal,
+and the bottom row reads as her losing her grip on the glass. The sprite is
+gated back behind `!this.defeat` since 3fc8467, so nothing ships until a take
+earns the wiring back.
+
+## The beat
+
+Two actions, the same budget as v1 and for the same reason — a third gets
+blurred into the others or dropped.
+
+1. **The drink goes out.** The light in the coupe collapses to violet, the
+   liquid darkens and sinks away inside the glass, and she turns her wrist over
+   until the coupe hangs fully upside down. Nothing falls out of it.
+2. **The palm turns up.** The hand resting on her chest opens toward the viewer
+   in one small offer. That is the RETRY under the loss.
+
+An upside-down coupe is a silhouette flip of the brightest object in the frame:
+it still reads at 429 points wide, and a wrist rolling ten degrees does not.
+And no liquid crosses the matte edge, which is exactly what made v1's pour swap
+a keying risk. The emptying happens *inside* the glass, where the key never has
+to see it.
+
+## Wan 2.2 — the prompt that actually runs here
+
+Workflow `src/source/outcome-workflows/defeat-v1.json`, start frame
+`src/seedence/ref-pose.png`, 704x400, 33 frames, 30 steps, uni_pc/simple,
+cfg 6.5, shift 8, seed 20260916. Launch ComfyUI with `--disable-smart-memory`.
+
+Shift 8 stays. The steadier pass at shift 3 / cfg 5.5 moved the glass 28px and
+the beat stopped reading; stability was never the scarce thing on this shot.
+
+Positive:
+
+```
+A gothic demon sorceress with blue-black twin buns and red roses, in a red and
+black dress with dark wings and spiked shoulders, holds a wide coupe glass of
+pale gold liquid raised beside her head. The light inside the drink collapses
+to violet and the liquid darkens and sinks away until the glass is empty, and
+she slowly turns her wrist over until the coupe hangs fully upside down and
+holds it there. Nothing falls out of it and nothing spills. Her other hand,
+resting on her chest, opens and turns palm up toward the viewer in one small
+unhurried offer and stays in front of her chest. She watches the viewer the
+whole time with a small closed amused smile, one eyebrow slightly raised, eyes
+calm and half-lidded, and blinks twice. Her face, makeup, hair buns, roses,
+choker, dress, shoulder spikes, wings and gloves stay identical in every frame,
+and her head and shoulders stay in the same place at the same scale. Locked
+static camera, no camera movement. Flat solid green screen background,
+completely empty and perfectly still. painted 3D mobile-RPG game art,
+semi-realistic, high contrast, warm rim lighting.
+```
+
+Negative — v1's list plus the four ways an inverted glass goes wrong:
+
+```
+text, letters, numbers, watermark, logo, signature, second person, extra hands,
+extra fingers, deformed hands, camera movement, zoom, pan, tilt, dolly, orbit,
+shake, cut, scene change, drinking, glass to lips, pouring, falling liquid,
+droplets, splash, spilled drink, dropped glass, broken glass, arm leaving frame,
+walking, stepping, turning away, laughing, open mouth, bared teeth, scenery,
+room, floor, horizon, props, particles, sparks, smoke, blur, low quality,
+distorted face
+```
+
+## Seedance 2.5 — the same beat, if it will take the job
+
+Refs `src/seedence/ref-pose.png` and `src/seedence/ref-face.png`, ratio
+`adaptive`, 10 s, 24 fps, 720p. Stills, never the win .mp4 — a video reference
+reclassifies the job as an edit and the parameters go illegal. Pure ASCII, no
+negative prompt, everything stated positively.
+
+```
+Locked-off static camera, no zoom, no pan, no push-in, no shake. The framing
+never changes and she never changes scale or position.
+
+The drink goes out. The pale glow in the raised coupe collapses to violet, the
+liquid darkens and sinks away inside the glass until it is empty, and she turns
+her wrist over slowly until the coupe hangs fully upside down beside her head
+and holds it there. Nothing falls out of it. Then the hand resting on her chest
+opens and turns palm up toward the viewer in one small unhurried offer, and
+stays in front of her chest. She watches the viewer the whole time with a small
+closed amused smile, one eyebrow slightly raised, eyes calm and half-lidded.
+She breathes once, blinks twice, and loose strands of her blue-black hair drift
+and settle. All motion is slow and small; she never drinks, never laughs and
+never turns away.
+
+Her face, makeup, hair buns with red roses, choker, red and black dress,
+shoulder spikes, dark wings and gloves stay identical to the reference in every
+frame. She stays framed from the waist up, right of centre, with the whole
+glass inside the frame.
+
+The background is flat even chroma green, perfectly still and completely empty.
+No green spills onto her; her outline stays crisp with no haze and no motion
+blur.
+```
+
+## Optional — the VOID ECLIPSE tell
+
+Her ultimate is a ring of violet runes, and it is tempting to put one behind her
+head while the drink dies. Only on these terms, appended to the first paragraph:
+
+```
+Small violet runes fade in and out over her hair and her shoulders, always on
+top of her, never floating in the empty background.
+```
+
+Anything glowing that sits on the green is either flooded away by the key or
+left as a green-edged smear the despill band cannot reach — the matte edge is
+six pixels wide, a rune halo is not. Runes that stay on her survive, so that is
+the only place they are allowed.
+
+## Packing it
+
+```
+ffmpeg -framerate 24 -i output/defeat/v2/f_%05d_.png -c:v libx264 -crf 12 \
+  -pix_fmt yuv420p defeat-v2.mp4
+
+node tools/pack-video-sheet.mjs defeat-v2.mp4 \
+  --crop 620:400:0:0 --frames 20 --cols 5 --cell 320 \
+  --flood --pocket 40 --despill 6 --out src/assets/outcome/spurn.webp
+```
+
+`--crop 620:400:0:0` is inherited from v1, where the subject sat at x 87..533.
+Re-measure before trusting it: the inverted coupe swings wider than the raised
+one, and a glass that leaves the crop is a glass the sheet cuts in half. The
+grid is not negotiable — `{cols: 5, cellW: 320, cellH: 206, pad: 2, count: 20}`
+is what lets `art/toast.js` cut the win and the loss with one function.
+
+`--range` on the stretch where the wrist turns. The eclipse and the turn are
+the middle of the run; sampling the whole clip spends most of twenty frames on
+a hold.
+
+## Wiring it back
+
+3fc8467 took the loss figure out, so this take needs the revert reverted:
+`spurnUrl` and `spurnFrames()` back in `src/art/toast.js`, `figureFrames()`
+back in `OutcomeScreen`, and `src/ui/outcome.js:1140` off `!this.defeat`. The
+slot, the sink, the size cap and the 9fps playback are already shared.
