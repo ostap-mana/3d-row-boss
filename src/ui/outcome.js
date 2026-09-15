@@ -101,7 +101,13 @@ import {
   retryPlateSprite,
 } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
-import { toastFrames, TOAST_ASPECT, TOAST_FPS } from "../art/toast.js";
+import {
+  toastTexture,
+  startToast,
+  TOAST_ASPECT,
+  TOAST_KEY,
+} from "../art/toast.js";
+import { chromaKeyFilter } from "../fx/chromakey.js";
 import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -525,8 +531,8 @@ export class OutcomeScreen extends Container {
     this.toast.eventMode = "none";
     this.toast.visible = false;
     this.toast.alpha = 0;
+    this.toast.filters = [chromaKeyFilter(TOAST_KEY)];
     this.addChild(this.toast);
-    this.toastAt = 0;
     this.toastArmed = false;
     this.toastH = 0;
 
@@ -891,24 +897,16 @@ export class OutcomeScreen extends Container {
   }
 
   fitToast() {
-    const frames = toastFrames();
-    if (!frames) return null;
+    const texture = toastTexture();
+    if (!texture) return null;
     if (!this.toastArmed) {
       this.toastArmed = true;
-      this.toast.texture = frames[0];
+      this.toast.texture = texture;
     }
     if (this.toastH > 0) {
       this.toast.setSize(this.toastH * TOAST_ASPECT, this.toastH);
     }
-    return frames;
-  }
-
-  playToast(dt) {
-    if (!this.toast.visible) return;
-    const frames = toastFrames();
-    if (!frames) return;
-    this.toastAt = Math.min(frames.length - 1, this.toastAt + dt * TOAST_FPS);
-    this.toast.texture = frames[this.toastAt | 0];
+    return texture;
   }
 
   /**
@@ -1138,8 +1136,7 @@ export class OutcomeScreen extends Container {
      * advance to the store card, and there is no card to advance to.
      */
     this.toast.visible = !this.defeat && !!this.fitToast();
-    this.toastAt = 0;
-    if (this.toast.visible) this.toast.texture = toastFrames()[0];
+    if (this.toast.visible) startToast();
 
     this.retry.visible = this.terminal;
     this.tap.visible = false;
@@ -1387,7 +1384,6 @@ export class OutcomeScreen extends Container {
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
-    this.playToast(dt);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;
