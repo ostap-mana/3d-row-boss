@@ -224,12 +224,14 @@ export const DIFFICULTY = {
    *
    * 0.09 is where it stands, a fifth up from 0.075 in the pass asked to make
    * the fight easier again, and it is still set by a requirement rather than
-   * by a win rate: the fight has to be finishable in six hits and seven at the
-   * very worst, counting a match and an ultimate alike as one hit. A plain
-   * triple takes 27% off a bare boss, so three of them and a cast end it on
-   * paper, and the slowest line anybody can actually play — every match a bare
-   * triple and the ultimate never spent — lands the kill on hit seven at 24
-   * seconds against a 35 second cap.
+   * by a win rate: the kill takes six matches, and seven for anybody playing
+   * bare triples or sitting on the cast. A plain triple takes 27% off a bare
+   * boss, so three of them and a cast end it on paper — what the boss is
+   * actually killed by is DIFFICULTY.pace, which holds its 23 second line
+   * whatever size the matches are and is the number that decides where those
+   * six and seven come from. The slowest line anybody can actually play —
+   * every match a bare triple and the ultimate never spent — lands the kill on
+   * the seventh at 24 seconds against a 35 second cap.
    *
    * It is deliberately paired with a flattened sizeBonus and comboMultiplier
    * below rather than carrying that requirement by itself. Damage per gem is
@@ -265,7 +267,7 @@ export const DIFFICULTY = {
    * right, and that run is exactly the one that reads as "it beat itself". A
    * second step is worth a fifth more than a first now rather than half again —
    * enough that a cascade still reads as the board paying out, not enough to
-   * skip three of the five hits the fight is specified to take. See
+   * skip three of the six matches the fight is specified to take. See
    * damagePerGem above for the specification.
    */
   comboMultiplier: [1, 1.2, 1.4, 1.6, 1.8],
@@ -293,7 +295,7 @@ export const DIFFICULTY = {
    * has to say how much a shape is worth *per gem* on top of that. At 1.15 a
    * four-run comes to about 1.5 triples and a five-run to about 1.9, which
    * keeps reading the board the best thing a player can do with their seconds
-   * while leaving the five-hit fight on damagePerGem above intact. The step
+   * while leaving the six-match fight on damagePerGem above intact. The step
    * that was doing the damage was 1.9: it made a five-cell step worth 3.2
    * triples, and stacked with a cascade and an ultimate that is a one-hit kill.
    *
@@ -1281,9 +1283,9 @@ export const DIFFICULTY = {
    * cap leaves the guard still biting when the deadline collects — which turns
    * every good run into a timeout.
    *
-   * `bite` 3 and `floor` 0.25 — a rail along the fight's length again rather
-   * than a floor under it, which is the third position this pair has held and
-   * worth reading as a history rather than as a setting.
+   * `bite` 3 and `floor` 0.12 — a rail along the fight's length rather than a
+   * floor under it, which is the fourth position this pair has held and worth
+   * reading as a history rather than as a setting.
    *
    * It began at 3 and 0.12, to hold the win near the deadline for *everybody*:
    * a simulated expert who emptied the bar in 20.8 seconds was pulled back to
@@ -1301,19 +1303,28 @@ export const DIFFICULTY = {
    * plays to an empty theatre: the second crust layer, the burial at
    * DOOM.bury.at, the interrupts in SNAP.
    *
-   * 0.25 puts the grip back within reach of where it started without going all
-   * the way: a quarter of a hit at the extreme rather than an eighth, and bite
-   * 3 so it stays gentle until somebody is well clear of the line. The cost is
-   * the one the 0.12 pass was criticised for and it is real — a player landing
-   * a cascade every move is held closer to one landing bare triples than their
-   * play deserves. That is the trade being made on purpose: a fight that is
-   * still being fought when the clock runs out, rather than skill expressed
-   * into a victory card with half the run left.
+   * 0.25 put the grip back within reach of where it started without going all
+   * the way, and it left one line short: the strongest swap anybody can play —
+   * five cells and a cast — still killed in five moves, because a quarter of a
+   * hit that size is enough to finish a boss the schedule was still holding
+   * open. The note was that a win should take six moves and seven at worst,
+   * and the only number in the file that decides what the best play can do
+   * with its lead is this one.
+   *
+   * So back to the eighth it began at. Nothing else moved and nothing else had
+   * to: the five-move line goes to six, the two lines that were already seven
+   * stay seven, and every bracket in tools/sim-fight.mjs now lands on six or
+   * seven. The cost is the one the first 0.12 pass was criticised for and it is
+   * real — a player landing a cascade every move is held closer to one landing
+   * bare triples than their play deserves. That is the trade being made on
+   * purpose: a fight that is still being fought when the clock runs out, rather
+   * than skill expressed into a victory card with half the run left.
    *
    * Either number is a straight dial on run length. Raising `floor` back
    * towards 0.5 buys skill expression and shortens the top bracket; lowering
    * it past about 0.08 makes the bar read as stuck rather than as guarded,
-   * which is why a floor exists at all.
+   * which is why a floor exists at all. 0.12 is deliberately the shallowest
+   * setting that gets the six — 0.10 and 0.08 buy nothing the sim can see.
    *
    * Not a difficulty knob in either direction, whatever it is set to. The
    * guard has never touched a player who is behind the line — it only ever
@@ -1366,7 +1377,7 @@ export const DIFFICULTY = {
      */
     seconds: 23,
     bite: 3,
-    floor: 0.25,
+    floor: 0.12,
   },
 
   /**
