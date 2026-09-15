@@ -875,10 +875,10 @@ export const DIFFICULTY = {
        * bossPress is 2.2 seconds and it starts with the fight, so the first
        * swing lands on somebody who has made one match and may not yet have
        * worked out that this is a match-three at all. Whatever sits here is
-       * what the game does to a player it has not finished teaching. At 0.05
-       * the opening rake is under one percent of a hero bar and three bare
-       * obsidian blocks sit on a board of twenty-five: the screen shaking is
-       * telling the truth, and it is costing nothing at all. Bare is the word
+       * what the game does to a player it has not finished teaching. At 0.3
+       * the opening rake is about four and a half percent of a hero bar and
+       * three bare obsidian blocks sit on a board of twenty-five: the screen
+       * shakes and the bar under the card visibly answers it. Bare is the word
        * doing the work — `crust` is 0 at this keyframe alone, so a stone here
        * is one match away from gone. It is the last keyframe that can say so:
        * the shell starts coming in a third of the way down the bar now, which
@@ -895,7 +895,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.0,
-        attack: 0.05,
+        attack: 0.3,
         resist: 1.0,
         ult: 1,
         obsidian: 3,
@@ -910,11 +910,11 @@ export const DIFFICULTY = {
        * is *level* for its first half has nothing to say in it, where a fight
        * gently and steadily getting worse is teaching the player that it will.
        * The creep is small enough that nothing here is what anybody would call
-       * difficulty — the swings are still under a tenth of a hero bar.
+       * difficulty — the swings are still around a twentieth of a hero bar.
        */
       {
         p: 0.35,
-        attack: 0.09,
+        attack: 0.36,
         resist: 1.0,
         ult: 1,
         obsidian: 5,
@@ -937,7 +937,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.14,
+        attack: 0.42,
         resist: 1.0,
         ult: 1,
         obsidian: 6,
@@ -958,7 +958,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.6,
-        attack: 0.24,
+        attack: 0.48,
         resist: 0.88,
         ult: 1,
         obsidian: 7,
@@ -976,7 +976,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.75,
-        attack: 0.27,
+        attack: 0.52,
         resist: 0.88,
         ult: 1,
         obsidian: 7,
@@ -1027,7 +1027,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.88,
-        attack: 0.44,
+        attack: 0.62,
         resist: 0.8,
         ult: 1,
         obsidian: 9,
@@ -1057,7 +1057,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.9,
-        attack: 0.4,
+        attack: 0.58,
         resist: 0.72,
         ult: 1,
         obsidian: 9,
@@ -1092,7 +1092,7 @@ export const DIFFICULTY = {
        */
       {
         p: 1.0,
-        attack: 0.26,
+        attack: 0.46,
         resist: 0.72,
         ult: 1,
         obsidian: 9,
