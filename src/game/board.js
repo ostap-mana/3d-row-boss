@@ -2285,10 +2285,13 @@ export class Board extends Container {
    * Every legal swap on the board, strongest first.
    *
    * This is the player's list of options as the boss sees it — it picks one of
-   * the top entries to bury each turn. Allocates, so the hot probing loop uses
+   * the top entries to bury each turn. `cells` is where that option's run would
+   * land: the board is swapped, the match read off it and the swap put back, so
+   * the boss can seal the place the three would have met rather than guessing
+   * at it from the two ends. Allocates, so the hot probing loop uses
    * countSwaps() instead.
    *
-   * @returns {Array<{a:object, b:object, score:number}>}
+   * @returns {Array<{a:object, b:object, score:number, cells:Array<{r:number,c:number}>}>}
    */
   listSwaps() {
     const out = [];
@@ -2306,7 +2309,7 @@ export class Board extends Container {
           this.swapModel(a, b);
           const cells = this.findMatches();
           this.swapModel(a, b);
-          if (cells.length > 0) out.push({ a, b, score: cells.length });
+          if (cells.length > 0) out.push({ a, b, score: cells.length, cells });
         }
       }
     }

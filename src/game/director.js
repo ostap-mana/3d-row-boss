@@ -2419,20 +2419,34 @@ export class Director {
    * exactly one of them. There is always another one left, which is the
    * difference between pressure and a softlock.
    *
-   * Which one it takes is decided in two tiers. The first is the player: every
-   * press and every cell a gesture leaned at is recorded — see Board.noteFocus
-   * — and a swap with one of those cells in it is taken ahead of anything else
-   * on the board, at the end the finger was actually on. That is the beat worth
-   * having. You spot the match, you start pulling the gem across, and the thing
-   * you were reaching for goes to stone under your hand; the board still has
-   * moves on it, they are simply not the move you had.
+   * A move is killed by sealing any cell it needs, and every one of those is
+   * offered here: the cells the run itself would have covered — Board.listSwaps
+   * plays each swap out and hands back the three it makes — and the two ends of
+   * the swap that makes it, which are not always in the run and are where the
+   * finger is. Aiming at the two ends alone was aiming at the gesture and not
+   * at the match: a three that meets two cells away from either thumb had its
+   * meeting point left standing every time, and the block landed beside the
+   * thing it was thrown at.
    *
-   * The second tier is for a player who has touched nothing this turn — an
-   * opening, a cascade they are watching, a thumb off the glass. Then it falls
-   * back to reading the board: how many other swaps die with this cell, how
-   * close to the middle it sits, whether it is water the ultimate is waiting
-   * on, and how big the match would have been. It rolls between the top few
-   * (see AIM_BITE).
+   * Which of them it takes is decided in three tiers. The first is the player:
+   * every press and every cell a gesture leaned at is recorded — see
+   * Board.noteFocus — and a swap with one of those cells in it is taken ahead
+   * of anything else on the board, at the end the finger was actually on. That
+   * is the beat worth having. You spot the match, you start pulling the gem
+   * across, and the thing you were reaching for goes to stone under your hand;
+   * the board still has moves on it, they are simply not the move you had.
+   *
+   * The second is the run: with nothing to separate them on the finger, the
+   * stone goes where the three would have stood rather than onto an end that
+   * merely feeds it. Same move denied either way, and the player is shown the
+   * place they were building instead of a block next to it.
+   *
+   * The third is for a player who has touched nothing this turn — an opening, a
+   * cascade they are watching, a thumb off the glass — and for the ties the
+   * second leaves. Then it falls back to reading the board: how many other
+   * swaps die with this cell, how close to the middle it sits, whether it is
+   * water the ultimate is waiting on, and how big the match would have been. It
+   * rolls between the top few (see AIM_BITE).
    *
    * The middle carries real weight there, and not as a decoration. Every match
    * on a five-by-five runs through a row and a column, and the centre cells are
@@ -2469,10 +2483,12 @@ export class Director {
       if (reached(swap.a) || reached(swap.b)) pool.push(swap);
     });
 
-    // Either end of a swap kills it. Prefer the end the finger was on — that is
-    // the gem that has to turn to stone for the player to feel robbed rather
-    // than merely blocked — then the one that costs them more elsewhere, and
-    // never one that would leave the board under its floor.
+    // Any cell the three would have stood on kills it, and so does either end
+    // of the swap that makes it. Prefer the end the finger was on — that is the
+    // gem that has to turn to stone for the player to feel robbed rather than
+    // merely blocked — then a cell the run would actually have covered, then
+    // the one that costs them more elsewhere, and never one that would leave
+    // the board under its floor.
     const midR = (ROWS - 1) / 2;
     const midC = (COLS - 1) / 2;
     const central = (cell) =>
@@ -2483,8 +2499,20 @@ export class Director {
 
     const ranked = [];
     pool.forEach((swap) => {
+      const offered = {};
+      const candidates = [];
+      const offer = (cell, meets) => {
+        const key = cell.r * COLS + cell.c;
+        if (offered[key]) return;
+        offered[key] = 1;
+        candidates.push({ cell, meets });
+      };
+      swap.cells.forEach((cell) => offer(cell, 1));
+      offer(swap.a, 0);
+      offer(swap.b, 0);
+
       let best = null;
-      [swap.a, swap.b].forEach((cell) => {
+      candidates.forEach(({ cell, meets }) => {
         const left = board.probeLock(cell.r, cell.c, () => board.countSwaps());
         if (left < MIN_SWAPS) return;
         const denied = swaps.length - left;
@@ -2492,8 +2520,11 @@ export class Director {
         const water = board.typeAt(cell.r, cell.c) === WATER ? 1 : 0;
         const cost = denied * 6 + central(cell) * 6 + water * 3;
         const better =
-          !best || seen > best.seen || (seen === best.seen && cost > best.cost);
-        if (better) best = { cell, denied, seen, cost };
+          !best ||
+          seen > best.seen ||
+          (seen === best.seen &&
+            (meets > best.meets || (meets === best.meets && cost > best.cost)));
+        if (better) best = { cell, denied, seen, meets, cost };
       });
       if (best) {
         const watched = Math.max(best.seen, reached(swap.a), reached(swap.b));
