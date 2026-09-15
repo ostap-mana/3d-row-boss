@@ -1939,6 +1939,7 @@ export const T = {
    * sentence — the name says who, the hand says how.
    */
   ultShout: 1.4,
+  ultAuto: 5,
   /**
    * Idle before the game plays the move itself — and it only ever did that for a
    * viewer who had not touched the screen once. See Director.armAutoPlay.

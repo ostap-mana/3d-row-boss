@@ -3590,6 +3590,11 @@ export class Director {
       }
     }
 
+    if (lead >= 0 && this.autoDue(lead)) {
+      this.autoUlt(lead);
+      return;
+    }
+
     const index = this.ultLive || this.ultQueue.length ? -1 : lead;
     if (index < 0) {
       this.beckonAt = cfg.every;
@@ -3615,6 +3620,32 @@ export class Director {
     );
     card.beckon(cfg.punch * (urgent ? 1.5 : 1));
     sfx.ultCall(element, cfg.gain * (urgent ? 1.6 : 1));
+  }
+
+  autoDue(index) {
+    if (!T.ultAuto || this.ultInFlight || this.ultQueue.length) return false;
+    const card = this.s.heroRow.cards[index];
+    return !!card && card.readyFor >= T.ultAuto;
+  }
+
+  autoUlt(index) {
+    if (!this.canUlt(index)) return;
+    this.endUltLesson();
+    this.ultQueue.push(index);
+    this.setCasting(true);
+    const resolve = this.ultResolver;
+    this.ultResolver = null;
+    if (resolve) {
+      resolve("ult");
+      return;
+    }
+    if (this.ultChainResolver) {
+      const chain = this.ultChainResolver;
+      this.ultChainResolver = null;
+      chain();
+      return;
+    }
+    this.rushForUlt();
   }
 
   /* -------------------------------------------------------- the ult lesson */
