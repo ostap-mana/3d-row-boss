@@ -129,6 +129,8 @@ const AIM_MEMORY = 5.5;
  */
 const RANK_DEPTH = 10;
 
+const MOVE_READ = { taught: 12, bigRun: 4, nearThumb: 5, middle: 3, water: 4 };
+
 /**
  * The longest the hard cap will hold for an ending that had already started
  * when it fired.
@@ -2082,12 +2084,8 @@ export class Director {
     const base = fresh.length
       ? fresh[0]
       : pool[this.turn % pool.length] || BOSS_ATTACKS[0];
-    const step = this.curveAt(
-      "attack",
-      this.pressure(),
-      Math.pow(DIFFICULTY.bossRamp, this.turn),
-    );
-    const ramp = step * this.rage();
+    const step = this.curveAt("attack", this.pressure(), 1);
+    const ramp = step * Math.pow(DIFFICULTY.bossRamp, this.turn) * this.rage();
     return {
       kind: base.kind,
       targets: base.targets,
@@ -2446,24 +2444,64 @@ export class Director {
    *
    * The third is for a player who has touched nothing this turn — an opening, a
    * cascade they are watching, a thumb off the glass — and for the ties the
-   * second leaves. Then it falls back to reading the board: how many other
-   * swaps die with this cell, how close to the middle it sits, whether it is
-   * water the ultimate is waiting on, and how big the match would have been. It
-   * rolls between the top few (see AIM_BITE).
+   * second leaves. It used to score the board: how many swaps die with this
+   * cell, how close to the middle, whether it is water, how big the match was.
+   * That is the boss reading its own advantage, and it is the wrong question.
+   * The board always offers a handful of moves and the player is going to take
+   * one particular one of them; the beat this whole mechanism exists for only
+   * lands if the stone is already sitting on that one when they look up. So the
+   * question is which move they are about to make, and MOVE_READ is the answer
+   * to it — the boss guessing at the thumb instead of at the grid.
    *
-   * The middle carries real weight there, and not as a decoration. Every match
-   * on a five-by-five runs through a row and a column, and the centre cells are
-   * in more of both than the corners are — so a stone in the middle denies
-   * moves the player has not thought of yet on top of the one it is taking,
-   * while a stone in a corner denies almost nothing twice. It is the cheapest
-   * way to look further ahead than one move without searching further than one
-   * move.
+   * Four things say a move is the one, and every one of them is already on
+   * hand:
+   *
+   * `taught` is the largest by a distance, because it is not a guess. It is the
+   * swap the game's own hand points at — currentHint, the same call the coach
+   * makes when the player stalls — so it is the move the creative is about to
+   * recommend out loud, and after T.hint of silence most players press exactly
+   * it. Aiming anywhere else while that hand is up is the boss ignoring the
+   * only move it can actually be sure of.
+   *
+   * `bigRun` is the four and the five. A plain three is one of eight on the
+   * board and reads as none of them in particular; a longer run is the thing
+   * the eye lands on and the thing a player holds out for.
+   *
+   * `nearThumb` is where they last reached, however long ago — older than
+   * AIM_MEMORY, which is the window the first tier owns. Past that window it
+   * is no longer evidence of an intention, but it is still where the eye is,
+   * and the next move is usually a short walk from the last one rather than
+   * across the board.
+   *
+   * `middle` and `water` are the two places the mode itself teaches them to
+   * look: the centre because every match on a five-by-five runs through a row
+   * and a column and the centre cells are in more of both, so it is where the
+   * options visibly are — and water because charging Arissa is the strategy the
+   * hint, the bars and the HUD all push, and a player following that push goes
+   * for blue. The middle has a second life as plain board damage, which is why
+   * it survived the rewrite: a stone in the centre denies moves the player has
+   * not thought of yet on top of the one it takes, while a stone in a corner
+   * denies almost nothing twice.
+   *
+   * Cost has not gone away — it still decides which CELL of the chosen move
+   * gets sealed, and it is still the last tiebreak between moves that read the
+   * same. What changed is that it no longer decides which move.
+   *
+   * The roll survives all of it (see AIM_BITE): four times in five the boss
+   * takes the move it read, and the fifth keeps the read from being a rule the
+   * player can plan around.
    *
    * Ranking on cells cleared alone is what it used to do, and on a board this
    * small that is a tie between almost every option, broken by the order the
    * grid happens to be scanned in. Weighting a roll over that order would have
    * aimed the boss at the top-left corner for the whole fight. See RANK_DEPTH.
    */
+  taughtSwap() {
+    const live = this.idleHint;
+    if (live && this.swapMakesMatch(live.a, live.b)) return live;
+    return this.currentHint();
+  }
+
   blockAnOption() {
     const board = this.s.board;
     const swaps = board.listSwaps();
@@ -2478,12 +2516,21 @@ export class Director {
     // makes "he takes one of your ideas" the whole of what happens.
     if (swaps.length <= MIN_SWAPS) return null;
 
+    const taught = this.taughtSwap();
+    const lastReach = board.focusedCells(Infinity)[0] || null;
+    const isSameCell = (x, y) => !!x && !!y && x.r === y.r && x.c === y.c;
+    const isTaught = (swap) =>
+      !!taught &&
+      ((isSameCell(taught.a, swap.a) && isSameCell(taught.b, swap.b)) ||
+        (isSameCell(taught.a, swap.b) && isSameCell(taught.b, swap.a)));
+
     // The strongest options, plus any option the player has reached for however
-    // weak it scored: the match somebody is in the middle of making is rarely
-    // the biggest one on the board, and RANK_DEPTH alone would never see it.
+    // weak it scored, plus the one the hand is teaching: the match somebody is
+    // in the middle of making is rarely the biggest one on the board, and
+    // RANK_DEPTH alone would never see it.
     const pool = swaps.slice(0, RANK_DEPTH);
     swaps.slice(RANK_DEPTH).forEach((swap) => {
-      if (reached(swap.a) || reached(swap.b)) pool.push(swap);
+      if (reached(swap.a) || reached(swap.b) || isTaught(swap)) pool.push(swap);
     });
 
     // Any cell the three would have stood on kills it, and so does either end
@@ -2499,6 +2546,31 @@ export class Director {
       (Math.abs(cell.r - midR) / (midR || 1) +
         Math.abs(cell.c - midC) / (midC || 1)) /
         2;
+
+    const span = ROWS + COLS - 2;
+    const readsAs = (swap) => {
+      let read = isTaught(swap) ? MOVE_READ.taught : 0;
+      read += Math.max(0, swap.score - 3) * MOVE_READ.bigRun;
+      if (lastReach) {
+        let walk = span;
+        [...swap.cells, swap.a, swap.b].forEach((cell) => {
+          const step =
+            Math.abs(cell.r - lastReach.r) + Math.abs(cell.c - lastReach.c);
+          if (step < walk) walk = step;
+        });
+        read += (1 - walk / span) * MOVE_READ.nearThumb;
+      }
+      let middle = 0;
+      swap.cells.forEach((cell) => {
+        middle = Math.max(middle, central(cell));
+      });
+      read += middle * MOVE_READ.middle;
+      const blue = swap.cells.filter(
+        (cell) => board.typeAt(cell.r, cell.c) === WATER,
+      ).length;
+      if (blue >= 2) read += MOVE_READ.water;
+      return read;
+    };
 
     const ranked = [];
     pool.forEach((swap) => {
@@ -2531,13 +2603,12 @@ export class Director {
       });
       if (best) {
         const watched = Math.max(best.seen, reached(swap.a), reached(swap.b));
-        ranked.push({ ...best, score: swap.score, watched });
+        ranked.push({ ...best, watched, reads: readsAs(swap) });
       }
     });
     if (ranked.length === 0) return null;
     ranked.sort(
-      (x, y) =>
-        y.watched - x.watched || y.cost + y.score * 2 - (x.cost + x.score * 2),
+      (x, y) => y.watched - x.watched || y.reads - x.reads || y.cost - x.cost,
     );
 
     // A move the player has reached for is taken outright: rolling on it would

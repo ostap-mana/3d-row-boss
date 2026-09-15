@@ -810,8 +810,21 @@ export const DIFFICULTY = {
    * every keyframe came down by roughly the same share — so what disagrees
    * with the trace now is the scale and not the shape.
    *
-   * Set `enabled` false and bossRamp/armor take the fight back, smooth
-   * exponential and all.
+   * What this curve does and does not own. `resist` is the whole of the boss's
+   * hide while it is enabled — `armor` is the other branch and only runs when
+   * it is not. `attack` is not the same arrangement: it is the SHAPE of the
+   * swing over the fight, and bossRamp multiplies whatever it returns. The two
+   * are not alternatives and were never meant to be — every number in bossRamp
+   * was simulated with this curve on. It read as an either/or for a while
+   * because `attack`'s ramp was passed to curveAt as the fallback argument,
+   * which is the value returned when the curve is OFF, so with it on the
+   * per-turn escalation was computed and thrown away for every swing in the
+   * run. What that shipped was a boss whose fourth pass hit exactly as hard as
+   * its first.
+   *
+   * Set `enabled` false and the curve drops out of both: armor takes the hide
+   * back, and `attack` falls to 1 with bossRamp and rage left carrying the
+   * swing on their own, smooth exponential and all.
    */
   curve: {
     enabled: true,
