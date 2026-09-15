@@ -7,13 +7,103 @@
 
 ---
 
-## 1. ФІГУРА — напій гасне
+## 1. ФІГУРА — «лузер, давай ще раз»
+
+Вона нахиляється до гравця, дивиться зверху вниз із насмішкою і тицяє пальцем
+вниз, на плашку RETRY. Два рухи: нахил (це «ти програв») і тицяння (це «тисни»).
 
 **Wan 2.2.** Воркфлоу `src/source/outcome-workflows/defeat-v1.json`, старт-кадр
 `src/seedence/ref-pose.png`, 704x400, 33 кадри, 30 steps, uni_pc/simple,
 cfg 6.5, shift 8, seed 20260916. ComfyUI запускати з `--disable-smart-memory`.
 
 POSITIVE:
+
+```
+A gothic demon sorceress with blue-black twin buns and red roses, in a red and
+black dress with dark wings and spiked shoulders, holds an empty coupe glass
+lazily in her lowered hand. She leans in toward the viewer from the waist, head
+tilted to one side, looking down at them with a slow mocking pitying smirk, one
+eyebrow raised, enjoying that they lost. Then she raises her other hand and
+points down toward the bottom of the frame just below her, index finger
+extended, and taps the air twice, telling them to go again. She holds the lean
+and the pointing hand at the end and keeps watching the viewer. The lean is
+small: her head stays inside the same part of the frame and she barely changes
+size. Her face, makeup, hair buns, roses, choker, dress, shoulder spikes, wings
+and gloves stay identical in every frame. Locked static camera, no camera
+movement. Flat solid green screen background, completely empty and perfectly
+still. painted 3D mobile-RPG game art, semi-realistic, high contrast, warm rim
+lighting.
+```
+
+NEGATIVE:
+
+```
+text, letters, numbers, watermark, logo, signature, second person, extra hands,
+extra fingers, deformed hands, pointing with the whole hand, thumbs up, waving,
+camera movement, zoom, pan, tilt, dolly, orbit, shake, cut, scene change,
+leaning out of frame, head leaving frame, standing up, walking, stepping,
+turning away, drinking, glass to lips, laughing, open mouth, bared teeth,
+scenery, room, floor, horizon, props, particles, sparks, smoke, blur, low
+quality, distorted face
+```
+
+ПАКУВАННЯ:
+
+```
+ffmpeg -framerate 24 -i output/defeat/v2/f_%05d_.png -c:v libx264 -crf 12 \
+  -pix_fmt yuv420p defeat-v2.mp4
+
+node tools/pack-video-sheet.mjs defeat-v2.mp4 \
+  --crop 620:400:0:0 --frames 20 --cols 5 --cell 320 \
+  --flood --pocket 40 --despill 6 --out src/assets/outcome/spurn.webp
+```
+
+**Seedance 2.5 — без вхідних даних.** Жодних референсів: `ratio adaptive`,
+duration 10, 24 fps, 720p, `camera_fixed true`. Ні .mp4, ні .png на вході —
+референс-відео перекидає джобу в edit і параметри стають нелегальні, а стіли
+тягнуть за собою стару позу з піднятим келихом.
+
+```
+A gothic demon sorceress stands against a flat chroma green background, framed
+from the waist up, slightly right of centre. She has porcelain pale skin, red
+eyes, heavy dark eye makeup and dark red lips, blue-black hair pulled up into
+two round buns with small red roses and dark spikes in them, a black studded
+choker, a red and black sleeveless dress with a bare midriff, black spiked
+shoulder plates, black fingerless gloves with long dark red nails, and small
+dark membranous wings behind her shoulders. She holds an empty coupe glass
+lazily in her lowered left hand, tipped over and forgotten.
+
+She leans in toward the viewer from the waist, head tilted to one side, looking
+down at them with a slow mocking pitying smirk, one eyebrow raised, enjoying
+that they lost. Then she raises her right hand and points down toward the
+bottom of the frame just below her, index finger extended, and taps the air
+twice, telling them to go again. She holds the lean and the pointing hand at
+the end and keeps watching the viewer. She never laughs out loud, never drinks,
+never turns away.
+
+Locked-off static camera, no zoom, no pan, no push-in, no shake. The lean is
+small: her head stays inside the same part of the frame and she barely changes
+size. Her face, hair, dress, wings and gloves stay identical in every frame.
+The background is flat even chroma green, perfectly still and completely empty,
+with no floor, no room and no props. No green spills onto her; her outline
+stays crisp with no haze and no motion blur. painted 3D mobile-RPG game art,
+semi-realistic, high contrast, warm rim lighting.
+```
+
+Куди вона показує: плашка RETRY стоїть під банером, тобто нижче за неї, тому
+палець іде вниз за нижній край кадру. У промпті немає слова «кнопка» навмисно —
+модель намалює свою, а нам треба тільки жест.
+
+Межа нахилу тримає весь ефект. Нахил до камери в зафіксованому кадрі — це вона
+збільшується, а пакер реєструє кадри по силуету: якщо прибрати «the lean is
+small», фігура почне гуляти під банером, який перетинає її по талії.
+
+### Запасний варіант — напій гасне
+
+Тихіший біт, без насмішки: світло в келиху згасає у фіолет, напій темніє і
+зникає всередині скла, вона повністю перевертає келих, а друга долоня
+розкривається до гравця. Рідина не перетинає край матової маски, тому кеїнг тут
+безпечніший, ніж у будь-якому варіанті з виливанням.
 
 ```
 A gothic demon sorceress with blue-black twin buns and red roses, in a red and
@@ -32,65 +122,6 @@ static camera, no camera movement. Flat solid green screen background,
 completely empty and perfectly still. painted 3D mobile-RPG game art,
 semi-realistic, high contrast, warm rim lighting.
 ```
-
-NEGATIVE:
-
-```
-text, letters, numbers, watermark, logo, signature, second person, extra hands,
-extra fingers, deformed hands, camera movement, zoom, pan, tilt, dolly, orbit,
-shake, cut, scene change, drinking, glass to lips, pouring, falling liquid,
-droplets, splash, spilled drink, dropped glass, broken glass, arm leaving frame,
-walking, stepping, turning away, laughing, open mouth, bared teeth, scenery,
-room, floor, horizon, props, particles, sparks, smoke, blur, low quality,
-distorted face
-```
-
-ПАКУВАННЯ:
-
-```
-ffmpeg -framerate 24 -i output/defeat/v2/f_%05d_.png -c:v libx264 -crf 12 \
-  -pix_fmt yuv420p defeat-v2.mp4
-
-node tools/pack-video-sheet.mjs defeat-v2.mp4 \
-  --crop 620:400:0:0 --frames 20 --cols 5 --cell 320 \
-  --flood --pocket 40 --despill 6 --out src/assets/outcome/spurn.webp
-```
-
-**Seedance 2.5**, якщо візьме задачу. Референси `src/seedence/ref-pose.png` +
-`src/seedence/ref-face.png`, ratio `adaptive`, 10 s, 24 fps, 720p, без
-негативу, чистий ASCII. Стіли, ніколи не .mp4 — відео-референс перекидає джобу
-в edit і параметри стають нелегальні.
-
-```
-Locked-off static camera, no zoom, no pan, no push-in, no shake. The framing
-never changes and she never changes scale or position.
-
-The drink goes out. The pale glow in the raised coupe collapses to violet, the
-liquid darkens and sinks away inside the glass until it is empty, and she turns
-her wrist over slowly until the coupe hangs fully upside down beside her head
-and holds it there. Nothing falls out of it. Then the hand resting on her chest
-opens and turns palm up toward the viewer in one small unhurried offer, and
-stays in front of her chest. She watches the viewer the whole time with a small
-closed amused smile, one eyebrow slightly raised, eyes calm and half-lidded.
-She breathes once, blinks twice, and loose strands of her blue-black hair drift
-and settle. All motion is slow and small; she never drinks, never laughs and
-never turns away.
-
-Her face, makeup, hair buns with red roses, choker, red and black dress,
-shoulder spikes, dark wings and gloves stay identical to the reference in every
-frame. She stays framed from the waist up, right of centre, with the whole
-glass inside the frame.
-
-The background is flat even chroma green, perfectly still and completely empty.
-No green spills onto her; her outline stays crisp with no haze and no motion
-blur.
-```
-
-Два рухи, не три: келих перевертається (це поразка), долоня розкривається (це
-RETRY). Перевернутий келих — зміна силуету найяскравішого предмета в кадрі, вона
-читається на 429 точках; поворот запястка на 10 градусів, як у v1, — ні. Рідина
-не перетинає край матової маски, тому кеїнг не ламається: напій гасне всередині
-скла, де маска його не бачить.
 
 ---
 
