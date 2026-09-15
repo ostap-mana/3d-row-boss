@@ -4,7 +4,7 @@ import pointUrl from "../assets/outcome/retry.mp4";
 
 const CLIP = {
   victory: { url: toastUrl, w: 960, h: 618 },
-  defeat: { url: pointUrl, w: 480, h: 520 },
+  defeat: { url: pointUrl, w: 512, h: 480 },
 };
 
 export const FIGURE_ASPECT = {
@@ -13,8 +13,8 @@ export const FIGURE_ASPECT = {
 };
 
 export const FIGURE_KEY = {
-  victory: { cut: 60 / 255, ramp: 38 / 255, spill: 1, lift: 12 / 255 },
-  defeat: { cut: 70 / 255, ramp: 30 / 255, spill: 1, lift: 16 / 255 },
+  victory: { cut: 50 / 255, ramp: 26 / 255, spill: 1, lift: 4 / 255 },
+  defeat: { cut: 32 / 255, ramp: 18 / 255, spill: 1, lift: 6 / 255 },
 };
 
 const clips = { victory: null, defeat: null };

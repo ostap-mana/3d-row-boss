@@ -295,7 +295,10 @@ const VERDICT_W = { portrait: 1.0, landscape: 0.52 };
 const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 
 /** Where the band sits down the stage, and where the tap line sits under it. */
-const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
+const PLATE_Y = {
+  victory: { portrait: 0.47, landscape: 0.46 },
+  defeat: { portrait: 0.4, landscape: 0.44 },
+};
 const FIGURE_H = {
   victory: { portrait: 0.33, landscape: 0.4 },
   defeat: { portrait: 0.37, landscape: 0.3 },
@@ -303,13 +306,14 @@ const FIGURE_H = {
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 const FIGURE_SINK = { victory: 0.04, defeat: -0.46 };
 
-const RETRY_DROP = { portrait: 0.78, landscape: 0.6 };
+const RETRY_DROP = { portrait: 0.9, landscape: 0.68 };
 
 const POINT = {
-  tall: { portrait: 0.27, landscape: 0.42 },
-  wide: { portrait: 0.5, landscape: 0.26 },
-  aim: 0.32,
-  overlap: 0.34,
+  tall: { portrait: 0.28, landscape: 0.44 },
+  wide: { portrait: 0.58, landscape: 0.3 },
+  tip: 0.25,
+  hem: { lo: 0.387, hi: 0.965 },
+  overlap: 0.1,
   air: 8,
 };
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
@@ -350,7 +354,7 @@ const LINE_W = { portrait: 0.44, landscape: 0.26 };
  * had space for it. At this aspect neither the ceiling nor the room binds on a
  * phone: the width alone comes back about a fifth as deep as the room allows.
  */
-const RETRY_W = { portrait: 0.56, landscape: 0.34 };
+const RETRY_W = { portrait: 0.68, landscape: 0.34 };
 const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
 
 /**
@@ -779,7 +783,8 @@ export class OutcomeScreen extends Container {
 
     /* ------------------------------------------------------------- the band */
 
-    const cy = s.y + s.h * PLATE_Y[key];
+    const ending = this.defeat ? "defeat" : "victory";
+    const cy = s.y + s.h * PLATE_Y[ending][key];
     this.card.position.set(s.cx, cy);
 
     /**
@@ -807,7 +812,6 @@ export class OutcomeScreen extends Container {
       pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
-    const ending = this.defeat ? "defeat" : "victory";
     this.figureH = Math.min(
       s.h * FIGURE_H[ending][key],
       (s.w * FIGURE_W[key]) / FIGURE_ASPECT[ending],
@@ -935,10 +939,14 @@ export class OutcomeScreen extends Container {
         ),
       );
     const place = (h) => {
-      const half = (h * FIGURE_ASPECT.defeat) / 2;
+      const w = h * FIGURE_ASPECT.defeat;
+      const half = w / 2;
+      const left = x - box.w / 2 + air - (POINT.hem.lo - POINT.tip) * w;
+      const right = x + box.w / 2 - air - (POINT.hem.hi - POINT.tip) * w;
+      const tip = right > left ? clamp(x, left, right) : (left + right) / 2;
       return {
         half,
-        cx: clamp(x + half * 2 * POINT.aim, s.x + half, s.right - half),
+        cx: clamp(tip + (0.5 - POINT.tip) * w, s.x + half, s.right - half),
       };
     };
 
