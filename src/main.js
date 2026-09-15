@@ -3,9 +3,9 @@
  *
  * Phone-first: no desktop layout, no keyboard, no network, and no audio until
  * the player touches the screen — see the audio section below. Boots, plays a
- * thirty-two second fight — T.hardCap, and every other number in config.js
+ * thirty-five second fight — T.hardCap, and every other number in config.js
  * is fitted to it — and hands the player to the store. The clock on screen
- * reads twenty-seven; see DOOM.stretch for why those are the same fight.
+ * reads thirty; see DOOM.stretch for why those are the same fight.
  */
 
 import { Application, Container, Graphics, Rectangle, Sprite } from "pixi.js";

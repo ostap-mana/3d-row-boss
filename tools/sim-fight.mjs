@@ -21,14 +21,14 @@ const pace = (hp, second) => {
   return Math.max(g.floor, Math.pow(hp / expected, g.bite));
 };
 
-const ULT_CAST = 2.0;
+const ULT_CAST = 2.0 / WORLD_RATE;
 
 function run({ cells, combo, ultAfter, cap = 12 }) {
   let hp = 1;
   let t = 2.5;
   let moves = 0;
   let ults = 0;
-  const period = T.moveCost / WORLD_RATE;
+  const period = T.moveCost;
   const log = [];
   while (hp > 0 && moves < cap) {
     const size = DIFFICULTY.sizeBonus[Math.min(cells, 5)] || 1;
@@ -83,5 +83,5 @@ for (const [name, cfg] of cases) {
 console.log(
   `\ndpg ${DIFFICULTY.damagePerGem} ultDmg ${DIFFICULTY.ultDamage} bite ${DIFFICULTY.ultHideBite}` +
     ` pace ${DIFFICULTY.pace.seconds}/${DIFFICULTY.pace.bite}/${DIFFICULTY.pace.floor}` +
-    ` cap ${T.hardCap} move ${(T.moveCost / WORLD_RATE).toFixed(2)}s`,
+    ` cap ${T.hardCap} move ${T.moveCost.toFixed(2)}s`,
 );

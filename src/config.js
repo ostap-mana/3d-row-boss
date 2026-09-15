@@ -228,8 +228,8 @@ export const DIFFICULTY = {
    * very worst, counting a match and an ultimate alike as one hit. A plain
    * triple takes 27% off a bare boss, so three of them and a cast end it on
    * paper, and the slowest line anybody can actually play — every match a bare
-   * triple and the ultimate never spent — lands the kill on hit seven at 22
-   * seconds against a 32 second cap.
+   * triple and the ultimate never spent — lands the kill on hit seven at 24
+   * seconds against a 35 second cap.
    *
    * It is deliberately paired with a flattened sizeBonus and comboMultiplier
    * below rather than carrying that requirement by itself. Damage per gem is
@@ -640,7 +640,7 @@ export const DIFFICULTY = {
    * Three zones, cut on the boss's own health bar, and this is the spec in the
    * words it was given in: easy to take the boss down to half, medium from half
    * to a quarter, and the last quarter the hardest part of the fight. The whole
-   * thing playing out inside the run — see T.hardCap, which is 32 seconds.
+   * thing playing out inside the run — see T.hardCap, which is 35 seconds.
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium       hard
@@ -724,7 +724,9 @@ export const DIFFICULTY = {
    * to six and a half. The clock came in with them: T.hardCap 45 -> 32,
    * WORLD_RATE 0.8 -> 1.0 so a move costs 2.8 seconds again rather than 3.5,
    * and pace.seconds 43 -> 22 so the guard stops holding the fight open to the
-   * deadline.
+   * deadline. The run has since been let out again — 35 seconds at a rate of
+   * 0.91 — but every number in that pass moved together, so the fight the
+   * shorter clock was balanced for is the fight still being played.
    *
    * Two things are deliberately NOT on this axis, and both are about not
    * punishing a player who is behind:
@@ -799,8 +801,8 @@ export const DIFFICULTY = {
    * last beat, and that is a change of intent rather than a side effect. It
    * used to be deliberate that the run was won close to the deadline with the
    * doom strip already red; what came back about that is that the creative
-   * plays too long. See DIFFICULTY.pace, which holds a 22 second line now
-   * against a 32 second cap.
+   * plays too long. See DIFFICULTY.pace, which holds a 23 second line now
+   * against a 35 second cap.
    *
    * Where this leaves src/difficult/image.png, which the shape was originally
    * traced off pixel by pixel: honoured in form, overruled by the zone numbers
@@ -836,9 +838,11 @@ export const DIFFICULTY = {
      * pulling against it. Both followed the run the whole way up — 28 at a
      * thirty second cap, 31 at 33, 38 at 40, 43 at 45 — and then came off it
      * together: 22 against a 32 second cap, because the fight is no longer
-     * meant to be held open to the deadline. See DIFFICULTY.pace.
+     * meant to be held open to the deadline. See DIFFICULTY.pace. Both then
+     * went up by a sixteenth with the run — 24 here against pace's 23 — when
+     * the whole schedule was let out to 35 seconds.
      */
-    seconds: 22,
+    seconds: 24,
     /**
      * How far up the curve a completely stalled run is dragged by the clock.
      *
@@ -1335,15 +1339,15 @@ export const DIFFICULTY = {
      * Driven over CDP, a bot playing the strongest swap every time won with
      * more than half the countdown still on the strip.
      *
-     * 21, and the number it has to be read against is not T.hardCap but the
-     * burial. DOOM.bury opens with 32% of a 27 second countdown left — about
-     * 18 seconds in — and from there the board is sealed five cells at a time
+     * 23, and the number it has to be read against is not T.hardCap but the
+     * burial. DOOM.bury opens with 22% of a 30 second countdown left — about
+     * 24 seconds in — and from there the board is sealed five cells at a time
      * until there is nothing to swap on, which is a defeat the player cannot
      * outplay. A schedule aimed past that is not a longer fight, it is a lost
      * one: 26 was tried and every run driven over CDP ended with all 25 cells
      * under stone and the party wiped.
      *
-     * 21 aims the kill at the burial's opening seconds instead. The last of
+     * 23 aims the kill at the burial's opening seconds instead. The last of
      * the fight is fought on a board visibly closing — stones still landing on
      * the last swipe, the beast still alive to throw them, the bar coming down
      * against a clock that is now taking cells as well — and it is still a
@@ -1352,12 +1356,15 @@ export const DIFFICULTY = {
      *
      * It is not a difficulty change and it cannot be — the guard has never
      * touched a player who is behind the line, only one already winning faster
-     * than the schedule.
+     * than the schedule. It was 21 against a 32 second cap and went up with the
+     * run rather than against it: the pass asked for a creative that takes a
+     * little longer to play through without getting any harder, and a schedule
+     * that keeps its share of a longer clock is exactly that.
      *
      * Real seconds, so Director.paceGrip converts the world clock back through
      * toReal before it reads this — see WORLD_RATE.
      */
-    seconds: 21,
+    seconds: 23,
     bite: 3,
     floor: 0.25,
   },
@@ -1441,30 +1448,32 @@ export const DOOM = {
    *
    * `at` 0.32 -> 0.22 is the arithmetic that goes with five a tick, and it was
    * wrong for as long as the boss was dying before the burial ever ran. Five
-   * cells every 1.15 seconds seals 25 in about 5.7, and 0.32 of 27 opened a
-   * window of 8.6 — so the board was always fully sealed with roughly three
+   * cells every 1.26 seconds seals 25 in about 6.3, and 0.32 of the countdown
+   * opened a window of 9.4 — so the board was always fully sealed with three
    * seconds still on the strip, and those three seconds are the dead ones the
    * perTick change was meant to remove, moved to the end. Worse, once the pace
    * guard started holding the beast alive into this stretch (see
    * DIFFICULTY.pace) the burial finished every run first: measured over CDP
    * the party was wiped on a fully sealed board with the boss at 9% health.
    *
-   * 0.22 of 27 is 5.9 seconds against the 5.7 the burial needs. The board now
-   * closes on the last beat of the clock rather than before it, which is what
+   * 0.22 of 30 is 6.6 shown seconds against the 6.3 the burial needs. `every`
+   * is wall time and went 1.15 -> 1.26 when the run was let out to 35, so the
+   * burial keeps the share of the closing clock it was tuned to hold. The board
+   * closes on the last beat of that clock rather than before it, which is what
    * "it cannot start until the run is over seconds later" was always supposed
    * to mean — and it leaves the fight winnable in its teeth, which is the only
    * thing that makes the closing board worth watching.
    */
-  bury: { at: 0.22, every: 1.15, perTick: 5 },
+  bury: { at: 0.22, every: 1.26, perTick: 5 },
 
   /**
    * Seconds from the first playable frame to the first cataclysm.
    *
-   * Twenty-seven, and this is the clock the player is *shown* rather than the
-   * length of the run. T.hardCap is 32 and `stretch` below is what reconciles
+   * Thirty, and this is the clock the player is *shown* rather than the
+   * length of the run. T.hardCap is 35 and `stretch` below is what reconciles
    * the two: the strip is never wrong about how much of itself is left, it
-   * simply drains slower than wall time over the last stretch, so twenty-seven
-   * of its seconds take thirty-two of ours. This is the number on the CATACLYSM readout — see
+   * simply drains slower than wall time over the last stretch, so thirty of
+   * its seconds take thirty-five of ours. This is the number on the CATACLYSM readout — see
    * Hud.setDoom — so it is also the largest figure the player ever reads there.
    *
    * The clock is armed the moment the intro is off the screen, so what the
@@ -1477,9 +1486,10 @@ export const DOOM = {
    * while the strip stayed at 30, because what was asked for was a clock that
    * reads less than the fight lasts. Then it was pulled back level and read 40
    * against a 45 second run, asked for directly off the readout rather than
-   * off this file. The run has since been cut to 32 for playing too long — see
-   * T.hardCap — and this came down to 27 with it, keeping the same five
-   * seconds of `stretch` between the two.
+   * off this file. The run was then cut to 32 for playing too long — see
+   * T.hardCap — and this came down to 27 with it. Both have since been let out
+   * by a sixteenth, to 35 and 30, for a run that was being finished too
+   * quickly; the five seconds of `stretch` between them have never moved.
    *
    * What that costs is the mechanic in the middle of the fight. The clock
    * cannot reach zero while there is still a fight to land a cataclysm in, so
@@ -1496,21 +1506,21 @@ export const DOOM = {
    * behind it, so the deadline arrived once as a threat and once as proof it
    * was not a bluff. Put it back at 9 and the mechanic comes back with it.
    */
-  seconds: 27,
+  seconds: 30,
   /**
    * The five seconds the player is given and not told about.
    *
-   * The run is 32 seconds long (T.hardCap) and the countdown on screen is 27
+   * The run is 35 seconds long (T.hardCap) and the countdown on screen is 30
    * (`seconds` above). The difference is not a lie the strip tells at any one
    * moment — the strip is never wrong about how much of *itself* is left — it
-   * is a rate: the clock drains slower than wall time, so twenty-seven of its
-   * seconds take thirty-two of ours. Nobody counts a countdown against a stopwatch;
+   * is a rate: the clock drains slower than wall time, so thirty of its
+   * seconds take thirty-five of ours. Nobody counts a countdown against a stopwatch;
    * what they feel is how long they had.
    *
    * `window` is the whole of the idea and it is the second thing this was
    * asked for: the stretch is confined to the last `window` seconds of the
    * countdown and there is none at all before them. Outside the window the
-   * clock is wall time to the frame — seventeen true seconds — and inside it
+   * clock is wall time to the frame — twenty true seconds — and inside it
    * the five are handed over. It was a smooth curve over the whole run first, and
    * the note it earned was that the extra time should land at the end and
    * nowhere else, which is what this is.
@@ -1551,7 +1561,7 @@ export const DOOM = {
    *           steps as it enters. Above 1 the window opens near true speed and
    *           the last digit takes almost all of it.
    *   extra   0 turns the whole mechanism off — the rate is 1, the clock is
-   *           wall time again, and T.hardCap has to come back to 27 to match.
+   *           wall time again, and T.hardCap has to come down to 30 to match.
    *
    * What this does NOT touch is what the deadline means. The cataclysm still
    * lands when the strip reads zero, the warnings at DOOM.warnAt still fire on
@@ -1622,9 +1632,19 @@ export const BOSS_NAME = "KOLTMOS";
  * animation knob: the run had been stretched to forty-five seconds and slowing
  * every beat by a fifth was how the fight was made to fill them. What came
  * back is that the creative plays too long, so the run was cut to 32 and this
- * went back to 1 in the same pass. A move costs 2.8 seconds again rather than
+ * went back to 1 in the same pass. A move cost 2.8 seconds again rather than
  * 3.5, which is the most direct thing in the file for how long a swap feels
  * like it takes.
+ *
+ * 0.91 is a ninth of that fifth put back, and the difference between this pass
+ * and the 0.8 one is that the clock moved with it: T.hardCap 32 -> 35, DOOM
+ * .seconds 27 -> 30, pace.seconds 21 -> 23 and curve.seconds 22 -> 24, all by
+ * the same sixteenth. A move costs 3.08 wall seconds instead of 2.8 and the
+ * run holds the same nine of them, so what was asked for — a creative that
+ * takes a little longer to play through and is no harder for it — is bought
+ * with the pair rather than with either number alone. Slow this on its own and
+ * the run keeps its 35 seconds and loses moves out of them, which is the one
+ * thing the pass was told not to do.
  *
  * Everything the creative moves runs on the world clock — the cascade, the
  * boss, the cut-ins, every tween and every delay() — and this is the standing
@@ -1639,7 +1659,7 @@ export const BOSS_NAME = "KOLTMOS";
  * T.hardCap seconds long. Change this number and the fight gets slower or
  * faster; the length of the creative does not move.
  */
-export const WORLD_RATE = 1.0;
+export const WORLD_RATE = 0.91;
 
 export const T = {
   /**
@@ -1692,7 +1712,8 @@ export const T = {
    * own — BOSS_ATTACKS, and `turn` walks it whoever moved last — so all this
    * does is let it advance on time instead of on permission.
    *
-   * 2.2 against moveCost's 2.8, and it is deliberately the shorter of the two
+   * 2.2 world seconds against moveCost's 3.08 wall ones — 2.42 wall, once
+   * WORLD_RATE is paid — and it is deliberately the shorter of the two
    * now. It was 4 for as long as the rule was that a swing must never land on
    * a player mid-cascade: comfortably longer than a move, six swings in the
    * twenty-four and a half playable seconds of a run, and the boss politely
@@ -1906,7 +1927,7 @@ export const T = {
    * then went quiet, so a player who looked away for those 3.2 seconds was never
    * told again. It now re-offers itself on `ultHintAgain` for as long as a
    * charged hero is still standing there untapped, and this is the ceiling on
-   * that rather than a ration of chances. The run is 32 seconds and the free
+   * that rather than a ration of chances. The run is 35 seconds and the free
    * opening cast is gone — see DIFFICULTY.chargeStart — so the first ultimate is
    * something the player has to be told about while they are already playing.
    *
@@ -1954,10 +1975,10 @@ export const T = {
    *
    * A third of a second of nothing on top of T.moveCost, which is the move
    * playing itself out, so the fastest the demo ever goes is a move every three
-   * and a bit seconds. It only reaches that when the boss is deep enough that
+   * and a half seconds. It only reaches that when the boss is deep enough that
    * the run cannot afford anything slower. It is a pace, not a stampede — but
-   * the whole run is thirty-two seconds, and a second of dead air is a
-   * thirty-second of the ad spent watching nothing.
+   * the whole run is thirty-five seconds, and a second of dead air is a
+   * thirty-fifth of the ad spent watching nothing.
    */
   autoFloor: 0.35,
   /**
@@ -1976,14 +1997,14 @@ export const T = {
    * A third of the run and nothing else — a share rather than a duration, so
    * it moves every time T.hardCap does. It has now moved seven times: 5 when
    * the run was fifteen, 6.7 at twenty, 8.3 at twenty-five, 10 at thirty, 11
-   * at thirty-three, 13.3 at forty, 15 at forty-five, and 10.7 now the run is
-   * back down to thirty-two.
+   * at thirty-three, 13.3 at forty, 15 at forty-five, 10.7 when the run came
+   * back down to thirty-two, and 11.7 now it has been let out to thirty-five.
    */
-  banner: 10.7,
+  banner: 11.7,
   /**
    * Absolute cutoff — end card is forced no matter where the player is.
    *
-   * Thirty-two seconds in wall time, and the player is shown twenty-seven —
+   * Thirty-five seconds in wall time, and the player is shown thirty —
    * see DOOM.stretch, which is the whole of that trick and the only reason
    * these two numbers are allowed to disagree. Everything else in this file is
    * fitted to this one rather than the other way round: `banner` so the store
@@ -1993,8 +2014,8 @@ export const T = {
    *
    * Measured in wall seconds and not in world ones, which is a distinction this
    * number did not have to make until WORLD_RATE existed. Director.run races
-   * this on the world clock, so it converts through toWorld first; at the rate
-   * of 1 it went back to racing these 32 directly.
+   * this on the world clock, so it converts through toWorld first — at the rate
+   * of 0.91 it races 31.85 world seconds to spend these 35 wall ones.
    *
    * DOWN FROM FORTY-FIVE, and this is the first time the number has ever moved
    * backwards. It went 15, 20, 25, 30, 33, 40, 45, and the last three of those
@@ -2005,10 +2026,18 @@ export const T = {
    * been decided. The fight came down with it rather than being left to rattle
    * around in a shorter box — see DIFFICULTY.curve.
    *
-   * Thirty-two, less about two and a half for the intro and the 3.5 of
-   * finaleReserve, leaves twenty-six playable seconds. A move costs 2.8 of
-   * them — see moveCost, and see WORLD_RATE, which came back to 1 in the same
-   * pass so that a move stopped costing 3.5 — so the run holds nine moves
+   * AND THEN UP A SIXTEENTH, to 35, for the opposite note: the run was being
+   * finished too quickly, and it was to take a little longer without getting
+   * any harder for it. The two halves of that are one edit. WORLD_RATE went to
+   * 0.91 in the same pass so every beat is a sixteenth slower, and DOOM.seconds,
+   * pace.seconds and curve.seconds all went up by the same sixteenth, so the
+   * schedule is the same schedule read off a longer clock. Nothing about the
+   * fight moved; the player simply spends three more seconds in it.
+   *
+   * Thirty-five, less about two and three quarters for the intro and the 3.85
+   * of finaleReserve, leaves twenty-eight and a half playable seconds. A move
+   * costs 3.08 of them — see moveCost, and see WORLD_RATE, which is what makes
+   * a 2.8 second animation cost that — so the run still holds nine moves
    * against a fight balanced to end in six or so. That is the slack this
    * number exists for: a player can lose a move or two to a fumbled swipe or
    * to reading the board and still finish comfortably.
@@ -2026,7 +2055,7 @@ export const T = {
    * literally the other half of a Promise.race — and it is also the fight
    * difficulty, because it is the one opponent that never misses.
    */
-  hardCap: 32.0,
+  hardCap: 35.0,
   /**
    * How long the outcome screen holds itself up before moving on, in seconds.
    *
@@ -2057,19 +2086,24 @@ export const T = {
    * pace guard treats this as untouchable so a hands-off viewer still sees the
    * boss explode instead of being cut off by the hard cap.
    *
-   * Three and a half of the thirty. The collapse it was sized around is no
-   * longer waited on — the verdict cuts in on the frame the boss dies, see
-   * Director.win — so what this now reserves is the room for the killing move
-   * itself to land inside the cap rather than be cut off by it.
+   * The collapse it was sized around is no longer waited on — the verdict cuts
+   * in on the frame the boss dies, see Director.win — so what this reserves is
+   * the room for the killing move itself to land inside the cap rather than be
+   * cut off by it. Wall seconds against a world-clock animation, so it went 3.5
+   * -> 3.85 when WORLD_RATE went to 0.91: the move it is holding the door open
+   * for did not get longer, it got slower.
    */
-  finaleReserve: 3.5,
+  finaleReserve: 3.85,
   /**
    * Rough cost of playing out one move, used by the same pace guard.
    * Covers the cascade and the boss turn that follows the swap — the boss
    * turn lays its obsidian inside the same beat it attacks, so this stayed
    * cheap even after the counterattacks went in.
+   *
+   * Wall seconds, which is why it reads 3.08 and not the 2.8 of world time the
+   * animation actually takes. See WORLD_RATE, and move the two together.
    */
-  moveCost: 2.8,
+  moveCost: 3.08,
 };
 
 /* --------------------------------------------------------------- spotlight */
