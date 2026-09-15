@@ -47,7 +47,7 @@ import { loadFireArt } from "./art/fire.js";
 import { loadSpellArt } from "./art/spells.js";
 import { loadGemPopArt } from "./art/gempop.js";
 import { loadGemChargeArt } from "./art/gemcharge.js";
-import { loadToastArt } from "./art/toast.js";
+import { loadOutcomeFigures } from "./art/figures.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -1426,7 +1426,7 @@ async function boot() {
     } catch {
       /* every card keeps the border it was built without */
     }
-    for (const load of [loadSpellArt, loadFireArt, loadToastArt]) {
+    for (const load of [loadSpellArt, loadFireArt, loadOutcomeFigures]) {
       try {
         await load();
       } catch {
