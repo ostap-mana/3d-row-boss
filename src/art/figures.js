@@ -1,10 +1,10 @@
 import { Texture, VideoSource } from "pixi.js";
 import toastUrl from "../assets/outcome/toast.mp4";
-import spurnUrl from "../assets/outcome/spurn.mp4";
+import pointUrl from "../assets/outcome/retry.mp4";
 
 const CLIP = {
   victory: { url: toastUrl, w: 960, h: 618 },
-  defeat: { url: spurnUrl, w: 736, h: 720 },
+  defeat: { url: pointUrl, w: 480, h: 520 },
 };
 
 export const FIGURE_ASPECT = {
@@ -13,10 +13,8 @@ export const FIGURE_ASPECT = {
 };
 
 export const FIGURE_KEY = {
-  cut: 60 / 255,
-  ramp: 38 / 255,
-  spill: 1,
-  lift: 12 / 255,
+  victory: { cut: 60 / 255, ramp: 38 / 255, spill: 1, lift: 12 / 255 },
+  defeat: { cut: 70 / 255, ramp: 30 / 255, spill: 1, lift: 16 / 255 },
 };
 
 const clips = { victory: null, defeat: null };

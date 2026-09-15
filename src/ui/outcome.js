@@ -302,6 +302,16 @@ const FIGURE_H = {
 };
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 const FIGURE_SINK = { victory: 0.04, defeat: -0.46 };
+
+const RETRY_DROP = { portrait: 0.78, landscape: 0.6 };
+
+const POINT = {
+  tall: { portrait: 0.27, landscape: 0.42 },
+  wide: { portrait: 0.5, landscape: 0.26 },
+  aim: 0.32,
+  overlap: 0.34,
+  air: 8,
+};
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
@@ -534,7 +544,11 @@ export class OutcomeScreen extends Container {
     this.figure.eventMode = "none";
     this.figure.visible = false;
     this.figure.alpha = 0;
-    this.figure.filters = [chromaKeyFilter(FIGURE_KEY)];
+    this.figureKeys = {
+      victory: chromaKeyFilter(FIGURE_KEY.victory),
+      defeat: chromaKeyFilter(FIGURE_KEY.defeat),
+    };
+    this.figure.filters = [this.figureKeys.victory];
     this.addChild(this.figure);
     this.figureFor = null;
     this.figureH = 0;
@@ -888,16 +902,56 @@ export class OutcomeScreen extends Container {
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
       ui,
     );
-    this.retry.position.set(retryX, (roof + sill) / 2);
+    const bias = this.defeat ? RETRY_DROP[key] : 0.5;
+    this.retry.position.set(retryX, roof + (sill - roof) * bias);
     // A thumb's worth of height whatever the ceiling did to the art — and the
     // width the art actually came back with, so the box cannot reach out past
     // the picture into the dark either side of it.
     const hitH = Math.max(box.h, 44);
     this.retry.hitArea = new Rectangle(-box.w / 2, -hitH / 2, box.w, hitH);
 
+    if (this.defeat) {
+      this.standByRetry(s, ui, key, retryX, this.retry.y, box, {
+        bottom: cy + ph / 2,
+        right: s.cx + pw / 2,
+      });
+    }
+
     // The card just moved. Anything still flying towards where it used to be has
     // to be told, or it will spend the next half second putting it back.
     if (this.introducing) this.settle();
+  }
+
+  standByRetry(s, ui, key, x, y, box, band) {
+    const air = POINT.air * ui;
+    const foot = y - box.h / 2 + box.h * POINT.overlap;
+    const stand = (top) =>
+      Math.max(
+        44 * ui,
+        Math.min(
+          s.h * POINT.tall[key],
+          (s.w * POINT.wide[key]) / FIGURE_ASPECT.defeat,
+          foot - top,
+        ),
+      );
+    const place = (h) => {
+      const half = (h * FIGURE_ASPECT.defeat) / 2;
+      return {
+        half,
+        cx: clamp(x + half * 2 * POINT.aim, s.x + half, s.right - half),
+      };
+    };
+
+    let h = stand(s.y + air);
+    let at = place(h);
+    if (at.cx - at.half < band.right) {
+      h = stand(band.bottom + air);
+      at = place(h);
+    }
+
+    this.figureH = h;
+    this.fitFigure();
+    this.figure.position.set(at.cx, foot);
   }
 
   fitFigure() {
@@ -907,6 +961,7 @@ export class OutcomeScreen extends Container {
     if (this.figureFor !== ending) {
       this.figureFor = ending;
       this.figure.texture = texture;
+      this.figure.filters = [this.figureKeys[ending]];
     }
     if (this.figureH > 0) {
       this.figure.setSize(this.figureH * FIGURE_ASPECT[ending], this.figureH);
