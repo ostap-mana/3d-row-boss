@@ -2492,6 +2492,7 @@ export class Board extends Container {
     }
     if (targets.length === 0) return 0;
     await this.releaseLocks(targets);
+    await this.resolve(null);
     return targets.length;
   }
 

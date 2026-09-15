@@ -295,15 +295,27 @@ const VERDICT_W = { portrait: 1.0, landscape: 0.52 };
 const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 
 /** Where the band sits down the stage, and where the tap line sits under it. */
-const PLATE_Y = {
-  victory: { portrait: 0.47, landscape: 0.46 },
-  defeat: { portrait: 0.4, landscape: 0.44 },
-};
+const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
 const FIGURE_H = { portrait: 0.33, landscape: 0.4 };
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 const FIGURE_SINK = 0.04;
 
-const RETRY_DROP = { portrait: 0.9, landscape: 0.68 };
+/**
+ * How far down its own room the control stands, as a share of it.
+ *
+ * Both endings sit the same way now and it is not a per-ending number any more:
+ * the rematch used to be pushed to the floor of the room because the sorceress
+ * stood in the gap and needed all of it, and with her off the card that push is
+ * just a hole between the verdict and the button. See `standByRetry`, which
+ * went with her.
+ *
+ * Above centre rather than on it. The room is measured from under the band to
+ * the top of the hero row, and its floor is a long way below the button on a
+ * tall phone: centred, the button reads as a thing of its own halfway down an
+ * empty screen. High in the room it reads as the verdict's own answer, which is
+ * what it is, and what is left over falls below it where the party already is.
+ */
+const CONTROL_DROP = 0.38;
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
@@ -766,8 +778,7 @@ export class OutcomeScreen extends Container {
 
     /* ------------------------------------------------------------- the band */
 
-    const ending = this.defeat ? "defeat" : "victory";
-    const cy = s.y + s.h * PLATE_Y[ending][key];
+    const cy = s.y + s.h * PLATE_Y[key];
     this.card.position.set(s.cx, cy);
 
     /**
@@ -889,8 +900,7 @@ export class OutcomeScreen extends Container {
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
       ui,
     );
-    const bias = this.defeat ? RETRY_DROP[key] : 0.5;
-    this.retry.position.set(retryX, roof + (sill - roof) * bias);
+    this.retry.position.set(retryX, roof + (sill - roof) * CONTROL_DROP);
     // A thumb's worth of height whatever the ceiling did to the art — and the
     // width the art actually came back with, so the box cannot reach out past
     // the picture into the dark either side of it.
