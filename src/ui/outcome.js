@@ -366,7 +366,7 @@ const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
  * creative and has to stay that way. At the rematch's own 0.56 the two were
  * within a hair of each other upright and the card read as two headlines.
  */
-const PLAY_W = { portrait: 0.44, landscape: 0.26 };
+const PLAY_W = { portrait: 0.528, landscape: 0.312 };
 
 /** Air between the control and whatever bounds it, in UI points. */
 const RETRY_AIR = 12;
