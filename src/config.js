@@ -2807,6 +2807,19 @@ export const ULT_RIM = {
 };
 
 export const ULT_SURGE = {
+  panel: {
+    aspect: 0.66,
+    tall: 0.3,
+    tallWide: 0.44,
+    minTall: 0.13,
+    share: 0.26,
+    gap: 0.72,
+    bias: 0.07,
+    round: 0.09,
+    glow: 1.5,
+    rate: 1.2,
+    from: 1.16,
+  },
   bloom: { wide: 1.5, tall: 0.46, alpha: 0.62 },
   streak: { wide: 1.45, thick: 0.34, alpha: 1, gap: 0.18, open: 0.26 },
   crown: {
