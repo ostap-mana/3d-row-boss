@@ -1332,3 +1332,138 @@ size cap, the 9fps playback — is shared, because both sheets are the same grid
 Verified over CDP against the built `dist/km3.html`: both cards opened, the
 sprite measured 429x276 in place on each, animation ran to frame 19, and the
 screenshots were looked at. The win card is unchanged.
+
+---
+
+# DEFEAT card — she leans in and points at RETRY
+
+The button sits BELOW the band and she stands above it, so a straight-down
+point puts her finger behind the band. She leans in from the right instead and
+points down across the frame, and the sprite gets placed to the right on the
+defeat card so the finger lands just over the button.
+
+The finger is this clip's goblet: it is the thing the frame will cut if it is
+allowed to. It is called out twice below for that reason.
+
+Wiring: image 1 = full-body front view, image 2 = face close-up. Node aspect
+16:9 or 4:3 — she is leaning, so the pose is wide, not tall.
+
+```
+Generate one isolated character on an empty background. This is a cutout plate
+that will be composited onto finished artwork later. Images 1 and 2 are one
+single character — keep her identical to them.
+
+POSE — read this first, it overrides every reference:
+She leans forward and toward the viewer, bending at the waist, her weight on
+one hip, one shoulder dropped lower than the other. Confident, alluring,
+playful. She is inviting the viewer to come back and try again.
+Her right arm reaches down and across her body, fully extended, and her index
+finger is extended and pointing DOWN and toward the lower left of the frame,
+out past her own hip. The finger is clearly straight and clearly pointing —
+the other fingers are curled into the palm. Her left hand rests on her raised
+hip.
+She is not pointing at the camera and not pointing to the side. The line of the
+arm and finger runs down and diagonally across the frame, as if indicating
+something on the ground below and in front of her.
+
+EXPRESSION:
+She is looking straight at the viewer, chin tipped slightly down, eyes up under
+relaxed lids. A small, knowing, teasing smile with the mouth closed — one
+corner lifted higher than the other. Amused and challenging, daring them to go
+again. Warm, not cruel. No wide grin, no bared teeth, no sneer, no contempt.
+Her lower eyelids are lifted so the smile reaches her eyes. No white of the eye
+above or below the iris.
+
+FRAMING — nothing cropped, and the finger least of all:
+Wide, zoomed-out framing with a lot of negative space. She fills only about
+half of the image height and about two thirds of its width.
+THE POINTING HAND AND THE EXTENDED INDEX FINGER ARE COMPLETE AND FULLY INSIDE
+THE FRAME, with a clear band of empty space beyond the fingertip of at least
+one fifth of the image width. Nothing is cut off at the fingertip.
+Everything else is complete too, with empty space beyond it: the top of her
+head and both hair buns, every spike on both pauldrons, both elbows, her other
+hand and every finger on it.
+She is framed from mid-thigh up. Her lower legs and feet are not in the image.
+Her thighs run off the bottom edge of the frame at the border itself — no
+floating cut-off inside the picture, no stump, no fade.
+Her thighs at the bottom border are the ONLY place she meets an edge.
+WHEN IN DOUBT, ZOOM OUT FURTHER. Too much empty space is always correct.
+
+NO BACKGROUND AT ALL:
+Nothing exists in this image except the character. No scene, no environment, no
+setting, no room, no wall, no sky, no ground, no floor, no horizon, no props,
+no scenery, no depth, no perspective, no atmosphere, no haze, no light rays, no
+particles, no sparks, no smoke, no confetti, no aura, no glow behind her, no
+vignette, no gradient, no texture, no shadow cast behind her.
+The background is flat, solid, saturated chroma green — one pure tone,
+identical in all four corners, perfectly even, no gradient and no shading.
+No green light spills onto her. Her black armour stays black at the edges and
+picks up no green tint.
+Her outline is crisp against the green on every side, with no haze, no glow
+bleed, no motion blur and no stray wisps.
+
+SILHOUETTE — this overrides the references:
+Her outline is a plain human shape: head, neck, two shoulders with spiked
+pauldrons, two arms, torso, hips. Her back is bare armour plate. Nothing is
+attached to it and nothing floats behind it. No wings.
+
+CHARACTER:
+Face and hair from the close-up: porcelain-pale skin, black eyeliner, deep red
+lips, blue-black hair swept back into two crimson twin buns with red roses,
+black spiked choker. Body and armour from the full-body view: black and crimson
+plated armour with spiked pauldrons, bare midriff, red leather straps, clawed
+gauntlets. Hold her exact palette: crimson, black, hot-pink rim light.
+Take her face, her hair, her armour and her colours from the references. Do not
+take her pose, her expression or her framing from them, and do not take
+anything that was behind her.
+
+LIGHTING:
+Soft, even, frontal key light. Her face is evenly lit — no hard shadow under
+the brow, no shadow across the eyes. A thin hot-pink rim light traces her
+shoulders and arms, drawn tight to her outline, not blooming past it. Painted,
+high-saturation mobile-game splash art — not photographic, no 3D render look.
+
+NEGATIVE: cropped finger, cut fingertip, finger touching the frame edge,
+cropped hand, cropped hair buns, cropped pauldrons, cropped elbow, head cut
+off, touching the frame edge, no margin, tight framing, zoomed in, close-up,
+headshot, subject fills the frame, cramped composition, pointing at the camera,
+pointing sideways, pointing up, open hand, all fingers extended, fist, standing
+straight, upright posture, background, scenery, environment, ground, floor,
+sky, wall, particles, sparks, smoke, aura, glow behind the character, vignette,
+gradient background, cast shadow, green spill, soft edges, motion blur, wings,
+wing membrane, feathers, bone spurs, horns, cape, cloak, mantle, sneer, snarl,
+manic grin, crazed eyes, bared teeth, contempt, text, watermark, logo, UI,
+second character, extra limbs, extra fingers.
+```
+
+## Seedance motion for that plate
+
+```
+The camera is completely locked off and never moves: no push-in, no pull-back,
+no pan, no tilt, no zoom, no orbit, no handheld shake. The frame is static.
+
+She leans a little further forward toward the viewer and settles. Her extended
+index finger comes down into the point and holds there, steady. Her knowing
+half-smile widens very slightly and her eyebrow lifts once. Loose strands of
+her blue-black hair swing forward with the lean and settle. She blinks twice,
+both blinks completed early in the clip.
+
+THE CLIP ENDS SETTLED. Every movement finishes and comes to rest before the
+final frames. Her finger is still pointing and completely inside the frame on
+the last frame. Her eyes are wide open and steady for the whole last second —
+she never blinks near the end and is never caught mid-blink.
+
+She stays exactly where she is and never drifts, leans out of frame, steps or
+changes size. Her pointing hand stays fully inside the frame throughout and is
+never clipped. Her face, her hairstyle and her armour do not change. The
+background stays flat solid chroma green, perfectly even, with nothing in it.
+```
+
+Negative:
+```
+camera movement, zoom, pan, tilt, dolly, orbit, handheld shake, morphing face,
+changing hairstyle, changing armour, finger leaving the frame, hand cropped,
+pointing gesture lost, extra arms, extra fingers, wings, background elements,
+particles, sparks, text, watermark, character drifting out of frame, cut,
+scene change, colour shift in the background
+```
