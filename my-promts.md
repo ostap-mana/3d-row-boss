@@ -1882,3 +1882,41 @@ JSON не розсипався на бекенді; мову несуть зна
   "negative_prompt": "рух камери, зум, наїзд, відʼїзд, панорама, нахил камери, візок, боковий проїзд, кран, обліт, обертання кадру, тремтіння з рук, склейка, зміна сцени, персонаж наближається, йде на камеру, більшає, меншає, зміна масштабу, крок, хода, випрямляється, нахиляється ще далі, голова виходить за кадр, обрізані пучки волосся, обрізана рука, кінчик пальця торкається нижнього краю, палець виходить за кадр, тицяння, махання, хитання пальцем, повтор жесту, метушня, відкритий рот, оскал, сміх, крила, плащ, зайві руки, зайві пальці, спотворені руки, спотворене обличчя, текст, літери, цифри, субтитри, водяний знак, лого, другий персонаж, елементи фону, частинки, іскри, дим, зелений спіл, розмиття, низька якість, кліпання на останньому кадрі"
 }
 ```
+
+## Паста в ноду — один масив
+
+Той самий промпт у форматі ноди Prompt: масив `[{lang, prompt}]`, en і zh
+разом, кожен промпт — один рядок. Копіюється один раз.
+
+`<<<image_1>>>` прив'язаний до плати першого кадру: з нього беруться обличчя,
+волосся, броня і палітра. Якщо женемо без референсу — викинути перше речення
+до крапки, решта працює як є.
+
+```json
+[
+  {
+    "lang": "en",
+    "prompt": "<<<image_1>>> = the gothic demon sorceress: her face, makeup, blue-black twin buns with red roses, studded choker, black and crimson plated armour with spiked pauldrons, bare midriff and clawed gauntlets are taken from this image and stay identical in every frame. CAMERA: locked-off tripod, static generation, zero camera motion for the entire clip - no zoom, no push-in, no pull-back, no pan, no tilt, no dolly, no lateral track, no crane, no orbit, no roll, no handheld shake; the focal length never changes and the first frame and the last frame are framed identically; treat the frame as a still photograph in which only her arm moves; one continuous take, no cuts, no scene changes. SCALE LOCK, highest priority, overrides every other instruction: she is exactly the same size on the last frame as on the first, her distance to the camera is constant, and her head stays in the same place in the frame from the first frame to the last - she never comes closer, never approaches the viewer, never grows larger or smaller, never changes scale, never steps, never walks, never stands up, never leans further forward, never drifts and never swells; if a motion could read as either a lean or an approach, do neither and leave the body still. FRAMING: mid-thigh up, slightly right of centre, already leaning in on the first frame. ACTION: she holds the lean she already has on frame one, head tilted, looking down at the viewer with a closed knowing half-smile and one eyebrow raised; only the right arm moves - the fully extended arm sweeps down and across her body in one single unhurried deliberate motion and her straight index finger comes to rest pointing down and out past her hip, at the floor below and in front of her, and stops there; she then holds the point dead still and keeps her eyes on the viewer. Her torso, hips, shoulders and head carry none of the gesture, her weight stays on the same hip and her free hand stays on that hip. One grand deliberate theatrical gesture, made once: no tapping, no jabbing, no wagging, no repeat, no fidgeting. Her mouth stays closed the whole time. She blinks twice, both blinks completed early in the clip. END FRAME: every movement comes to rest well before the final frames; on the last frame her arm is fully down, the finger is still straight and still pointing, there is clear empty space between the fingertip and the bottom edge of the frame, and her eyes are wide open and steady, never caught mid-blink. BACKGROUND: flat solid chroma green screen, completely empty and perfectly still for the entire clip - standard film key green, a mid green leaning to blue, not a bright yellow-green, one pure tone identical in all four corners, no gradient, no shading, no texture; no scene, room, floor, horizon, wall, sky, props, particles, sparks, smoke, glow, vignette or cast shadow; no green spills onto her, her black armour stays black at the edges, and her outline is crisp on every side with no haze, no glow bleed and no motion blur. STYLE: painted high-saturation mobile-RPG splash art, semi-realistic, high contrast, soft even frontal key light and a thin hot-pink rim light drawn tight to her outline; not photographic, not a 3D render, not flat cartoon shading."
+  },
+  {
+    "lang": "zh",
+    "prompt": "<<<image_1>>> = 这位哥特风恶魔女法师：她的面部、妆容、蓝黑色双发髻与红玫瑰、黑色铆钉颈环、黑色与绯红相间的带尖刺肩甲板甲、露腰造型和利爪护手，全部以此图为准，且每一帧都保持完全一致。镜头：三脚架锁死的固定机位，静态生成，全程零运动——禁止变焦、推镜、拉镜、摇镜、俯仰、移动车、横移、升降、环绕、旋转、手持抖动；焦距全程不变，第一帧与最后一帧的构图完全一致；把画面当成一张静止的照片，其中只有她的手臂在动；一镜到底，无剪辑，无转场。比例锁定（最高优先级，高于其他所有指令）：她在最后一帧的大小与第一帧完全相同，与镜头的距离全程不变，她的头从第一帧到最后一帧始终停在画面中的同一位置——绝不靠近镜头、绝不向观众走来、绝不变大或变小、绝无任何比例变化、不迈步、不行走、不站起身、身体不再继续前倾、不在画面中漂移、不膨胀；若某个动作既可能被理解为前倾、也可能被理解为靠近，则两者都不做，身体保持静止。构图：取大腿中部以上，人物略偏画面右侧，第一帧就已经是前倾姿态。动作：她保持第一帧就有的前倾姿势，头微微侧着，居高临下地看着观众，嘴角是心知肚明的抿嘴浅笑，一边眉毛挑起；只有右臂在动——完全伸直的右臂以一个从容、庄重的动作自上而下扫过身侧，笔直的食指最终停在胯部外侧的下方，指向她身前下方的地面，然后停住；随后她保持这个指向纹丝不动，目光始终落在观众身上。躯干、胯部、肩膀和头部完全不参与这个动作，重心始终压在同一侧胯上，另一只手扶在胯上不动。整个手势只做一次，缓慢、庄重、带仪式感：不点戳、不挥手、不摇指、不重复、没有多余的小动作。她全程闭嘴，不笑出声，不露牙。全程只眨眼两次，且都在片头就完成。收尾：所有动作在最后几帧之前就已停稳；最后一帧里手臂完全放下，食指依然笔直地指着，指尖与画面下边缘之间留有明显空隙，双眼完全睁开且稳定，绝不停在眨眼中间。背景：纯色绿幕，完全空无一物，且全程绝对静止——标准影视抠像绿，偏蓝的中绿，不要偏黄的亮绿，单一纯色，四角颜色完全一致，无渐变、无明暗、无纹理；没有场景、房间、地板、地平线、墙壁、天空、道具、粒子、火花、烟雾、光晕、暗角或投影；绿色不得溢到她身上，黑色甲片边缘保持纯黑，人物轮廓四周干净锐利，无雾感、无辉光外溢、无运动模糊。风格：高饱和手绘风手游立绘，半写实，高对比，柔和均匀的正面主光，紧贴轮廓的一条亮粉色轮廓光；非写实摄影，非 3D 渲染质感，非扁平卡通上色。"
+  }
+]
+```
+
+Негатив окремим масивом — нода тримає тільки `lang` і `prompt`, тому це йде у
+своє поле, не в цей масив:
+
+```json
+[
+  {
+    "lang": "en",
+    "negative": "camera movement, zoom, push-in, pull-back, pan, tilt, dolly, truck, crane, orbit, roll, handheld shake, cut, scene change, subject moving closer, approaching the camera, growing larger, growing smaller, scale change, stepping, walking, standing up straight, leaning further in, head leaving the frame, cropped hair buns, cropped hand, fingertip touching the bottom edge, finger leaving the frame, tapping, jabbing, wagging the finger, repeating the gesture, fidgeting, open mouth, bared teeth, laughing, wings, cape, extra arms, extra fingers, deformed hands, distorted face, text, letters, numbers, subtitles, watermark, logo, second character, background elements, particles, sparks, smoke, green spill, blur, low quality, mid-blink on the last frame"
+  },
+  {
+    "lang": "zh",
+    "negative": "镜头运动, 变焦, 推镜, 拉镜, 摇镜, 俯仰, 移动车, 横移, 升降, 环绕, 旋转, 手持抖动, 剪辑, 转场, 人物靠近镜头, 人物变大, 人物变小, 比例变化, 迈步, 走动, 站直, 继续前倾, 头部移出画面, 发髻被裁切, 手被裁切, 指尖触到画面下边缘, 手指出画, 点戳, 挥手, 摇手指, 重复动作, 多余小动作, 张嘴, 露牙, 大笑, 翅膀, 披风, 多余的手臂, 多余的手指, 手部畸形, 五官崩坏, 文字, 字母, 数字, 字幕, 水印, logo, 第二个人物, 背景物件, 粒子, 火花, 烟雾, 绿色溢出, 模糊, 低质量, 最后一帧闭眼"
+  }
+]
+```
