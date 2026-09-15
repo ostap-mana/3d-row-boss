@@ -222,13 +222,14 @@ export const DIFFICULTY = {
    * emptied in five moves and the kill still landed at 18 seconds with the
    * board barely under pressure.
    *
-   * 0.075 is where it stands, and it is set by a requirement rather than by a
-   * win rate: the fight has to be finishable in five hits and six at the very
-   * worst, counting a match and an ultimate alike as one hit. A plain triple
-   * takes 22.5% off a bare boss, so four of them and a cast end it, and the
-   * slowest line anybody can actually play — every match a bare triple and the
-   * ultimate never spent — lands the kill on hit six at 19 seconds. Nothing
-   * reaches seven.
+   * 0.09 is where it stands, a fifth up from 0.075 in the pass asked to make
+   * the fight easier again, and it is still set by a requirement rather than
+   * by a win rate: the fight has to be finishable in six hits and seven at the
+   * very worst, counting a match and an ultimate alike as one hit. A plain
+   * triple takes 27% off a bare boss, so three of them and a cast end it on
+   * paper, and the slowest line anybody can actually play — every match a bare
+   * triple and the ultimate never spent — lands the kill on hit seven at 22
+   * seconds against a 32 second cap.
    *
    * It is deliberately paired with a flattened sizeBonus and comboMultiplier
    * below rather than carrying that requirement by itself. Damage per gem is
@@ -250,7 +251,7 @@ export const DIFFICULTY = {
    * so treat them as the shape of the floor rather than as its current
    * altitude. Either way it is far below this.
    */
-  damagePerGem: 0.075,
+  damagePerGem: 0.09,
   /**
    * Cascade payout by step. Last entry repeats.
    *
@@ -426,20 +427,20 @@ export const DIFFICULTY = {
    * Down from 0.3 and 1.25. That pair made one tap worth about 45% of the boss
    * — nearly half a fight from a button the player did not have to aim — and it
    * was the single biggest reason a run ended before the clock got interesting.
-   * 0.24 and 1.15 were still worth about a third of the bar for one tap. 0.2
-   * and 0.9 is where the five-hit fight on damagePerGem puts it: a cast comes
-   * to a little over half the bar, which is about two and a half matches, so
-   * spending it is what turns a six-hit run into a five-hit one. Still the
-   * largest number anybody can put on the screen in one beat, still the
-   * correct answer to a wall of obsidian — it simply cannot be the fight on
-   * its own, which at 0.3 and 1.25 it very nearly was.
+   * 0.24 and 1.15 were still worth about a third of the bar for one tap. 0.24
+   * with the gem multiplier at 0.9 is where the fight on damagePerGem puts it:
+   * a cast comes to a little under two thirds of the bar, which is about two
+   * and a half matches, so spending it is what turns a seven-hit run into a
+   * six-hit one. Still the largest number anybody can put on the screen in one
+   * beat, still the correct answer to a wall of obsidian — it simply cannot be
+   * the fight on its own, which at 0.3 and 1.25 it very nearly was.
    *
    * The floor here is the cut-in, not the arithmetic. Take the flat chunk much
    * under 0.15 and the ultimate stops being worth the two seconds its cut-in
    * costs on T.hardCap, at which point the correct play is never to cast the
    * feature the creative is selling.
    */
-  ultDamage: 0.2,
+  ultDamage: 0.24,
   ultGemMultiplier: 0.9,
   /**
    * How much harder the boss's hide bites an ULTIMATE than it bites a match.
@@ -888,8 +889,8 @@ export const DIFFICULTY = {
        * bossPress is 2.2 seconds and it starts with the fight, so the first
        * swing lands on somebody who has made one match and may not yet have
        * worked out that this is a match-three at all. Whatever sits here is
-       * what the game does to a player it has not finished teaching. At 0.3
-       * the opening rake is about four and a half percent of a hero bar and
+       * what the game does to a player it has not finished teaching. At 0.24
+       * the opening rake is about three and a half percent of a hero bar and
        * three bare obsidian blocks sit on a board of twenty-five: the screen
        * shakes and the bar under the card visibly answers it. Bare is the word
        * doing the work — `crust` is 0 at this keyframe alone, so a stone here
@@ -908,7 +909,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.0,
-        attack: 0.3,
+        attack: 0.24,
         resist: 1.0,
         ult: 1,
         obsidian: 3,
@@ -927,7 +928,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.35,
-        attack: 0.36,
+        attack: 0.29,
         resist: 1.0,
         ult: 1,
         obsidian: 5,
@@ -950,7 +951,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.42,
+        attack: 0.34,
         resist: 1.0,
         ult: 1,
         obsidian: 6,
@@ -971,7 +972,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.6,
-        attack: 0.48,
+        attack: 0.38,
         resist: 0.88,
         ult: 1,
         obsidian: 7,
@@ -989,7 +990,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.75,
-        attack: 0.52,
+        attack: 0.42,
         resist: 0.88,
         ult: 1,
         obsidian: 7,
@@ -1040,7 +1041,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.88,
-        attack: 0.62,
+        attack: 0.5,
         resist: 0.8,
         ult: 1,
         obsidian: 9,
@@ -1070,7 +1071,7 @@ export const DIFFICULTY = {
        */
       {
         p: 0.9,
-        attack: 0.58,
+        attack: 0.46,
         resist: 0.72,
         ult: 1,
         obsidian: 9,
@@ -1105,7 +1106,7 @@ export const DIFFICULTY = {
        */
       {
         p: 1.0,
-        attack: 0.46,
+        attack: 0.37,
         resist: 0.72,
         ult: 1,
         obsidian: 9,
