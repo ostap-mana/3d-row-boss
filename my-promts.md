@@ -1337,6 +1337,11 @@ screenshots were looked at. The win card is unchanged.
 
 # DEFEAT card — she leans in and points at RETRY
 
+This is a CLIP, not a still. The plate below is only its first frame, and the
+whole point of the shot is the movement: she comes down into the point and
+holds it, slowly, like a verdict. A frozen pose on a card the player is sitting
+on does nothing — the gesture is the thing that says press it again.
+
 The button sits BELOW the band and she stands above it, so a straight-down
 point puts her finger behind the band. She leans in from the right instead and
 points down across the frame, and the sprite gets placed to the right on the
@@ -1344,6 +1349,30 @@ defeat card so the finger lands just over the button.
 
 The finger is this clip's goblet: it is the thing the frame will cut if it is
 allowed to. It is called out twice below for that reason.
+
+**What the shipped clip got wrong, and what the rules below are for.** The one
+in the build has its fingertip at 91% of the frame height — sixty-three pixels
+of air under it out of seven hundred and twenty. That single number set the
+whole layout of the card: the sprite can only be tucked under the banner by
+4% of the banner's height, because any deeper and the banner swallows the
+finger, and any shallower and the hard cut across her thighs comes out from
+behind it. There is no slack left in either direction, and every screen size
+has to live inside it. So:
+
+- The margin the plate has to reserve is BELOW the fingertip and measured in
+  image HEIGHT. The old rule asked for it as a share of the width, which is the
+  wrong axis for a finger that points down, and it is why the clip came back
+  with none.
+- The finger travels DOWN during the clip as the arm sweeps into the point.
+  Whatever air the plate leaves under the fingertip, the motion spends part of
+  it. The plate has to be framed for where the finger ENDS, not where it starts.
+- SHE DOES NOT COME CLOSER. This is the rule the shipped clip broke and the one
+  that costs the most. Leaning toward a locked camera is the same thing as
+  growing: over seven seconds she grew, her head climbed toward the top edge and
+  her finger sank eighty pixels down into the banner, and the card had to be
+  sized around the worst frame instead of the shot. The lean belongs in the
+  plate — she is ALREADY leaning in on frame one. In the clip her body holds
+  that distance and that size exactly, and only the arm and the face move.
 
 Wiring: image 1 = full-body front view, image 2 = face close-up. Node aspect
 16:9 or 4:3 — she is leaning, so the pose is wide, not tall.
@@ -1375,14 +1404,22 @@ Her lower eyelids are lifted so the smile reaches her eyes. No white of the eye
 above or below the iris.
 
 FRAMING — nothing cropped, and the finger least of all:
+This image is the FIRST FRAME of a clip. In it her arm sweeps down and her
+pointing finger travels further DOWN, but her body never moves closer and never
+changes size. Frame it for where that finger ends up, not for where it starts.
+Leave the room now.
 Wide, zoomed-out framing with a lot of negative space. She fills only about
 half of the image height and about two thirds of its width.
 THE POINTING HAND AND THE EXTENDED INDEX FINGER ARE COMPLETE AND FULLY INSIDE
-THE FRAME, with a clear band of empty space beyond the fingertip of at least
-one fifth of the image width. Nothing is cut off at the fingertip.
+THE FRAME. BELOW THE FINGERTIP THERE IS A CLEAR BAND OF EMPTY GREEN AT LEAST
+ONE QUARTER OF THE IMAGE HEIGHT DEEP, running from the fingertip straight down
+to the bottom edge, with nothing of her in it. This band is beside her thighs,
+not under them — the finger points down and out past her hip, clear of her own
+body. Nothing is cut off at the fingertip.
 Everything else is complete too, with empty space beyond it: the top of her
 head and both hair buns, every spike on both pauldrons, both elbows, her other
-hand and every finger on it.
+hand and every finger on it. Leave at least one tenth of the image height of
+empty green above the topmost spike and above both hair buns.
 She is framed from mid-thigh up. Her lower legs and feet are not in the image.
 Her thighs run off the bottom edge of the frame at the border itself — no
 floating cut-off inside the picture, no stump, no fade.
@@ -1395,8 +1432,11 @@ setting, no room, no wall, no sky, no ground, no floor, no horizon, no props,
 no scenery, no depth, no perspective, no atmosphere, no haze, no light rays, no
 particles, no sparks, no smoke, no confetti, no aura, no glow behind her, no
 vignette, no gradient, no texture, no shadow cast behind her.
-The background is flat, solid, saturated chroma green — one pure tone,
-identical in all four corners, perfectly even, no gradient and no shading.
+The background is flat, solid chroma green — one pure tone, identical in all
+four corners, perfectly even, no gradient and no shading. Use a mid green that
+sits toward blue, the standard film key colour, NOT a bright yellow-green: her
+armour is crimson, and crimson blended into a yellow-green edge reads as olive,
+which no keyer can tell from her.
 No green light spills onto her. Her black armour stays black at the edges and
 picks up no green tint.
 Her outline is crisp against the green on every side, with no haze, no glow
@@ -1438,32 +1478,72 @@ second character, extra limbs, extra fingers.
 
 ## Seedance motion for that plate
 
+The movement IS the shot. One slow sweep down into the point and then a hold,
+and the pathos is in how deliberate it is, not in how far anything travels. She
+is pronouncing a sentence on the player, not tapping a button.
+
+And it is the ARM that moves, not her. She is already leaning in on frame one
+and she stays exactly that far away at exactly that size for the whole clip. A
+subject that creeps toward a locked camera is a subject that changes scale, and
+this one is cut out and hung on a card at a fixed height — it grows out through
+the top of the frame and sinks its own finger into the banner at the same time.
+
 ```
 The camera is completely locked off and never moves: no push-in, no pull-back,
 no pan, no tilt, no zoom, no orbit, no handheld shake. The frame is static.
 
-She leans a little further forward toward the viewer and settles. Her extended
-index finger comes down into the point and holds there, steady. Her knowing
-half-smile widens very slightly and her eyebrow lifts once. Loose strands of
-her blue-black hair swing forward with the lean and settle. She blinks twice,
-both blinks completed early in the clip.
+SHE NEVER COMES CLOSER. This is the most important instruction here. She is
+already leaning in on the first frame and she holds that lean exactly — she
+does not lean any further forward, does not move toward the camera, does not
+step, does not rise, does not swell and does not change size by any amount. She
+is the same distance away and exactly the same size on the last frame as on the
+first. Her head stays in the same place in the frame from the first frame to the
+last. If it is not clear whether something is a lean or an approach, do neither
+and leave her body still.
 
-THE CLIP ENDS SETTLED. Every movement finishes and comes to rest before the
-final frames. Her finger is still pointing and completely inside the frame on
-the last frame. Her eyes are wide open and steady for the whole last second —
-she never blinks near the end and is never caught mid-blink.
+THE MOVEMENT, in order, over the whole clip — it is the ARM, not her body:
+Her fully extended right arm sweeps down and across her body in one single
+unhurried motion and her straight index finger comes to rest pointing down and
+out past her hip, at the floor below and in front of her, and STOPS there. Then
+she holds the point, dead still, and keeps her eyes on the viewer, letting it
+land.
+It is one grand deliberate gesture, slow and theatrical and certain, the way a
+verdict is delivered. No tapping, no jabbing, no wagging, no repeat, no small
+nervous movements, no bouncing. The arm moves once and then it is done.
+Her torso, her hips, her shoulders and her head stay where they are throughout
+and carry none of the gesture. Her weight stays on the same hip. Her free hand
+stays on that hip and does not move.
 
-She stays exactly where she is and never drifts, leans out of frame, steps or
-changes size. Her pointing hand stays fully inside the frame throughout and is
-never clipped. Her face, her hairstyle and her armour do not change. The
+Her knowing half-smile lifts very slightly at one corner as the finger lands
+and stays there. One eyebrow rises once, early, and stays raised. Her mouth
+stays closed the whole time — no laugh, no bared teeth. A few loose strands of
+her blue-black hair drift very slightly and settle; her head does not move to
+make them. She blinks twice, both blinks completed early in the clip.
+
+THE CLIP ENDS SETTLED, and the last frame is the one that matters: it is held
+on screen after the clip stops. Every movement finishes and comes to rest well
+before the final frames. On the last frame her arm is fully down, her finger is
+still straight and still pointing, and there is clear empty space between the
+fingertip and the bottom edge of the frame. Her eyes are wide open and steady
+for the whole last second — she never blinks near the end and is never caught
+mid-blink.
+
+She stays exactly where she is and never drifts, leans out of frame, steps,
+approaches, recedes or changes size. Her pointing hand stays fully inside the
+frame throughout and is never clipped. Her face, her hairstyle and her armour do not change. The
 background stays flat solid chroma green, perfectly even, with nothing in it.
 ```
 
 Negative:
 ```
 camera movement, zoom, pan, tilt, dolly, orbit, handheld shake, morphing face,
-changing hairstyle, changing armour, finger leaving the frame, hand cropped,
-pointing gesture lost, extra arms, extra fingers, wings, background elements,
-particles, sparks, text, watermark, character drifting out of frame, cut,
-scene change, colour shift in the background
+changing hairstyle, changing armour, finger leaving the frame, finger reaching
+the bottom edge, hand cropped, head leaving the frame, hair buns cropped,
+growing larger, growing smaller, changing size, scale change, subject creeping
+toward the camera, moving closer, approaching the viewer, leaning further in,
+push-in, dolly in, stepping toward the camera, pointing gesture lost, tapping,
+jabbing, wagging the finger, repeating the gesture, fidgeting, standing up
+straight, extra arms, extra fingers, wings, background elements, particles,
+sparks, text, watermark, character drifting out of frame, cut, scene change,
+colour shift in the background, mid-blink on the last frame
 ```
