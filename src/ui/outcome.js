@@ -299,23 +299,11 @@ const PLATE_Y = {
   victory: { portrait: 0.47, landscape: 0.46 },
   defeat: { portrait: 0.4, landscape: 0.44 },
 };
-const FIGURE_H = {
-  victory: { portrait: 0.33, landscape: 0.4 },
-  defeat: { portrait: 0.37, landscape: 0.3 },
-};
+const FIGURE_H = { portrait: 0.33, landscape: 0.4 };
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
-const FIGURE_SINK = { victory: 0.04, defeat: -0.46 };
+const FIGURE_SINK = 0.04;
 
 const RETRY_DROP = { portrait: 0.9, landscape: 0.68 };
-
-const POINT = {
-  tall: { portrait: 0.28, landscape: 0.44 },
-  wide: { portrait: 0.58, landscape: 0.3 },
-  tip: 0.25,
-  hem: { lo: 0.387, hi: 0.965 },
-  overlap: 0.1,
-  air: 8,
-};
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
@@ -548,13 +536,8 @@ export class OutcomeScreen extends Container {
     this.figure.eventMode = "none";
     this.figure.visible = false;
     this.figure.alpha = 0;
-    this.figureKeys = {
-      victory: chromaKeyFilter(FIGURE_KEY.victory),
-      defeat: chromaKeyFilter(FIGURE_KEY.defeat),
-    };
-    this.figure.filters = [this.figureKeys.victory];
+    this.figure.filters = [chromaKeyFilter(FIGURE_KEY)];
     this.addChild(this.figure);
-    this.figureFor = null;
     this.figureH = 0;
 
     /* --------------------------------------------------------- the verdict */
@@ -813,10 +796,10 @@ export class OutcomeScreen extends Container {
     }
 
     this.figureH = Math.min(
-      s.h * FIGURE_H[ending][key],
-      (s.w * FIGURE_W[key]) / FIGURE_ASPECT[ending],
+      s.h * FIGURE_H[key],
+      (s.w * FIGURE_W[key]) / FIGURE_ASPECT,
     );
-    this.figure.position.set(s.cx, cy + ph * FIGURE_SINK[ending]);
+    this.figure.position.set(s.cx, cy + ph * FIGURE_SINK);
     this.fitFigure();
 
     if (this.painted) {
@@ -914,65 +897,18 @@ export class OutcomeScreen extends Container {
     const hitH = Math.max(box.h, 44);
     this.retry.hitArea = new Rectangle(-box.w / 2, -hitH / 2, box.w, hitH);
 
-    if (this.defeat) {
-      this.standByRetry(s, ui, key, retryX, this.retry.y, box, {
-        bottom: cy + ph / 2,
-        right: s.cx + pw / 2,
-      });
-    }
-
     // The card just moved. Anything still flying towards where it used to be has
     // to be told, or it will spend the next half second putting it back.
     if (this.introducing) this.settle();
   }
 
-  standByRetry(s, ui, key, x, y, box, band) {
-    const air = POINT.air * ui;
-    const foot = y - box.h / 2 + box.h * POINT.overlap;
-    const stand = (top) =>
-      Math.max(
-        44 * ui,
-        Math.min(
-          s.h * POINT.tall[key],
-          (s.w * POINT.wide[key]) / FIGURE_ASPECT.defeat,
-          foot - top,
-        ),
-      );
-    const place = (h) => {
-      const w = h * FIGURE_ASPECT.defeat;
-      const half = w / 2;
-      const left = x - box.w / 2 + air - (POINT.hem.lo - POINT.tip) * w;
-      const right = x + box.w / 2 - air - (POINT.hem.hi - POINT.tip) * w;
-      const tip = right > left ? clamp(x, left, right) : (left + right) / 2;
-      return {
-        half,
-        cx: clamp(tip + (0.5 - POINT.tip) * w, s.x + half, s.right - half),
-      };
-    };
-
-    let h = stand(s.y + air);
-    let at = place(h);
-    if (at.cx - at.half < band.right) {
-      h = stand(band.bottom + air);
-      at = place(h);
-    }
-
-    this.figureH = h;
-    this.fitFigure();
-    this.figure.position.set(at.cx, foot);
-  }
-
   fitFigure() {
-    const ending = this.defeat ? "defeat" : "victory";
-    const texture = figureTexture(ending);
+    if (this.defeat) return null;
+    const texture = figureTexture();
     if (!texture) return null;
-    if (this.figureFor !== ending) {
-      this.figureFor = ending;
-      this.figure.texture = texture;
-      this.figure.filters = [this.figureKeys[ending]];
-    }
+    if (this.figure.texture !== texture) this.figure.texture = texture;
     if (this.figureH > 0) {
-      this.figure.setSize(this.figureH * FIGURE_ASPECT[ending], this.figureH);
+      this.figure.setSize(this.figureH * FIGURE_ASPECT, this.figureH);
     }
     return texture;
   }
@@ -1204,7 +1140,7 @@ export class OutcomeScreen extends Container {
      * advance to the store card, and there is no card to advance to.
      */
     this.figure.visible = !!this.fitFigure();
-    if (this.figure.visible) startFigure(this.defeat ? "defeat" : "victory");
+    if (this.figure.visible) startFigure();
 
     this.retry.visible = this.terminal;
     this.tap.visible = false;

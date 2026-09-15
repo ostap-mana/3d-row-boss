@@ -1,23 +1,18 @@
 import { Texture, VideoSource } from "pixi.js";
 import toastUrl from "../assets/outcome/toast.mp4";
-import pointUrl from "../assets/outcome/retry.mp4";
 
-const CLIP = {
-  victory: { url: toastUrl, w: 960, h: 618 },
-  defeat: { url: pointUrl, w: 512, h: 480 },
-};
+const CLIP = { url: toastUrl, w: 960, h: 618 };
 
-export const FIGURE_ASPECT = {
-  victory: CLIP.victory.w / CLIP.victory.h,
-  defeat: CLIP.defeat.w / CLIP.defeat.h,
-};
+export const FIGURE_ASPECT = CLIP.w / CLIP.h;
 
 export const FIGURE_KEY = {
-  victory: { cut: 50 / 255, ramp: 26 / 255, spill: 1, lift: 4 / 255 },
-  defeat: { cut: 32 / 255, ramp: 18 / 255, spill: 1, lift: 6 / 255 },
+  cut: 50 / 255,
+  ramp: 26 / 255,
+  spill: 1,
+  lift: 4 / 255,
 };
 
-const clips = { victory: null, defeat: null };
+let clip = null;
 let loaded = false;
 
 function playableUrl(src) {
@@ -59,22 +54,18 @@ async function mount(url) {
 export async function loadOutcomeFigures() {
   if (loaded) return;
   loaded = true;
-  for (const ending of ["victory", "defeat"]) {
-    try {
-      clips[ending] = await mount(CLIP[ending].url);
-    } catch {
-      clips[ending] = null;
-    }
+  try {
+    clip = await mount(CLIP.url);
+  } catch {
+    clip = null;
   }
 }
 
-export function figureTexture(ending) {
-  const clip = clips[ending];
+export function figureTexture() {
   return clip ? clip.texture : null;
 }
 
-export function startFigure(ending) {
-  const clip = clips[ending];
+export function startFigure() {
   if (!clip) return;
   try {
     clip.video.currentTime = 0;
@@ -83,8 +74,7 @@ export function startFigure(ending) {
   } catch {}
 }
 
-export function stopFigure(ending) {
-  const clip = clips[ending];
+export function stopFigure() {
   if (!clip) return;
   try {
     clip.video.pause();
