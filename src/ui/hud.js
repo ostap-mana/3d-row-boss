@@ -429,6 +429,7 @@ export class Hud extends Container {
     this.barDriver = { v: 1 };
     this.chipDriver = { v: 1 };
     this.shoutToken = 0;
+    this.onShout = null;
     this.t = 0;
     /**
      * The doom strip's own frame clock, and whether it is stopped.
@@ -1112,6 +1113,7 @@ export class Hud extends Container {
    */
   async shout(text, hold, opts) {
     const o = opts || {};
+    if (this.onShout) this.onShout();
     const token = ++this.shoutToken;
     killTweensOf(this.callout);
     killTweensOf(this.callout.scale);

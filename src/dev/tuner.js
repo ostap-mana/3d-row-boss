@@ -6,6 +6,7 @@ import {
   ULT_CALL,
   ULT_PACE,
   ULT_RIM,
+  ULT_SURGE,
   WORLD_RATE,
 } from "../config.js";
 import { setWorldRate, worldRate } from "../core/juice.js";
@@ -16,7 +17,7 @@ const WIDE = "siege.tuner.wide";
 const SIZE = "siege.tuner.size";
 const ID = "siege-tuner";
 
-const ROOTS = { DIFFICULTY, DOOM, T, ULT_CALL, ULT_PACE, ULT_RIM };
+const ROOTS = { DIFFICULTY, DOOM, T, ULT_CALL, ULT_PACE, ULT_RIM, ULT_SURGE };
 
 const ULT_GEMS = 5;
 const MOVE_GEMS = 3;

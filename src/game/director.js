@@ -1276,6 +1276,7 @@ export class Director {
    */
   setCasting(on) {
     this.ultCasting = on;
+    if (on && this.s.ultSurge) this.s.ultSurge.hide();
     if (on) this.holdClock();
     else this.releaseClock();
   }
@@ -1837,10 +1838,12 @@ export class Director {
       // middle of a cascade, and nothing in a cascade waits on a hand. See
       // teachUlt, which does its own waiting, and T.ultHintIn, which is what
       // keeps the hand behind the shout rather than under it.
-      hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
-        fill: GEM_LIGHT[card.hero.element],
-        from: 1.6,
-      });
+      if (!this.surgeUlt(index)) {
+        hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
+          fill: GEM_LIGHT[card.hero.element],
+          from: 1.6,
+        });
+      }
       this.teachUlt(index);
     });
   }
@@ -3491,6 +3494,17 @@ export class Director {
 
   /* ------------------------------------------------------- the ult callout */
 
+  surgeUlt(index) {
+    const { heroRow, hud, ultSurge } = this.s;
+    if (!ultSurge || this.ended || this.ultLive || this.ultCasting)
+      return false;
+    const online = heroRow.cards.filter((c) => c.ready && !c.downed).length;
+    if (online !== 1) return false;
+    hud.hideShout();
+    ultSurge.play(index);
+    return true;
+  }
+
   callUlt(dt) {
     const { heroRow, vfx, ultRim } = this.s;
     const cfg = ULT_CALL.beckon;
@@ -3908,6 +3922,7 @@ export class Director {
     // to buy that fade its time is gone with every other wait on this path:
     // the verdict lands on the frame the fight ends. See Director.win.
     this.s.hud.hideShout(true);
+    if (this.s.ultSurge) this.s.ultSurge.hide(true);
     // Cut off by the hard cap with the boss still standing: that is a loss, and
     // calling it anything else would be the old lie in a new place.
     const outcome = this.outcome || (this.bossHp <= 0 ? "victory" : "defeat");

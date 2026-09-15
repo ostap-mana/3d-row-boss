@@ -61,6 +61,7 @@ import { StartPrompt } from "./ui/startprompt.js";
 import { CutIn } from "./fx/cutin.js";
 import { Vfx } from "./fx/vfx.js";
 import { UltRim } from "./fx/ultrim.js";
+import { UltSurge } from "./fx/ultsurge.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick, signalReady } from "./net/cta.js";
 import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
@@ -285,6 +286,7 @@ async function boot() {
     const spotlight = new Spotlight();
     coach.useSpotlight(spotlight);
     const ultRim = new UltRim();
+    const ultSurge = new UltSurge();
     const cutin = new CutIn();
     /**
      * The fight's own verdict, and the screen the run ends on.
@@ -348,7 +350,8 @@ async function boot() {
       coach,
       hand,
     );
-    overlay.addChild(ultRim, cutin, outcome, endcard, prompt);
+    overlay.addChild(ultRim, ultSurge, cutin, outcome, endcard, prompt);
+    hud.onShout = () => ultSurge.hide();
 
     Object.assign(scene, {
       bg,
@@ -362,6 +365,7 @@ async function boot() {
       spotlight,
       vfx,
       ultRim,
+      ultSurge,
       cutin,
       outcome,
       endcard,
@@ -475,6 +479,7 @@ async function boot() {
     scene.coach.resize(layout);
     scene.vfx.resize(layout);
     scene.ultRim.resize(layout);
+    scene.ultSurge.resize(layout);
     scene.cutin.resize(layout);
     scene.outcome.resize(layout);
     scene.endcard.resize(layout);

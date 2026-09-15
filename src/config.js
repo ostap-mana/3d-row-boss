@@ -2415,6 +2415,7 @@ export const COPY = {
   tutorialHold: 1.6,
   /** `{hero}` is filled in with whoever just charged. */
   ultReady: "TAP {hero}",
+  ultSurge: "ULTIMATE READY",
   victory: "VICTORY",
   /**
    * The end card wears the painted wordmark — see art/brand.js — and this is
@@ -2790,6 +2791,29 @@ export const ULT_RIM = {
   stop: 0.55,
   flash: 0.3,
   flashDur: 0.4,
+};
+
+export const ULT_SURGE = {
+  bloom: { wide: 1.5, tall: 0.46, alpha: 0.62 },
+  streak: { wide: 1.45, thick: 0.34, alpha: 1, gap: 0.18, open: 0.26 },
+  crown: {
+    licks: 3,
+    height: 1.1,
+    narrow: 0.62,
+    spread: 0.76,
+    root: 0.22,
+    fps: 15,
+    alpha: 0.95,
+  },
+  kicker: { size: 0.44, gap: 0.36, spacing: 0.26 },
+  head: { widthShare: 0.086, maxSize: 42, minSize: 18, spacing: 0.05 },
+  climb: 0.12,
+  from: 1.24,
+  fadeIn: 0.14,
+  settle: 0.3,
+  hold: 0.58,
+  fadeOut: 0.3,
+  rise: 0.14,
 };
 
 export const ULT_CALL = {
