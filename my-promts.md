@@ -1547,3 +1547,338 @@ straight, extra arms, extra fingers, wings, background elements, particles,
 sparks, text, watermark, character drifting out of frame, cut, scene change,
 colour shift in the background, mid-blink on the last frame
 ```
+
+---
+
+# Seedance JSON — камера прибита, персонаж не наближається
+
+Той самий кадр (SILANTH над плашкою RETRY, зелений фон, один дубль), але
+промпт структурований. Три дзеркальні версії: EN, 中文, UA — однакові ключі,
+однаковий зміст, міняється тільки мова значень. Ключі всюди англійські, щоб
+JSON не розсипався на бекенді; мову несуть значення.
+
+Уся статика зібрана у двох блоках — `camera` і `subject_scale_lock`. Перший
+тримає апарат, другий тримає розмір персонажа в кадрі: модель уміє не рухати
+камеру і все одно підвести фігуру ближче, а для картки, вирізаної по ключу й
+підвішеної на фіксованій висоті, це те саме, що зум. `ambiguity_rule` — щоб
+сумнівний рух не грався взагалі.
+
+Для іншого кліпу міняються тільки `subject` і `action`, решта їде як є.
+
+## EN
+
+```json
+{
+  "model": "seedance-2.5",
+  "shot": {
+    "type": "single continuous take",
+    "duration_sec": 10,
+    "fps": 24,
+    "resolution": "720p",
+    "aspect_ratio": "adaptive",
+    "cuts": "none",
+    "scene_changes": "none"
+  },
+  "camera": {
+    "camera_fixed": true,
+    "rig": "locked-off tripod, bolted to the floor, static generation",
+    "movement": "none, zero camera motion for the entire clip",
+    "zoom": "no zoom",
+    "push_in": "no push-in",
+    "pull_back": "no pull-back",
+    "pan": "no pan",
+    "tilt": "no tilt",
+    "dolly": "no dolly",
+    "truck": "no lateral track",
+    "crane": "no crane, no rise, no fall",
+    "orbit": "no orbit, no arc",
+    "roll": "no roll",
+    "handheld_shake": "no handheld shake, no float, no drift",
+    "focal_length": "fixed, never changes",
+    "framing": "the first frame and the last frame are framed identically",
+    "note": "treat the frame as a still photograph; only the arm of the subject moves inside it"
+  },
+  "subject_scale_lock": {
+    "priority": "highest, overrides every other instruction",
+    "rule": "the subject is exactly the same size on the last frame as on the first",
+    "distance_to_camera": "constant for the whole clip",
+    "head_anchor": "her head stays in the same place in the frame from the first frame to the last",
+    "forbidden": [
+      "moving closer to the camera",
+      "approaching the viewer",
+      "growing larger",
+      "growing smaller",
+      "any change of scale",
+      "stepping",
+      "walking",
+      "standing up",
+      "leaning further forward",
+      "drifting across the frame",
+      "swelling"
+    ],
+    "ambiguity_rule": "if a motion could read as either a lean or an approach, do neither and leave the body still"
+  },
+  "subject": {
+    "identity": "a gothic demon sorceress, framed from mid-thigh up",
+    "skin": "porcelain-pale",
+    "eyes": "red eyes, heavy black eye makeup",
+    "lips": "deep red",
+    "hair": "blue-black hair swept back into two round buns with small red roses",
+    "neck": "black studded choker",
+    "armour": "black and crimson plated armour, spiked pauldrons, bare midriff, red leather straps, clawed gauntlets",
+    "silhouette": "a plain human outline: no wings, no cape, nothing attached behind her back",
+    "placement": "slightly right of centre, already leaning in on the first frame"
+  },
+  "action": {
+    "timeline": [
+      {
+        "beat": 1,
+        "do": "she holds the lean she already has on frame one, head tilted, looking down at the viewer with a closed knowing half-smile, one eyebrow raised; her body makes no further movement"
+      },
+      {
+        "beat": 2,
+        "do": "only the right arm moves: the fully extended arm sweeps down and across her body in one single unhurried deliberate motion, and her straight index finger comes to rest pointing down and out past her hip, at the floor below and in front of her, and stops there"
+      },
+      {
+        "beat": 3,
+        "do": "she holds the point dead still and keeps her eyes on the viewer, letting it land; she blinks twice, both blinks completed early in the clip"
+      }
+    ],
+    "body_hold": "torso, hips, shoulders and head carry none of the gesture; her weight stays on the same hip and her free hand stays on that hip",
+    "gesture_rule": "one grand deliberate gesture, slow and theatrical; no tapping, no jabbing, no wagging, no repeat, no fidgeting",
+    "mouth": "closed the whole time, no laugh, no bared teeth",
+    "end_frame": "every movement comes to rest well before the final frames; on the last frame the arm is fully down, the finger is still straight and still pointing, there is clear empty space between the fingertip and the bottom edge, and her eyes are wide open and steady, never caught mid-blink"
+  },
+  "background": {
+    "content": "flat solid chroma green screen, completely empty",
+    "colour": "standard film key green, a mid green leaning to blue, not a bright yellow-green",
+    "uniformity": "one pure tone, identical in all four corners, no gradient, no shading, no texture",
+    "motion": "the background is perfectly still for the entire clip",
+    "excluded": ["scene", "room", "floor", "horizon", "wall", "sky", "props", "particles", "sparks", "smoke", "glow", "vignette", "cast shadow"],
+    "spill": "no green light spills onto her; her black armour stays black at the edges",
+    "edge": "her outline is crisp on every side, with no haze, no glow bleed, no motion blur"
+  },
+  "style": {
+    "look": "painted high-saturation mobile-RPG splash art, semi-realistic, high contrast",
+    "lighting": "soft even frontal key, thin hot-pink rim light drawn tight to her outline",
+    "not": "photographic, 3D render look, flat cartoon shading"
+  },
+  "consistency": {
+    "identity_lock": "her face, makeup, hair buns, roses, choker, armour, pauldron spikes and gauntlets stay identical in every frame",
+    "palette_lock": "crimson, black and hot-pink rim light, unchanged for the whole clip"
+  },
+  "negative_prompt": "camera movement, zoom, push-in, pull-back, pan, tilt, dolly, truck, crane, orbit, roll, handheld shake, cut, scene change, subject moving closer, approaching the camera, growing larger, growing smaller, scale change, stepping, walking, standing up straight, leaning further in, head leaving the frame, cropped hair buns, cropped hand, fingertip touching the bottom edge, finger leaving the frame, tapping, jabbing, wagging the finger, repeating the gesture, fidgeting, open mouth, bared teeth, laughing, wings, cape, extra arms, extra fingers, deformed hands, distorted face, text, letters, numbers, subtitles, watermark, logo, second character, background elements, particles, sparks, smoke, green spill, blur, low quality, mid-blink on the last frame"
+}
+```
+
+## 中文
+
+```json
+{
+  "model": "seedance-2.5",
+  "shot": {
+    "type": "一镜到底，单个连续镜头",
+    "duration_sec": 10,
+    "fps": 24,
+    "resolution": "720p",
+    "aspect_ratio": "自适应",
+    "cuts": "无剪辑",
+    "scene_changes": "无转场，无场景切换"
+  },
+  "camera": {
+    "camera_fixed": true,
+    "rig": "三脚架锁死的固定机位，机器钉在地上，静态生成",
+    "movement": "全程零运动，镜头完全静止",
+    "zoom": "禁止变焦",
+    "push_in": "禁止推镜",
+    "pull_back": "禁止拉镜",
+    "pan": "禁止摇镜",
+    "tilt": "禁止俯仰",
+    "dolly": "禁止移动车",
+    "truck": "禁止横移",
+    "crane": "禁止升降",
+    "orbit": "禁止环绕，禁止弧形运动",
+    "roll": "禁止旋转",
+    "handheld_shake": "禁止手持抖动，禁止漂浮，禁止游移",
+    "focal_length": "焦距固定，全程不变",
+    "framing": "第一帧与最后一帧的构图完全一致",
+    "note": "把画面当成一张静止的照片，只有人物的手臂在其中运动"
+  },
+  "subject_scale_lock": {
+    "priority": "最高优先级，高于其他所有指令",
+    "rule": "人物在画面中的大小，最后一帧与第一帧完全相同",
+    "distance_to_camera": "人物与镜头的距离全程不变",
+    "head_anchor": "从第一帧到最后一帧，她的头始终停在画面中的同一位置",
+    "forbidden": [
+      "靠近镜头",
+      "向观众走来",
+      "变大",
+      "变小",
+      "任何比例变化",
+      "迈步",
+      "行走",
+      "站起身",
+      "身体继续前倾",
+      "在画面中漂移",
+      "膨胀"
+    ],
+    "ambiguity_rule": "若某个动作既可能被理解为前倾、也可能被理解为靠近，则两者都不做，身体保持静止"
+  },
+  "subject": {
+    "identity": "哥特风恶魔女法师，构图取大腿中部以上",
+    "skin": "瓷白肌肤",
+    "eyes": "红色眼眸，浓重的黑色眼妆",
+    "lips": "深红色唇",
+    "hair": "蓝黑色头发向后束成两个圆发髻，髻上别着小红玫瑰",
+    "neck": "黑色铆钉颈环",
+    "armour": "黑色与绯红相间的板甲，带尖刺的肩甲，露腰，红色皮革绑带，利爪护手",
+    "silhouette": "普通人形轮廓：没有翅膀，没有披风，背后不附着任何东西",
+    "placement": "略偏画面右侧，第一帧就已经是前倾姿态"
+  },
+  "action": {
+    "timeline": [
+      {
+        "beat": 1,
+        "do": "她保持第一帧就有的前倾姿势，头微微侧着，居高临下地看着观众，嘴角是心知肚明的抿嘴浅笑，一边眉毛挑起；身体不再做任何位移"
+      },
+      {
+        "beat": 2,
+        "do": "只有右臂在动：完全伸直的右臂以一个从容、庄重的动作自上而下扫过身侧，笔直的食指最终停在胯部外侧的下方，指向她身前下方的地面，然后停住"
+      },
+      {
+        "beat": 3,
+        "do": "她保持这个指向纹丝不动，目光始终落在观众身上；全程只眨眼两次，且都在片头就完成"
+      }
+    ],
+    "body_hold": "躯干、胯部、肩膀和头部完全不参与这个动作；重心始终压在同一侧胯上，另一只手扶在胯上不动",
+    "gesture_rule": "只做一次，缓慢、庄重、带仪式感；不点戳，不挥手，不摇指，不重复，没有多余的小动作",
+    "mouth": "全程闭嘴，不笑出声，不露牙",
+    "end_frame": "所有动作在最后几帧之前就已停稳；最后一帧里手臂完全放下，食指依然笔直地指着，指尖与画面下边缘之间留有明显空隙，双眼完全睁开且稳定，绝不停在眨眼中间"
+  },
+  "background": {
+    "content": "纯色绿幕，画面里完全空无一物",
+    "colour": "标准影视抠像绿，偏蓝的中绿，不要偏黄的亮绿",
+    "uniformity": "单一纯色，四角颜色完全一致，无渐变，无明暗，无纹理",
+    "motion": "背景全程绝对静止",
+    "excluded": ["场景", "房间", "地板", "地平线", "墙壁", "天空", "道具", "粒子", "火花", "烟雾", "光晕", "暗角", "投影"],
+    "spill": "绿色不得溢到人物身上，她的黑色甲片边缘保持纯黑",
+    "edge": "人物轮廓四周干净锐利，无雾感，无辉光外溢，无运动模糊"
+  },
+  "style": {
+    "look": "高饱和手绘风手游立绘，半写实，高对比",
+    "lighting": "柔和均匀的正面主光，紧贴轮廓的一条亮粉色轮廓光",
+    "not": "写实摄影，3D 渲染质感，扁平卡通上色"
+  },
+  "consistency": {
+    "identity_lock": "她的脸、妆容、发髻、玫瑰、颈环、铠甲、肩甲尖刺和护手，每一帧都保持完全一致",
+    "palette_lock": "绯红、黑色与亮粉轮廓光，全程不变"
+  },
+  "negative_prompt": "镜头运动, 变焦, 推镜, 拉镜, 摇镜, 俯仰, 移动车, 横移, 升降, 环绕, 旋转, 手持抖动, 剪辑, 转场, 人物靠近镜头, 人物变大, 人物变小, 比例变化, 迈步, 走动, 站直, 继续前倾, 头部移出画面, 发髻被裁切, 手被裁切, 指尖触到画面下边缘, 手指出画, 点戳, 挥手, 摇手指, 重复动作, 多余小动作, 张嘴, 露牙, 大笑, 翅膀, 披风, 多余的手臂, 多余的手指, 手部畸形, 五官崩坏, 文字, 字母, 数字, 字幕, 水印, logo, 第二个人物, 背景物件, 粒子, 火花, 烟雾, 绿色溢出, 模糊, 低质量, 最后一帧闭眼"
+}
+```
+
+## UA
+
+```json
+{
+  "model": "seedance-2.5",
+  "shot": {
+    "type": "один безперервний дубль",
+    "duration_sec": 10,
+    "fps": 24,
+    "resolution": "720p",
+    "aspect_ratio": "адаптивне",
+    "cuts": "без склейок",
+    "scene_changes": "без зміни сцени"
+  },
+  "camera": {
+    "camera_fixed": true,
+    "rig": "камера прибита до штатива і до підлоги, статична генерація",
+    "movement": "нуль руху камери за весь кліп",
+    "zoom": "без зуму",
+    "push_in": "без наїзду",
+    "pull_back": "без відʼїзду",
+    "pan": "без панорамування",
+    "tilt": "без нахилу камери",
+    "dolly": "без візка",
+    "truck": "без бокового проїзду",
+    "crane": "без крана, без підйому, без опускання",
+    "orbit": "без обльоту, без дуги",
+    "roll": "без обертання кадру",
+    "handheld_shake": "без тремтіння з рук, без плавання, без дрейфу",
+    "focal_length": "фокусна відстань фіксована, ніколи не міняється",
+    "framing": "перший і останній кадр скомпоновані однаково",
+    "note": "кадр — це нерухоме фото, всередині нього рухається тільки рука персонажа"
+  },
+  "subject_scale_lock": {
+    "priority": "найвищий, важливіше за будь-яку іншу вказівку",
+    "rule": "на останньому кадрі персонаж рівно того самого розміру, що й на першому",
+    "distance_to_camera": "відстань до камери незмінна весь кліп",
+    "head_anchor": "її голова лишається на тому самому місці кадру від першого кадру до останнього",
+    "forbidden": [
+      "наближатися до камери",
+      "йти на глядача",
+      "більшати",
+      "меншати",
+      "будь-яка зміна масштабу",
+      "крок",
+      "хода",
+      "випрямлятися",
+      "нахилятися ще далі вперед",
+      "дрейфувати по кадру",
+      "роздуватися"
+    ],
+    "ambiguity_rule": "якщо рух можна прочитати і як нахил, і як наближення — не роби жодного, тримай тіло нерухомим"
+  },
+  "subject": {
+    "identity": "готична демонеса-чаклунка, кадр від середини стегна і вище",
+    "skin": "порцеляново-бліда шкіра",
+    "eyes": "червоні очі, важкий чорний макіяж",
+    "lips": "темно-червоні губи",
+    "hair": "синьо-чорне волосся, зібране у два круглі пучки з маленькими червоними трояндами",
+    "neck": "чорний шипований чокер",
+    "armour": "чорно-кармінова пластинчаста броня, шиповані наплічники, відкритий живіт, червоні шкіряні ремені, кігтисті рукавиці",
+    "silhouette": "звичайний людський силует: без крил, без плаща, за спиною не висить нічого",
+    "placement": "трохи правіше центру, вже нахилена вперед на першому кадрі"
+  },
+  "action": {
+    "timeline": [
+      {
+        "beat": 1,
+        "do": "вона тримає той нахил, який має вже на першому кадрі: голова схилена набік, дивиться зверху вниз на глядача, закрита посмішка «я все розумію», одна брова піднята; тіло більше нікуди не зміщується"
+      },
+      {
+        "beat": 2,
+        "do": "рухається лише права рука: повністю випростана рука одним неквапливим урочистим рухом іде вниз і впоперек тіла, і прямий вказівний палець зупиняється, показуючи вниз і вбік за стегно, на підлогу перед нею — і завмирає там"
+      },
+      {
+        "beat": 3,
+        "do": "вона тримає цей жест абсолютно нерухомо і не зводить очей з глядача; кліпає двічі, обидва кліпання закінчуються на початку кліпу"
+      }
+    ],
+    "body_hold": "торс, стегна, плечі й голова не беруть участі в жесті; вага лишається на тій самій нозі, вільна рука лежить на стегні й не рухається",
+    "gesture_rule": "один великий свідомий жест, повільний і театральний; ніякого тицяння, махання, хитання пальцем, повторів і метушні",
+    "mouth": "рот закритий увесь час, без сміху, без оскалу",
+    "end_frame": "усі рухи зупиняються задовго до останніх кадрів; на останньому кадрі рука повністю опущена, палець так само прямий і так само показує, між кінчиком пальця і нижнім краєм кадру є чиста порожнеча, очі широко розплющені й спокійні — ніколи не спіймані посеред кліпання"
+  },
+  "background": {
+    "content": "рівний суцільний зелений хромакей, абсолютно порожній",
+    "colour": "стандартний кіношний зелений ключ, середній зелений із нахилом у синій, не яскравий жовто-зелений",
+    "uniformity": "один чистий тон, однаковий у всіх чотирьох кутах, без градієнта, без затінення, без текстури",
+    "motion": "фон абсолютно нерухомий весь кліп",
+    "excluded": ["сцена", "кімната", "підлога", "горизонт", "стіна", "небо", "реквізит", "частинки", "іскри", "дим", "сяйво", "віньєтка", "тінь від фігури"],
+    "spill": "зелене світло не лягає на неї, її чорна броня по краях лишається чорною",
+    "edge": "її контур чіткий з усіх боків, без серпанку, без розтікання світла, без моушн-блюру"
+  },
+  "style": {
+    "look": "мальоване високонасичене сплеш-арт для мобільної RPG, напівреалістично, високий контраст",
+    "lighting": "мʼяке рівне фронтальне ключове світло, тонкий гарячо-рожевий контровий кант щільно по контуру",
+    "not": "фотографічність, вигляд 3D-рендера, пласке мультяшне затінення"
+  },
+  "consistency": {
+    "identity_lock": "її обличчя, макіяж, пучки, троянди, чокер, броня, шипи наплічників і рукавиці однакові в кожному кадрі",
+    "palette_lock": "кармін, чорне і гарячо-рожевий контровий кант — незмінно весь кліп"
+  },
+  "negative_prompt": "рух камери, зум, наїзд, відʼїзд, панорама, нахил камери, візок, боковий проїзд, кран, обліт, обертання кадру, тремтіння з рук, склейка, зміна сцени, персонаж наближається, йде на камеру, більшає, меншає, зміна масштабу, крок, хода, випрямляється, нахиляється ще далі, голова виходить за кадр, обрізані пучки волосся, обрізана рука, кінчик пальця торкається нижнього краю, палець виходить за кадр, тицяння, махання, хитання пальцем, повтор жесту, метушня, відкритий рот, оскал, сміх, крила, плащ, зайві руки, зайві пальці, спотворені руки, спотворене обличчя, текст, літери, цифри, субтитри, водяний знак, лого, другий персонаж, елементи фону, частинки, іскри, дим, зелений спіл, розмиття, низька якість, кліпання на останньому кадрі"
+}
+```
