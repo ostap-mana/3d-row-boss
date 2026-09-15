@@ -1481,3 +1481,134 @@ a hold.
 `spurnUrl` and `spurnFrames()` back in `src/art/toast.js`, `figureFrames()`
 back in `OutcomeScreen`, and `src/ui/outcome.js:1140` off `!this.defeat`. The
 slot, the sink, the size cap and the 9fps playback are already shared.
+
+---
+
+# DEFEAT — VOID ECLIPSE over the word
+
+The loss card has nothing moving on it. The win gets `fx/fireworks.js` — a pool
+of Lottie bursts that keeps opening over the board — and the loss gets a red
+bloom that fades up once and then sits there. The card that asks for a rematch
+is the quieter of the two, which is backwards.
+
+## The idea
+
+Cast SILANTH's own ultimate on the verdict instead of on a hero. VOID ECLIPSE
+is a ring of violet runes that opens and collapses inward, and DEFEAT is the
+one word on the screen that deserves to have the light taken off it.
+
+It is the fireworks inverted on every axis, which is the whole argument for it:
+bursts go outward, this goes inward; gold, this is violet into black; many
+small events forever, this is one slow event that lands once and is over.
+
+Three beats, about 1.7 seconds end to end:
+
+1. **The ring opens.** Behind the band, centred on the word, a thin ring of
+   violet runes fades in — wider than the band, so its rim stands outside the
+   word at both ends.
+2. **It collapses.** The ring contracts toward the centre and dims, dragging
+   thin wisps inward with it. The runes go out one after another, not together.
+3. **The ash falls.** What is left drops past the band as a few slow motes and
+   fades. The card is still again before the hand reaches RETRY.
+
+And it ties the figure in: the same violet that kills the drink in her glass is
+what closes over the word. Her wrist turns over, the ring collapses half a beat
+later. One cast, two places on the screen.
+
+## The rules it has to obey
+
+**Greyscale on black, `add` blend, tinted at runtime.** The same trade every
+sheet in `src/assets/fx` makes — see the head of `art/readyfx.js`. The tint is
+ARCANE's own violet, `0xdcb0ff` out of `art/plates.js`, not a new colour.
+
+**The core stays black.** On `add`, black is free transparency, so a ring whose
+middle is empty is a ring the word shines straight through. That is the whole
+reason this can sit behind DEFEAT at all: no veil, no halo, no second edge on
+the letters. Any frame with fog in the middle is a frame that greys the word.
+
+**It lives in the band's box, widened sideways only.** Nothing above the band,
+nothing down where the RETRY plate is. The loss card's one job is to get the
+thumb onto that plate.
+
+**It plays once.** A loop would turn the rematch prompt into a screensaver.
+
+## The first frame
+
+Flux, 704x400, pure black ground — this is the plate Wan animates.
+
+```
+A thin ring of glowing violet arcane runes on a pure black background, drawn as
+a flat wide ellipse seen almost edge on, the ring made of small angular rune
+glyphs and a fine bright rim. The centre of the ring is completely empty black.
+No fog, no haze, no smoke, no glow inside the ring, no background, no texture,
+no floor, nothing but the ring and black. Bright violet on black, high
+contrast, clean edges, game VFX sheet, no text, no watermark.
+```
+
+## The motion
+
+Wan 2.2 TI2V-5B, the same local setup as the defeat figure: 704x400, 33 frames,
+30 steps, uni_pc/simple, cfg 6.5, shift 8, and `--disable-smart-memory` on the
+ComfyUI launch. Start frame: the plate above.
+
+Positive:
+
+```
+A thin ring of glowing violet arcane runes on pure black. The ring fades in
+brighter, then contracts slowly inward toward its own centre and dims as it
+goes, the rune glyphs going out one after another rather than all at once, thin
+wisps of violet light dragged inward behind them. The centre of the ring stays
+completely empty black the whole time. At the end a few small violet motes
+drift down past the bottom edge and fade out. Locked static camera, no camera
+movement. The background is pure flat black, completely empty, and nothing is
+ever lit except the ring itself. Bright violet on black, high contrast, clean
+edges, game VFX sheet.
+```
+
+Negative:
+
+```
+text, letters, numbers, watermark, logo, signature, character, person, hands,
+face, camera movement, zoom, pan, tilt, orbit, shake, cut, scene change, fog,
+haze, smoke, mist, volumetric light, glow filling the centre, lens flare,
+bloom over the whole frame, grey background, dark grey, navy, coloured
+background, floor, horizon, scenery, props, blur, low quality
+```
+
+The negative earns its length here for once: every failure mode of a VFX plate
+is the model lighting the empty middle, and on an additive sheet the empty
+middle is the feature.
+
+## Packing it
+
+```
+ffmpeg -framerate 24 -i output/eclipse/v1/f_%05d_.png -c:v libx264 -crf 12 \
+  -pix_fmt yuv420p eclipse-v1.mp4
+
+node tools/pack-video-sheet.mjs eclipse-v1.mp4 \
+  --crop 704:352:0:24 --frames 20 --cols 4 --cell 384 \
+  --key 000000 --similarity 0.02 --blend 0 \
+  --out src/assets/outcome/eclipse.webp
+```
+
+No `--flood` and a hard black key. Flood is for a chroma plate with a subject
+to cut out of it; this has no subject and no pockets, and only pure black
+should go. `--similarity 0.02 --blend 0` rather than the 0.14 default because
+at 0.14 the dim violet at the end of the collapse is close enough to black to
+be keyed away, and the tail of the effect is the part that has to survive.
+
+`--crop 704:352:0:24` makes the cell 2:1, which is roughly the band widened,
+so the sheet does not pay for air above and below the ring.
+
+## Wiring it
+
+An `Eclipse` container in `src/fx/`, built the way `fx/fireworks.js` is but far
+simpler — no pool, no queue, one sprite stepping one sheet once. Added to
+`OutcomeScreen` in the same place the fireworks are, which puts it under the
+band and the word and over the darkened room. Sized and positioned off the same
+box the bloom is hung on, so it follows the band at every layout.
+
+It starts where the win's does — `src/ui/outcome.js:1295`, the line that reads
+`if (!this.defeat) this.fireworks.start();`, which becomes the fork that gives
+each ending its own effect. `clear()` on the way out, like the fireworks, or a
+second loss plays two eclipses over one another.
