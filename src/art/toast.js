@@ -1,7 +1,6 @@
 import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import toastUrl from "../assets/outcome/toast.webp";
-import spurnUrl from "../assets/outcome/spurn.webp";
 
 const SHEET = { cols: 5, cellW: 320, cellH: 206, pad: 2, count: 20 };
 
@@ -9,14 +8,15 @@ export const TOAST_ASPECT = SHEET.cellW / SHEET.cellH;
 export const TOAST_FPS = 9;
 export const TOAST_COUNT = SHEET.count;
 
-let toast = null;
-let spurn = null;
+let frames = null;
 let loaded = false;
 
-async function cutSheet(url) {
+export async function loadToastArt() {
+  if (loaded) return frames;
+  loaded = true;
   try {
     const img = new Image();
-    img.src = url;
+    img.src = toastUrl;
     await img.decode();
     const c = document.createElement("canvas");
     c.width = img.width;
@@ -38,23 +38,13 @@ async function cutSheet(url) {
         }),
       );
     }
-    return out;
+    frames = out;
   } catch {
-    return null;
+    frames = null;
   }
-}
-
-export async function loadToastArt() {
-  if (loaded) return toast;
-  loaded = true;
-  [toast, spurn] = await Promise.all([cutSheet(toastUrl), cutSheet(spurnUrl)]);
-  return toast;
+  return frames;
 }
 
 export function toastFrames() {
-  return toast;
-}
-
-export function spurnFrames() {
-  return spurn;
+  return frames;
 }

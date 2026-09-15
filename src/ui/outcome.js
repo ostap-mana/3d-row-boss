@@ -101,12 +101,7 @@ import {
   retryPlateSprite,
 } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
-import {
-  toastFrames,
-  spurnFrames,
-  TOAST_ASPECT,
-  TOAST_FPS,
-} from "../art/toast.js";
+import { toastFrames, TOAST_ASPECT, TOAST_FPS } from "../art/toast.js";
 import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -895,12 +890,8 @@ export class OutcomeScreen extends Container {
     if (this.introducing) this.settle();
   }
 
-  figureFrames() {
-    return this.defeat ? spurnFrames() : toastFrames();
-  }
-
   fitToast() {
-    const frames = this.figureFrames();
+    const frames = toastFrames();
     if (!frames) return null;
     if (!this.toastArmed) {
       this.toastArmed = true;
@@ -914,7 +905,7 @@ export class OutcomeScreen extends Container {
 
   playToast(dt) {
     if (!this.toast.visible) return;
-    const frames = this.figureFrames();
+    const frames = toastFrames();
     if (!frames) return;
     this.toastAt = Math.min(frames.length - 1, this.toastAt + dt * TOAST_FPS);
     this.toast.texture = frames[this.toastAt | 0];
@@ -1146,9 +1137,9 @@ export class OutcomeScreen extends Container {
      * transparent. The tap line is off on both — it asked for a tap that used to
      * advance to the store card, and there is no card to advance to.
      */
-    this.toast.visible = !!this.fitToast();
+    this.toast.visible = !this.defeat && !!this.fitToast();
     this.toastAt = 0;
-    if (this.toast.visible) this.toast.texture = this.figureFrames()[0];
+    if (this.toast.visible) this.toast.texture = toastFrames()[0];
 
     this.retry.visible = this.terminal;
     this.tap.visible = false;
