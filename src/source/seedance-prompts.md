@@ -144,7 +144,7 @@ painted 3D mobile-RPG game art, semi-realistic, warm rim lighting, high contrast
 феєрверки йдуть тим самим шляхом, що й усі шити в `src/assets/fx` — **світле по
 чистому чорному, бленд `add`, альфи немає взагалі.** На `add` чорне і є
 прозорість, тож ключ не потрібен: фон гасне сам, а хвіст зберігає кожен
-напівтон. Див. шапку `art/readyfx.js` і кільце в `silanth-defeat.md`.
+напівтон. Див. шапку `art/readyfx.js`.
 
 Звідси все, що в промті написано двічі: **ніякого диму, серпанку, туману,
 атмосферного світіння, bloom на весь кадр, вінєтки і grain.** Будь-що з цього
@@ -215,8 +215,8 @@ A single firework against pure black. An ember rises and bursts into a clean fla
 
 ### Що з цим робити далі
 
-Кадр чорний, тому пакується не `pack-clip`, а шитом з жорстким чорним ключем —
-як кільце Сіланф:
+Кадр чорний, тому пакується не `pack-clip`, а шитом з жорстким чорним ключем,
+як і всі інші шити в `src/assets/fx`:
 
 ```
 node tools/pack-video-sheet.mjs fireworks-v1.mp4 \
