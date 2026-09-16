@@ -21,7 +21,7 @@ import {
   SPELL_TRAVEL_LAST,
   spellFrames,
 } from "../art/spells.js";
-import { RAKE_ASPECT, rakeFrames } from "../art/rake.js";
+import { RAKE_ASPECT, rakeFrameAt, rakeFrames } from "../art/rake.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
@@ -1319,6 +1319,14 @@ export class Vfx extends Container {
    * `boss.rake()` says the body actually travelled to — marks torn against it
    * are two effects playing at once rather than one attack. The drawn gashes
    * below are the fallback for when that sheet never arrived.
+   *
+   * Three sprites on one frame, and the order is the whole trick. The arena is
+   * a bright sky and the drawing's gashes are darker than it, so the sheet is
+   * laid on the normal blend and a shadow goes under it: additively, a dark
+   * mark has nothing to add and disappears, which is what the first pass of
+   * this did. The third sprite is the same frame again on add, and it finds
+   * only the gold rims and the cyan wash, because those are the only parts with
+   * anything left to give. Painted tear, then the heat off it.
    */
   claw(x, y, color, opts) {
     const o = opts || {};
@@ -1334,17 +1342,39 @@ export class Vfx extends Container {
       swipe.scale.x = dir > 0 ? -1 : 1;
       this.field.addChild(swipe);
 
-      const s = new Sprite(painted[0]);
-      s.anchor.set(0.5);
-      s.blendMode = "add";
-      swipe.addChild(s);
+      const wide = len;
+      const tall = wide / RAKE_ASPECT;
 
-      return tweenValue(0, 1, o.duration || 0.52, (p) => {
-        s.texture =
-          painted[Math.min(painted.length - 1, (p * painted.length) | 0)];
-        const w = len * (1 + p * 0.08);
-        s.setSize(w, w / RAKE_ASPECT);
-        s.alpha = p < 0.78 ? 1 : 1 - (p - 0.78) / 0.22;
+      const bed = new Sprite(glowTexture());
+      bed.anchor.set(0.5);
+      bed.blendMode = "multiply";
+      bed.tint = 0x4a2a55;
+      bed.alpha = 0;
+      bed.setSize(wide * 0.94, tall * 1.2);
+      swipe.addChild(bed);
+
+      const tear = new Sprite(painted[0]);
+      tear.anchor.set(0.5);
+      swipe.addChild(tear);
+
+      const heat = new Sprite(painted[0]);
+      heat.anchor.set(0.5);
+      heat.blendMode = "add";
+      swipe.addChild(heat);
+
+      return tweenValue(0, 1, o.duration || 1.15, (p) => {
+        const frame = painted[rakeFrameAt(p)];
+        tear.texture = frame;
+        heat.texture = frame;
+
+        const grow = 0.93 + p * 0.15;
+        tear.setSize(wide * grow, tall * grow);
+        heat.setSize(wide * grow * 1.05, tall * grow * 1.05);
+
+        const out = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
+        tear.alpha = out;
+        heat.alpha = out * 0.62;
+        bed.alpha = Math.min(1, p / 0.07) * out * 0.55;
       }).then(() => swipe.destroy({ children: true }));
     }
 
