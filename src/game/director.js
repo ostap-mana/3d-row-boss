@@ -890,14 +890,19 @@ export class Director {
    * guard is a schedule and not a hide — it is the thing holding time-to-kill
    * to DIFFICULTY.pace.seconds whatever the player does — and bending an
    * ultimate against it would be charging the player twice for the same lead.
+   *
+   * It is also floored at DIFFICULTY.pace.ultFloor, which is the guard being
+   * told the difference between a match and a cast. See the note on that field:
+   * at pace.floor an ultimate paid three points of a hundred-point bar, which is
+   * less than the match that charged it.
    */
   ultResistance() {
     const bite = DIFFICULTY.ultHideBite;
     const hide = this.armor();
     const shaped = this.curveAt("ult", this.wounds(), 1);
-    return (
-      (bite === undefined ? hide : Math.pow(hide, bite)) * this.pace() * shaped
-    );
+    const guard = DIFFICULTY.pace;
+    const grip = Math.max(this.pace(), (guard && guard.ultFloor) || 0);
+    return (bite === undefined ? hide : Math.pow(hide, bite)) * grip * shaped;
   }
 
   /**
@@ -3166,9 +3171,10 @@ export class Director {
     // biggest number in the fight and ends the run worth a twentieth of the
     // bar, because the last quarter was asked for as a grind that ultimates do
     // not rescue.
+    const billed = Math.max(cleared, DIFFICULTY.ultGemFloor || 0);
     const total =
       (DIFFICULTY.ultDamage +
-        cleared * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
+        billed * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
       this.ultResistance();
     // Cast into a fight the boss has already won: the light show plays out,
     // the damage does not. Same rule the cascade runs on — see resolveMove.

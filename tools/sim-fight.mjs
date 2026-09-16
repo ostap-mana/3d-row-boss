@@ -48,7 +48,8 @@ function run({ cells, combo, ultAfter, cap = 12 }) {
       const raw =
         DIFFICULTY.ultDamage +
         5 * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier;
-      const u = raw * Math.pow(a, DIFFICULTY.ultHideBite) * pace(hp, t);
+      const grip = Math.max(pace(hp, t), DIFFICULTY.pace.ultFloor || 0);
+      const u = raw * Math.pow(a, DIFFICULTY.ultHideBite) * grip;
       hp = Math.max(0, hp - u);
       ults++;
       t += ULT_CAST;

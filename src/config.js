@@ -441,9 +441,21 @@ export const DIFFICULTY = {
    * under 0.15 and the ultimate stops being worth the two seconds its cut-in
    * costs on T.hardCap, at which point the correct play is never to cast the
    * feature the creative is selling.
+   *
+   * `ultGemFloor` is that arithmetic being made true in the field. Two thirds of
+   * the bar is what a cast is worth when the wipe finds the five gems this sum
+   * has always been written against, and driven over CDP it found none at all on
+   * three casts out of five: charging a hero IS matching their colour, so the
+   * card that comes online is reliably the colour the board has least of, and a
+   * full charge bar billed out as the flat chunk alone. Four is the board's own
+   * fair share of one element and the number that closes the gap between this
+   * file and tools/sim-fight.mjs, which has always billed five. It is a floor
+   * under the bill and not a change to it — a wipe that really eats five or six
+   * is paid for all of them, exactly as before.
    */
   ultDamage: 0.24,
   ultGemMultiplier: 0.9,
+  ultGemFloor: 4,
   /**
    * How much harder the boss's hide bites an ULTIMATE than it bites a match.
    *
@@ -1326,6 +1338,18 @@ export const DIFFICULTY = {
    * which is why a floor exists at all. 0.12 is deliberately the shallowest
    * setting that gets the six — 0.10 and 0.08 buy nothing the sim can see.
    *
+   * `ultFloor` is the one thing the guard is not allowed to do at 0.12, and it
+   * is a third dial. A match is free and an ultimate is a full charge bar and a
+   * three second cut-in, so scaling both to an eighth is not one rule applied
+   * evenly — driven over CDP a cast landed for three points of a hundred point
+   * bar, less than the match that charged it, which is the shape of the bug
+   * this answers rather than a tuning opinion. Floored at 0.3 the same cast
+   * pays eleven to nineteen, comfortably more than any match beside it, and the
+   * guard still owns the grind: the sim's brackets stay on six and seven.
+   * Past 0.4 they do not — 0.5 puts two of them on five and four — so this is
+   * the most the ultimate can be given without buying back the run length the
+   * floor above was lowered to protect.
+   *
    * Not a difficulty knob in either direction, whatever it is set to. The
    * guard has never touched a player who is behind the line — it only ever
    * clamps somebody already winning faster than the schedule.
@@ -1378,6 +1402,7 @@ export const DIFFICULTY = {
     seconds: 23,
     bite: 3,
     floor: 0.12,
+    ultFloor: 0.3,
   },
 
   /**
