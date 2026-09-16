@@ -36,6 +36,7 @@ import { canvasTexture } from "./textures.js";
 import victoryUrl from "../assets/outcome/victory-band.webp";
 import defeatUrl from "../assets/outcome/defeat-band.webp";
 import lineUrl from "../assets/outcome/ornament-line.webp";
+import starsUrl from "../assets/outcome/stars.webp";
 
 /**
  * Natural size of a verdict banner — a transcript of what the packer prints.
@@ -47,6 +48,17 @@ import lineUrl from "../assets/outcome/ornament-line.webp";
 export const VERDICT_ART = { w: 816, h: 266 };
 
 export const LINE_ART = { w: 438, h: 29 };
+
+/**
+ * Natural size of the three stars over the win.
+ *
+ * Tight to its ink, which is the one thing that separates it from everything
+ * else in this module: it arrived on a 1433x1098 canvas with the stars sitting
+ * in 1309x775 of it, and the empty margin was cropped off before the packer saw
+ * it. So this box is the picture, and a card can hang the sprite off an edge of
+ * it without measuring empty air. See tools/pack-outcome-ui.mjs.
+ */
+export const STARS_ART = { w: 1309, h: 775 };
 
 /**
  * The banner's gold, sampled off its hairline.
@@ -63,6 +75,7 @@ export const PLATE_FILL = 0x101c33;
 let victoryTexture = null;
 let defeatTexture = null;
 let lineTexture = null;
+let starsTexture = null;
 
 async function decode(url) {
   const img = new Image();
@@ -76,7 +89,7 @@ async function decode(url) {
 }
 
 /**
- * Decode all three before the card is built.
+ * Decode all four before the card is built.
  *
  * Never rejects, and not all-or-nothing: each is caught on its own, so a device
  * that cannot read one still gets the others, and one that can read none of them
@@ -103,6 +116,9 @@ export async function loadOutcomeUi() {
     }),
     into(lineUrl, (t) => {
       lineTexture = t;
+    }),
+    into(starsUrl, (t) => {
+      starsTexture = t;
     }),
   ]);
 }
@@ -141,6 +157,17 @@ export function lineSprite() {
 }
 
 /**
+ * The three stars, centred on their own origin, or null if they never decoded.
+ *
+ * Null is a real answer and the card treats it as one: the stars are a flourish
+ * over a verdict that already reads without them, so there is no drawn stand-in
+ * behind this the way there is behind the band.
+ */
+export function starsSprite() {
+  return sprite(starsTexture);
+}
+
+/**
  * Size a verdict banner to `w`, at its own aspect. The only height it may take.
  *
  * Returns that height, because the card hangs the bloom behind the banner off
@@ -155,6 +182,13 @@ export function fitVerdict(s, w) {
 /** Size the hairline to `w`, at its own aspect. The only height it may take. */
 export function fitLine(s, w) {
   const h = (w * LINE_ART.h) / LINE_ART.w;
+  s.setSize(w, h);
+  return h;
+}
+
+/** Size the stars to `w`, at their own aspect. Returns the height that implies. */
+export function fitStars(s, w) {
+  const h = (w * STARS_ART.h) / STARS_ART.w;
   s.setSize(w, h);
   return h;
 }

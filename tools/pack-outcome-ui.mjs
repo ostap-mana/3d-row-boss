@@ -58,8 +58,14 @@
  * the config and silently turns `lossless` back off. `pix_fmt` on the output is
  * how to tell: `argb` is lossless, `yuva420p` is not.
  *
- * Nothing is trimmed. The plate's fade to nothing at each end is the art, and a
- * trim to the ink would cut it off; the line's own ends do the same thing.
+ * Nothing is trimmed HERE. The plate's fade to nothing at each end is the art,
+ * and a trim to the ink would cut it off; the line's own ends do the same thing.
+ * `stars` is the exception and it was trimmed before it arrived: it came off a
+ * 1433x1098 canvas with the three stars sitting in 1309x775 of it, and a sprite
+ * whose box is half empty air cannot be positioned against anything. It is
+ * tight to its ink, so its box IS its picture. The delivery carries its own
+ * alpha channel, so the crop to that channel's bounds is the whole of the
+ * preparation; see tools/cut-bg.mjs --trim for a delivery that does not.
  *
  * ffmpeg is the only dependency, and only to decode and encode, as everywhere
  * else in this folder.
@@ -114,6 +120,7 @@ const CUTS = [
   { key: "victory-band", src: "victory-band.png", width: 0, quality: 92 },
   { key: "defeat-band", src: "defeat-band.png", width: 0, quality: 92 },
   { key: "ornament-line", src: "ornament-line.png", width: 0, lossless: true },
+  { key: "stars", src: "stars.png", width: 0, quality: 92 },
 ];
 
 /* ------------------------------------------------------------------- ffmpeg */
@@ -308,7 +315,11 @@ console.log("     for art/outcomeui.js:");
  * shouting about here rather than finding out about as a squashed word on a
  * phone. VERDICT_ART is a single aspect and cannot describe two.
  */
-const NAMES = { "victory-band": "VERDICT_ART", "ornament-line": "LINE_ART" };
+const NAMES = {
+  "victory-band": "VERDICT_ART",
+  "ornament-line": "LINE_ART",
+  stars: "STARS_ART",
+};
 packed.forEach((p) => {
   if (p.key === "defeat-band") {
     const v = packed.find((q) => q.key === "victory-band");

@@ -86,8 +86,10 @@ import {
   VERDICT_ART,
   aimVerdict,
   fitLine,
+  fitStars,
   fitVerdict,
   lineSprite,
+  starsSprite,
   verdictSprite,
 } from "../art/outcomeui.js";
 import {
@@ -320,6 +322,31 @@ const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
 const LINE_W = { portrait: 0.44, landscape: 0.26 };
+
+/**
+ * How wide the three stars are drawn, as a share of the safe box, and the air
+ * left under them before whatever stands next.
+ *
+ * 0.42 puts them at a little under half the verdict's width, which is the
+ * proportion that reads as a mark on the card rather than as a second headline
+ * over it. The art is 1.69:1, so that comes back about a quarter of the band's
+ * height — upright that leaves the PLAY NOW plate sitting about ten points
+ * clear of the hero row, which is the margin this number is really spending.
+ *
+ * ONE NUMBER, BECAUSE THEY ARE UPRIGHT ONLY. That is not a placement that was
+ * not found, it is an absence of room, and it was measured rather than guessed:
+ * laid on its side at 932x430 the safe box is 334 tall, the band runs from 107
+ * to 200 of it, and the hero row starts at 209. There are nine points under the
+ * band and the row owns them — hung there anyway the stars covered the party
+ * outright and drove the button off the bottom of the screen. Above the band is
+ * no better: the figure stands from 23 to 157 and the band's own top edge is at
+ * 107, so the only clear air sideways is air the character is already using.
+ *
+ * So the sprite is still fitted on every layout — a rotation back has to find
+ * it the right size — and `starsUp` is what decides whether it is on screen.
+ */
+const STARS_W = 0.42;
+const STARS_AIR = 10;
 
 /**
  * The RETRY control — an offer of width and a ceiling on height, and nothing
@@ -589,6 +616,26 @@ export class OutcomeScreen extends Container {
     this.verdict = verdictSprite(false);
     if (this.verdict) this.card.addChild(this.verdict);
 
+    /**
+     * The three stars over the win, and null on a device that could not decode
+     * them.
+     *
+     * A child of the card, so the stamp the intro puts on the verdict carries
+     * them in with it rather than leaving them hanging still beside a box that
+     * is moving. The extra alpha of their own is what keeps them a beat behind
+     * the word: the verdict lands first and the mark arrives on it, which is the
+     * order the two things happen in.
+     *
+     * Only ever up on a win. There is no defeat face for this and there should
+     * not be one — three stars over DEFEAT is a scoreboard, and this card is
+     * not keeping score. See `aim`.
+     */
+    this.stars = starsSprite();
+    if (this.stars) {
+      this.stars.alpha = 0;
+      this.card.addChild(this.stars);
+    }
+
     /** Whether the banner is showing the ending it was asked for. See `aim`. */
     this.painted = false;
 
@@ -829,6 +876,26 @@ export class OutcomeScreen extends Container {
       this.word.position.set(0, 0);
     }
 
+    /* ----------------------------------------------------------- the stars */
+
+    /**
+     * Hung off the band's own bottom edge, in the card's coordinates, so the
+     * two move as one thing on every screen — `ph` is the height the banner
+     * just took, and this is the only place it has to be read.
+     *
+     * Solved on every layout and not only on a win, for the same reason the
+     * retry below is: a rotation arrives whenever it likes, and a sprite fitted
+     * only on the frame it was shown is the wrong size for the rest of the run.
+     * What the ending decides is not the fit but the room — see `starsRoom`.
+     */
+    let starsH = 0;
+    if (this.stars) {
+      starsH = fitStars(this.stars, s.w * STARS_W);
+      this.stars.position.set(0, ph / 2 + STARS_AIR * ui + starsH / 2);
+      this.stars.visible = this.starsUp();
+    }
+    const starsRoom = this.starsUp() ? starsH + STARS_AIR * ui : 0;
+
     // Off the word's own extent inside the banner rather than off the whole of
     // it: the bloom is a lamp behind the verdict, and a banner fades to nothing
     // at both ends — a glow measured off the full width would be a wash across
@@ -888,7 +955,9 @@ export class OutcomeScreen extends Container {
     const rowLeft = layout.cards.x;
     const rowRight = rowLeft + layout.cards.w;
     const overRow = retryX > rowLeft && retryX < rowRight;
-    const roof = cy + ph / 2 + air;
+    // The stars stand between the band and the button on a win, so the room
+    // the button is centred in starts under them rather than under the band.
+    const roof = cy + ph / 2 + air + starsRoom;
     const sill = (overRow ? layout.cards.y : s.bottom) - air;
     // A floor under the room as well as a ceiling: a window short enough to
     // leave the band and the row touching gets a small button rather than an
@@ -1090,10 +1159,21 @@ export class OutcomeScreen extends Container {
    * banner that decodes and a defeat one that does not. So it is asked again on
    * every show rather than settled once here.
    */
+  /**
+   * Whether the stars belong on screen at all: a win, upright, and a decode
+   * that answered. See STARS_W for why the orientation is in here.
+   */
+  starsUp() {
+    return (
+      !!this.stars && !this.defeat && !!(this.layout && this.layout.portrait)
+    );
+  }
+
   aim() {
     this.painted = this.verdict ? aimVerdict(this.verdict, this.defeat) : false;
     if (this.verdict) this.verdict.visible = this.painted;
     this.word.visible = !this.painted;
+    if (this.stars) this.stars.visible = this.starsUp();
   }
 
   /**
@@ -1295,6 +1375,8 @@ export class OutcomeScreen extends Container {
     tween(this.bloom, { alpha: this.defeat ? 0.3 : 0.42 }, 0.5, { delay: 0.1 });
     if (this.figure.visible)
       tween(this.figure, { alpha: 1 }, 0.4, { delay: 0.1 });
+    // A beat behind the stamp: the verdict lands, and the mark arrives on it.
+    if (this.starsUp()) tween(this.stars, { alpha: 1 }, 0.3, { delay: 0.34 });
 
     await delay(0.62);
     if (!this.introducing) return done;
@@ -1329,6 +1411,10 @@ export class OutcomeScreen extends Container {
     if (this.figure.visible) {
       killTweensOf(this.figure);
       this.figure.alpha = 1;
+    }
+    if (this.starsUp()) {
+      killTweensOf(this.stars);
+      this.stars.alpha = 1;
     }
     [this.card, this.tap, this.retry].forEach((el) => {
       killTweensOf(el);
