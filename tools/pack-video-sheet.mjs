@@ -14,6 +14,12 @@ pack-video-sheet — a green-screen clip into one sprite sheet.
   --crop <w:h:x:y>  crop the source before scaling, so a subject adrift in a
                   wide frame fills its cell instead of paying for empty air.
                   The cell's height then follows the crop's aspect.
+  --opaque        no key and no alpha at all: the sheet ships as flat RGB on
+                  black, for a flipbook that goes on with the add blend, where
+                  black already is transparency. Roughly a third of the size
+                  of the same frames keyed, because a lossy webp with an
+                  alpha plane pays for the plane in full. Ignores --key and
+                  --flood.
   --key <hex>     the colour to knock out. Default: sampled from the first
                   frame's top-left pixel.
   --similarity    how far from that colour still counts as background,
@@ -65,9 +71,10 @@ if (!existsSync(input)) {
 const want = Math.max(1, Math.round(Number(flag("frames", 24))));
 const cols = Math.max(1, Math.round(Number(flag("cols", 6))));
 const cellW = Math.max(8, Math.round(Number(flag("cell", 180))));
+const opaque = args.includes("--opaque");
 const cropBox = flag("crop", null);
 const range = flag("range", null);
-const flood = args.includes("--flood");
+const flood = !opaque && args.includes("--flood");
 const similarity = Number(flag("similarity", 0.14));
 const blend = Number(flag("blend", 0.02));
 const quality = Number(flag("quality", 80));
@@ -125,7 +132,9 @@ const sampleCorner = () => {
     .join("");
 };
 
-const key = String(flag("key", sampleCorner())).replace(/^#/, "");
+const key = opaque
+  ? "000000"
+  : String(flag("key", sampleCorner())).replace(/^#/, "");
 
 const count = Math.min(want, total);
 const [lo, hi] = range ? range.split(":").map(Number) : [0, total - 1];
@@ -144,11 +153,13 @@ const pick = `select='${unique.map((n) => `eq(n\\,${n})`).join("+")}'`;
 
 const chain = [
   pick,
-  "format=rgba",
-  ...(flood ? [] : [`colorkey=0x${key}:${similarity}:${blend}`]),
+  opaque ? "format=rgb24" : "format=rgba",
+  ...(flood || opaque ? [] : [`colorkey=0x${key}:${similarity}:${blend}`]),
   ...(cropBox ? [`crop=${cropBox}`] : []),
   `scale=${cellW}:${cellH}:flags=lanczos`,
-  `tile=${cols}x${rows}:padding=${PAD}:margin=${PAD}:color=#00000000`,
+  `tile=${cols}x${rows}:padding=${PAD}:margin=${PAD}:color=${
+    opaque ? "black" : "#00000000"
+  }`,
 ].join(",");
 
 mkdirSync(dirname(out), { recursive: true });
@@ -341,6 +352,7 @@ const keyed = flood ? floodFrames() : null;
 
 if (args.includes("--strip")) render(out.replace(/\.webp$/, ".png"));
 render(out, [
+  ...(opaque ? ["-pix_fmt", "yuv420p"] : []),
   "-c:v",
   "libwebp",
   "-lossless",
@@ -358,7 +370,7 @@ process.stdout.write(
   `${basename(input)}  ${srcW}x${srcH} ${total}f  ->  ` +
     `${unique.length} frames  ${cols}x${rows} grid of ${cellW}x${cellH}  ` +
     `${cols * (cellW + PAD) + PAD}x${rows * (cellH + PAD) + PAD}  ` +
-    `key #${key}  ${kb(out)} kB\n${out}\n\n` +
+    `${opaque ? "opaque, no alpha" : `key #${key}`}  ${kb(out)} kB\n${out}\n\n` +
     `const SHEET = { cols: ${cols}, cellW: ${cellW}, cellH: ${cellH}, ` +
     `pad: ${PAD}, count: ${unique.length} };\n`,
 );

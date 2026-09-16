@@ -1,11 +1,17 @@
-import { Container } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
 import { LottieClip } from "./lottie.js";
 import burstClip from "../assets/outcome/fireworks.json";
 import { rnd, rndRange } from "../core/rng.js";
+import { FINALE_ASPECT, FINALE_FPS, finaleFrames } from "../art/finale.js";
 
 const POOL = 8;
 
 const HERO_SPOT = { nx: 0.5, ny: 0.33, k: 1 / 0.74 };
+
+const FINALE_SPOT = {
+  portrait: { nx: 0.5, ny: 0.34, kw: 1.02, kh: 0.5 },
+  landscape: { nx: 0.5, ny: 0.45, kw: 0.62, kh: 0.9 },
+};
 
 const OPENING = [0, 0.2];
 const GAP = [0.44, 0.72];
@@ -32,6 +38,16 @@ export class Fireworks extends Container {
     this.clips = [];
     this.side = 0;
     this.key = "portrait";
+
+    this.finale = new Sprite();
+    this.finale.anchor.set(0.5);
+    this.finale.blendMode = "add";
+    this.finale.eventMode = "none";
+    this.finale.visible = false;
+    this.addChild(this.finale);
+    this.reel = null;
+    this.finaleAt = -1;
+    this.finaleUp = false;
   }
 
   resize(layout) {
@@ -39,10 +55,11 @@ export class Fireworks extends Container {
     this.h = layout.h;
     this.key = layout.portrait ? "portrait" : "landscape";
     this.clips.forEach((clip) => this.place(clip));
+    this.placeFinale();
   }
 
   start() {
-    if (this.running) return;
+    if (this.running || this.finaleUp) return;
     this.running = true;
     this.next = rndRange(GAP[0], GAP[1]);
     OPENING.forEach((wait) => this.queue.push(wait));
@@ -55,6 +72,9 @@ export class Fireworks extends Container {
 
   clear() {
     this.stop();
+    this.finale.visible = false;
+    this.finaleAt = -1;
+    this.finaleUp = false;
     this.clips.forEach((clip) => {
       clip.clear();
       clip.spot = null;
@@ -62,6 +82,7 @@ export class Fireworks extends Container {
   }
 
   hero() {
+    if (this.openFinale()) return;
     const clip = this.free();
     if (!clip) return;
     clip.spot = HERO_SPOT;
@@ -71,6 +92,38 @@ export class Fireworks extends Container {
     clip.rate = 1;
     this.place(clip);
     clip.play();
+  }
+
+  openFinale() {
+    const frames = finaleFrames();
+    if (!frames) return false;
+    this.reel = frames;
+    this.finaleAt = 0;
+    this.finaleUp = true;
+    this.finale.texture = frames[0];
+    this.finale.visible = true;
+    this.placeFinale();
+    return true;
+  }
+
+  placeFinale() {
+    if (!this.w || !this.finaleUp) return;
+    const spot = FINALE_SPOT[this.key];
+    const width = Math.min(this.w * spot.kw, this.h * spot.kh * FINALE_ASPECT);
+    this.finale.setSize(width, width / FINALE_ASPECT);
+    this.finale.position.set(this.w * spot.nx, this.h * spot.ny);
+  }
+
+  runFinale(dt) {
+    if (this.finaleAt < 0) return;
+    this.finaleAt += dt * FINALE_FPS;
+    const i = Math.floor(this.finaleAt);
+    if (i >= this.reel.length) {
+      this.finaleAt = -1;
+      this.finale.visible = false;
+      return;
+    }
+    this.finale.texture = this.reel[i];
   }
 
   launch() {
@@ -128,6 +181,8 @@ export class Fireworks extends Container {
   }
 
   update(dt) {
+    this.runFinale(dt);
+
     for (let i = this.queue.length - 1; i >= 0; i--) {
       this.queue[i] -= dt;
       if (this.queue[i] > 0) continue;
