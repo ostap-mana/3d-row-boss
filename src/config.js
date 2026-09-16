@@ -658,9 +658,9 @@ export const DIFFICULTY = {
    *
    *     boss HP    100% ......... 50% ...... 25% ..... 0%
    *     zone         super easy     medium       hard
-   *     attack      0.050 -> 0.140  0.24->0.27  0.44 -> 0.26
+   *     attack      0.15 -> 0.22   0.24->0.27  0.32 -> 0.24
    *     resist      1.00 (none)      0.88       0.80 -> 0.72
-   *     obsidian      3 -> 6         7            9
+   *     obsidian    1.9 -> 3.8      4.5          5.7
    *     hold          8 -> 11       12           13
    *     crust        0 -> 1       1.2 -> 1.4   1.7 -> 1.8
    *
@@ -703,35 +703,41 @@ export const DIFFICULTY = {
    * third watching a bar crawl behind a wall. The softening is spent almost
    * entirely there.
    *
-   *   attack    every keyframe multiplied by 0.42, which leaves the shape of
-   *             the column exactly as it was and takes 58% off what any one
-   *             swing is worth. It is the other half of the stone pass rather
-   *             than a softening of its own: T.bossPress went 4 -> 2.2 in the
-   *             same breath, so the golem swings about eleven times in a run
-   *             where it swung six, and every swing arrives with a wave of
-   *             obsidian behind it. Eleven swings at 0.42 is roughly three
-   *             quarters of the damage the party used to take across a run,
-   *             delivered in twice as many pieces. What the player is supposed
-   *             to feel is a boss who will not leave the board alone, not a
-   *             boss who hits hard.
+   *   attack    every keyframe multiplied by 0.42, and then by 0.64 again in
+   *             the tempo pass below. Both times the shape of the column is
+   *             left exactly as it was, and both times the cut paid for a
+   *             faster press rather than for an easier fight: T.bossPress went
+   *             4 -> 2.2 -> 1.4 alongside it, so the golem swings about
+   *             seventeen times in a run where it swung six, and seventeen
+   *             swings at this size come to about the damage six used to do.
+   *             What the player is supposed to feel is a boss who will not
+   *             leave the board alone, not a boss who hits hard.
    *   resist    0.78 -> 0.85 through medium and 0.38 -> 0.52 across the last
    *             tenth. This is the one that shortens the run: the bar takes
    *             1.21 bars of damage to empty where it took 1.35.
    *   obsidian  THE STONE PASS, and the one column that goes the other way
    *             from everything above it. Asked for in as many words: more of
-   *             them, harder, and they are meant to be a nuisance. The wave is
-   *             up by half at every keyframe — three on the opening turn
-   *             rather than two, nine at the wall rather than seven — the
-   *             ceiling reaches twelve at the medium shoulder rather than at
-   *             the needle and stops at thirteen, and `crust` carries the
-   *             rest: a whole layer from the halfway line and close to two at
-   *             the wall, so a late stone is three matches to remove rather
-   *             than two. Still tempo and not health — nothing in this column
+   *             them, harder, and they are meant to be a nuisance. The ceiling
+   *             reaches twelve at the medium shoulder rather than at the
+   *             needle and stops at thirteen, and `crust` carries the rest: a
+   *             whole layer from the halfway line and close to two at the
+   *             wall, so a late stone is three matches to remove rather than
+   *             two. Still tempo and not health — nothing in this column
    *             multiplies anything — but the endgame is now fought against
-   *             the board as much as against the bar. Director.AIM_BITE went
-   *             with it: the stone lands on the move the player was looking at
-   *             four times in five rather than two in three, which is the part
-   *             that is supposed to be irritating rather than merely heavy.
+   *             the board as much as against the bar.
+   *
+   *             THE TEMPO PASS then took the wave size back down and spent it
+   *             on frequency, because the note was that there should not be
+   *             MORE stone, it should arrive faster. Every keyframe here is
+   *             multiplied by 0.64 and T.bossPress by the same, so the stone
+   *             per second is exactly what it was and the board still fills to
+   *             the same `hold` ceiling at the same rate — it simply gets
+   *             there in twice as many, half as large bites, which is what
+   *             being pecked at feels like. Director.AIM_BITE went up with it,
+   *             0.8 -> 0.95: the stone takes the move the player was looking
+   *             at nineteen times in twenty rather than four in five, so it is
+   *             the cell they were reaching for that goes, and it goes before
+   *             the thumb gets there.
    *
    * It landed on top of a separate 20% health cut — see damagePerGem and
    * BOSS_MAX_HP — and the two together take a fight of nine plain triples down
@@ -904,12 +910,12 @@ export const DIFFICULTY = {
       /**
        * A full boss, and the easiest moment in the fight by a wide margin.
        *
-       * bossPress is 2.2 seconds and it starts with the fight, so the first
+       * bossPress is 1.4 seconds and it starts with the fight, so the first
        * swing lands on somebody who has made one match and may not yet have
        * worked out that this is a match-three at all. Whatever sits here is
        * what the game does to a player it has not finished teaching. At 0.24
-       * the opening rake is about three and a half percent of a hero bar and
-       * three bare obsidian blocks sit on a board of twenty-five: the screen
+       * the opening rake is about two percent of a hero bar and two bare
+       * obsidian blocks sit on a board of twenty-five: the screen
        * shakes and the bar under the card visibly answers it. Bare is the word
        * doing the work — `crust` is 0 at this keyframe alone, so a stone here
        * is one match away from gone. It is the last keyframe that can say so:
@@ -927,10 +933,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.0,
-        attack: 0.24,
+        attack: 0.15,
         resist: 1.0,
         ult: 1,
-        obsidian: 3,
+        obsidian: 1.9,
         hold: 8,
         crust: 0,
       },
@@ -946,10 +952,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.35,
-        attack: 0.29,
+        attack: 0.18,
         resist: 1.0,
         ult: 1,
-        obsidian: 5,
+        obsidian: 3.2,
         hold: 10,
         crust: 0.5,
       },
@@ -969,10 +975,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.5,
-        attack: 0.34,
+        attack: 0.22,
         resist: 1.0,
         ult: 1,
-        obsidian: 6,
+        obsidian: 3.8,
         hold: 11,
         crust: 1,
         name: "OBSIDIAN HIDE",
@@ -990,10 +996,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.6,
-        attack: 0.38,
+        attack: 0.24,
         resist: 0.88,
         ult: 1,
-        obsidian: 7,
+        obsidian: 4.5,
         hold: 12,
         crust: 1.2,
       },
@@ -1008,10 +1014,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.75,
-        attack: 0.42,
+        attack: 0.27,
         resist: 0.88,
         ult: 1,
-        obsidian: 7,
+        obsidian: 4.5,
         hold: 12,
         crust: 1.4,
         name: "MOLTEN CORE",
@@ -1059,10 +1065,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.88,
-        attack: 0.5,
+        attack: 0.32,
         resist: 0.8,
         ult: 1,
-        obsidian: 9,
+        obsidian: 5.7,
         hold: 13,
         crust: 1.7,
       },
@@ -1089,10 +1095,10 @@ export const DIFFICULTY = {
        */
       {
         p: 0.9,
-        attack: 0.46,
+        attack: 0.29,
         resist: 0.72,
         ult: 1,
-        obsidian: 9,
+        obsidian: 5.7,
         hold: 13,
         crust: 1.8,
       },
@@ -1124,10 +1130,10 @@ export const DIFFICULTY = {
        */
       {
         p: 1.0,
-        attack: 0.37,
+        attack: 0.24,
         resist: 0.72,
         ult: 1,
-        obsidian: 9,
+        obsidian: 5.7,
         hold: 13,
         crust: 1.8,
       },
@@ -1275,23 +1281,27 @@ export const DIFFICULTY = {
    * The pace guard: how much of a hit the boss shrugs off for being behind on
    * the clock. Read and explained in full by Director.pace.
    *
-   * `seconds` is the schedule the fight is held to — a straight line from a
-   * full bar at the first playable frame to an empty one here. It runs a
-   * little longer than the kill it is aiming at, because damage lands in lumps
-   * and the killing blow overshoots the line by most of a move. Holding a line
-   * rather than picking a damage number is what keeps the kill landing on
-   * about the same second whatever speed the player swipes at: measured over
-   * hundreds of runs, the spread across every pace a person actually plays at
-   * came out under a second.
+   * `matches` is the schedule the fight is held to, and it is counted in
+   * matches rather than in seconds: one of these is rolled per run — see
+   * Director.killOn — and the win costs exactly that many, whatever speed the
+   * player swipes at. A line in seconds cannot do that. It fixes the second the
+   * kill lands on, and the count is that second divided by however long the
+   * player takes over a move, which came out anywhere from six to thirteen
+   * across the paces people actually play at.
    *
-   * That tight spread is also why the schedule survives a bad estimate of what
-   * a beat costs. The guard reads the clock, so anything that makes the fight
-   * slower — a longer cut-in, a deeper cascade — also advances the line and
-   * releases the grip by exactly as much. Doubling the modelled cost of an
-   * ultimate moved the measured kill by three tenths of a second.
+   * `matchBend` is the shape of that line. Straight, it asks more of the first
+   * matches than a triple can take off, so the boss spends the opening behind
+   * its own schedule taking full damage and dies early — bent to 0.6 the line
+   * is held high through the middle of the fight and dives on the last match,
+   * which is where the killing blow is wanted.
    *
-   * Keep it under T.hardCap by a clear margin. The schedule is a floor under
-   * the fight's length, not a promise about it, and a schedule that runs to the
+   * `seconds` is the release behind it rather than the schedule: the guard lets
+   * go at whichever of the two lines empties first, so a player slow enough
+   * that the rolled match would land past the burial gets the kill one match
+   * early instead of being held into a closing board.
+   *
+   * Keep it under T.hardCap by a clear margin. The release is a floor under
+   * the fight's length, not a promise about it, and one that runs to the
    * cap leaves the guard still biting when the deadline collects — which turns
    * every good run into a timeout.
    *
@@ -1320,8 +1330,8 @@ export const DIFFICULTY = {
    * five cells and a cast — still killed in five moves, because a quarter of a
    * hit that size is enough to finish a boss the schedule was still holding
    * open. The note was that a win should take six moves and seven at worst,
-   * and the only number in the file that decides what the best play can do
-   * with its lead is this one.
+   * and for as long as the schedule was a line in seconds this was the only
+   * number in the file that decided what the best play could do with its lead.
    *
    * So back to the eighth it began at. Nothing else moved and nothing else had
    * to: the five-move line goes to six, the two lines that were already seven
@@ -1335,8 +1345,9 @@ export const DIFFICULTY = {
    * Either number is a straight dial on run length. Raising `floor` back
    * towards 0.5 buys skill expression and shortens the top bracket; lowering
    * it past about 0.08 makes the bar read as stuck rather than as guarded,
-   * which is why a floor exists at all. 0.12 is deliberately the shallowest
-   * setting that gets the six — 0.10 and 0.08 buy nothing the sim can see.
+   * which is why a floor exists at all. What it no longer has to do on its own
+   * is land the count — `matches` owns that now, and the floor is what keeps
+   * the bar visibly moving while the line holds the boss open for it.
    *
    * `ultFloor` is the one thing the guard is not allowed to do at 0.12, and it
    * is a third dial. A match is free and an ultimate is a full charge bar and a
@@ -1357,7 +1368,9 @@ export const DIFFICULTY = {
   pace: {
     enabled: true,
     /**
-     * 26, back up against the deadline after a pass at 22.
+     * 27, and what it holds is no longer the schedule — `matches` above is.
+     * This is the release: the second the guard lets go at whatever the match
+     * line still says.
      *
      * The history: this used to sit two seconds under the cap wherever the cap
      * was — 28 -> 31 -> 38 -> 43 as the run went 30 -> 33 -> 40 -> 45 — so the
@@ -1374,20 +1387,21 @@ export const DIFFICULTY = {
      * Driven over CDP, a bot playing the strongest swap every time won with
      * more than half the countdown still on the strip.
      *
-     * 23, and the number it has to be read against is not T.hardCap but the
-     * burial. DOOM.bury opens with 22% of a 30 second countdown left — about
-     * 24 seconds in — and from there the board is sealed five cells at a time
-     * until there is nothing to swap on, which is a defeat the player cannot
-     * outplay. A schedule aimed past that is not a longer fight, it is a lost
-     * one: 26 was tried and every run driven over CDP ended with all 25 cells
-     * under stone and the party wiped.
+     * The number it has to be read against is not T.hardCap but the burial.
+     * DOOM.bury opens with 22% of a 30 second countdown left — about 25
+     * seconds in, once the stretch is paid — and from there the board is
+     * sealed five cells at a time until there is nothing to swap on, which is
+     * a defeat the player cannot outplay. A line aimed past that is not a
+     * longer fight, it is a lost one: as a schedule 26 was tried and every run
+     * driven over CDP ended with all 25 cells under stone and the party wiped.
      *
-     * 23 aims the kill at the burial's opening seconds instead. The last of
-     * the fight is fought on a board visibly closing — stones still landing on
-     * the last swipe, the beast still alive to throw them, the bar coming down
-     * against a clock that is now taking cells as well — and it is still a
-     * fight that can be won. That was the intent of moving off 22; the mistake
-     * was reading the deadline off the cap rather than off the burial.
+     * 27 is past it and safe to be, because a release pulls nobody towards it.
+     * It fires only for a player too slow to reach the rolled match in time and
+     * hands them the kill one match early, on a board visibly closing — stones
+     * still landing on the last swipe, the beast still alive to throw them —
+     * which is the ending 23 was aiming at when the seconds were the schedule.
+     * The one bracket it cannot save is somebody taking four and a half seconds
+     * a move: their sixth match lands at 31 whatever this says.
      *
      * It is not a difficulty change and it cannot be — the guard has never
      * touched a player who is behind the line, only one already winning faster
@@ -1396,13 +1410,15 @@ export const DIFFICULTY = {
      * little longer to play through without getting any harder, and a schedule
      * that keeps its share of a longer clock is exactly that.
      *
-     * Real seconds, so Director.paceGrip converts the world clock back through
+     * Real seconds, so Director.pace converts the world clock back through
      * toReal before it reads this — see WORLD_RATE.
      */
-    seconds: 23,
+    seconds: 27,
     bite: 3,
     floor: 0.12,
     ultFloor: 0.3,
+    matches: [6, 7],
+    matchBend: 0.6,
   },
 
   /**
@@ -1757,12 +1773,14 @@ export const T = {
    * golem should not leave the board alone — so the press now fires inside a
    * move rather than between two of them, about eleven times in a run.
    *
-   * What makes that an annoyance rather than a beating is that it was paid
-   * for: DIFFICULTY.curve's whole `attack` column was multiplied by 0.42 in
-   * the same pass, so eleven swings come to roughly three quarters of the
-   * damage six used to do. What doubles at full strength is the thing the
-   * player is meant to notice — every boss turn lays a wave of obsidian, so
-   * twice the turns is twice the stone. See Director.pickObsidian.
+   * What makes that an annoyance rather than a beating is that every cut of
+   * this number was paid for in the same breath: DIFFICULTY.curve's `attack`
+   * column came down with it both times, so seventeen swings come to about the
+   * damage six used to do. The `obsidian` column came down with the second cut
+   * as well, which is that pass in one line — the board fills at the rate it
+   * always did, in more and smaller waves, so what the player meets is a boss
+   * who will not let a move be finished rather than a board with more stone on
+   * it. See Director.pickObsidian.
    *
    * The floor under it is the queue and not this number: queueBoss refuses at
    * two deep, so a press that arrives while the last swing is still playing
@@ -1771,7 +1789,7 @@ export const T = {
    *
    * It is still a share of the run and still moves with it: 3.2 held six
    * inside twenty-five and 4 held six inside thirty, so a longer run wants a
-   * longer press. It is also still true that the rotation aims at whoever is
+   * longer press. At 1.4 a twenty-five second run carries seventeen of them. It is also still true that the rotation aims at whoever is
    * closest to falling, and a run that goes the full distance drops a hero or
    * two on the way. Not a wipe: partyWiped wants all six down, and the
    * cataclysm at the end is what does that. See Director.timeUp.
@@ -1779,7 +1797,7 @@ export const T = {
    * The clock restarts on every player turn, so a swipe is always answered by
    * the swing it earned rather than by two of them at once.
    */
-  bossPress: 2.2,
+  bossPress: 1.4,
   /**
    * The hand under the player's own thumb — off.
    *
@@ -2758,9 +2776,9 @@ export const BOSS_ATTACKS = [
    * The rake, and it is first for a reason that is about the creative and not
    * about the fight.
    *
-   * `bossPress` is 4 seconds against roughly twenty-four playable ones, so this
-   * rotation gets all four entries played in a run and the first of them is the
-   * only one everybody sees. Whatever sits at index 0 is what a boss *is* to a
+   * `bossPress` is 1.4 seconds against roughly twenty-four playable ones, so
+   * this rotation is played through several times over and the first entry is
+   * still the only one everybody sees. Whatever sits at index 0 is what a boss *is* to a
    * viewer who scrolls past at eight seconds — and the note this was written
    * for is exactly that: the beast reads as scenery, the screen shakes and
    * nothing on it swung. So the run opens on the one beat where the monster

@@ -86,10 +86,17 @@ function rageAt(p) {
   return Math.min(cap, 1 + p * span() * worldRate() * per);
 }
 
-function paceAt(hp, second) {
+function paceAt(hp, second, moves) {
   const guard = DIFFICULTY.pace;
   if (!guard || !guard.enabled) return 1;
-  const expected = Math.max(0, 1 - second / guard.seconds);
+  const rolled = guard.matches || [];
+  const killOn = rolled.length ? rolled[0] : Infinity;
+  const byClock = 1 - second / guard.seconds;
+  const byMatch = Math.pow(
+    Math.max(0, 1 - moves / Math.max(1, killOn - 1)),
+    guard.matchBend || 1,
+  );
+  const expected = Math.max(0, Math.min(byClock, byMatch));
   if (expected <= 0 || hp >= expected) return 1;
   return Math.max(guard.floor, Math.pow(hp / expected, guard.bite));
 }
@@ -113,6 +120,7 @@ function simulate(samples) {
   const out = [];
   let hp = 1;
   let next = period;
+  let moves = 0;
   for (let i = 0; i <= samples; i++) {
     const second = (i / samples) * secs;
     let guard = 0;
@@ -121,8 +129,9 @@ function simulate(samples) {
         MOVE_GEMS *
         DIFFICULTY.damagePerGem *
         at("resist", 1 - hp) *
-        paceAt(hp, next);
+        paceAt(hp, next, moves);
       hp = Math.max(0, hp - hit);
+      moves++;
       next += period;
     }
     out.push(hp);

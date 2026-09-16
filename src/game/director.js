@@ -51,13 +51,18 @@ import {
 import { MIN_SWAPS } from "./board.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
-import { rnd, rndInt } from "../core/rng.js";
+import { pick, rnd, rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
 import { EV, track, trackOnce } from "../net/analytics.js";
 
 const toWorld = (realSeconds) => realSeconds * worldRate();
 const toReal = (worldSeconds) => worldSeconds / worldRate();
+
+const rollKillMatch = () => {
+  const rolled = DIFFICULTY.pace && DIFFICULTY.pace.matches;
+  return rolled && rolled.length ? pick(rolled) : Infinity;
+};
 
 /**
  * How far below the best score a cell can be and still get picked.
@@ -87,7 +92,7 @@ const OPTIONS_IN_PLAY = 2;
  * not happen at all and the cell they reached for is taken — see AIM_MEMORY and
  * blockAnOption.
  */
-const AIM_BITE = 0.8;
+const AIM_BITE = 0.95;
 
 /**
  * How long the boss keeps hold of where the player was reaching, in seconds of
@@ -161,6 +166,7 @@ export class Director {
 
     /** Real boss health, 1..0. Nothing authors this any more. */
     this.bossHp = 1;
+    this.killOn = rollKillMatch();
     /**
      * What this fight has actually been paying per move, for the autoplay pace
      * guard to plan against — see autoDelay.
@@ -809,15 +815,19 @@ export class Director {
   }
 
   /**
-   * How much of a hit the boss shrugs off for being ahead of the clock.
+   * How much of a hit the boss shrugs off for being ahead of schedule.
    *
    * This one is a pace guard and not a piece of fiction, so it is worth being
-   * blunt about what it does: it reads how far the health bar is ahead of a
-   * straight line from full at the first playable frame to empty at
-   * DIFFICULTY.pace.seconds, and takes damage away from a player who is beating
-   * that line. Nothing is ever given back — a player behind the line is not
-   * helped, and `expected` past zero holds nothing at all, so the last stretch
-   * before the deadline is fought at full strength.
+   * blunt about what it does: it reads how far the health bar is ahead of two
+   * lines — one falling to empty on the match before `killOn`, one falling to
+   * empty at DIFFICULTY.pace.seconds — and takes damage away from a player who
+   * is beating whichever of them is lower. Nothing is ever given back — a
+   * player behind the line is not helped, and `expected` past zero holds
+   * nothing at all, so the killing blow is always fought at full strength.
+   *
+   * The match line is the one that lands the count: it is counted in matches,
+   * so the win costs `killOn` of them whatever speed the player swipes at. The
+   * clock line is the release behind it — see DIFFICULTY.pace.seconds.
    *
    * It exists because time-to-kill and damage-per-move are not the same dial
    * and only one of them was ever asked for. The fight is over in
@@ -846,10 +856,13 @@ export class Director {
     // see holdClock. Time only ever loosens this guard's grip, so taking the
     // cast's seconds off the bill here would be charging the player for it, not
     // sparing them: the fuse and the rage ramp are the two that bill.
-    const expected = Math.max(
-      0,
-      1 - toReal(now() - this.fightStart) / guard.seconds,
+    const byClock = 1 - toReal(now() - this.fightStart) / guard.seconds;
+    const held = Math.max(1, this.killOn - 1);
+    const byMatch = Math.pow(
+      Math.max(0, 1 - this.movesPlayed / held),
+      guard.matchBend || 1,
     );
+    const expected = Math.max(0, Math.min(byClock, byMatch));
     // Behind the line, or past the end of it: the boss holds nothing back.
     if (expected <= 0 || this.bossHp >= expected) return 1;
     return Math.max(guard.floor, Math.pow(this.bossHp / expected, guard.bite));
@@ -2492,9 +2505,9 @@ export class Director {
    * gets sealed, and it is still the last tiebreak between moves that read the
    * same. What changed is that it no longer decides which move.
    *
-   * The roll survives all of it (see AIM_BITE): four times in five the boss
-   * takes the move it read, and the fifth keeps the read from being a rule the
-   * player can plan around.
+   * The roll survives all of it (see AIM_BITE): nineteen times in twenty the
+   * boss takes the move it read, and the twentieth keeps the read from being a
+   * rule the player can plan around.
    *
    * Ranking on cells cleared alone is what it used to do, and on a board this
    * small that is a tie between almost every option, broken by the order the
