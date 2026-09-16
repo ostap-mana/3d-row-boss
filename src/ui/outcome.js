@@ -481,6 +481,15 @@ const FLASH_LOSS = 0xffb5a4;
  */
 const BLOOM_LOSS = 0xc9502a;
 
+const UNFURL = {
+  slitW: 0.34,
+  slitH: 0.015,
+  widen: 0.34,
+  openAt: 0.12,
+  open: 0.5,
+};
+const BLOOM_FLARE = 1.75;
+
 /**
  * How long the card ignores a tap.
  *
@@ -1424,9 +1433,9 @@ export class OutcomeScreen extends Container {
      *
      * The offsets are the gap between when each cut is started and when its
      * weight arrives, against the one moment on this card worth hitting. The
-     * word crosses readable at 0.18 s — `card` finishes fading at 0.22 but the
-     * flash is over it until then, so the two curves multiplied out put half
-     * the word on screen at 0.18. The win's cut reaches half power 0.176 s
+     * word crosses readable at 0.18 s — the band is half its height by then and
+     * `card` finishes fading at 0.22, with the flash over both until then, so
+     * the curves multiplied out put half the word on screen at 0.18. The win's cut reaches half power 0.176 s
      * after it is started and the loss's braam at 0.116, both measured in
      * outcome.mp3 past the head. A win therefore starts here and a loss starts
      * 0.06 later, and the two endings hit the same frame within four
@@ -1448,26 +1457,61 @@ export class OutcomeScreen extends Container {
     });
 
     /**
-     * The word lands hard, and it is the only thing on this card that moves.
+     * The verdict unfurls, and it is the only thing on this card that moves.
      *
-     * Over-size and settling, which is the one gesture that reads as a verdict
-     * rather than as an animation. A wipe is stamped as hard as a win: the
-     * player who lost knows they lost, and a card that says it quietly only
-     * looks embarrassed about the game it is selling.
+     * It used to arrive over-size and settle, one scale from 1.22 down to 1 on
+     * both axes at once — a stamp, and a stamp is a thing that was already the
+     * size it ends up. This is the other reading of the same beat. The banner
+     * starts as nothing, shoots out sideways into a hairline of lit gold, and
+     * the plate springs open off that line by its height.
+     *
+     * Two tweens because they are two gestures. The width goes first and fast,
+     * on expoOut and with no overshoot, because the plate is already most of the
+     * screen wide and a band that overshoots its width crosses the safe box. The
+     * height follows a beat later over half a second, on backOut, because that
+     * is the one the eye is watching and the overshoot at the end of it is the
+     * difference between a band that sprang open and a band that was scaled.
+     *
+     * Both endings wear it. A wipe unfurls as hard as a win does: the player who
+     * lost knows they lost, and a card that says it quietly only looks
+     * embarrassed about the game it is selling. Which verdict it is stays where
+     * the rest of this card keeps it — in the colour of the band, and in the
+     * colour of the light behind it.
      */
-    this.card.scale.set(1.22);
+    this.card.scale.set(UNFURL.slitW, UNFURL.slitH);
     tween(this.card, { alpha: 1 }, 0.16, { delay: 0.06 });
-    tween(this.card.scale, { x: 1, y: 1 }, 0.5, {
-      delay: 0.06,
+    tween(this.card.scale, { x: 1 }, UNFURL.widen, { ease: Ease.expoOut });
+    tween(this.card.scale, { y: 1 }, UNFURL.open, {
+      delay: UNFURL.openAt,
       ease: Ease.backOut,
     });
-    tween(this.bloom, { alpha: this.defeat ? 0.3 : 0.42 }, 0.5, { delay: 0.1 });
+
+    /**
+     * The lamp flares with the hairline and settles under the open band.
+     *
+     * The same light the card keeps, with one extra beat in front of it: the
+     * bloom is what sells the sliver as a line of light rather than as a bitmap
+     * squashed flat, so it spikes while the card is that line and comes back
+     * down to its resting value as the plate opens over it.
+     *
+     * Chained rather than delayed. A tween reads its start value at the moment
+     * it is created, not when its delay runs out, so a delayed second tween here
+     * would be a second fade up from zero over the top of the first.
+     */
+    const lamp = this.defeat ? 0.3 : 0.42;
+    tween(this.bloom, { alpha: lamp * BLOOM_FLARE }, 0.18, {
+      ease: Ease.expoOut,
+    }).then(() => {
+      if (!this.introducing) return;
+      tween(this.bloom, { alpha: lamp }, 0.42, { ease: Ease.cubicOut });
+    });
+
     if (this.figure.visible)
       tween(this.figure, { alpha: 1 }, 0.4, { delay: 0.1 });
-    // A beat behind the stamp: the verdict lands, and the mark arrives on it.
-    if (this.starsUp()) tween(this.stars, { alpha: 1 }, 0.3, { delay: 0.34 });
+    // A beat behind the unfurl: the verdict opens, and the mark arrives on it.
+    if (this.starsUp()) tween(this.stars, { alpha: 1 }, 0.3, { delay: 0.5 });
 
-    await delay(0.62);
+    await delay(0.72);
     if (!this.introducing) return done;
 
     // Whichever prompt this ending has — the sentence, or the button.
