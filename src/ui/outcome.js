@@ -364,6 +364,17 @@ const STARS_W = 0.42;
 const STARS_AIR = 10;
 
 /**
+ * The width below which they are not drawn at all, as a share of the same box.
+ *
+ * The fit above is an offer and the room can refuse it — see the placement in
+ * `resize`, which brings the width down rather than let the sprite cross the
+ * chrome. That has to stop somewhere: three stars 60 points wide are not a
+ * smaller mark, they are dirt on the picture, and a card with nothing over the
+ * band is better than a card with that. Half the offer is the line.
+ */
+const STARS_MIN_W = 0.21;
+
+/**
  * The RETRY control — an offer of width and a ceiling on height, and nothing
  * about where it goes. See `terminal`, and the block in `resize`.
  *
@@ -665,6 +676,9 @@ export class OutcomeScreen extends Container {
     /** The same question for the stars, which are two arts and not one. */
     this.starsPainted = false;
 
+    /** Whether the room between the chrome and the figure took them. */
+    this.starsFit = false;
+
     /**
      * The word, set in type — and normally not on screen at all.
      *
@@ -905,19 +919,28 @@ export class OutcomeScreen extends Container {
     /* ----------------------------------------------------------- the stars */
 
     /**
-     * Stood on top of whatever the card's tallest object is, in the screen's own
-     * coordinates.
+     * Between the highest thing below them and the lowest thing above, in the
+     * screen's own coordinates.
      *
-     * On a win that is the figure, who is bottom-anchored just under the band's
-     * middle and rises a third of the screen off it; on a loss she is not there
-     * at all and the band's own top edge is the thing to stand on. One question
-     * — what is the highest thing below them — asked of the two answers the
-     * endings give it, rather than an ending the placement has to know about.
+     * Below them is the figure on a win — bottom-anchored just under the band's
+     * middle, rising a third of the screen off it — and on a loss she is not
+     * there at all, so it is the band's own top edge. One question asked of the
+     * two answers the endings give it, rather than an ending the placement has
+     * to know about.
      *
-     * The floor under that ceiling is the safe box's own top: a phone short
-     * enough that the figure reaches the notch gets the stars tight under it and
-     * overlapping her, which is a composition, where the same card without the
-     * clamp puts them off the top of the screen, which is not.
+     * ABOVE THEM IS THE HUD'S OWN LOCKUP, and it is the half of this that was
+     * missing. The stars were clamped to the safe box's top instead, which is
+     * air only until the CTA comes up at T.banner — eleven seconds into a fight
+     * nobody sees the end of in under thirty. So on every won run the three
+     * stars sat across INVOKERS TITAN LEGACY and the plate under it, and a
+     * forced `show()` could never catch it because the banner has not armed
+     * that early. `layout.banner` is reserved whether or not the HUD has filled
+     * it yet, so measuring against it is a number rather than a race.
+     *
+     * Where the room between the two will not take the sprite, the WIDTH comes
+     * down until it does: the alternative is a sprite that crosses one edge or
+     * the other, and which edge it crosses would depend on the phone. Below
+     * STARS_MIN_W it stops coming down and the stars go off instead.
      *
      * Solved on every layout and not only when they are up, for the same reason
      * the control below is: a rotation arrives whenever it likes, and a sprite
@@ -925,10 +948,18 @@ export class OutcomeScreen extends Container {
      * the run.
      */
     if (this.stars) {
-      const starsH = fitStars(this.stars, s.w * STARS_W, this.defeat);
+      const air = STARS_AIR * ui;
       const stoodOn = figureUp ? this.figure.y - this.figureH : cy - ph / 2;
-      const half = starsH / 2 + STARS_AIR * ui;
-      this.stars.position.set(s.cx, Math.max(s.y + half, stoodOn - half));
+      const ceiling = layout.banner.y + layout.banner.h / 2 + air;
+      let starsW = s.w * STARS_W;
+      let starsH = fitStars(this.stars, starsW, this.defeat);
+      const room = stoodOn - air - ceiling;
+      if (starsH > room) {
+        starsW = room > 0 ? (starsW * room) / starsH : 0;
+        starsH = fitStars(this.stars, starsW, this.defeat);
+      }
+      this.starsFit = starsW >= s.w * STARS_MIN_W;
+      this.stars.position.set(s.cx, stoodOn - air - starsH / 2);
       this.stars.visible = this.starsUp();
     }
 
@@ -1209,9 +1240,18 @@ export class OutcomeScreen extends Container {
    * as a scoreboard on a card that is not keeping score, and the obsidian set is
    * the answer to it: unlit stars over a loss are the same mark with the light
    * out, which is a verdict rather than a tally.
+   *
+   * `starsFit` is the room's own answer and it is the layout's to set, so this
+   * reads it rather than asking again: a screen with no air between the chrome
+   * and the figure has nowhere to put them. See the placement in `resize`.
    */
   starsUp() {
-    return !!(this.starsPainted && this.layout && this.layout.portrait);
+    return !!(
+      this.starsPainted &&
+      this.starsFit &&
+      this.layout &&
+      this.layout.portrait
+    );
   }
 
   aim() {
