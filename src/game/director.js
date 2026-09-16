@@ -2752,17 +2752,25 @@ export class Director {
     const dir = await boss.rake();
     if (this.settled()) return;
 
-    // On the beast rather than in front of it: the marks are what its own
-    // claws opened, so they start where the claws are and the wave below is
-    // what carries the hit down to the row.
+    // The swipe keeps the beast's column — `at.x` is his chest, so the marks
+    // still come off the body that threw them — but they are torn down on the
+    // board and across the row, not up in his own airspace. Up there they were
+    // three gashes opening in a part of the screen nothing is at stake in; the
+    // board and the heroes are what the rake is actually doing damage to, and
+    // that is where it should land.
     const at = boss.impactPoint();
+    // Low on the grid, so the drawing covers the bottom of it and reaches into
+    // the cards. Off the board rather than off the stage: the board is the term
+    // that moves when the CTA band or a short phone squeezes the composition,
+    // and marks measured against the window drift off it when it does.
+    const clawY = layout.board.y + layout.board.size * 0.75;
     // Along the swipe. `dir` is the side the body actually travelled to, which
     // the marks are already laid down — the camera is now thrown the same way,
     // so the swipe, the slashes and the frame all agree about which way the
     // claws went.
     shake(16, 0.4, { axis: { x: dir, y: 0.3 }, freq: 1.15 });
     hitStop(0.6, 0.1);
-    vfx.claw(at.x, at.y + layout.stage.h * 0.02, 0xff3a5a, {
+    vfx.claw(at.x, clawY, 0xff3a5a, {
       dir,
       len: layout.stage.w * 1.34,
       gap: layout.stage.h * 0.032,
@@ -2772,7 +2780,7 @@ export class Director {
     const spreading = this.dropObsidian(cells, 0.06);
 
     const row = layout.cards;
-    await vfx.wave(at.y, row.y + row.h * 0.5, 0xff3a5a, {
+    await vfx.wave(clawY, row.y + row.h * 0.5, 0xff3a5a, {
       thickness: row.h * 1.1,
       duration: 0.2,
     });
