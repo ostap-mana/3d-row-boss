@@ -21,6 +21,7 @@ import {
   SPELL_TRAVEL_LAST,
   spellFrames,
 } from "../art/spells.js";
+import { RAKE_ASPECT, rakeFrames } from "../art/rake.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
@@ -1314,23 +1315,38 @@ export class Vfx extends Container {
   /**
    * Three claws opening the air where the boss just swung.
    *
-   * Drawn rather than painted, for the reason everything in this file is: it is
-   * zero kilobytes, it is sharp on any screen, and — the part that matters here
-   * — it can be aimed. The rake picks a side at random every time it plays, and
-   * marks baked into a sprite would have to be mirrored, which puts the light
-   * on the wrong side of the gash half the time.
-   *
-   * Each gash is a tapered lens, widest a third of the way along and nothing at
-   * either end, because that is the shape a claw leaves and a rounded rectangle
-   * is not. They open one after another rather than together: three lines that
-   * arrive on the same frame read as a graphic laid over the screen, and three
-   * that arrive forty milliseconds apart read as one hand going through.
+   * Played off the painted sheet in art/rake.js, mirrored onto the side
+   * `boss.rake()` says the body actually travelled to — marks torn against it
+   * are two effects playing at once rather than one attack. The drawn gashes
+   * below are the fallback for when that sheet never arrived.
    */
   claw(x, y, color, opts) {
     const o = opts || {};
     const dir = (o.dir || 1) < 0 ? -1 : 1;
     const len = o.len || 460;
     const gap = o.gap || 62;
+
+    const painted = rakeFrames();
+    if (painted) {
+      const swipe = new Container();
+      swipe.x = x;
+      swipe.y = y;
+      swipe.scale.x = dir > 0 ? -1 : 1;
+      this.field.addChild(swipe);
+
+      const s = new Sprite(painted[0]);
+      s.anchor.set(0.5);
+      s.blendMode = "add";
+      swipe.addChild(s);
+
+      return tweenValue(0, 1, o.duration || 0.52, (p) => {
+        s.texture =
+          painted[Math.min(painted.length - 1, (p * painted.length) | 0)];
+        const w = len * (1 + p * 0.08);
+        s.setSize(w, w / RAKE_ASPECT);
+        s.alpha = p < 0.78 ? 1 : 1 - (p - 0.78) / 0.22;
+      }).then(() => swipe.destroy({ children: true }));
+    }
 
     const marks = new Container();
     marks.x = x;

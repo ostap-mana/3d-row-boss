@@ -2764,23 +2764,9 @@ export class Director {
     hitStop(0.6, 0.1);
     vfx.claw(at.x, at.y + layout.stage.h * 0.02, 0xff3a5a, {
       dir,
-      len: layout.stage.w * 1.05,
+      len: layout.stage.w * 1.18,
       gap: layout.stage.h * 0.032,
     });
-    // Painted slashes over the drawn ones, when the sheet is there. Laid on the
-    // same point and the same side, so it is the marks getting hotter rather
-    // than a second swipe arriving from somewhere else.
-    vfx.bossSwing(
-      "rake",
-      { x: at.x, y: at.y + layout.stage.h * 0.03 },
-      {
-        size: layout.stage.w * 0.95,
-        duration: 0.4,
-        alpha: 0.85,
-        grow: 0.16,
-        mirror: dir > 0,
-      },
-    );
     vfx.flash(0xff2a3a, 0.16, 0.3);
 
     const spreading = this.dropObsidian(cells, 0.06);
