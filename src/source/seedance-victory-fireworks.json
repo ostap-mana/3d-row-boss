@@ -1,0 +1,94 @@
+[
+  {
+    "id": "peony",
+    "name_en": "Peony — the workhorse burst",
+    "name_zh": "牡丹 — 主力绽放",
+    "use_en": "Three complete salvos in one clip; cut one out with --range and feed the victory fireworks pool.",
+    "use_zh": "一条片子里三发完整的礼花；用 --range 切出一发，喂给胜利界面的烟花池。",
+    "out": "src/assets/fx/firework-peony.webp",
+    "call": {
+      "model": "bytedance/seedance-1-pro",
+      "mode": "text-to-video",
+      "duration": 10,
+      "fps": 24,
+      "resolution": "720p",
+      "ratio": "1:1",
+      "camera_fixed": true
+    },
+    "text_params": "--resolution 720p --ratio 1:1 --duration 10 --framepersecond 24 --camerafixed true --watermark false",
+    "prompt_en": "A fireworks display against pure black. A single thin ember streaks up from the bottom of the frame, slows at the top of its arc and bursts into a wide, perfectly round sphere of hundreds of separate sparks flying outward, each spark a small sharp point of white-hot light dragging one thin bright trail behind it. The sphere expands fast, the sparks slow and arc over, their trails thin out and break into flickering fragments that twinkle and go out one by one until the frame is completely black again. Then a second burst does the same slightly left and higher, and a third slightly right and lower — each one complete and separate: rise, burst, fall, die out to black before the next ember goes up. The sparks are white-hot at the core and fall through warm gold, and the whole burst is a sphere of distinct points and trails rather than a soft glowing cloud. The background is pure flat black, completely empty and perfectly still: no smoke, no haze, no mist, no fog, no atmospheric glow, no ground, no horizon, no city, no buildings, no trees, no water, no reflections, no crowd, no silhouettes, no stars, no clouds, no moon. Nothing in the frame is lit except the firework itself. Locked-off static camera, no camera movement, no zoom, no push in, no pan, no tilt, no orbit, no shake, no parallax, no cuts, no scene change. No lens flare, no bloom washing over the whole frame, no vignette, no depth of field, no film grain, no motion blur smear. Every burst stays fully inside the frame and never touches the edges. Clean high-contrast game VFX plate, bright light on black, no text, no numbers, no watermark, no logo, no letterboxing.",
+    "prompt_zh": "纯黑背景下的烟花。一颗细小的火星从画面下方拖着尾迹升起，在弧顶减速，然后炸开成一个巨大而浑圆的球体，数百颗彼此分离的火星向外飞散，每一颗都是一个细小锐利的白热光点，身后拖着一条细亮的尾迹。球体迅速扩张，火星减速并划弧下坠，尾迹变细、碎成闪烁的碎屑，一颗接一颗地眨着熄灭，直到画面重新变成全黑。随后第二发在稍偏左、稍偏高处重复同样的过程，第三发在稍偏右、稍偏低处再来一次——每一发都完整而独立：升空、绽放、坠落、彻底熄灭到全黑，下一颗火星才升起。火星核心是白热的，下坠时转为暖金色；整个绽放是由清晰分明的光点和尾迹构成的球体，而不是柔软的发光云团。背景是纯正的全黑，完全空旷、绝对静止：没有烟雾、没有雾气、没有薄雾、没有霭、没有大气辉光，没有地面、没有地平线、没有城市、没有建筑、没有树木、没有水面、没有倒影，没有人群、没有剪影，没有星星、没有云、没有月亮。画面中除了烟花本身，没有任何被照亮的东西。固定机位，镜头完全锁定，无镜头运动、无变焦、无推近、无横摇、无俯仰、无环绕、无抖动、无视差，无剪辑、无场景切换。无镜头光晕，无覆盖整个画面的泛光，无暗角，无景深虚化，无胶片颗粒，无运动模糊拖影。每一次绽放都完整地留在画面内，绝不触碰画面边缘。干净的高对比游戏特效素材，黑底亮光，无文字、无数字、无水印、无标志、无黑边。",
+    "negative_en": "smoke, haze, mist, fog, atmospheric glow, ground, horizon, city, buildings, trees, water, crowd, silhouettes, stars, clouds, moon, camera movement, zoom, pan, tilt, orbit, shake, cuts, lens flare, full-frame bloom, vignette, depth of field, film grain, motion blur smear, text, numbers, watermark, logo, letterboxing",
+    "negative_zh": "烟雾, 雾气, 薄雾, 大气辉光, 地面, 地平线, 城市, 建筑, 树木, 水面, 人群, 剪影, 星星, 云, 月亮, 镜头运动, 变焦, 横摇, 俯仰, 环绕, 抖动, 剪辑, 镜头光晕, 全画面泛光, 暗角, 景深虚化, 胶片颗粒, 运动模糊拖影, 文字, 数字, 水印, 标志, 黑边",
+    "pack": "node tools/pack-video-sheet.mjs peony.mp4 --range 0:72 --frames 24 --cols 6 --cell 256 --key 000000 --similarity 0.02 --blend 0 --out src/assets/fx/firework-peony.webp"
+  },
+  {
+    "id": "willow",
+    "name_en": "Willow — the long hold under the victory banner",
+    "name_zh": "垂柳 — 胜利横幅下的长时停留",
+    "use_en": "Slow, heavy, gold. It holds the frame while the player reads the word.",
+    "use_zh": "缓慢、厚重、金色。玩家读字的时候由它撑住画面。",
+    "out": "src/assets/fx/firework-willow.webp",
+    "call": {
+      "model": "bytedance/seedance-1-pro",
+      "mode": "text-to-video",
+      "duration": 10,
+      "fps": 24,
+      "resolution": "720p",
+      "ratio": "1:1",
+      "camera_fixed": true
+    },
+    "text_params": "--resolution 720p --ratio 1:1 --duration 10 --framepersecond 24 --camerafixed true --watermark false",
+    "prompt_en": "A single large firework against pure black. An ember rises slowly, hangs, and opens into a tall dome of thick golden trails that arc over the top and droop down like a weeping willow, each trail a long slow streak of burning gold that sags almost to the bottom of the frame, shedding small crackling flakes as it falls, and fades out from the tip back towards its own centre. The trails hang in the air far longer than they take to form, so the shape stands as a drooping dome for most of the clip, then dims trail by trail until the frame is completely black again. One burst only, centred, unhurried, molten gold through amber with white only at the very heart of it. The background is pure flat black, completely empty and perfectly still: no smoke, no haze, no mist, no fog, no atmospheric glow, no ground, no horizon, no city, no buildings, no trees, no water, no reflections, no crowd, no silhouettes, no stars, no clouds, no moon. Nothing in the frame is lit except the firework itself. Locked-off static camera, no camera movement, no zoom, no push in, no pan, no tilt, no orbit, no shake, no parallax, no cuts, no scene change. No lens flare, no bloom washing over the whole frame, no vignette, no depth of field, no film grain, no motion blur smear. The burst stays fully inside the frame and never touches the edges. Clean high-contrast game VFX plate, bright light on black, no text, no numbers, no watermark, no logo, no letterboxing.",
+    "prompt_zh": "纯黑背景下的一发大型烟花。一颗火星缓缓升起，稍作悬停，然后张开成一个高大的穹顶，由粗壮的金色尾迹构成，它们在顶端翻卷并向下低垂，像垂柳一样；每一条都是一道缓慢燃烧的金色长痕，几乎垂到画面底部，下坠时不断抖落细小的噼啪火屑，并从尖端向自身中心逐渐淡去。这些尾迹在空中停留的时间远长于它们形成所需的时间，因此这个下垂的穹顶在大半段时间里保持成形，然后一条接一条地暗下去，直到画面完全变黑。全片只有一发，居中，从容不迫，熔金过渡到琥珀色，只有最核心处是白色。背景是纯正的全黑，完全空旷、绝对静止：没有烟雾、没有雾气、没有薄雾、没有霭、没有大气辉光，没有地面、没有地平线、没有城市、没有建筑、没有树木、没有水面、没有倒影，没有人群、没有剪影，没有星星、没有云、没有月亮。画面中除了烟花本身，没有任何被照亮的东西。固定机位，镜头完全锁定，无镜头运动、无变焦、无推近、无横摇、无俯仰、无环绕、无抖动、无视差，无剪辑、无场景切换。无镜头光晕，无覆盖整个画面的泛光，无暗角，无景深虚化，无胶片颗粒，无运动模糊拖影。绽放完整地留在画面内，绝不触碰画面边缘。干净的高对比游戏特效素材，黑底亮光，无文字、无数字、无水印、无标志、无黑边。",
+    "negative_en": "smoke, haze, mist, fog, atmospheric glow, ground, horizon, city, buildings, trees, water, crowd, silhouettes, stars, clouds, moon, camera movement, zoom, pan, tilt, orbit, shake, cuts, lens flare, full-frame bloom, vignette, depth of field, film grain, motion blur smear, text, numbers, watermark, logo, letterboxing",
+    "negative_zh": "烟雾, 雾气, 薄雾, 大气辉光, 地面, 地平线, 城市, 建筑, 树木, 水面, 人群, 剪影, 星星, 云, 月亮, 镜头运动, 变焦, 横摇, 俯仰, 环绕, 抖动, 剪辑, 镜头光晕, 全画面泛光, 暗角, 景深虚化, 胶片颗粒, 运动模糊拖影, 文字, 数字, 水印, 标志, 黑边",
+    "pack": "node tools/pack-video-sheet.mjs willow.mp4 --range 0:96 --frames 32 --cols 8 --cell 256 --key 000000 --similarity 0.02 --blend 0 --out src/assets/fx/firework-willow.webp"
+  },
+  {
+    "id": "crackle",
+    "name_en": "Crackling salvo — for the pool",
+    "name_zh": "噼啪连发 — 供烟花池使用",
+    "use_en": "What Fireworks.volley throws along the screen edges in packs of two or three.",
+    "use_zh": "就是 Fireworks.volley 沿屏幕边缘成组抛出的那种两三发一串。",
+    "out": "src/assets/fx/firework-crackle.webp",
+    "call": {
+      "model": "bytedance/seedance-1-pro",
+      "mode": "text-to-video",
+      "duration": 10,
+      "fps": 24,
+      "resolution": "720p",
+      "ratio": "16:9",
+      "camera_fixed": true
+    },
+    "text_params": "--resolution 720p --ratio 16:9 --duration 10 --framepersecond 24 --camerafixed true --watermark false",
+    "prompt_en": "Small fireworks against pure black. A quick succession of six small bursts, one after another at different places in the frame and at different sizes, each one a tight ball of sharp white sparks that snaps open, crackles for a moment into a scatter of twinkling points and dies out fast, the trails short and stiff rather than long and drooping. The bursts overlap only at their tails, so the frame is nearly black between them and completely black at the end. Sharp, fast, glittering, white going to pale gold. The background is pure flat black, completely empty and perfectly still: no smoke, no haze, no mist, no fog, no atmospheric glow, no ground, no horizon, no city, no buildings, no trees, no water, no reflections, no crowd, no silhouettes, no stars, no clouds, no moon. Nothing in the frame is lit except the fireworks themselves. Locked-off static camera, no camera movement, no zoom, no push in, no pan, no tilt, no orbit, no shake, no parallax, no cuts, no scene change. No lens flare, no bloom washing over the whole frame, no vignette, no depth of field, no film grain, no motion blur smear. Every burst stays fully inside the frame and never touches the edges. Clean high-contrast game VFX plate, bright light on black, no text, no numbers, no watermark, no logo, no letterboxing.",
+    "prompt_zh": "纯黑背景下的小型烟花。六发小的绽放快速接连出现，位置各不相同、大小也各不相同，每一发都是一团紧凑的锐利白色火星，啪地炸开，短暂噼啪作响，散成一片闪烁的光点，然后迅速熄灭；尾迹短而硬挺，而不是长而低垂。各发之间只有尾部略有重叠，因此绽放之间画面几乎是全黑的，结尾处则是彻底的黑。锐利、快速、闪亮，白色转为淡金色。背景是纯正的全黑，完全空旷、绝对静止：没有烟雾、没有雾气、没有薄雾、没有霭、没有大气辉光，没有地面、没有地平线、没有城市、没有建筑、没有树木、没有水面、没有倒影，没有人群、没有剪影，没有星星、没有云、没有月亮。画面中除了烟花本身，没有任何被照亮的东西。固定机位，镜头完全锁定，无镜头运动、无变焦、无推近、无横摇、无俯仰、无环绕、无抖动、无视差，无剪辑、无场景切换。无镜头光晕，无覆盖整个画面的泛光，无暗角，无景深虚化，无胶片颗粒，无运动模糊拖影。每一次绽放都完整地留在画面内，绝不触碰画面边缘。干净的高对比游戏特效素材，黑底亮光，无文字、无数字、无水印、无标志、无黑边。",
+    "negative_en": "smoke, haze, mist, fog, atmospheric glow, ground, horizon, city, buildings, trees, water, crowd, silhouettes, stars, clouds, moon, camera movement, zoom, pan, tilt, orbit, shake, cuts, lens flare, full-frame bloom, vignette, depth of field, film grain, motion blur smear, text, numbers, watermark, logo, letterboxing",
+    "negative_zh": "烟雾, 雾气, 薄雾, 大气辉光, 地面, 地平线, 城市, 建筑, 树木, 水面, 人群, 剪影, 星星, 云, 月亮, 镜头运动, 变焦, 横摇, 俯仰, 环绕, 抖动, 剪辑, 镜头光晕, 全画面泛光, 暗角, 景深虚化, 胶片颗粒, 运动模糊拖影, 文字, 数字, 水印, 标志, 黑边",
+    "pack": "node tools/pack-video-sheet.mjs crackle.mp4 --range 0:48 --frames 16 --cols 4 --cell 256 --key 000000 --similarity 0.02 --blend 0 --out src/assets/fx/firework-crackle.webp"
+  },
+  {
+    "id": "ring",
+    "name_en": "Ring with a core — the accent",
+    "name_zh": "带花心的光环 — 重音",
+    "use_en": "One per clip, for the first frame of the victory: a wide ring with a second small flower inside it.",
+    "use_zh": "每条片子只用一发，用在胜利的第一帧：一个宽阔的光环，里面还有第二朵小花。",
+    "out": "src/assets/fx/firework-ring.webp",
+    "call": {
+      "model": "bytedance/seedance-1-pro",
+      "mode": "text-to-video",
+      "duration": 10,
+      "fps": 24,
+      "resolution": "720p",
+      "ratio": "1:1",
+      "camera_fixed": true
+    },
+    "text_params": "--resolution 720p --ratio 1:1 --duration 10 --framepersecond 24 --camerafixed true --watermark false",
+    "prompt_en": "A single firework against pure black. An ember rises and bursts into a clean flat ring of white sparks expanding outward in a perfect circle, and a fraction of a second later a second, smaller burst of dense gold sparks opens inside the ring at its exact centre. The ring keeps widening and thinning until its sparks flicker out, while the inner flower falls and fades more slowly, and the frame ends completely black. Two shapes, one inside the other, both centred, both of separate crisp sparks with thin trails. The background is pure flat black, completely empty and perfectly still: no smoke, no haze, no mist, no fog, no atmospheric glow, no ground, no horizon, no city, no buildings, no trees, no water, no reflections, no crowd, no silhouettes, no stars, no clouds, no moon. Nothing in the frame is lit except the firework itself. Locked-off static camera, no camera movement, no zoom, no push in, no pan, no tilt, no orbit, no shake, no parallax, no cuts, no scene change. No lens flare, no bloom washing over the whole frame, no vignette, no depth of field, no film grain, no motion blur smear. The burst stays fully inside the frame and never touches the edges. Clean high-contrast game VFX plate, bright light on black, no text, no numbers, no watermark, no logo, no letterboxing.",
+    "prompt_zh": "纯黑背景下的一发烟花。一颗火星升起并炸开成一个干净扁平的白色火星圆环，以完美的正圆向外扩张；零点几秒之后，第二发更小、更密集的金色火星在圆环的正中心绽放。圆环持续扩大、变薄，直到它的火星闪烁着熄灭；内部的花朵则更缓慢地下坠并淡出，画面以彻底的黑收尾。两个形状，一个套在另一个里面，都居中，都由清晰分明、拖着细尾迹的火星构成。背景是纯正的全黑，完全空旷、绝对静止：没有烟雾、没有雾气、没有薄雾、没有霭、没有大气辉光，没有地面、没有地平线、没有城市、没有建筑、没有树木、没有水面、没有倒影，没有人群、没有剪影，没有星星、没有云、没有月亮。画面中除了烟花本身，没有任何被照亮的东西。固定机位，镜头完全锁定，无镜头运动、无变焦、无推近、无横摇、无俯仰、无环绕、无抖动、无视差，无剪辑、无场景切换。无镜头光晕，无覆盖整个画面的泛光，无暗角，无景深虚化，无胶片颗粒，无运动模糊拖影。绽放完整地留在画面内，绝不触碰画面边缘。干净的高对比游戏特效素材，黑底亮光，无文字、无数字、无水印、无标志、无黑边。",
+    "negative_en": "smoke, haze, mist, fog, atmospheric glow, ground, horizon, city, buildings, trees, water, crowd, silhouettes, stars, clouds, moon, camera movement, zoom, pan, tilt, orbit, shake, cuts, lens flare, full-frame bloom, vignette, depth of field, film grain, motion blur smear, text, numbers, watermark, logo, letterboxing",
+    "negative_zh": "烟雾, 雾气, 薄雾, 大气辉光, 地面, 地平线, 城市, 建筑, 树木, 水面, 人群, 剪影, 星星, 云, 月亮, 镜头运动, 变焦, 横摇, 俯仰, 环绕, 抖动, 剪辑, 镜头光晕, 全画面泛光, 暗角, 景深虚化, 胶片颗粒, 运动模糊拖影, 文字, 数字, 水印, 标志, 黑边",
+    "pack": "node tools/pack-video-sheet.mjs ring.mp4 --range 0:72 --frames 24 --cols 6 --cell 256 --key 000000 --similarity 0.02 --blend 0 --out src/assets/fx/firework-ring.webp"
+  }
+]
