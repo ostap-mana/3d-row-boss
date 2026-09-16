@@ -84,6 +84,7 @@ import {
   PLATE_FILL,
   PLATE_GOLD,
   VERDICT_ART,
+  aimStars,
   aimVerdict,
   fitLine,
   fitStars,
@@ -311,13 +312,23 @@ const FIGURE_SINK = 0.04;
  * just a hole between the verdict and the button. See `standByRetry`, which
  * went with her.
  *
- * Above centre rather than on it. The room is measured from under the band to
- * the top of the hero row, and its floor is a long way below the button on a
- * tall phone: centred, the button reads as a thing of its own halfway down an
- * empty screen. High in the room it reads as the verdict's own answer, which is
- * what it is, and what is left over falls below it where the party already is.
+ * At the top of the room rather than above its centre. The room runs from under
+ * the band to the top of the hero row and it is deep — 265 points on a 393x852
+ * phone — so a share of it is a coarse instrument: at 0.38 the button stood 78
+ * points clear of the band with nothing in between, which reads as a control
+ * that belongs to the screen rather than to the verdict. The stars used to fill
+ * that gap and no longer do; they hang over the figure now, above the band. So
+ * the fraction goes small and the clamp below it does the real work.
+ *
+ * THE CLAMP IS NOT A GUARD, IT IS THE PLACEMENT. The control is centred on the
+ * point this fraction picks, so a small fraction puts its top through the roof —
+ * and the two endings stand plates of different heights, 53 points against 72,
+ * which is exactly the kind of thing a raw offset gets wrong on one ending only.
+ * Clamped to half its own box off each end of the room, the button stands as
+ * close under the verdict as RETRY_AIR allows on whichever ending is up, and the
+ * fraction only decides how much further down than that it sits.
  */
-const CONTROL_DROP = 0.38;
+const CONTROL_DROP = 0.12;
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
@@ -325,25 +336,29 @@ const LINE_W = { portrait: 0.44, landscape: 0.26 };
 
 /**
  * How wide the three stars are drawn, as a share of the safe box, and the air
- * left under them before whatever stands next.
+ * between them and whatever they stand over.
+ *
+ * A share of the safe box rather than of the band: the band takes the whole safe
+ * width upright, so the two measurements are the same one there, and the box is
+ * the thing that still means something if the band ever stops doing that.
  *
  * 0.42 puts them at a little under half the verdict's width, which is the
  * proportion that reads as a mark on the card rather than as a second headline
- * over it. The art is 1.69:1, so that comes back about a quarter of the band's
- * height — upright that leaves the PLAY NOW plate sitting about ten points
- * clear of the hero row, which is the margin this number is really spending.
+ * over it. The two sets are not the same shape — the gold is 1.90:1 and the
+ * obsidian 1.69:1, see STARS_ART — so one width buys 87 points of height on a
+ * win and 98 on a loss, and the placement below is written to take whichever it
+ * is handed rather than to assume one.
  *
- * ONE NUMBER, BECAUSE THEY ARE UPRIGHT ONLY. That is not a placement that was
- * not found, it is an absence of room, and it was measured rather than guessed:
- * laid on its side at 932x430 the safe box is 334 tall, the band runs from 107
- * to 200 of it, and the hero row starts at 209. There are nine points under the
- * band and the row owns them — hung there anyway the stars covered the party
- * outright and drove the button off the bottom of the screen. Above the band is
- * no better: the figure stands from 23 to 157 and the band's own top edge is at
- * 107, so the only clear air sideways is air the character is already using.
+ * ONE NUMBER, BECAUSE THEY ARE UPRIGHT ONLY — and for a different reason than
+ * they used to be. They hung under the band once, and sideways the nine points
+ * under the band belong to the hero row. They hang over the figure now, and
+ * sideways there is no room over the figure either: at 932x430 she stands from
+ * 23 to 157 in a 334-tall safe box, so the clear air above her is 23 points and
+ * this width alone would ask for 188. Not a placement that was not found — an
+ * absence of room, twice over, in two different places.
  *
- * So the sprite is still fitted on every layout — a rotation back has to find
- * it the right size — and `starsUp` is what decides whether it is on screen.
+ * So the sprite is still fitted on every layout — a rotation back has to find it
+ * the right size — and `starsUp` is what decides whether it is on screen.
  */
 const STARS_W = 0.42;
 const STARS_AIR = 10;
@@ -579,6 +594,34 @@ export class OutcomeScreen extends Container {
     this.addChild(this.figure);
     this.figureH = 0;
 
+    /**
+     * The three stars, and null on a device that could not decode either set.
+     *
+     * A child of the screen and not of the card, which is the whole difference
+     * between where they were and where they are. They hung off the band's
+     * bottom edge once and rode the stamp the intro puts on it; they stand over
+     * the figure now, a third of a screen above the band, and a sprite that far
+     * from the card's origin cannot be scaled about it — the stamp would throw
+     * them across the screen and back. So they keep a fade of their own, and it
+     * runs a beat behind the word: the verdict lands and the mark arrives on it,
+     * which is the order the two things happen in.
+     *
+     * Added after the figure and before the card, so the stars pass over her and
+     * under the verdict. The first matters — she raises a glass into the air
+     * they hang in — and the second cannot come up, because nothing puts them
+     * within a band's height of it.
+     *
+     * Built on the win face and re-aimed, the way the banner is: a rematch can
+     * show this card twice, and the two endings wear different stars. Gold over
+     * VICTORY, obsidian over DEFEAT. See `aim` and art/outcomeui.js.
+     */
+    this.stars = starsSprite(false);
+    if (this.stars) {
+      this.stars.alpha = 0;
+      this.stars.eventMode = "none";
+      this.addChild(this.stars);
+    }
+
     /* --------------------------------------------------------- the verdict */
 
     /**
@@ -616,28 +659,11 @@ export class OutcomeScreen extends Container {
     this.verdict = verdictSprite(false);
     if (this.verdict) this.card.addChild(this.verdict);
 
-    /**
-     * The three stars over the win, and null on a device that could not decode
-     * them.
-     *
-     * A child of the card, so the stamp the intro puts on the verdict carries
-     * them in with it rather than leaving them hanging still beside a box that
-     * is moving. The extra alpha of their own is what keeps them a beat behind
-     * the word: the verdict lands first and the mark arrives on it, which is the
-     * order the two things happen in.
-     *
-     * Only ever up on a win. There is no defeat face for this and there should
-     * not be one — three stars over DEFEAT is a scoreboard, and this card is
-     * not keeping score. See `aim`.
-     */
-    this.stars = starsSprite();
-    if (this.stars) {
-      this.stars.alpha = 0;
-      this.card.addChild(this.stars);
-    }
-
     /** Whether the banner is showing the ending it was asked for. See `aim`. */
     this.painted = false;
+
+    /** The same question for the stars, which are two arts and not one. */
+    this.starsPainted = false;
 
     /**
      * The word, set in type — and normally not on screen at all.
@@ -858,7 +884,7 @@ export class OutcomeScreen extends Container {
       (s.w * FIGURE_W[key]) / FIGURE_ASPECT,
     );
     this.figure.position.set(s.cx, cy + ph * FIGURE_SINK);
-    this.fitFigure();
+    const figureUp = !!this.fitFigure();
 
     if (this.painted) {
       // Taken back off `fitVerdict` rather than trusted: `ph` above and the
@@ -879,22 +905,32 @@ export class OutcomeScreen extends Container {
     /* ----------------------------------------------------------- the stars */
 
     /**
-     * Hung off the band's own bottom edge, in the card's coordinates, so the
-     * two move as one thing on every screen — `ph` is the height the banner
-     * just took, and this is the only place it has to be read.
+     * Stood on top of whatever the card's tallest object is, in the screen's own
+     * coordinates.
      *
-     * Solved on every layout and not only on a win, for the same reason the
-     * retry below is: a rotation arrives whenever it likes, and a sprite fitted
-     * only on the frame it was shown is the wrong size for the rest of the run.
-     * What the ending decides is not the fit but the room — see `starsRoom`.
+     * On a win that is the figure, who is bottom-anchored just under the band's
+     * middle and rises a third of the screen off it; on a loss she is not there
+     * at all and the band's own top edge is the thing to stand on. One question
+     * — what is the highest thing below them — asked of the two answers the
+     * endings give it, rather than an ending the placement has to know about.
+     *
+     * The floor under that ceiling is the safe box's own top: a phone short
+     * enough that the figure reaches the notch gets the stars tight under it and
+     * overlapping her, which is a composition, where the same card without the
+     * clamp puts them off the top of the screen, which is not.
+     *
+     * Solved on every layout and not only when they are up, for the same reason
+     * the control below is: a rotation arrives whenever it likes, and a sprite
+     * fitted only on the frame it was shown is the wrong size for the rest of
+     * the run.
      */
-    let starsH = 0;
     if (this.stars) {
-      starsH = fitStars(this.stars, s.w * STARS_W);
-      this.stars.position.set(0, ph / 2 + STARS_AIR * ui + starsH / 2);
+      const starsH = fitStars(this.stars, s.w * STARS_W, this.defeat);
+      const stoodOn = figureUp ? this.figure.y - this.figureH : cy - ph / 2;
+      const half = starsH / 2 + STARS_AIR * ui;
+      this.stars.position.set(s.cx, Math.max(s.y + half, stoodOn - half));
       this.stars.visible = this.starsUp();
     }
-    const starsRoom = this.starsUp() ? starsH + STARS_AIR * ui : 0;
 
     // Off the word's own extent inside the banner rather than off the whole of
     // it: the bloom is a lamp behind the verdict, and a banner fades to nothing
@@ -955,9 +991,7 @@ export class OutcomeScreen extends Container {
     const rowLeft = layout.cards.x;
     const rowRight = rowLeft + layout.cards.w;
     const overRow = retryX > rowLeft && retryX < rowRight;
-    // The stars stand between the band and the button on a win, so the room
-    // the button is centred in starts under them rather than under the band.
-    const roof = cy + ph / 2 + air + starsRoom;
+    const roof = cy + ph / 2 + air;
     const sill = (overRow ? layout.cards.y : s.bottom) - air;
     // A floor under the room as well as a ceiling: a window short enough to
     // leave the band and the row touching gets a small button rather than an
@@ -969,7 +1003,14 @@ export class OutcomeScreen extends Container {
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
       ui,
     );
-    this.retry.position.set(retryX, roof + (sill - roof) * CONTROL_DROP);
+    // Half its own box off each end of the room, so a fraction small enough to
+    // put the plate under the verdict cannot put its top through the band. See
+    // CONTROL_DROP, where that clamp is the placement rather than a guard.
+    const reach = Math.max(roof + box.h / 2, sill - box.h / 2);
+    this.retry.position.set(
+      retryX,
+      clamp(roof + (sill - roof) * CONTROL_DROP, roof + box.h / 2, reach),
+    );
     // A thumb's worth of height whatever the ceiling did to the art — and the
     // width the art actually came back with, so the box cannot reach out past
     // the picture into the dark either side of it.
@@ -1160,19 +1201,27 @@ export class OutcomeScreen extends Container {
    * every show rather than settled once here.
    */
   /**
-   * Whether the stars belong on screen at all: a win, upright, and a decode
-   * that answered. See STARS_W for why the orientation is in here.
+   * Whether the stars belong on screen at all: upright, and a decode that
+   * answered for the ending being shown. See STARS_W for why the orientation is
+   * in here.
+   *
+   * Both endings wear them now. Three stars over DEFEAT was argued against once,
+   * as a scoreboard on a card that is not keeping score, and the obsidian set is
+   * the answer to it: unlit stars over a loss are the same mark with the light
+   * out, which is a verdict rather than a tally.
    */
   starsUp() {
-    return (
-      !!this.stars && !this.defeat && !!(this.layout && this.layout.portrait)
-    );
+    return !!(this.starsPainted && this.layout && this.layout.portrait);
   }
 
   aim() {
     this.painted = this.verdict ? aimVerdict(this.verdict, this.defeat) : false;
     if (this.verdict) this.verdict.visible = this.painted;
     this.word.visible = !this.painted;
+    // Per ending and not per device, the same way `painted` is: a build can ship
+    // one set that decodes and one that does not, and the ending that has its
+    // stars still gets them.
+    this.starsPainted = this.stars ? aimStars(this.stars, this.defeat) : false;
     if (this.stars) this.stars.visible = this.starsUp();
   }
 

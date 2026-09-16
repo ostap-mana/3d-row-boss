@@ -60,12 +60,17 @@
  *
  * Nothing is trimmed HERE. The plate's fade to nothing at each end is the art,
  * and a trim to the ink would cut it off; the line's own ends do the same thing.
- * `stars` is the exception and it was trimmed before it arrived: it came off a
- * 1433x1098 canvas with the three stars sitting in 1309x775 of it, and a sprite
- * whose box is half empty air cannot be positioned against anything. It is
- * tight to its ink, so its box IS its picture. The delivery carries its own
- * alpha channel, so the crop to that channel's bounds is the whole of the
- * preparation; see tools/cut-bg.mjs --trim for a delivery that does not.
+ * The two star sets are the exception and both were trimmed before they arrived:
+ * each came off a canvas a little over 1432x1098 with the three stars sitting in
+ * the middle of it, and a sprite whose box is half empty air cannot be
+ * positioned against anything. They are tight to their ink, so each box IS its
+ * picture — and the two boxes are not the same shape, which is the whole reason
+ * STARS_ART has a face per ending where VERDICT_ART has one for both.
+ * `stars-victory` is
+ * `node tools/cut-bg.mjs src/source/outcome/stars-victory-raw.png <out> --trim`,
+ * which keys the checkerboard off the gold delivery and trims in one pass;
+ * `stars-defeat` arrived with a real alpha channel already, so a crop to that
+ * channel's bounds was the whole of its preparation.
  *
  * ffmpeg is the only dependency, and only to decode and encode, as everywhere
  * else in this folder.
@@ -120,7 +125,8 @@ const CUTS = [
   { key: "victory-band", src: "victory-band.png", width: 0, quality: 92 },
   { key: "defeat-band", src: "defeat-band.png", width: 0, quality: 92 },
   { key: "ornament-line", src: "ornament-line.png", width: 0, lossless: true },
-  { key: "stars", src: "stars.png", width: 0, quality: 92 },
+  { key: "stars-victory", src: "stars-victory.png", width: 0, quality: 92 },
+  { key: "stars-defeat", src: "stars-defeat.png", width: 0, quality: 92 },
 ];
 
 /* ------------------------------------------------------------------- ffmpeg */
@@ -318,7 +324,8 @@ console.log("     for art/outcomeui.js:");
 const NAMES = {
   "victory-band": "VERDICT_ART",
   "ornament-line": "LINE_ART",
-  stars: "STARS_ART",
+  "stars-victory": "STARS_ART.victory",
+  "stars-defeat": "STARS_ART.defeat",
 };
 packed.forEach((p) => {
   if (p.key === "defeat-band") {

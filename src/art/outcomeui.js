@@ -36,7 +36,8 @@ import { canvasTexture } from "./textures.js";
 import victoryUrl from "../assets/outcome/victory-band.webp";
 import defeatUrl from "../assets/outcome/defeat-band.webp";
 import lineUrl from "../assets/outcome/ornament-line.webp";
-import starsUrl from "../assets/outcome/stars.webp";
+import starsVictoryUrl from "../assets/outcome/stars-victory.webp";
+import starsDefeatUrl from "../assets/outcome/stars-defeat.webp";
 
 /**
  * Natural size of a verdict banner — a transcript of what the packer prints.
@@ -50,15 +51,24 @@ export const VERDICT_ART = { w: 816, h: 266 };
 export const LINE_ART = { w: 438, h: 29 };
 
 /**
- * Natural size of the three stars over the win.
+ * Natural size of the three stars, per ending.
  *
- * Tight to its ink, which is the one thing that separates it from everything
- * else in this module: it arrived on a 1433x1098 canvas with the stars sitting
- * in 1309x775 of it, and the empty margin was cropped off before the packer saw
- * it. So this box is the picture, and a card can hang the sprite off an edge of
- * it without measuring empty air. See tools/pack-outcome-ui.mjs.
+ * Two shapes where VERDICT_ART is one, and that is the art's doing rather than a
+ * choice: the gold set and the obsidian one were drawn on their own and trimmed
+ * to their own ink, and they came out 1.90:1 and 1.69:1. So everything that
+ * measures the stars has to be told which ending it is measuring — see
+ * `fitStars`, which is why it takes the flag the sprite functions take.
+ *
+ * Tight to their ink is the one thing that separates both from everything else
+ * in this module: each arrived on a canvas a little over 1432x1098 with the
+ * stars in the middle of it and the empty margin cropped off before the packer
+ * saw it. So each box is its picture, and a card can hang the sprite off an edge
+ * of it without measuring air. See tools/pack-outcome-ui.mjs.
  */
-export const STARS_ART = { w: 1309, h: 775 };
+export const STARS_ART = {
+  victory: { w: 1230, h: 647 },
+  defeat: { w: 1309, h: 775 },
+};
 
 /**
  * The banner's gold, sampled off its hairline.
@@ -75,7 +85,8 @@ export const PLATE_FILL = 0x101c33;
 let victoryTexture = null;
 let defeatTexture = null;
 let lineTexture = null;
-let starsTexture = null;
+let starsVictoryTexture = null;
+let starsDefeatTexture = null;
 
 async function decode(url) {
   const img = new Image();
@@ -89,7 +100,7 @@ async function decode(url) {
 }
 
 /**
- * Decode all four before the card is built.
+ * Decode all five before the card is built.
  *
  * Never rejects, and not all-or-nothing: each is caught on its own, so a device
  * that cannot read one still gets the others, and one that can read none of them
@@ -117,8 +128,11 @@ export async function loadOutcomeUi() {
     into(lineUrl, (t) => {
       lineTexture = t;
     }),
-    into(starsUrl, (t) => {
-      starsTexture = t;
+    into(starsVictoryUrl, (t) => {
+      starsVictoryTexture = t;
+    }),
+    into(starsDefeatUrl, (t) => {
+      starsDefeatTexture = t;
     }),
   ]);
 }
@@ -157,14 +171,32 @@ export function lineSprite() {
 }
 
 /**
- * The three stars, centred on their own origin, or null if they never decoded.
+ * The three stars for an ending, centred on their own origin, or null.
  *
  * Null is a real answer and the card treats it as one: the stars are a flourish
  * over a verdict that already reads without them, so there is no drawn stand-in
- * behind this the way there is behind the band.
+ * behind this the way there is behind the band. A card that gets one set and not
+ * the other shows the one it got and hides the other ending's — see `aimStars`.
+ *
+ * @param {boolean} defeat
  */
-export function starsSprite() {
-  return sprite(starsTexture);
+export function starsSprite(defeat) {
+  return sprite(defeat ? starsDefeatTexture : starsVictoryTexture);
+}
+
+/**
+ * Point an existing stars sprite at the other ending. See `aimVerdict`, which
+ * this is the same move as and for the same reason: one sprite, re-aimed,
+ * because a rematch can show this card twice.
+ *
+ * @param {import("pixi.js").Sprite} s
+ * @param {boolean} defeat
+ */
+export function aimStars(s, defeat) {
+  const t = defeat ? starsDefeatTexture : starsVictoryTexture;
+  if (!t) return false;
+  s.texture = t;
+  return true;
 }
 
 /**
@@ -186,9 +218,13 @@ export function fitLine(s, w) {
   return h;
 }
 
-/** Size the stars to `w`, at their own aspect. Returns the height that implies. */
-export function fitStars(s, w) {
-  const h = (w * STARS_ART.h) / STARS_ART.w;
+/**
+ * Size an ending's stars to `w`, at that set's own aspect. Returns the height
+ * that implies, which is the only height they may take.
+ */
+export function fitStars(s, w, defeat) {
+  const art = defeat ? STARS_ART.defeat : STARS_ART.victory;
+  const h = (w * art.h) / art.w;
   s.setSize(w, h);
   return h;
 }
