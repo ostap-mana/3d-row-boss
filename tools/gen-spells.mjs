@@ -171,10 +171,13 @@ const SPELLS = [
     what: "MAGMAROTH - CLAW RAKE - boss attack",
     prompt:
       "Three parallel claw slashes tear diagonally across the frame " +
-      "from the upper right down to the lower left, one after another " +
-      "rather than all at once, about four hundredths of a second " +
-      "apart, so it reads as one hand going through rather than three " +
-      "lines laid on the screen. Each slash opens from nothing and rips " +
+      "from the upper right down to the lower left, and all three open " +
+      "at the very same instant, together, in one single beat: one " +
+      "strike, not three. They arrive on the same frame, none of them " +
+      "lagging behind another, never one after another, never three " +
+      "separate attacks. It reads as one hand going through because of " +
+      "how each gash tears, not because of any delay between them. Each " +
+      "slash opens from nothing and rips " +
       "along its own length: a tapered gash, widest about a third of " +
       "the way along and coming to a fine point at both ends, its edges " +
       "ragged and torn with small hooks and splinters coming off them, " +
@@ -187,8 +190,10 @@ const SPELLS = [
       "a faint red heat glow sits behind all three as if the air itself " +
       "had been opened. They flare to their brightest the instant they " +
       "finish opening, hold for a moment, then burn down and fade from " +
-      "the tips inward until the frame is completely black again. It is " +
-      "one swipe, and it is finished well before the clip ends.",
+      "the tips inward until the frame is completely black again. There " +
+      "is exactly one swipe in the whole clip, landing on one beat: no " +
+      "second strike, no repeat, no further set of slashes after it, " +
+      "and it is finished well before the clip ends.",
   },
 ];
 
