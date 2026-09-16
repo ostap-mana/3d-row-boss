@@ -2773,7 +2773,13 @@ export class Director {
     vfx.bossSwing(
       "rake",
       { x: at.x, y: at.y + layout.stage.h * 0.03 },
-      { size: layout.stage.w * 0.95, duration: 0.4, alpha: 0.85, grow: 0.16 },
+      {
+        size: layout.stage.w * 0.95,
+        duration: 0.4,
+        alpha: 0.85,
+        grow: 0.16,
+        mirror: dir > 0,
+      },
     );
     vfx.flash(0xff2a3a, 0.16, 0.3);
 

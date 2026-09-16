@@ -863,6 +863,7 @@ export class Vfx extends Container {
       s.texture = frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
       const w = size * (1 + p * grow);
       s.setSize(w, w / SPELL_ASPECT);
+      if (o.mirror) s.scale.x = -s.scale.x;
       // Only the tail fades, for the same reason the fireball's does: a swing
       // that starts dying on the frame it lands never reads as having landed.
       s.alpha = base * (p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3);
