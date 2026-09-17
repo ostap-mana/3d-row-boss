@@ -80,8 +80,9 @@ export const BOSS_SPELLS = { breath: "breath", smash: "slam", rake: "claw" };
  * as base64 rather than URLs, which is the whole point: the deliverable is one
  * self-contained file that makes no requests.
  *
- * `fire-sheet.webp` is excluded in the *pattern* and not only in the loop below,
- * and that is worth 62 kB of the deliverable. `eager: true` is a build-time
+ * `fire-sheet.webp` and `torrent-sheet.webp` are excluded in the *pattern* and
+ * not only in the loop below, and the first of those is worth 62 kB of the
+ * deliverable. `eager: true` is a build-time
  * instruction: every path the glob matches is imported and, at this inline
  * limit, base64'd into the bundle whether or not anything reads it back. The
  * sheet is also imported directly by art/fire.js — on its own grid, off a still
@@ -91,7 +92,11 @@ export const BOSS_SPELLS = { breath: "breath", smash: "slam", rake: "claw" };
  * program is told not to use it.
  */
 const FOUND = import.meta.glob(
-  ["../assets/fx/*-sheet.webp", "!../assets/fx/fire-sheet.webp"],
+  [
+    "../assets/fx/*-sheet.webp",
+    "!../assets/fx/fire-sheet.webp",
+    "!../assets/fx/torrent-sheet.webp",
+  ],
   {
     eager: true,
     query: "?url",
@@ -105,7 +110,10 @@ for (const path in FOUND) {
   // Cut off a still, on its own grid, with its own module. Not one of these.
   // The glob above no longer matches it, so this is a guard rather than a
   // filter: it is what keeps the sheet out if that pattern is ever widened.
-  if (id === "fire") continue;
+  // `torrent` is the same story one file over — sixteen frames of a stream on
+  // a cell three and a third times as wide as it is tall, played by stretching
+  // rather than by throwing. See art/torrent.js.
+  if (id === "fire" || id === "torrent") continue;
   urls[id] = FOUND[path];
 }
 

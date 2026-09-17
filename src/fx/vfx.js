@@ -22,10 +22,11 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { RAKE_ASPECT, rakeFrameAt, rakeFrames } from "../art/rake.js";
+import { TORRENT_ASPECT, torrentFrames } from "../art/torrent.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
-import { FIRE, ULT_CALL, ULT_FX } from "../config.js";
+import { FIRE, WATER, ULT_CALL, ULT_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -356,6 +357,49 @@ export class Vfx extends Container {
     muzzle.destroy();
   }
 
+  async torrent(from, to, color, opts) {
+    const frames = torrentFrames();
+    if (!frames) return false;
+
+    const o = opts || {};
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dist = Math.hypot(dx, dy);
+    const thickness = o.thickness || 120;
+    const reach = dist * (o.reach || ULT_FX.torrentReach);
+    const muzzle = thickness * TORRENT_ASPECT * 0.22;
+    const rush = o.rush || ULT_FX.torrentRush;
+    const hold = o.hold || ULT_FX.torrentHold;
+    const fps = o.fps || ULT_FX.torrentFps;
+    const span = rush + hold;
+
+    const jet = new Sprite(frames[0]);
+    jet.anchor.set(0, 0.5);
+    jet.x = from.x;
+    jet.y = from.y;
+    jet.rotation = Math.atan2(dy, dx);
+    jet.setSize(muzzle, thickness);
+    this.field.addChild(jet);
+
+    const running = tweenValue(0, 1, span, (p) => {
+      if (jet.destroyed) return;
+      const t = p * span;
+      jet.texture = frames[Math.min(frames.length - 1, Math.floor(t * fps))];
+      const out = t < rush ? Ease.cubicOut(t / rush) : 1;
+      jet.setSize(muzzle + (reach - muzzle) * out, thickness);
+    });
+
+    await delay(rush);
+    this.impact(to, color, o.impact || 2.4);
+    running.then(() => {
+      if (jet.destroyed) return;
+      tween(jet, { alpha: 0 }, 0.18).then(() => {
+        if (!jet.destroyed) jet.destroy();
+      });
+    });
+    return true;
+  }
+
   /**
    * The painted fireball: Ricklow's ultimate, and the only one in the fight
    * that is a drawing rather than a stack of tinted glows.
@@ -457,6 +501,18 @@ export class Vfx extends Container {
 
     await this.ultGather(from, color, light, size * ULT_FX.gatherSize);
     this.ultMuzzle(from, to, color, size);
+
+    if (
+      element === WATER &&
+      (await this.torrent(from, to, color, {
+        thickness: size * ULT_FX.torrentThick,
+        ...(o.torrent || {}),
+      }))
+    ) {
+      this.ultShock(to, from, color, light, size);
+      return;
+    }
+
     this.ultLance(from, to, light, size);
 
     const frames = spellFrames(SPELL_BY_ELEMENT[element]);

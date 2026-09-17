@@ -3001,6 +3001,11 @@ export const ULT_FX = {
   shockReach: 1.5,
   shockLife: 0.44,
   sparks: 18,
+  torrentThick: 0.2,
+  torrentRush: 0.28,
+  torrentHold: 0.3,
+  torrentFps: 22,
+  torrentReach: 1.06,
 };
 
 /**
