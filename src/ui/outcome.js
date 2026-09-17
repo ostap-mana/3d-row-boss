@@ -108,6 +108,7 @@ import {
   figureTexture,
   startFigure,
   FIGURE_ASPECT,
+  FIGURE_CARRIES_STARS,
   FIGURE_KEY,
 } from "../art/figures.js";
 import { chromaKeyFilter } from "../fx/chromakey.js";
@@ -301,6 +302,19 @@ const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
 const FIGURE_H = { portrait: 0.33, landscape: 0.4 };
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
+
+/**
+ * The same two, for a clip that brings its own stars.
+ *
+ * Taller, because such a clip is not the figure any more — it is the figure and
+ * the flourish above him in one square, and the card hangs no painted stars over
+ * it. At the old 0.33 the man ended up about a fifth of the screen with his
+ * stars shrunk into the top of it, smaller than the still they replaced. This is
+ * the figure's old room plus the room the stars used to be given, which is what
+ * the picture now has to hold.
+ */
+const FIGURE_STARS_H = { portrait: 0.48, landscape: 0.37 };
+const FIGURE_STARS_W = { portrait: 0.92, landscape: 0.46 };
 const FIGURE_SINK = 0.04;
 
 /**
@@ -902,9 +916,11 @@ export class OutcomeScreen extends Container {
       pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
+    const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
+    const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
     this.figureH = Math.min(
-      s.h * FIGURE_H[key],
-      (s.w * FIGURE_W[key]) / FIGURE_ASPECT,
+      s.h * figureDown[key],
+      (s.w * figureAcross[key]) / FIGURE_ASPECT,
     );
     this.figure.position.set(s.cx, cy + ph * FIGURE_SINK);
     const figureUp = !!this.fitFigure();
@@ -1253,8 +1269,14 @@ export class OutcomeScreen extends Container {
    * `starsFit` is the room's own answer and it is the layout's to set, so this
    * reads it rather than asking again: a screen with no air between the chrome
    * and the figure has nowhere to put them. See the placement in `resize`.
+   *
+   * Not on a win any more while the figure brings its own. The victory clip is a
+   * man opening a tome with three stars climbing out of it, so the painted set
+   * over his head would be a second three — see FIGURE_CARRIES_STARS. A loss has
+   * no figure at all, so the obsidian set is still the only mark that card gets.
    */
   starsUp() {
+    if (FIGURE_CARRIES_STARS && !this.defeat) return false;
     return !!(
       this.starsPainted &&
       this.starsFit &&

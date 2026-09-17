@@ -1,9 +1,25 @@
 import { Texture, VideoSource } from "pixi.js";
-import toastUrl from "../assets/outcome/toast.mp4";
+import victoryUrl from "../assets/outcome/victory-figure.mp4";
 
-const CLIP = { url: toastUrl, w: 960, h: 618 };
+const CLIP = { url: victoryUrl, w: 960, h: 960 };
 
 export const FIGURE_ASPECT = CLIP.w / CLIP.h;
+
+/**
+ * Whether the clip brings its own three stars.
+ *
+ * It does, and that is the whole reason this one replaced the toast: the figure
+ * opens a tome and three gold stars climb out of it, spin, and settle into the
+ * same arc src/assets/outcome/stars-victory.webp draws as a still. So the card
+ * must not also hang that still above him — see `starsUp` in ui/outcome.js,
+ * which drops the painted set on a win and leaves it on a loss, where there is
+ * no figure to carry anything.
+ *
+ * It is exported rather than assumed because the card has to keep working with
+ * a clip that has none: the flag is what tells it whether the room above the
+ * figure is the figure's or the stars'.
+ */
+export const FIGURE_CARRIES_STARS = true;
 
 export const FIGURE_KEY = {
   cut: 50 / 255,
