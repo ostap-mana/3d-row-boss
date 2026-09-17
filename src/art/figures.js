@@ -7,24 +7,24 @@ const SHEETS = {
   victory: {
     url: victoryUrl,
     cols: 7,
-    cellW: 187,
-    cellH: 187,
-    pad: 1,
+    cellW: 300,
+    cellH: 300,
+    pad: 2,
     count: 28,
+    fps: 7.5,
   },
   defeat: {
     url: defeatUrl,
-    cols: 8,
-    cellW: 187,
-    cellH: 187,
-    pad: 1,
-    count: 38,
+    cols: 6,
+    cellW: 300,
+    cellH: 300,
+    pad: 2,
+    count: 24,
+    fps: 7.4,
   },
 };
 
 export const FIGURE_ASPECT = SHEETS.victory.cellW / SHEETS.victory.cellH;
-
-const FIGURE_FPS = 9.5;
 
 export const FIGURE_CARRIES_STARS = true;
 
@@ -74,10 +74,11 @@ export async function loadOutcomeFigures() {
 }
 
 export function figureTexture(defeat) {
-  const set = frames[defeat ? "defeat" : "victory"];
+  const key = defeat ? "defeat" : "victory";
+  const set = frames[key];
   if (!set) return null;
   if (clock < 0) return set[0];
-  const i = Math.floor(clock * FIGURE_FPS);
+  const i = Math.floor(clock * SHEETS[key].fps);
   return set[i < set.length ? i : set.length - 1];
 }
 

@@ -22,6 +22,13 @@ pack-video-sheet — a green-screen clip into one sprite sheet.
                   --flood.
   --key <hex>     the colour to knock out. Default: sampled from the first
                   frame's top-left pixel.
+  --reach <n>     --flood only. A looser similarity used only while the key
+                  floods in from the border, 0..1. Anything it can walk to
+                  from the edge that is this close to the key goes with it,
+                  so backdrop the effect has lit up — a glow washing the
+                  screen yellow-green — leaves with the rest of it instead of
+                  surviving as a patch. Defaults to --similarity, which is
+                  the old single-threshold behaviour.
   --similarity    how far from that colour still counts as background,
                   0..1. Default 0.14. Raise it if green survives around her,
                   lower it if her hair or armour start going transparent.
@@ -76,6 +83,7 @@ const cropBox = flag("crop", null);
 const range = flag("range", null);
 const flood = !opaque && args.includes("--flood");
 const similarity = Number(flag("similarity", 0.14));
+const reachSim = Number(flag("reach", similarity));
 const blend = Number(flag("blend", 0.02));
 const quality = Number(flag("quality", 80));
 const slug = basename(input, extname(input)).replace(/[^a-z0-9]+/gi, "-");
@@ -169,6 +177,8 @@ const keyChroma = keyRgb[1] - Math.max(keyRgb[0], keyRgb[2]);
 const CUT = keyChroma * (1 - similarity);
 const RAMP = Math.max(4, keyChroma * Math.max(blend, 0.3));
 const HOLD = CUT - RAMP;
+const REACH_CUT = keyChroma * (1 - reachSim);
+const REACH_HOLD = REACH_CUT - RAMP;
 const POCKET_NEAR = Number(flag("pocket", 20));
 const DESPILL = Math.round(Number(flag("despill", 4)));
 const SPILL_LIFT = Math.round(Number(flag("lift", 8)));
@@ -176,15 +186,18 @@ const SPILL_LIFT = Math.round(Number(flag("lift", 8)));
 function knockOut(px, w, h) {
   const n = w * h;
   const alpha = new Float32Array(n);
+  const loose = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const d = px[i * 4 + 1] - Math.max(px[i * 4], px[i * 4 + 2]);
     alpha[i] = d >= CUT ? 0 : d <= HOLD ? 1 : (CUT - d) / RAMP;
+    loose[i] =
+      d >= REACH_CUT ? 0 : d <= REACH_HOLD ? 1 : (REACH_CUT - d) / RAMP;
   }
 
   const seen = new Uint8Array(n);
   const stack = [];
   const reach = (i) => {
-    if (!seen[i] && alpha[i] < 1) {
+    if (!seen[i] && loose[i] < 1) {
       seen[i] = 1;
       stack.push(i);
     }
@@ -260,7 +273,7 @@ function knockOut(px, w, h) {
   }
 
   for (let i = 0; i < n; i++) {
-    const a = seen[i] ? alpha[i] : 1;
+    const a = seen[i] ? loose[i] : 1;
     if (a <= 0) {
       px[i * 4] = 0;
       px[i * 4 + 1] = 0;

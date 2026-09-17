@@ -85,7 +85,7 @@ const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 const FIGURE_STARS_H = { portrait: 0.48, landscape: 0.37 };
 const FIGURE_STARS_W = { portrait: 0.92, landscape: 0.46 };
 
-const FIGURE_STARS_SINK = { portrait: 0.3, landscape: 0.04 };
+const FIGURE_STARS_SINK = { portrait: 0.3, landscape: 0.34 };
 const FIGURE_SINK = 0.04;
 
 const CONTROL_DROP = {
@@ -431,9 +431,6 @@ export class OutcomeScreen extends Container {
   }
 
   fitFigure() {
-    if (FIGURE_CARRIES_STARS && this.layout && !this.layout.portrait) {
-      return null;
-    }
     const texture = figureTexture(this.defeat);
     if (!texture) return null;
     if (this.figure.texture !== texture) this.figure.texture = texture;
