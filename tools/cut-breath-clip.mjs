@@ -20,6 +20,21 @@ cut-breath-clip — one half of a two-way fire blast, turned into the boss's jet
   --similarity    how far from it still counts as backdrop, 0..1. Default 0.18.
   --feather <l:r:t:b>  pixels over which each edge of the square is ramped to
                   black. Default 80:80:70:120.
+  --gamma <n>     curve applied after the key, above 1 darkens the mid tones.
+                  Default 1.7. This is the number that decides whether the jet
+                  reads as fire at all: the master is a dense wall of bright
+                  yellow, and added over a board already full of lit gems a wall
+                  is a white wash with no shape in it. Bending the mids down
+                  puts the gaps between the tongues back on black, and on the
+                  add blend black is what draws the flame's edge.
+  --level <n>     flat multiplier after the curve. Default 0.88.
+  --warm <g:b>    what green and blue keep of themselves at the end. Default
+                  0.78:0.4. The master is pale yellow-white, and pale is the
+                  worst thing to add over a board of lit gems: luminance goes up
+                  everywhere and nothing reads. Holding the cool channels back
+                  makes the same fire land as red and orange, which tints the
+                  board instead of bleaching it, and leaves the white core the
+                  only truly white thing in the shot.
   --crf <n>       x264 quality, lower is better. Default 16.
 
   The master is one blast firing both ways out of a core in the middle of frame,
@@ -73,6 +88,9 @@ const SIDE = num("side", 680);
 const TOP = num("top", 20);
 const KEY = opt("key", "0x64E006");
 const SIMILARITY = num("similarity", 0.18);
+const GAMMA = num("gamma", 1.7);
+const LEVEL = num("level", 0.88);
+const [WG, WB] = opt("warm", "0.78:0.4").split(":").map(Number);
 const CRF = num("crf", 16);
 const [FL, FR, FT, FB] = opt("feather", "80:80:70:120").split(":").map(Number);
 
@@ -92,6 +110,8 @@ const last = SIDE - 1;
 const fade =
   `min(1,X/${FL})*min(1,(${last}-X)/${FR})` +
   `*min(1,Y/${FT})*min(1,(${last}-Y)/${FB})`;
+const curve = (ch, keep) =>
+  `pow(${ch}/255,${GAMMA})*255*${LEVEL * keep}*${fade}`;
 
 mkdirSync(dirname(OUT), { recursive: true });
 execFileSync(
@@ -107,9 +127,9 @@ execFileSync(
       `colorkey=${KEY}:${SIMILARITY}:0.06,format=rgba[k];` +
       `color=black:s=${SIDE}x${SIDE}:r=24[bg];` +
       `[bg][k]overlay=shortest=1,format=gbrp,` +
-      `geq=r='r(X,Y)*${fade}':` +
-      `g='min(g(X,Y),r(X,Y))*${fade}':` +
-      `b='min(b(X,Y),r(X,Y))*${fade}',format=yuv420p`,
+      `geq=r='${curve("r(X,Y)", 1)}':` +
+      `g='${curve("min(g(X,Y),r(X,Y))", WG)}':` +
+      `b='${curve("min(b(X,Y),r(X,Y))", WB)}',format=yuv420p`,
     "-an",
     "-c:v",
     "libx264",
