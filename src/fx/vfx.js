@@ -23,10 +23,11 @@ import {
 } from "../art/spells.js";
 import { RAKE_ASPECT, rakeFrameAt, rakeFrames } from "../art/rake.js";
 import { streamArt } from "../art/streams.js";
+import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
-import { FIRE, ULT_CALL, ULT_FX } from "../config.js";
+import { BEAM_ART, FIRE, ULT_CALL, ULT_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -303,6 +304,12 @@ export class Vfx extends Container {
 
   /**
    * Elemental beam from the board to the boss.
+   *
+   * `opts.element` is what lets a hero throw their own painted lance instead of
+   * the tinted quads below — see `paintedBeam` and art/bolts.js. It is optional
+   * everywhere: an element with no art, or a caller with no element to name,
+   * gets exactly the beam this method has always drawn.
+   *
    * @returns {Promise<void>} resolves on impact, so damage can land in sync
    */
   async beam(from, to, color, opts) {
@@ -311,6 +318,9 @@ export class Vfx extends Container {
     const dy = to.y - from.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const thickness = o.thickness || 26;
+
+    const art = o.element == null ? null : boltArt(o.element);
+    if (art) return this.paintedBeam(art, from, to, color, dist, thickness, o);
 
     const outer = new Sprite(beamTexture());
     outer.anchor.set(0, 0.5);
@@ -354,6 +364,53 @@ export class Vfx extends Container {
       outer.destroy(),
     );
     tween(core, { alpha: 0 }, 0.18, { delay: 0.05 }).then(() => core.destroy());
+    muzzle.destroy();
+  }
+
+  /**
+   * The same shot, drawn rather than tinted.
+   *
+   * One sprite where the plain beam is three: the lance is painted with its own
+   * white-hot core and its own torn edges, so the white quad that used to run
+   * down the middle would only wash them out. The muzzle glow stays, and stays
+   * tinted — it is light spilling off the card, not part of the drawing.
+   *
+   * The timing is the beam's own, to the number. Four other heroes are firing
+   * plain beams alongside this one within a few hundredths of a second of each
+   * other, and a lance that took longer to arrive would land its damage out of
+   * the volley it belongs to.
+   */
+  async paintedBeam(art, from, to, color, dist, thickness, o) {
+    const lance = new Sprite(art.texture);
+    lance.anchor.set(0, 0.5);
+    lance.blendMode = "add";
+    if (art.tint != null) lance.tint = art.tint;
+    lance.x = from.x;
+    lance.y = from.y;
+    lance.rotation = Math.atan2(to.y - from.y, to.x - from.x);
+    lance.setSize(1, thickness * BEAM_ART.thick);
+    this.field.addChild(lance);
+
+    const muzzle = new Sprite(glowTexture());
+    muzzle.anchor.set(0.5);
+    muzzle.blendMode = "add";
+    muzzle.tint = color;
+    muzzle.x = from.x;
+    muzzle.y = from.y;
+    muzzle.setSize(thickness * 4, thickness * 4);
+    this.field.addChild(muzzle);
+
+    const travel = o.travel || 0.16;
+    await Promise.all([
+      tween(lance, { width: dist }, travel, { ease: Ease.quadIn }),
+      tween(muzzle.scale, { x: 0, y: 0 }, travel + 0.1),
+    ]);
+
+    this.impact(to, color, o.impact || 1);
+
+    tween(lance, { alpha: 0 }, 0.22, { delay: 0.05 }).then(() =>
+      lance.destroy(),
+    );
     muzzle.destroy();
   }
 
@@ -461,7 +518,7 @@ export class Vfx extends Container {
     const frames = spellFrames(SPELL_BY_ELEMENT[element]);
     if (!frames) {
       if (element === FIRE) return this.fireball(from, to, color, o);
-      return this.beam(from, to, color, { ...o, ...(o.beam || {}) });
+      return this.beam(from, to, color, { element, ...o, ...(o.beam || {}) });
     }
 
     return this.paintedBolt(
@@ -519,7 +576,8 @@ export class Vfx extends Container {
     const frames = spellFrames(SPELL_BY_ELEMENT[element]);
     if (!frames) {
       if (element === FIRE) await this.fireball(from, to, color, o);
-      else await this.beam(from, to, color, { ...o, ...(o.beam || {}) });
+      else
+        await this.beam(from, to, color, { element, ...o, ...(o.beam || {}) });
       this.ultShock(to, from, color, light, size);
       return;
     }

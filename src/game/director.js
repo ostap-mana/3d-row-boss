@@ -1901,6 +1901,7 @@ export class Director {
           const from = heroRow.cardPoint(index);
           vfx
             .beam(from, target, GEM_COLORS[card.hero.element], {
+              element: card.hero.element,
               thickness: isLead ? 16 + step * 5 : 8 + step * 2,
               impact: power,
               travel: isLead ? 0.16 : 0.2,
