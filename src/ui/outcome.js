@@ -363,7 +363,7 @@ const FIGURE_SINK = 0.04;
  * that keeps a big plate off the party.
  */
 const CONTROL_DROP = {
-  win: { portrait: 0.62, landscape: 0.5 },
+  win: { portrait: 0.82, landscape: 0.62 },
   loss: { portrait: 0.12, landscape: 0.12 },
 };
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
@@ -457,7 +457,33 @@ const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
  * given more width than the rematch rather than less, and the verdict keeps its
  * scale by standing in the band above instead of by being the only big object.
  */
-const PLAY_W = { portrait: 0.82, landscape: 0.46 };
+const PLAY_W = { portrait: 1, landscape: 0.54 };
+
+/**
+ * The margin the plate is held off the edge of the safe box by, in UI points.
+ *
+ * Its own number rather than RETRY_AIR, which is the air between the control
+ * and the things above and below it. Sideways air is a different question: the
+ * painted plate carries transparent margin of its own either side of the gems,
+ * so its pixels stop short of the box this measures — and at the width the win
+ * now asks for, the difference between six points and twelve is the difference
+ * between a plate that fills the phone and one that looks like it was aiming to.
+ */
+const PLATE_EDGE_AIR = 6;
+
+/**
+ * The jerk on the win's plate: how often, how hard, and what shape it moves in.
+ *
+ * Not a sine. A CTA that swells and sinks evenly reads as breathing and the eye
+ * settles into it inside two cycles; what does not settle is a kick — the plate
+ * snaps up over `attack` and eases back across the rest of the beat, which is
+ * the shape of something being pressed rather than something idling. `rate` is
+ * in beats a second and `kick` the share of its own size it takes at the top.
+ *
+ * On the container and not on the art, so the plate, the label and the hit area
+ * all take it together and nothing inside the button drifts out of register.
+ */
+const PLAY_BEAT = { rate: 1.15, kick: 0.062, attack: 0.12, decay: 6.5 };
 
 /** Air between the control and whatever bounds it, in UI points. */
 const RETRY_AIR = 12;
@@ -1110,9 +1136,15 @@ export class OutcomeScreen extends Container {
     // where it actually stands, a wide plate comes back narrower instead of
     // crossing the edge of the screen it is standing on.
     const reachAcross = Math.min(retryX - s.x, s.x + s.w - retryX);
+    // The beat is a scale on the container, so the plate is widest at the top of
+    // every kick and that is the width the edge has to be measured against. The
+    // room is divided by it rather than the art being made to fit what it is at
+    // rest: a button sized to its resting width crosses the edge of the screen
+    // once a second, which is the one place a CTA must not be cut.
+    const beating = this.defeat ? 1 : 1 + PLAY_BEAT.kick;
     const offered = Math.min(
       s.w * (this.defeat ? RETRY_W[key] : PLAY_W[key]),
-      Math.max(44 * ui, (reachAcross - air) * 2),
+      Math.max(44 * ui, ((reachAcross - PLATE_EDGE_AIR * ui) * 2) / beating),
     );
     const box = this.fitRetry(
       offered,
@@ -1502,6 +1534,7 @@ export class OutcomeScreen extends Container {
     this.card.alpha = 0;
     this.tap.alpha = 0;
     this.retry.alpha = 0;
+    this.retry.scale.set(1);
     this.bloom.alpha = 0;
     this.flash.alpha = 1;
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
@@ -1734,6 +1767,18 @@ export class OutcomeScreen extends Container {
 
     this.bloom.alpha =
       (this.defeat ? 0.26 : 0.36) + Math.sin(this.t * 1.8) * 0.08;
+
+    // The win's plate only. A rematch is an offer to try again and does not need
+    // chasing; this one is what the whole creative was built to be tapped, on
+    // the last screen of the run, where nothing else is going to move.
+    if (!this.defeat) {
+      const phase = (this.t * PLAY_BEAT.rate) % 1;
+      const beat =
+        phase < PLAY_BEAT.attack
+          ? phase / PLAY_BEAT.attack
+          : Math.exp(-(phase - PLAY_BEAT.attack) * PLAY_BEAT.decay);
+      this.retry.scale.set(1 + PLAY_BEAT.kick * beat);
+    }
     // On the text and not on the container, so the fade-out on the way off owns
     // an alpha of its own and the two do not fight over the same number.
     this.tapText.alpha = 0.62 + Math.abs(Math.sin(this.t * PULSE)) * 0.38;
