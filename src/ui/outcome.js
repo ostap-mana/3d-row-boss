@@ -335,29 +335,37 @@ const FIGURE_SINK = 0.04;
 /**
  * How far down its own room the control stands, as a share of it.
  *
- * Both endings sit the same way now and it is not a per-ending number any more:
- * the rematch used to be pushed to the floor of the room because the sorceress
- * stood in the gap and needed all of it, and with her off the card that push is
- * just a hole between the verdict and the button. See `standByRetry`, which
- * went with her.
+ * Per-ending again, and for the win's sake rather than the loss's. The rematch
+ * stands where it stood — at the top of its room, under the verdict, because
+ * nothing on a losing card competes with it for the gap. The plate does not: on
+ * a won run the room below the band is shared with the party at the foot of the
+ * screen, and a plate tucked under the verdict sits in the middle of the card
+ * with a hand's worth of dead picture under it. Dropped past the middle of its
+ * room it stands where the thumb already is.
  *
- * At the top of the room rather than above its centre. The room runs from under
- * the band to the top of the hero row and it is deep — 265 points on a 393x852
- * phone — so a share of it is a coarse instrument: at 0.38 the button stood 78
- * points clear of the band with nothing in between, which reads as a control
- * that belongs to the screen rather than to the verdict. The stars used to fill
- * that gap and no longer do; they hang over the figure now, above the band. So
- * the fraction goes small and the clamp below it does the real work.
+ * The rematch is at the top of the room rather than above its centre. The room
+ * runs from under the band to the top of the hero row and it is deep — 265
+ * points on a 393x852 phone — so a share of it is a coarse instrument: at 0.38
+ * the button stood 78 points clear of the band with nothing in between, which
+ * reads as a control that belongs to the screen rather than to the verdict. The
+ * stars used to fill that gap and no longer do; they hang over the figure now,
+ * above the band. So that fraction stays small and the clamp below it does the
+ * real work.
  *
- * THE CLAMP IS NOT A GUARD, IT IS THE PLACEMENT. The control is centred on the
- * point this fraction picks, so a small fraction puts its top through the roof —
- * and the two endings stand plates of different heights, 53 points against 72,
+ * ON THE LOSS THE CLAMP IS NOT A GUARD, IT IS THE PLACEMENT. The control is
+ * centred on the point this fraction picks, so a small fraction puts its top
+ * through the roof — and the two endings stand plates of different heights,
  * which is exactly the kind of thing a raw offset gets wrong on one ending only.
- * Clamped to half its own box off each end of the room, the button stands as
- * close under the verdict as RETRY_AIR allows on whichever ending is up, and the
- * fraction only decides how much further down than that it sits.
+ * Clamped to half its own box off each end of the room, the rematch stands as
+ * close under the verdict as RETRY_AIR allows and 0.12 only decides how much
+ * further down than that it sits. The win's own fraction is past the middle and
+ * places the plate itself; there the clamp is what it looks like — the floor
+ * that keeps a big plate off the party.
  */
-const CONTROL_DROP = 0.12;
+const CONTROL_DROP = {
+  win: { portrait: 0.62, landscape: 0.5 },
+  loss: { portrait: 0.12, landscape: 0.12 },
+};
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
 /** The hairline over the tap line, as a share of the stage's width. */
@@ -440,15 +448,16 @@ const RETRY_W = { portrait: 0.68, landscape: 0.34 };
 const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
 
 /**
- * The same slot, narrower, for the PLAY NOW plate on a win.
+ * The same slot, wider, for the PLAY NOW plate on a win.
  *
- * The two controls are not the same kind of thing and must not read as the same
- * size. RETRY is the only thing on a losing card and can have the room; the
- * plate shares its screen with the verdict, which is the biggest object in the
- * creative and has to stay that way. At the rematch's own 0.56 the two were
- * within a hair of each other upright and the card read as two headlines.
+ * The two controls are not the same kind of thing and are not sized the same
+ * way. RETRY answers a lost fight and is read after the verdict; the plate is
+ * the one thing on this card that has a job beyond the screen it is on, and on
+ * a won run it is what the whole creative was built to be tapped. So it is
+ * given more width than the rematch rather than less, and the verdict keeps its
+ * scale by standing in the band above instead of by being the only big object.
  */
-const PLAY_W = { portrait: 0.528, landscape: 0.312 };
+const PLAY_W = { portrait: 0.82, landscape: 0.46 };
 
 /** Air between the control and whatever bounds it, in UI points. */
 const RETRY_AIR = 12;
@@ -1095,18 +1104,32 @@ export class OutcomeScreen extends Container {
     // inside-out one, and 44 is the same thumb the hit area is bought for.
     const room = Math.max(44 * ui, sill - roof);
 
-    const box = this.fitRetry(
+    // The control is centred on the board rather than on the screen, and
+    // sideways the board hugs one edge — so a share of the whole safe box is an
+    // offer the position cannot always take. Held to the room either side of
+    // where it actually stands, a wide plate comes back narrower instead of
+    // crossing the edge of the screen it is standing on.
+    const reachAcross = Math.min(retryX - s.x, s.x + s.w - retryX);
+    const offered = Math.min(
       s.w * (this.defeat ? RETRY_W[key] : PLAY_W[key]),
+      Math.max(44 * ui, (reachAcross - air) * 2),
+    );
+    const box = this.fitRetry(
+      offered,
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
       ui,
     );
-    // Half its own box off each end of the room, so a fraction small enough to
-    // put the plate under the verdict cannot put its top through the band. See
-    // CONTROL_DROP, where that clamp is the placement rather than a guard.
+    // Half its own box off each end of the room: a fraction small enough to put
+    // the rematch under the verdict cannot put its top through the band, and the
+    // win's own fraction cannot stand its plate on the party. See CONTROL_DROP.
     const reach = Math.max(roof + box.h / 2, sill - box.h / 2);
     this.retry.position.set(
       retryX,
-      clamp(roof + (sill - roof) * CONTROL_DROP, roof + box.h / 2, reach),
+      clamp(
+        roof + (sill - roof) * CONTROL_DROP[this.defeat ? "loss" : "win"][key],
+        roof + box.h / 2,
+        reach,
+      ),
     );
     // A thumb's worth of height whatever the ceiling did to the art — and the
     // width the art actually came back with, so the box cannot reach out past
