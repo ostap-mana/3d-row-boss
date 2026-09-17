@@ -189,6 +189,19 @@ export const DIFFICULTY = {
 
   healDecay: 0.1,
 
+  mend: {
+    enabled: true,
+    at: 0.44,
+    floor: 0.17,
+    gain: 0.15,
+    least: 0.055,
+    decay: 0.05,
+    uses: 1,
+    ceiling: 0.94,
+    deadline: 24,
+    cast: 1.15,
+  },
+
   rigCascades: false,
 
   randomOpening: true,
@@ -302,6 +315,7 @@ export const COPY = {
   rake: "CLAW RAKE!",
   eruption: "ERUPTION!",
   ultHeal: "TEAM HEALED!",
+  mend: `${BOSS_NAME} MENDS!`,
   doomLabel: "CATACLYSM",
   doomWarn: `${BOSS_NAME} IS CHARGING!`,
   doomSoon: "BRACE!",
@@ -368,6 +382,25 @@ export const BOSS_ATTACKS = [
     from: 3,
   },
 ];
+
+export const MEND_FX = {
+  seconds: 1.15,
+  peak: 0.68,
+  green: 0x3fd16a,
+  light: 0xb6f5c9,
+  core: 0xfff2d0,
+  sheet: 0.92,
+  grow: -0.28,
+  halo: 0.72,
+  haloAlpha: 0.55,
+  heart: 0.24,
+  motes: 26,
+  reach: 0.95,
+  stagger: 0.42,
+  rings: 2,
+  ringWidth: 4.5,
+  ringAlpha: 0.42,
+};
 
 export const ULT_PACE = {
   rush: 5,

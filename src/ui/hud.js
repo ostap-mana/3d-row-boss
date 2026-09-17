@@ -57,6 +57,8 @@ const THROB = { rate: 7.4, depth: 0.55 };
 
 const HIT_FLASH = { alpha: 0.42, dur: 0.13 };
 
+const MEND_FLASH = { alpha: 0.5, dur: 0.4, tint: 0x9fffc4 };
+
 export function comma(n) {
   const s = String(Math.max(0, Math.round(n)));
   let out = "";
@@ -617,35 +619,56 @@ export class Hud extends Container {
   async setHp(value, dur) {
     const d = dur === undefined ? 0.45 : dur;
     const hit = value < this.hpShown - 0.001;
+    const mend = value > this.hpShown + 0.001;
     this.hp = value;
 
     if (hit && this.barShape) {
       killTweensOf(this.barFlash);
+      this.barFlash.tint = PAINT_FULL;
       this.barFlash.alpha = HIT_FLASH.alpha;
       tween(this.barFlash, { alpha: 0 }, HIT_FLASH.dur, { ease: Ease.quadOut });
     }
     if (hit && this.crest) this.crest.hit(0.6 + (this.hpShown - value) * 4);
+
+    if (mend && this.barShape) {
+      killTweensOf(this.barFlash);
+      this.barFlash.tint = MEND_FLASH.tint;
+      this.barFlash.alpha = MEND_FLASH.alpha;
+      tween(this.barFlash, { alpha: 0 }, MEND_FLASH.dur, {
+        ease: Ease.quadOut,
+      }).then(() => {
+        this.barFlash.tint = PAINT_FULL;
+      });
+    }
 
     killTweensOf(this.barDriver);
     killTweensOf(this.chipDriver);
     this.barDriver.v = this.hpShown;
     this.chipDriver.v = this.hpChip;
 
-    tween(this.barDriver, { v: value }, d * 0.55, {
-      ease: Ease.quadOut,
-      onUpdate: () => {
-        this.hpShown = this.barDriver.v;
-        this.drawBar();
-      },
-    });
-    await tween(this.chipDriver, { v: value }, d * CHIP_DRAIN, {
-      delay: d * CHIP_HOLD,
-      ease: Ease.quadOut,
-      onUpdate: () => {
-        this.hpChip = this.chipDriver.v;
-        this.drawBar();
-      },
-    });
+    const lead = { secs: d * 0.55, wait: 0 };
+    const trail = { secs: d * CHIP_DRAIN, wait: d * CHIP_HOLD };
+    const bar = mend ? trail : lead;
+    const chip = mend ? lead : trail;
+
+    await Promise.all([
+      tween(this.barDriver, { v: value }, bar.secs, {
+        delay: bar.wait,
+        ease: Ease.quadOut,
+        onUpdate: () => {
+          this.hpShown = this.barDriver.v;
+          this.drawBar();
+        },
+      }),
+      tween(this.chipDriver, { v: value }, chip.secs, {
+        delay: chip.wait,
+        ease: Ease.quadOut,
+        onUpdate: () => {
+          this.hpChip = this.chipDriver.v;
+          this.drawBar();
+        },
+      }),
+    ]);
   }
 
   async shout(text, hold, opts) {

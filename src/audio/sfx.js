@@ -482,6 +482,59 @@ export function bossEnrage() {
   noise({ type: "highpass", freq: 1200, to: 4000, dur: 0.4, gain: 0.08 });
 }
 
+export function bossMend(hold) {
+  const dur = Math.max(0.6, hold === undefined ? 1.15 : hold);
+  if (samples.play("mend", { rate: 1.1 / dur })) return;
+
+  noise({
+    type: "bandpass",
+    freq: 320,
+    to: 2400,
+    dur: dur * 0.72,
+    gain: 0.09,
+    q: 0.7,
+    attack: dur * 0.5,
+  });
+  [98, 146.8, 196].forEach((f, i) => {
+    tone({
+      freq: f,
+      to: f * 1.34,
+      dur: dur * 0.78,
+      gain: 0.12,
+      type: "sawtooth",
+      delay: i * 0.05,
+      cut: 1100,
+      attack: dur * 0.42,
+    });
+  });
+  [392, 587.3, 784].forEach((f, i) => {
+    tone({
+      freq: f * 0.75,
+      to: f,
+      dur: dur * 0.62,
+      gain: 0.07,
+      type: "sine",
+      delay: dur * 0.2 + i * 0.07,
+      cut: 5200,
+    });
+  });
+  chord([196, 261.6, 392], {
+    dur: dur * 0.5,
+    gain: 0.1,
+    type: "triangle",
+    delay: dur * 0.6,
+    cut: 3400,
+  });
+  tone({
+    freq: 58,
+    to: 44,
+    dur: dur * 0.5,
+    gain: 0.16,
+    type: "sine",
+    delay: dur * 0.62,
+  });
+}
+
 export function bossDie() {
   if (samples.play("die")) {
     samples.play("boom", { delay: 0.18 });

@@ -18,7 +18,12 @@ export const SPELL_BY_ELEMENT = {
   [WIND]: "wind",
 };
 
-export const BOSS_SPELLS = { breath: "breath", smash: "slam", rake: "claw" };
+export const BOSS_SPELLS = {
+  breath: "breath",
+  smash: "slam",
+  rake: "claw",
+  mend: ["mend", "nature"],
+};
 
 const FOUND = import.meta.glob(
   [
@@ -84,4 +89,14 @@ export async function loadSpellArt() {
 
 export function spellFrames(id) {
   return (id && frames[id]) || null;
+}
+
+export function bossSpellFrames(kind) {
+  const want = BOSS_SPELLS[kind];
+  const list = Array.isArray(want) ? want : [want];
+  for (let i = 0; i < list.length; i++) {
+    const found = spellFrames(list[i]);
+    if (found) return found;
+  }
+  return null;
 }

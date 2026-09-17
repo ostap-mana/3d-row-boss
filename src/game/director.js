@@ -9,6 +9,7 @@ import {
   GEM_LIGHT,
   HERO_MAX_HP,
   HEALER,
+  MEND_FX,
   OBSIDIAN,
   ROWS,
   SCRIPTED_HINT,
@@ -68,6 +69,7 @@ export class Director {
     this.fightStart = 0;
     this.doomCount = 0;
     this.healsUsed = 0;
+    this.mendsUsed = 0;
 
     this.idleToken = 0;
     this.openingToken = 0;
@@ -311,7 +313,7 @@ export class Director {
     return depth === 0 ? 1 : layers[layers.length - depth].mult;
   }
 
-  pace() {
+  expectedHp() {
     const guard = DIFFICULTY.pace;
     if (!guard || !guard.enabled) return 1;
     const byClock = 1 - toReal(now() - this.fightStart) / guard.seconds;
@@ -320,7 +322,13 @@ export class Director {
       Math.max(0, 1 - this.movesPlayed / held),
       guard.matchBend || 1,
     );
-    const expected = Math.max(0, Math.min(byClock, byMatch));
+    return Math.max(0, Math.min(byClock, byMatch));
+  }
+
+  pace() {
+    const guard = DIFFICULTY.pace;
+    if (!guard || !guard.enabled) return 1;
+    const expected = this.expectedHp();
     if (expected <= 0 || this.bossHp >= expected) return 1;
     return Math.max(guard.floor, Math.pow(this.bossHp / expected, guard.bite));
   }
@@ -389,6 +397,28 @@ export class Director {
       ULT_HEAL_FLOOR,
       ULT_HEAL_TO - this.healsUsed * (DIFFICULTY.healDecay || 0),
     );
+  }
+
+  mendDue() {
+    const cfg = DIFFICULTY.mend;
+    if (!cfg || !cfg.enabled || this.settled()) return false;
+    if (this.mendsUsed >= (cfg.uses || 0)) return false;
+    if (this.bossHp > cfg.at || this.bossHp < cfg.floor) return false;
+    if (this.doomFiring || this.doomDue()) return false;
+    return toReal(now() - this.fightStart) < cfg.deadline;
+  }
+
+  mendTo() {
+    const cfg = DIFFICULTY.mend;
+    const want = Math.max(
+      cfg.least,
+      cfg.gain - this.mendsUsed * (cfg.decay || 0),
+    );
+    const roof = Math.max(
+      this.bossHp + cfg.least,
+      this.expectedHp() * cfg.ceiling,
+    );
+    return Math.min(1, roof, this.bossHp + want);
   }
 
   queueBoss(job) {
@@ -1271,6 +1301,13 @@ export class Director {
     const attack = this.currentAttack();
     await this.s.board.whenQuiet();
     if (this.settled()) return;
+
+    if (this.mendDue()) {
+      await this.bossMend();
+      this.turn++;
+      return;
+    }
+
     const cells = this.pickObsidian(attack);
 
     if (attack.kind === "rake") {
@@ -1387,6 +1424,42 @@ export class Director {
     const falling = this.strikeHeroes(attack);
     shake(15, 0.4);
     await Promise.all([spreading, falling, delay(0.32)]);
+  }
+
+  async bossMend() {
+    const { boss, hud, vfx, shake, layout } = this.s;
+    const cfg = DIFFICULTY.mend;
+    const before = this.bossHp;
+    const to = this.mendTo();
+    if (to <= before + 0.001) return;
+
+    this.mendsUsed++;
+    track(EV.bossMend, { hp: Math.round(before * 100), gain: to - before });
+    hud.shout(COPY.mend, 0.5, { fill: MEND_FX.light, from: 1.5 });
+
+    const at = boss.impactPoint();
+    const casting = boss.mend(cfg.cast);
+    vfx.mend(at, {
+      size: layout.stage.w * 0.66,
+      duration: cfg.cast,
+    });
+
+    await delay(cfg.cast * MEND_FX.peak);
+    if (this.settled()) {
+      await casting;
+      return;
+    }
+
+    this.bossHp = Math.min(1, to);
+    hud.setHp(this.bossHp, 0.62);
+    hud.damage((this.bossHp - before) * BOSS_MAX_HP, at.x, at.y - 24, 1, {
+      sign: "+",
+      fill: MEND_FX.light,
+    });
+    vfx.flash(MEND_FX.green, 0.14, 0.38);
+    shake(7, 0.3);
+
+    await casting;
   }
 
   async dropObsidian(cells, wait) {

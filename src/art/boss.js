@@ -20,6 +20,9 @@ const RUNE_HOT = 0xff8ae8;
 
 const SHADOW_TINT = 0x33304a;
 
+const MEND_TINT = 0x3fd16a;
+const MEND_SKIN = 0xa8f5c4;
+
 const ART_GRADE = 0xc6bdd8;
 
 const STILL = {
@@ -284,6 +287,8 @@ export class Boss extends Container {
     this.painted = !!painting;
     if (this.painted) this.buildPainted();
     else this.buildDrawn();
+
+    this.auraRest = this.aura.tint;
 
     this.shadow.y = this.feetY - 8;
 
@@ -1030,6 +1035,56 @@ export class Boss extends Container {
     return dir;
   }
 
+  async mend(seconds) {
+    const span = seconds === undefined ? 1.15 : seconds;
+    const skin = () => (this.enraged ? this.enragedTint : 0xffffff);
+
+    sfx.bossMend(span);
+
+    this.aura.tint = MEND_TINT;
+
+    const draw = span * 0.62;
+    const from = skin();
+    tweenValue(0, 1, draw, (v) => {
+      this.tint = lerpColor(from, MEND_SKIN, v);
+    });
+
+    await tween(
+      this.pose,
+      { breath: 0.88, lean: -12, charge: 0.7, headY: -14, jaw: 0.25 },
+      draw,
+      { ease: Ease.quadOut },
+    );
+    if (!this.alive) {
+      this.aura.tint = this.auraRest;
+      return;
+    }
+
+    await tween(
+      this.pose,
+      { breath: 1.18, lean: 6, charge: 1, headY: -26, jaw: 0.6 },
+      span * 0.16,
+      { ease: Ease.backOut },
+    );
+    this.pose.wob = 0.5;
+    this.pose.wobT = 0;
+
+    const settle = span * 0.34;
+    tweenValue(0, 1, settle, (v) => {
+      this.tint = lerpColor(MEND_SKIN, skin(), v);
+    });
+    tween(
+      this.pose,
+      { breath: 1, lean: 0, charge: 0, headY: 0, jaw: 0 },
+      settle,
+      { ease: Ease.elasticOut },
+    ).then(() => {
+      this.aura.tint = this.auraRest;
+    });
+
+    await delay(settle * 0.5);
+  }
+
   hit(power) {
     const p = power || 1;
     sfx.bossHit(p);
@@ -1124,7 +1179,8 @@ export class Boss extends Container {
   enrage() {
     this.enraged = true;
     sfx.bossEnrage();
-    this.aura.tint = this.painted ? 0xff2a6a : 0xff2a06;
+    this.auraRest = this.painted ? 0xff2a6a : 0xff2a06;
+    this.aura.tint = this.auraRest;
     tweenValue(0, 1, 0.5, (v) => {
       this.tint = lerpColor(0xffffff, this.enragedTint, v);
     });

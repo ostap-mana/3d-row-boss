@@ -9,10 +9,10 @@ import {
   fireFrames,
 } from "../art/fire.js";
 import {
-  BOSS_SPELLS,
   SPELL_ASPECT,
   SPELL_BY_ELEMENT,
   SPELL_TRAVEL_LAST,
+  bossSpellFrames,
   spellFrames,
 } from "../art/spells.js";
 import { RAKE_ASPECT, rakeFrameAt, rakeFrames } from "../art/rake.js";
@@ -21,7 +21,7 @@ import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
-import { FIRE, ULT_CALL, ULT_FX } from "../config.js";
+import { FIRE, MEND_FX, ULT_CALL, ULT_FX } from "../config.js";
 
 const MAX_PARTICLES = 180;
 
@@ -735,7 +735,7 @@ export class Vfx extends Container {
   }
 
   bossSwing(kind, at, opts) {
-    const frames = spellFrames(BOSS_SPELLS[kind]);
+    const frames = bossSpellFrames(kind);
     if (!frames) return false;
 
     const o = opts || {};
@@ -761,6 +761,118 @@ export class Vfx extends Container {
     }).then(() => s.destroy());
 
     return true;
+  }
+
+  async mend(at, opts) {
+    const o = opts || {};
+    const size = o.size || 420;
+    const seconds = o.duration || MEND_FX.seconds;
+    const color = o.color === undefined ? MEND_FX.green : o.color;
+    const light = o.light === undefined ? MEND_FX.light : o.light;
+
+    this.bossSwing("mend", at, {
+      size: size * MEND_FX.sheet,
+      duration: seconds * 0.82,
+      alpha: 0.92,
+      grow: MEND_FX.grow,
+    });
+
+    const layers = [
+      { tint: color, span: MEND_FX.halo, top: MEND_FX.haloAlpha, grow: 1.1 },
+      { tint: MEND_FX.core, span: MEND_FX.heart, top: 1, grow: 0.7 },
+    ].map(({ tint, span, top, grow }) => {
+      const s = new Sprite(glowTexture());
+      s.anchor.set(0.5);
+      s.blendMode = "add";
+      s.tint = tint;
+      s.x = at.x;
+      s.y = at.y;
+      s.setSize(size * span, size * span);
+      s.alpha = 0;
+      this.field.addChild(s);
+      return { s, top, grow, seed: { x: s.scale.x, y: s.scale.y } };
+    });
+
+    tweenValue(0, 1, seconds, (p) => {
+      const swell =
+        p < MEND_FX.peak
+          ? Ease.quadIn(p / MEND_FX.peak)
+          : 1 - Ease.quadIn((p - MEND_FX.peak) / (1 - MEND_FX.peak));
+      layers.forEach(({ s, top, grow, seed }) => {
+        if (s.destroyed) return;
+        const k = 0.5 + swell * grow;
+        s.scale.set(seed.x * k, seed.y * k);
+        s.alpha = (p < 0.14 ? p / 0.14 : 1) * top * (0.2 + swell * 0.8);
+      });
+    }).then(() => layers.forEach(({ s }) => s.destroy()));
+
+    this.mendMotes(at, size, color, light, seconds);
+    this.mendCinch(at, size, color, seconds);
+
+    await delay(seconds);
+  }
+
+  mendMotes(at, size, color, light, seconds) {
+    const room = MAX_PARTICLES - this.field.children.length;
+    const n = Math.min(MEND_FX.motes, Math.max(0, room));
+
+    for (let i = 0; i < n; i++) {
+      const mote = new Sprite(sparkTexture());
+      mote.anchor.set(0.5);
+      mote.blendMode = "add";
+      mote.tint = i % 4 === 0 ? light : color;
+      const w = rndRange(12, 26);
+      mote.setSize(w, w);
+      const a = rndRange(0, Math.PI * 2);
+      const reach = size * MEND_FX.reach * rndRange(0.6, 1.15);
+      mote.x = at.x + Math.cos(a) * reach;
+      mote.y = at.y + Math.sin(a) * reach * 0.82;
+      mote.alpha = 0;
+      this.field.addChild(mote);
+
+      const lead = (i / n) * seconds * MEND_FX.stagger;
+      const life = (seconds - lead) * rndRange(0.62, 0.86);
+      tween(mote, { alpha: 1 }, Math.min(0.2, life * 0.4), { delay: lead });
+      tween(mote, { x: at.x, y: at.y }, life, {
+        delay: lead,
+        ease: Ease.quadIn,
+      });
+      tween(mote.scale, { x: 0, y: 0 }, life, {
+        delay: lead,
+        ease: Ease.quadIn,
+      }).then(() => {
+        if (!mote.destroyed) mote.destroy();
+      });
+    }
+  }
+
+  mendCinch(at, size, color, seconds) {
+    for (let i = 0; i < MEND_FX.rings; i++) {
+      const g = new Graphics();
+      g.circle(0, 0, 50);
+      g.stroke({ width: MEND_FX.ringWidth - i * 1.2, color, alpha: 1 });
+      g.x = at.x;
+      g.y = at.y;
+      g.blendMode = "add";
+      g.scale.set((size * MEND_FX.reach * (1 - i * 0.22)) / 100);
+      g.alpha = 0;
+      this.field.addChild(g);
+
+      const lead = i * seconds * 0.16;
+      const life = seconds * MEND_FX.peak - lead;
+      tween(g, { alpha: MEND_FX.ringAlpha }, Math.min(0.24, life * 0.5), {
+        delay: lead,
+      });
+      tween(g.scale, { x: 0.12, y: 0.12 }, life, {
+        delay: lead,
+        ease: Ease.quadIn,
+      });
+      tween(g, { alpha: 0 }, life * 0.42, {
+        delay: lead + life * 0.58,
+      }).then(() => {
+        if (!g.destroyed) g.destroy();
+      });
+    }
   }
 
   async paintedBolt(art, from, to, color, o) {

@@ -9,6 +9,7 @@ export const EV = Object.freeze({
   start: "game_start",
   firstSwap: "first_swap",
   ultimate: "ultimate_cast",
+  bossMend: "boss_mend",
   end: "game_end",
   endcard: "endcard_shown",
   retry: "retry",
