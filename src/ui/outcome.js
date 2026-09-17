@@ -700,6 +700,9 @@ export class OutcomeScreen extends Container {
     /** Whether the room between the chrome and the figure took them. */
     this.starsFit = false;
 
+    /** Whether this ending's figure decoded and brings its own three. */
+    this.figureCarries = false;
+
     /**
      * The word, set in type — and normally not on screen at all.
      *
@@ -1077,8 +1080,7 @@ export class OutcomeScreen extends Container {
   }
 
   fitFigure() {
-    if (this.defeat) return null;
-    const texture = figureTexture();
+    const texture = figureTexture(this.defeat);
     if (!texture) return null;
     if (this.figure.texture !== texture) this.figure.texture = texture;
     if (this.figureH > 0) {
@@ -1268,13 +1270,15 @@ export class OutcomeScreen extends Container {
    * reads it rather than asking again: a screen with no air between the chrome
    * and the figure has nowhere to put them. See the placement in `resize`.
    *
-   * Not on a win any more while the figure brings its own. The victory clip is a
-   * man opening a tome with three stars climbing out of it, so the painted set
-   * over his head would be a second three — see FIGURE_CARRIES_STARS. A loss has
-   * no figure at all, so the obsidian set is still the only mark that card gets.
+   * Not on either ending any more while the figures bring their own. The win
+   * clip is a man opening a tome with three stars climbing out of it and the
+   * loss clip is the same three going out over him, so the painted set would be
+   * a second three on both cards — see FIGURE_CARRIES_STARS. It comes back the
+   * moment a figure does not decode, because `starsPainted` and this flag are
+   * asked separately and a card with no figure still wants its mark.
    */
   starsUp() {
-    if (FIGURE_CARRIES_STARS && !this.defeat) return false;
+    if (this.figureCarries) return false;
     return !!(
       this.starsPainted &&
       this.starsFit &&
@@ -1291,6 +1295,10 @@ export class OutcomeScreen extends Container {
     // one set that decodes and one that does not, and the ending that has its
     // stars still gets them.
     this.starsPainted = this.stars ? aimStars(this.stars, this.defeat) : false;
+    // Settled here rather than read off `figure.visible`, which is only set once
+    // the intro runs and is still the last ending's answer during the resize
+    // that precedes it.
+    this.figureCarries = FIGURE_CARRIES_STARS && !!figureTexture(this.defeat);
     if (this.stars) this.stars.visible = this.starsUp();
   }
 
@@ -1639,7 +1647,7 @@ export class OutcomeScreen extends Container {
     this.fireworks.update(dt);
     if (this.figure.visible) {
       stepFigure(dt);
-      const frame = figureTexture();
+      const frame = figureTexture(this.defeat);
       if (frame && this.figure.texture !== frame) this.figure.texture = frame;
     }
 
