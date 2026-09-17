@@ -3019,24 +3019,6 @@ export const ULT_FX = {
 };
 
 /**
- * The painted volley lance — see art/bolts.js for what it replaces.
- *
- * `thick` is a multiplier on the beam's own thickness rather than a size,
- * because the volley already scales that per hero: the one whose colour was
- * matched leads with a fat beam and the rest assist with thin ones, and a
- * painted lance has to keep that ranking or the squad reads as one attack fired
- * five times.
- *
- * It is well over one because the two quads it stands in for are a line and the
- * lance is a body: at the line's own 16 pixels the drawing is a smear with no
- * room for the core, the torn edges and the debris that are the whole of what
- * was bought. At 2.6 a lead shot stands about 60 pixels and stretches to roughly
- * twice its painted length across the arena, which is inside what a streak of
- * light can be stretched before the head stops being a head.
- */
-export const BEAM_ART = { thick: 2.6 };
-
-/**
  * How far Arissa's tide refills the party. Deliberately not a full heal any more:
  * the ultimate has to be worth building towards without erasing every mistake
  * that came before it.
