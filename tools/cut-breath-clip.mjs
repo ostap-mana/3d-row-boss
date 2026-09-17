@@ -4,22 +4,23 @@ import { fileURLToPath } from "node:url";
 import { existsSync, mkdirSync, statSync } from "node:fs";
 
 const USAGE = `
-cut-breath-clip — one half of a two-way fire blast, turned into the boss's jet.
+cut-breath-clip — a green-screen fire jet, turned into the boss's breath.
 
   node tools/cut-breath-clip.mjs [options]
 
   --in <file>     the green-screen master.
-                  Default src/source/board/fire-attack-boss.mp4
+                  Default src/source/board/fire-breath-v2.mp4
   --out <file>    Default src/source/fx/clips/breath.mp4
-  --core <x>      where the blast's white core sits in the master, in its own
-                  pixels. Everything left of it is the other stream and is
-                  thrown away. Default 600.
-  --side <px>     the square taken out from there. Default 680.
-  --top <y>       top of that square in the master. Default 20.
-  --key <hex>     backdrop colour. Default 0x64E006.
-  --similarity    how far from it still counts as backdrop, 0..1. Default 0.18.
+  --core <x>      where along the jet the square starts, in the master's own
+                  pixels. Default 320 — far enough down the stream to catch the
+                  flame tongues rather than the bare white core, which on its
+                  own is a pale column with no shape in it.
+  --side <px>     the square taken out from there. Default 720.
+  --top <y>       top of that square in the master. Default 0.
+  --key <hex>     backdrop colour. Default 0x2BF821.
+  --similarity    how far from it still counts as backdrop, 0..1. Default 0.20.
   --feather <l:r:t:b>  pixels over which each edge of the square is ramped to
-                  black. Default 80:80:70:120.
+                  black. Default 95:95:60:150.
   --gamma <n>     curve applied after the key, above 1 darkens the mid tones.
                   Default 1.7. This is the number that decides whether the jet
                   reads as fire at all: the master is a dense wall of bright
@@ -29,7 +30,7 @@ cut-breath-clip — one half of a two-way fire blast, turned into the boss's jet
                   add blend black is what draws the flame's edge.
   --level <n>     flat multiplier after the curve. Default 0.88.
   --warm <g:b>    what green and blue keep of themselves at the end. Default
-                  0.78:0.4. The master is pale yellow-white, and pale is the
+                  0.85:0.5. The master is pale yellow-white, and pale is the
                   worst thing to add over a board of lit gems: luminance goes up
                   everywhere and nothing reads. Holding the cool channels back
                   makes the same fire land as red and orange, which tints the
@@ -37,12 +38,16 @@ cut-breath-clip — one half of a two-way fire blast, turned into the boss's jet
                   only truly white thing in the shot.
   --crf <n>       x264 quality, lower is better. Default 16.
 
-  The master is one blast firing both ways out of a core in the middle of frame,
-  and a boss does not breathe in two directions, so this keeps the right-hand
-  stream and drops the left. It is then turned a quarter clockwise, because the
-  breath in game runs from the beast's mouth down onto the hero row and the
-  master's stream runs across: the core ends up at the top and the fire falls
-  out of it.
+  The master is a single jet firing left to right across a green screen, longer
+  than any square can hold, so a square is taken from part-way along it and the
+  rest is let go. It is then turned a quarter clockwise, because the breath in
+  game runs from the beast's mouth down onto the hero row while the master's
+  stream runs across: the core ends up at the top and the fire falls out of it.
+
+  Where that square starts is the one framing decision worth making. Taken from
+  the mouth of the jet it is mostly the white core, which is a pale column with
+  no edges in it; taken from further along it is the tongues, which is the part
+  that reads as fire.
 
   Two corrections that are not framing, and both are about the add blend that
   src/art/spells.js plays these on.
@@ -62,7 +67,7 @@ cut-breath-clip — one half of a two-way fire blast, turned into the boss's jet
 
   Writes a clip on pure black, which is what tools/pack-spells.mjs expects:
 
-    node tools/pack-spells.mjs breath --start 0.75 --span 1.6 --contact
+    node tools/pack-spells.mjs breath --start 1.4 --span 2.2 --contact
 `;
 
 const args = process.argv.slice(2);
@@ -81,18 +86,18 @@ const num = (name, fallback) => {
   return v === null ? fallback : Number(v);
 };
 
-const SRC = resolve(ROOT, opt("in", "src/source/board/fire-attack-boss.mp4"));
+const SRC = resolve(ROOT, opt("in", "src/source/board/fire-breath-v2.mp4"));
 const OUT = resolve(ROOT, opt("out", "src/source/fx/clips/breath.mp4"));
-const CORE = num("core", 600);
-const SIDE = num("side", 680);
-const TOP = num("top", 20);
-const KEY = opt("key", "0x64E006");
-const SIMILARITY = num("similarity", 0.18);
+const CORE = num("core", 320);
+const SIDE = num("side", 720);
+const TOP = num("top", 0);
+const KEY = opt("key", "0x2BF821");
+const SIMILARITY = num("similarity", 0.2);
 const GAMMA = num("gamma", 1.7);
 const LEVEL = num("level", 0.88);
-const [WG, WB] = opt("warm", "0.78:0.4").split(":").map(Number);
+const [WG, WB] = opt("warm", "0.85:0.5").split(":").map(Number);
 const CRF = num("crf", 16);
-const [FL, FR, FT, FB] = opt("feather", "80:80:70:120").split(":").map(Number);
+const [FL, FR, FT, FB] = opt("feather", "95:95:60:150").split(":").map(Number);
 
 const rel = (p) =>
   p
@@ -146,10 +151,10 @@ execFileSync(
 
 process.stdout.write(
   `in   ${rel(SRC)}\n` +
-    `     right-hand stream from x${CORE}, ${SIDE}px square at y${TOP}, ` +
+    `     ${SIDE}px square from x${CORE}, y${TOP}, ` +
     `turned a quarter clockwise\n` +
     `     key ${KEY} at ${SIMILARITY}, green and blue clamped to red, ` +
     `edges ramped ${FL}:${FR}:${FT}:${FB}\n` +
     `out  ${rel(OUT)}  ${kb(statSync(OUT).size)} kB\n` +
-    `     next: node tools/pack-spells.mjs breath --start 0.75 --span 1.6\n`,
+    `     next: node tools/pack-spells.mjs breath --start 1.4 --span 2.2\n`,
 );
