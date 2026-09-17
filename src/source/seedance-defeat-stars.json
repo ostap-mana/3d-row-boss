@@ -1,0 +1,44 @@
+[
+  {
+    "lang": "en",
+    "model": "seedance-1.0-i2v",
+    "prompt": "The character from the reference image stands centred against a flat, evenly lit chroma-key green screen, his head in the upper third of the frame and a clear, empty stretch of green above him. The shot opens on the end of his victory: the thick leather-bound tome is already open in both hands and exactly three golden five-pointed stars already hang above his head in an even, shallow arc, the middle one highest and largest, the two outer ones smaller, lower and level with each other, all three turning slowly on the spot. Each is a solid, chunky, faceted five-pointed star with a clean hard silhouette, the kind a mobile game awards at the end of a level. Then the light fails. The gold drains out of them one at a time — the left star first, then the right, then the middle last — and each one snuffs from bright gold to cold dead obsidian black as the colour leaves it, keeping exactly the same shape, the same size and the same facets it had, so that what hangs there is the same three stars with the light gone out of them. Each blackened star keeps a thin, cold, pale grey rim-light running along its facet ridges and outer edges, bright enough to hold its silhouette, and nothing else about it glows. As the third one goes out all three stop turning, tilt off true so the arc is no longer even, and sink a little, and fine grey ash falls from their lower points and drifts down past him. The light inside the book dies at the same moment and the pages fall shut in his hands. He lowers his head and his shoulders, arms going down, and stands still under them holding the closed book. The three dead black stars hang above him unlit, motionless and slightly crooked, to the end of the shot. There are three stars in the whole shot and never any more at any moment: no fourth star, no extra stars, no small stars, no distant stars, no star field, no shower of stars, no swarm, no confetti, no glitter, no sparkle cloud. Nothing shatters, nothing breaks, no star cracks or falls to the ground — they go dark and they stay up. The only things in the air are those three stars and the thin fall of ash. One continuous locked-off shot, no cuts, no shot changes, and no camera movement of any kind: no push in, no pull back, no zoom, no pan, no tilt, no orbit, no shake, no parallax. Flat seamless saturated green studio backdrop, evenly lit, the same green from edge to edge, and nothing else in frame: no floor, no horizon, no room, no set, no props, no smoke, no haze, no darkness closing in. The green never changes: it is not lit by the book or the stars while they are gold, and it does not darken, dim, grey down or shift colour when they go out — it is the same flat green in the last frame as in the first — and no green spills onto his skin, his cape or the stars. Clean high-contrast green-screen plate for chroma keying, crisp edges, high detail, no text, no letters, no numbers, no watermark, no logo, no UI.",
+    "negative_prompt": "fourth star, four stars, five stars, many stars, extra stars, small stars, star field, star shower, swarm of stars, confetti, glitter, sparkle cloud, floating particles, shattering star, cracking star, breaking star, star falling to the ground, stars leaving frame, background change, non-green background, darkening background, background dimming as the stars go out, green backdrop lit by the effect, glow on the backdrop, shadow on the backdrop, green spill on skin, scene cut, shot change, camera movement, push in, pull back, zoom, pan, tilt, orbit, camera shake, blurry, motion blur smear, text, watermark, logo, UI, extra limbs, deformed face, face morphing, colour shift, low detail",
+    "beats": [
+      "0.0-0.6s: three gold stars already hang in the arc above him, turning slowly, the tome open in his hands",
+      "0.6-1.8s: the gold drains out of them one at a time, left then right then middle, each going cold obsidian black and keeping its shape",
+      "1.8-3.0s: the three stop turning, tilt off true and sink a little, grey ash falls from their points, the book's light dies and the pages fall shut",
+      "3.0-4.0s: he lowers his head and shoulders, arms down, holding the closed book",
+      "4.0-5.0s: he stands still under the three dead black stars, which hang unlit, motionless and slightly crooked"
+    ],
+    "params": {
+      "duration": 5,
+      "resolution": "1080p",
+      "fps": 24,
+      "aspect_ratio": "1:1",
+      "camera_fixed": true,
+      "seed": -1
+    }
+  },
+  {
+    "lang": "zh",
+    "model": "seedance-1.0-i2v",
+    "prompt": "参考图中的角色居中站立，背景是平整、打光均匀的纯色抠像绿幕，他的头部位于画面上三分之一处，头顶上方留出一片干净空旷的绿色。镜头从他胜利的尾声开始：厚重的皮质古书已经在他双手中翻开，恰好三颗金色五角星已经悬在他头顶排成一道均匀的浅弧，中间那颗最高最大，两侧两颗更小、更低、彼此齐平，三颗都在原地缓慢旋转。每一颗都是厚实、有体积、带切面的立体五角星，轮廓干净利落，就是手游通关时奖励的那种星星。然后光熄灭了。金色从它们身上一颗一颗地褪去——先是左边那颗，然后是右边，最后是中间——每一颗都从明亮的金色黯灭为冰冷死寂的曜石黑，形状、大小、切面完全不变，所以悬在那里的仍是同样的三颗星，只是光熄了。每一颗变黑的星都沿着切面棱线和外缘保留一道细而冷的淡灰色轮廓光，亮到足以勾出它的剪影，除此之外不再有任何发光。第三颗熄灭的同时，三颗星都停止旋转，倾斜歪掉、弧线不再工整，并微微下沉，细碎的灰烬从它们的下端落下，从他身旁飘落。书中的光在同一刻死去，书页在他手中合拢。他垂下头和肩膀，手臂放下，抱着合上的书静静站着。三颗死黑的星悬在他上方，无光、静止、略微歪斜，一直到镜头结束。整段画面里始终只有三颗星，任何时刻都不会更多：没有第四颗星，没有多余的星，没有小星星，没有远处的星，没有星空，没有星雨，没有星群，没有彩带，没有金粉，没有闪光云。没有任何东西碎裂，没有破碎，星星不会开裂也不会掉到地上——它们只是变暗，并且继续悬在空中。空中只有那三颗星和那一缕细细落下的灰烬。单镜头一镜到底，无剪辑、无场景切换，并且没有任何镜头运动：不推近、不拉远、不变焦、不横摇、不俯仰、不环绕、不抖动、无视差。平整无缝的饱和绿色影棚背景，打光均匀，从边缘到边缘都是同一种绿色，画面里没有别的东西：没有地面、没有地平线、没有房间、没有布景、没有道具、没有烟雾、没有雾气、没有逼近的黑暗。绿幕始终不变：星星是金色时它不被书或星星照亮，星星熄灭时它也不会变暗、发灰或偏色——最后一帧的绿色和第一帧完全一样——绿光也绝不溢到他的皮肤、披风或星星上。干净的高对比绿幕抠像素材，边缘锐利，高细节，无文字、无字母、无数字、无水印、无标志、无 UI。",
+    "negative_prompt": "第四颗星，四颗星，五颗星，很多星星，多余的星星，小星星，远处的星星，星空，星雨，星群，彩带，金粉，闪光云，漂浮粒子，星星碎裂，星星开裂，星星破碎，星星掉到地上，星星飞出画面，背景变化，非绿色背景，背景变暗，星星熄灭时背景跟着变暗，绿幕被特效照亮，背景发光，背景有阴影，皮肤绿色溢光，剪辑跳切，场景切换，镜头运动，推近，拉远，变焦，横摇，俯仰，环绕，镜头抖动，模糊，拖影，文字，水印，logo，UI，多余肢体，面部变形，面部漂移，偏色，低细节",
+    "beats": [
+      "0.0-0.6秒：三颗金星已经悬在他头顶的弧线上缓慢旋转，书在手中翻开",
+      "0.6-1.8秒：金色一颗一颗褪去，先左后右最后中间，每颗都变成冰冷的曜石黑并保持原形",
+      "1.8-3.0秒：三颗停止旋转、倾斜歪掉并微微下沉，灰烬从尖端落下，书中的光熄灭、书页合拢",
+      "3.0-4.0秒：他垂下头和肩膀，手臂放下，抱着合上的书",
+      "4.0-5.0秒：他静静站在三颗死黑的星下，它们无光、静止、略微歪斜"
+    ],
+    "params": {
+      "duration": 5,
+      "resolution": "1080p",
+      "fps": 24,
+      "aspect_ratio": "1:1",
+      "camera_fixed": true,
+      "seed": -1
+    }
+  }
+]

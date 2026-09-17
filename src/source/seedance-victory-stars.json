@@ -15,7 +15,7 @@
       "duration": 5,
       "resolution": "1080p",
       "fps": 24,
-      "aspect_ratio": "9:16",
+      "aspect_ratio": "1:1",
       "camera_fixed": true,
       "seed": -1
     }
@@ -36,7 +36,7 @@
       "duration": 5,
       "resolution": "1080p",
       "fps": 24,
-      "aspect_ratio": "9:16",
+      "aspect_ratio": "1:1",
       "camera_fixed": true,
       "seed": -1
     }
