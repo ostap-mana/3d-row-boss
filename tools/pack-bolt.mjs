@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 
 const USAGE = `
 pack-bolt — a painted lance, cut off a still and pointed the way beams fly.
@@ -9,6 +9,15 @@ pack-bolt — a painted lance, cut off a still and pointed the way beams fly.
   node tools/pack-bolt.mjs <id> [options]
 
   --src <file>      default src/source/fx/<id>-arrow.png
+  --row <i>         take the i-th lance out of a sheet of them stacked one per
+                    element, counting from the top. The rows are found by
+                    reading the source's own brightness rather than by dividing
+                    it up, so a sheet whose rows are not evenly spaced still
+                    cuts cleanly.
+  --gap <n>         mean brightness, 0..255, under which a line of pixels counts
+                    as the space between two rows. Default 8.
+  --band <i>:<n>    the blunt version: band i of n equal horizontal bands. Only
+                    for a sheet --row cannot read.
   --out <file>      default src/assets/fx/<id>-bolt.webp
   --limit <n>       luma at or below which a pixel counts as backdrop while the
                     content box is measured, 0..255. Default 4.
@@ -31,6 +40,16 @@ pack-bolt — a painted lance, cut off a still and pointed the way beams fly.
   prompts in src/source/fx/bolt-prompts.md is drawn head-left, tail streaming
   right — the way a bolt is drawn when it is flying at the reader — and dropped
   in unmirrored it fires the arrowhead back into the hero's own face.
+
+  **A row is cut before the content box is measured**, not after, so each lance
+  is measured on its own and not against the whole sheet. Equal bands were the
+  first try at this and they are kept as --band, but they are wrong on real art:
+  on the six-lance sheet in src/source/fx/lances.png the water and nature rows
+  each overhang their sixth of the image, so every band arrived with a slice of
+  its neighbour in it and the content box then measured the pair. --row reads
+  the brightness of each line of pixels instead and cuts where the sheet is
+  actually empty, which on that sheet puts the split at y=366 rather than at
+  y=341 where the arithmetic wanted it.
 
   **Cropped to content first.** These arrive as a wide black frame with a band
   of light across the middle, and the black costs bytes in the webp and pixels
@@ -62,6 +81,9 @@ const opt = (name, fallback) => {
 const num = (name, fallback) => Number(opt(name, fallback));
 
 const SRC = resolve(ROOT, opt("src", `src/source/fx/${id}-arrow.png`));
+const BAND = opt("band", null);
+const ROW = opt("row", null);
+const GAP = num("gap", 8);
 const OUT = resolve(ROOT, opt("out", `src/assets/fx/${id}-bolt.webp`));
 const LIMIT = num("limit", 4);
 const PAD = num("pad", 8);
@@ -88,7 +110,7 @@ const ffmpeg = (a) =>
 
 /** ffmpeg reports a crop only once it has a few frames to compare, so the still
  *  is looped into three of them and the last report is read back. */
-function contentBox() {
+function contentBox(file) {
   const run = spawnSync(
     "ffmpeg",
     [
@@ -96,7 +118,7 @@ function contentBox() {
       "-loop",
       "1",
       "-i",
-      SRC,
+      file,
       "-vf",
       `cropdetect=mode=black:limit=${LIMIT}:round=2`,
       "-frames:v",
@@ -114,7 +136,7 @@ function contentBox() {
   return { w, h, x, y };
 }
 
-const size = () => {
+const size = (file = SRC) => {
   const out = execFileSync(
     "ffprobe",
     [
@@ -126,7 +148,7 @@ const size = () => {
       "stream=width,height",
       "-of",
       "csv=p=0",
-      SRC,
+      file,
     ],
     { encoding: "utf8" },
   )
@@ -135,8 +157,93 @@ const size = () => {
   return { w: Number(out[0]), h: Number(out[1]) };
 };
 
-const full = size();
-const box = contentBox() || { w: full.w, h: full.h, x: 0, y: 0 };
+/**
+ * Where each lance actually sits, read off the sheet.
+ *
+ * The mean of a line of pixels, not its brightest pixel: a stray spark thrown
+ * off one lance reaches into the empty space above the next one and joins the
+ * two rows into one if the test is a maximum.
+ */
+function rows() {
+  const raw = spawnSync(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      SRC,
+      "-f",
+      "rawvideo",
+      "-pix_fmt",
+      "gray",
+      "-",
+    ],
+    { maxBuffer: 1 << 28 },
+  ).stdout;
+  if (!raw) return [];
+  const { w, h } = size();
+  const found = [];
+  let start = null;
+  for (let y = 0; y < h; y++) {
+    let sum = 0;
+    for (let x = 0; x < w; x++) sum += raw[y * w + x];
+    const lit = sum / w > GAP;
+    if (lit && start === null) start = y;
+    else if (!lit && start !== null) {
+      if (y - start > 40) found.push({ y: start, h: y - start });
+      start = null;
+    }
+  }
+  if (start !== null && h - start > 40) found.push({ y: start, h: h - start });
+  return found;
+}
+
+const sheet = size();
+let source = SRC;
+let full = sheet;
+
+const cutBand = (y, h) => {
+  const out = resolve(dirname(OUT), `.band-${id}.png`);
+  mkdirSync(dirname(OUT), { recursive: true });
+  ffmpeg([
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-y",
+    "-i",
+    SRC,
+    "-vf",
+    `crop=${sheet.w}:${h}:0:${y}`,
+    "-frames:v",
+    "1",
+    out,
+  ]);
+  source = out;
+  full = { w: sheet.w, h };
+};
+
+if (ROW !== null) {
+  const found = rows();
+  const want = Number(ROW);
+  if (!found[want]) {
+    console.error(
+      `pack-bolt: --row ${ROW} but the sheet reads as ${found.length} row(s)` +
+        ` at --gap ${GAP}.`,
+    );
+    process.exit(1);
+  }
+  cutBand(found[want].y, found[want].h);
+} else if (BAND) {
+  const [i, n] = BAND.split(":").map(Number);
+  if (!Number.isFinite(i) || !Number.isFinite(n) || n < 1 || i < 0 || i >= n) {
+    console.error(`pack-bolt: --band wants i:n with 0 <= i < n, got ${BAND}.`);
+    process.exit(1);
+  }
+  cutBand(Math.floor((sheet.h * i) / n), Math.floor(sheet.h / n));
+}
+
+const box = contentBox(source) || { w: full.w, h: full.h, x: 0, y: 0 };
 
 const x = Math.max(0, box.x - PAD);
 const y = Math.max(0, box.y - PAD);
@@ -154,7 +261,7 @@ ffmpeg([
   "error",
   "-y",
   "-i",
-  SRC,
+  source,
   "-vf",
   chain.join(","),
   "-pix_fmt",
@@ -170,8 +277,12 @@ ffmpeg([
   OUT,
 ]);
 
+if (source !== SRC) rmSync(source, { force: true });
+
 const packed = Math.round((WIDTH * h) / w);
 console.log(
   `${rel(OUT)}  ${WIDTH}x${packed}  ${(statSync(OUT).size / 1024).toFixed(1)} KB` +
-    `  (cut ${w}x${h} out of ${full.w}x${full.h}${MIRROR ? ", mirrored" : ""})`,
+    `  (cut ${w}x${h} out of ${full.w}x${full.h}` +
+    `${ROW !== null ? `, row ${ROW}` : BAND ? `, band ${BAND}` : ""}` +
+    `${MIRROR ? ", mirrored" : ""})`,
 );

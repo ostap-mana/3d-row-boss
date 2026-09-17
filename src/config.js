@@ -2994,6 +2994,16 @@ export const ULT_FX = {
    * Small and hot crosses a lit board; big and soft does not.
    */
   boltSize: 0.3,
+  /**
+   * The same thing for a painted lance, and much bigger, because the two are
+   * not the same object. `boltSize` measures a square cell of a gathering
+   * effect and has to stay small or it washes the board it flies over;
+   * `boltLong` measures a lance end to end, and a lance is about six times
+   * longer than it is tall, so at the cell's own fraction it arrives as a
+   * splinter. Near one times `size` it reads as a thrown spear and still only
+   * covers a sixth of the screen's width in light.
+   */
+  boltLong: 0.95,
   boltSwell: 0.22,
   travel: 0.28,
   blastScale: 1.35,

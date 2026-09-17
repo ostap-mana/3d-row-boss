@@ -6,7 +6,9 @@
  * from the card to the beast, with a white one down the middle of it. Six
  * elements, one drawing, told apart by a tint.
  *
- * A bolt here replaces that drawing for the elements that have one. It is a
+ * A bolt here replaces that drawing, and the same texture is what the hero's
+ * ultimate throws across the arena — see `Vfx.ultCast`, which draws it turned to
+ * face the path rather than stretched along it. It is a
  * still, not a flipbook — the beam is on screen for about a fifth of a second
  * and a sheet would be four frames nobody sees — and it carries its own core,
  * its own torn edges and its own light, which is the whole reason it is worth
@@ -33,11 +35,30 @@
  */
 
 import { ImageSource, Texture } from "pixi.js";
-import { WATER } from "../config.js";
+import { ARCANE, FIRE, LIGHTNING, NATURE, WATER, WIND } from "../config.js";
+import fireUrl from "../assets/fx/fire-bolt.webp";
 import waterUrl from "../assets/fx/water-bolt.webp";
+import natureUrl from "../assets/fx/nature-bolt.webp";
+import lightningUrl from "../assets/fx/lightning-bolt.webp";
+import arcaneUrl from "../assets/fx/arcane-bolt.webp";
+import windUrl from "../assets/fx/wind-bolt.webp";
 
+/**
+ * Five of these are rows off one sheet, src/source/fx/lances.png, cut by
+ * tools/pack-bolt.mjs --row. WIND is the odd one out and always was: the sheet
+ * has a sixth lance, but it is a second violet — a void bolt with dark orbs
+ * turning in it — and the roster has only one violet slot. So ARCANE takes the
+ * bright violet that matches its own #A855F7 and WIND keeps the pale aqua lance
+ * that arrived on its own, which is the colour WIND has on the board. The void
+ * row stays in the sheet, unpacked, for whatever wants it.
+ */
 const ART = {
+  [FIRE]: { url: fireUrl, tint: null },
   [WATER]: { url: waterUrl, tint: null },
+  [NATURE]: { url: natureUrl, tint: null },
+  [LIGHTNING]: { url: lightningUrl, tint: null },
+  [ARCANE]: { url: arcaneUrl, tint: null },
+  [WIND]: { url: windUrl, tint: null },
 };
 
 let bolts = null;

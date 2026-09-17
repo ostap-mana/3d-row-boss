@@ -561,11 +561,19 @@ export class Vfx extends Container {
     await this.ultGather(from, color, light, size * ULT_FX.gatherSize);
     this.ultMuzzle(from, to, color, size);
 
+    // The painted lance is the first thing asked for and the jets are the
+    // fallback, not the other way round: a lance is a thrown object with a head
+    // and a heading, and it is the only one of the two that can be turned to
+    // face where it is going. An element with no lance still gets whatever jet
+    // art/streams.js holds for it, and then the bolt below.
+    const lance = boltArt(element);
+
     if (
-      await this.stream(element, from, to, color, {
+      !lance &&
+      (await this.stream(element, from, to, color, {
         thickness: size * ULT_FX.streamThick,
         ...(o.stream || {}),
-      })
+      }))
     ) {
       this.ultShock(to, from, color, light, size);
       return;
@@ -574,7 +582,7 @@ export class Vfx extends Container {
     this.ultLance(from, to, light, size);
 
     const frames = spellFrames(SPELL_BY_ELEMENT[element]);
-    if (!frames) {
+    if (!frames && !lance) {
       if (element === FIRE) await this.fireball(from, to, color, o);
       else
         await this.beam(from, to, color, { element, ...o, ...(o.beam || {}) });
@@ -582,8 +590,14 @@ export class Vfx extends Container {
       return;
     }
 
-    const bolt = new Sprite(frames[0]);
-    bolt.anchor.set(0.5);
+    const bolt = new Sprite(lance ? lance.texture : frames[0]);
+    // A lance is anchored at its head, so the point is what sits on the
+    // travelling position and the tail streams back down the path behind it.
+    // A sheet cell is a gathering effect with no heading at all and stays
+    // centred, exactly as it was.
+    bolt.anchor.set(lance ? 1 : 0.5, 0.5);
+    if (lance) bolt.rotation = Math.atan2(to.y - from.y, to.x - from.x);
+    if (lance && lance.tint != null) bolt.tint = lance.tint;
     bolt.blendMode = "add";
     bolt.x = from.x;
     bolt.y = from.y;
@@ -610,10 +624,15 @@ export class Vfx extends Container {
       lead.x = bolt.x;
       lead.y = bolt.y;
 
-      const w = size * (ULT_FX.boltSize + e * ULT_FX.boltSwell);
-      const i = Math.floor(e * (SPELL_TRAVEL_LAST + 1));
-      bolt.texture = frames[Math.min(SPELL_TRAVEL_LAST, i)];
-      bolt.setSize(w, w / SPELL_ASPECT);
+      if (lance) {
+        const len = size * (ULT_FX.boltLong + e * ULT_FX.boltSwell);
+        bolt.setSize(len, len / lance.aspect);
+      } else {
+        const w = size * (ULT_FX.boltSize + e * ULT_FX.boltSwell);
+        const i = Math.floor(e * (SPELL_TRAVEL_LAST + 1));
+        bolt.texture = frames[Math.min(SPELL_TRAVEL_LAST, i)];
+        bolt.setSize(w, w / SPELL_ASPECT);
+      }
 
       drop += Math.hypot(bolt.x - last.x, bolt.y - last.y);
       if (drop >= ULT_FX.trailGap) {
@@ -631,9 +650,21 @@ export class Vfx extends Container {
     tween(lead, { alpha: 0 }, 0.24).then(() => lead.destroy());
 
     // The blast stands upright where it landed, same rule as the comet's: the
-    // last five frames are drawn as fire going up off a floor.
+    // last five frames are drawn as fire going up off a floor. A lance arrives
+    // turned and anchored at its point, so both are given back here — what
+    // lands is the sheet's blast, not the thing that flew.
     bolt.x = to.x;
     bolt.y = to.y;
+    if (lance) {
+      if (!frames) {
+        tween(bolt, { alpha: 0 }, 0.2).then(() => bolt.destroy());
+        this.ultShock(to, from, color, light, size);
+        return;
+      }
+      bolt.rotation = 0;
+      bolt.anchor.set(0.5);
+      bolt.tint = 0xffffff;
+    }
     const first = SPELL_TRAVEL_LAST + 1;
     const n = frames.length - first;
     tweenValue(0, 1, o.blast || 0.52, (p) => {
