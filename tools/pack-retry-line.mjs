@@ -1,67 +1,3 @@
-/**
- * Trim and pack the RETRY divider for the end card.
- *
- *   node tools/pack-retry-line.mjs           # -> src/assets/brand/retry-line.webp
- *   node tools/pack-retry-line.mjs --png     # keep the intermediate PNG too
- *   node tools/pack-retry-line.mjs --proof   # composite it over the end card
- *
- * The source is `src/source/endcard/retry-line-gold.png`: a warm champagne
- * hairline with a small pale diamond finial off each end, breaking in the
- * middle around the word "RETRY" set under a circular-arrow glyph, with a
- * shallow bracket carried *under* the label. It is the same divider vocabulary
- * as `S_TitleOrnamentLine` on the outcome screen — see art/outcomeui.js — with
- * a label sitting in the break rather than a plain notch, and it is the same
- * gold as that ornament rather than the chrome the card used to carry.
- *
- * ## Its resolution is the ceiling on this pack, and it is low
- *
- * The chrome-and-magenta divider this replaced came in at 2048x682 with 1863 px
- * of ink across. This one was recovered from a 507x147 capture and carries 444
- * px of ink, so packing it to WIDTH is a 2.3x upscale and the hairline lands
- * soft — about a pixel and a half of ramp where the old cut had a hard edge.
- * That is a property of the source and no resampler here can undo it. If a
- * higher-resolution plate of this divider ever turns up, drop it in and re-run:
- * nothing below is written to this file's size.
- *
- * The old source stays on disk next to this one, the same way pack-retry.mjs's
- * gem plate does. Nothing points at it any more.
- *
- * It replaces the blue gem plate `tools/pack-retry.mjs` packs. That plate was a
- * second painted button under the PLAY NOW plate, and two lit gem lockups in one
- * column is the card offering two things at the same volume; the whole point of
- * the defeat card is that the store is the offer and the rematch is the way out.
- * A divider under the store row says "or" without asking for the tap. The old
- * plate and its packer stay on disk — nothing imports them any more.
- *
- * ## Not a keyer
- *
- * Same as pack-retry.mjs and for the same reason: the matte is already on the
- * source, the backdrop is alpha 0 over rgb 0,0,0, and any ramp over "distance
- * from white" reads that as maximum ink and hands back a black rectangle. This
- * trims and resamples and does nothing else, and nothing here may become a
- * keyer.
- *
- * The matte on this cut was pulled off a flat near-black capture rather than
- * shipped with the art: the local background was measured under the ink, the
- * residual gated at three sigma of its noise, and alpha taken from the residual
- * luminance and then unpremultiplied — so the file composites over black
- * exactly as the capture did, and over anything else the glow around the label
- * still falls off instead of ending on an edge. That is the step this tool must
- * not repeat. It has already happened.
- *
- * ## Trim, and why the aspect is the output
- *
- * A third of this file's height is transparent margin above and below the rule.
- * The card fits this by width and asks it for its own height — see
- * `retryLineHeight` in art/brand.js — so a transparent border becomes padding
- * the layout cannot see and cannot remove, and on a rule this thin the padding
- * would be several times the art. Trimmed to the ink, the packed size *is* the
- * drawn box, and RETRY_LINE_ART is a transcript of what this tool prints.
- *
- * ffmpeg is the only dependency, and only to decode and encode, as everywhere
- * else in this folder.
- */
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -72,32 +8,15 @@ const SRC = join(ROOT, "src/source/endcard/retry-line-gold.png");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 const OUT = join(OUT_DIR, "retry-line");
 
-/** Alpha at or under this is not art, and is what the trim measures against. */
 const ALPHA_FLOOR = 6;
 
-/** Alpha at or over this is body and is snapped shut. */
 const SOLID = 248;
 
-/**
- * The packed width, in pixels.
- *
- * 1024, which is the outcome screen's own ornament budget rather than the
- * buttons' 640, and the shape is the argument: this is a rule about eight
- * points deep drawn across most of the column, so every one of its pixels is an
- * edge. Halve the width and the hairline spends half a pixel on itself, which
- * is the difference between a bright chromed line and a grey smear — the one
- * failure mode a thin ornament has. The widest the card draws it is about 520
- * points, or 1040 device pixels at a renderer clamped to resolution 2.
- */
 const WIDTH = 1024;
 
-/** libwebp quality. Chrome hairlines and two small gems; 92, as the ornament. */
 const QUALITY = 92;
 
-/** What --proof composites onto: the end card's own backdrop at its darkest. */
 const PROOF_BG = [11, 6, 24];
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 const rel = (p) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
 const kb = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`);
@@ -156,9 +75,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* ------------------------------------------------------------------- pixels */
-
-/** The share of the buffer that is fully clear, fully solid, and in between. */
 function alphaProfile(px) {
   let clear = 0;
   let solid = 0;
@@ -173,7 +89,6 @@ function alphaProfile(px) {
   return `clear ${pc(clear)}  soft ${pc(soft)}  solid ${pc(solid)}`;
 }
 
-/** Snap the near-solid band to fully opaque. Returns how many pixels moved. */
 function solidify(px) {
   let hit = 0;
   for (let i = 3; i < px.length; i += 4) {
@@ -185,7 +100,6 @@ function solidify(px) {
   return hit;
 }
 
-/** The box the art actually occupies, ignoring anything at the alpha floor. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -203,14 +117,6 @@ function inkBox(px, w, h) {
   return { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/**
- * Box-average `box` down to `dw` by `dh`, weighting colour by alpha.
- *
- * The same resampler the rest of this folder uses, and on this cut the alpha
- * weighting matters more than anywhere else: the art is a hairline on nothing,
- * so nearly every pixel in it is a partial one, and an unweighted average drags
- * the transparent black around the rule straight into the rule.
- */
 function resample(src, sw, sh, box, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = box.w / dw;
@@ -261,8 +167,6 @@ function resample(src, sw, sh, box, dw, dh) {
   return out;
 }
 
-/* ---------------------------------------------------------------------- run */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SRC);
@@ -307,14 +211,6 @@ console.log(
     `   aspect ${(outW / outH).toFixed(3)}`,
 );
 
-/**
- * The divider over the end card's own backdrop, at the size it is drawn.
- *
- * Worth looking at because the failure this tool can have is invisible on a
- * checkerboard and obvious on black: a chromed hairline is light grey, the card
- * under it is near-black, and a resample that loses half a pixel of the rule
- * turns a bright edge into a smudge that reads as a compression artefact.
- */
 if (flags.has("--proof")) {
   const pw = 520;
   const ph = Math.round((outH * pw) / outW);

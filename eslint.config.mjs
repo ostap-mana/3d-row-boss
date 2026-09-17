@@ -19,7 +19,6 @@ export default [
     },
   },
   {
-    // Build-time tooling runs in Node, not in the creative.
     files: ["tools/**/*.mjs", "*.config.mjs"],
     languageOptions: { globals: { ...globals.node } },
   },

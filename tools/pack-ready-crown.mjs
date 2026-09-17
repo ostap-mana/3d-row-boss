@@ -1,52 +1,3 @@
-/**
- * Cut the six crowns that burn off a charged card's READY caption — one per
- * element — out of the shipped game's own flipbooks.
- *
- *   node tools/pack-ready-crown.mjs            # -> src/assets/fx/ready-<id>.webp
- *   node tools/pack-ready-crown.mjs --contact  # also write sheets to flick through
- *
- * ## Why six files and not one tinted one
- *
- * Because an element is a *shape* before it is a colour. Blue fire is fire, and
- * a card that says WATER and throws orange licks turned blue is a card nobody
- * reads twice. So each hero's caption wears its own motion: Ricklow's rises in
- * licks, Selisa's throws a splash, Quinnto's boils up in leaf-shaped lobes,
- * Taranis's cracks in bolts, Silanth's curls up as dark wisps, and Arissa's is a
- * gust with static in it.
- *
- * The tint stays on top of that — a splash is still drawn in the element's own
- * blue — but it is no longer doing the work of telling six heroes apart.
- *
- * ## Where the art comes from
- *
- * `src/source/fx/invokers` — flipbooks pulled out of the Invokers build, which
- * is the same shelf tools/gen-ult-vfx.mjs stamps its particles with. Seventeen
- * of them, white on black or white on alpha, none of them drawn for this. The
- * table below is which one reads as which element and why; those notes are the
- * only part of this file that is a judgement rather than arithmetic, and they
- * were made by looking at a contact sheet of all seventeen at once.
- *
- * ## What the cut does
- *
- * Four things, and the last is the one that matters:
- *
- *   1. **Alpha is composited onto black**, because the sheets are played
- *      additively and black adds nothing. Some sources carry an alpha channel
- *      and some are opaque on black already; multiplying by alpha handles both.
- *   2. **One box, every cell** — the union of what all the frames occupy, taken
- *      once and applied to all of them. Per-frame boxes would slide the effect
- *      around inside its cell as it grew, and the animation would walk.
- *   3. **Every element lands on the same grid**: four columns, a 112x128 cell,
- *      whatever the source's own was. So the card has one piece of code for six
- *      elements and no table of sizes to keep in step.
- *   4. **Fitted, not stretched, and stood on the floor of the cell.** The union
- *      box is scaled to fit inside the cell with its proportions kept, centred
- *      across and flush with the bottom. That is what keeps a bolt narrow and a
- *      splash wide — each element arrives at the shape it was drawn at — and it
- *      is what lets the card treat all six as one thing: whatever is in the
- *      file, its feet are on the bottom edge, which is where the caption is.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,25 +7,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(ROOT, "src/source/fx/invokers");
 const OUT = join(ROOT, "src/assets/fx");
 
-/**
- * The grid every element is packed to. The card reads the cell out of
- * art/readyfx.js and the frame count out of the file's own height, so a source
- * with eight frames and one with sixteen both just work.
- */
 const CELL = { w: 112, h: 128 };
 const COLS = 4;
 
-/** Anything dimmer than this is not the effect, it is the falloff. */
 const FLOOR = 12;
 
-/**
- * Which flipbook each element wears, and the grid its file is on — which is
- * printed in its own name, `_4x4` being four across and four down.
- *
- * The `why` line is the whole argument for the pick. Read it before swapping
- * one: these are all white shapes, and the only thing making one of them water
- * and another one wind is what its silhouette does over half a second.
- */
 const PICKS = [
   {
     id: "fire",
@@ -120,14 +57,11 @@ const PICKS = [
   },
 ];
 
-/** Repo-relative, forward slashes, for the log lines. */
 const rel = (p) =>
   p
     .slice(ROOT.length + 1)
     .split(sep)
     .join("/");
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -179,8 +113,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* --------------------------------------------------------------------- main */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 for (const pick of PICKS) {
@@ -198,11 +130,8 @@ for (const pick of PICKS) {
   const cw = Math.floor(info.w / pick.cols);
   const ch = Math.floor(info.h / pick.rows);
 
-  // The light in one source pixel: colour times its own alpha, because black
-  // adds nothing and neither does anything transparent.
   const lum = (i) => Math.max(px[i], px[i + 1], px[i + 2]) * (px[i + 3] / 255);
 
-  // The union box. One box for every frame — see the head.
   let bx0 = Infinity;
   let by0 = Infinity;
   let bx1 = -1;
@@ -225,7 +154,6 @@ for (const pick of PICKS) {
   const boxW = bx1 - bx0 + 1;
   const boxH = by1 - by0 + 1;
 
-  // Fitted, centred across, stood on the floor of the cell.
   const k = Math.min(CELL.w / boxW, CELL.h / boxH);
   const drawW = Math.max(1, Math.round(boxW * k));
   const drawH = Math.max(1, Math.round(boxH * k));
@@ -238,8 +166,6 @@ for (const pick of PICKS) {
   const out = Buffer.alloc(sheetW * sheetH * 4);
   for (let i = 0; i < sheetW * sheetH; i++) out[i * 4 + 3] = 255;
 
-  // Box average down: these are soft shapes and a point sample of one crawls
-  // with aliasing at the size a caption actually draws it.
   const kx = boxW / drawW;
   const ky = boxH / drawH;
 

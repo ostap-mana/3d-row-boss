@@ -1,53 +1,3 @@
-/**
- * Generate the spell and boss-attack clips on Replicate.
- *
- *   node tools/gen-spells.mjs                 # every clip that is not on disk
- *   node tools/gen-spells.mjs water lightning # just these
- *   node tools/gen-spells.mjs --force water   # regenerate one that already exists
- *   node tools/gen-spells.mjs --list          # ids and one-line summaries
- *
- * Writes `src/source/fx/clips/<id>.mp4`. Nothing in the build reads those: they
- * are the source page, the way `src/source/fx/fire.png` is, and
- * `tools/pack-spells.mjs` is what turns them into sheets the game can play.
- *
- * ## Why video and not another page of studies
- *
- * The fire ultimate came off a still: ten drawings laid loosely across a page,
- * cut by boxes read off it by eye — see the header of tools/pack-fire.mjs for
- * how much work that was, and it was work nobody was going to repeat seven more
- * times. A page of studies also has no clock in it. Every frame is its own
- * drawing, so a spark in frame 3 is nowhere near where it was in frame 2, and
- * what the sheet buys in painterly detail it gives back as a flicker.
- *
- * A clip is the opposite trade. The frames are already registered against each
- * other, already evenly spaced in time and already the same size, so the cut is
- * an fps and a time window rather than eighty numbers typed in by hand. What it
- * costs is resolution — 480p, and downsampled again on the way into the sheet —
- * and that is the right thing to spend here, because every one of these effects
- * is on screen for well under a second.
- *
- * ## What the prompts are shaped by
- *
- * Two hard requirements come from the far end of the pipeline, not from taste:
- *
- *   1. **Pure black ground.** The sheets are played with the `add` blend, the
- *      same as the fire one, which means the backdrop does not have to be cut
- *      away — it has to land on zero, and black does that for free. This is also
- *      why no prompt here asks for smoke, dust or ash: dark paint on a dark
- *      ground subtracts to nothing and is only bytes the sheet cannot show.
- *   2. **A gather and a release, centred, in one take.** Every mage sheet is cut
- *      in half: the first frames are the bolt in flight, the rest are it landing.
- *      The clip itself does not travel — the game moves the sprite along the
- *      path, exactly as `Vfx.fireball` already does — so what the prompt has to
- *      buy is the *swell*: a core that tightens and brightens and then lets go.
- *      A camera that drifts, or an effect that wanders out of the middle of
- *      frame, comes back as a bolt that lurches sideways on its own.
- *
- * The style line is the creative's own, read off `src/source/prompts.md`, minus
- * everything about white backgrounds — that convention belongs to the props that
- * go through `tools/cut-bg.mjs`, and here it would be exactly backwards.
- */
-
 import { mkdirSync, existsSync, writeFileSync, statSync } from "node:fs";
 import { resolve, dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,27 +5,16 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "src/source/fx/clips");
 
-/** The model, and the settings every call shares. */
 const MODEL = "bytedance/seedance-1-lite";
 const SETTINGS = {
   duration: 5,
   resolution: "480p",
-  // Square, because a sheet cell is square-ish and 16:9 would spend a third of
-  // every frame on black that the packer crops off again.
   aspect_ratio: "1:1",
   camera_fixed: true,
   fps: 24,
   seed: 7,
 };
 
-/**
- * Pasted into every prompt, front and back.
- *
- * The tail is longer than the effect it describes, and that is deliberate: a
- * text-to-video model left to itself will happily cut to a second angle, push
- * the camera in, or set the whole thing in a cave. Each clause below is one of
- * those failures, named so it does not happen.
- */
 const STYLE =
   "painted 3D mobile-RPG game VFX, semi-realistic, high contrast, " +
   "a bright white-hot core with saturated colour thrown off it, " +
@@ -90,18 +29,6 @@ const TECHNICAL =
   "no smoke, no dust, no haze, " +
   "no text, no letters, no numbers, no watermark, no logo, no UI.";
 
-/**
- * The clips.
- *
- * Five mage ultimates and three boss attacks. The mages are the five that have
- * been throwing a plain tinted beam since the start — Ricklow's fire is not
- * here, because his is the one that was already painted and re-cutting it off a
- * 480p clip would be a downgrade with extra steps.
- *
- * The gather at the front of every mage prompt is load-bearing. It is the half
- * of the clip that becomes the bolt in flight, and if the model opens on a
- * detonation there is nothing left to fly.
- */
 const SPELLS = [
   {
     id: "water",
@@ -197,9 +124,6 @@ const SPELLS = [
   },
 ];
 
-/* ---------------------------------------------------------------- plumbing */
-
-/** Repo-relative, forward slashes, for the log lines. */
 const rel = (p) =>
   p
     .slice(ROOT.length + 1)
@@ -216,12 +140,6 @@ const auth = { Authorization: "Bearer " + TOKEN };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Run one prompt to a finished video URL.
- *
- * `Prefer: wait` gets the whole thing back in one request when the model is
- * warm, which it usually is; the poll below is what covers a cold start.
- */
 async function generate(spell) {
   const res = await fetch(
     "https://api.replicate.com/v1/models/" + MODEL + "/predictions",
@@ -258,8 +176,6 @@ async function download(url, file) {
   writeFileSync(file, Buffer.from(await res.arrayBuffer()));
 }
 
-/* -------------------------------------------------------------------- main */
-
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
 const named = args.filter((a) => !a.startsWith("--"));
@@ -293,8 +209,6 @@ console.log(
     "s\n",
 );
 
-// One at a time. src/source/prompts.md learned this the hard way on the stills:
-// three in parallel and two come back as `Request was throttled`.
 for (const spell of wanted) {
   const file = join(OUT_DIR, spell.id + ".mp4");
   if (existsSync(file) && !flags.has("--force")) {

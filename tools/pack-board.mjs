@@ -1,36 +1,3 @@
-/**
- * Pack the board's frame — the gold-ruled plate the 5x5 grid is hung inside.
- *
- *   node tools/pack-board.mjs             # -> src/assets/board/frame.webp
- *   node tools/pack-board.mjs --png       # keep an intermediate PNG too
- *   node tools/pack-board.mjs --guides    # write a proof of what was measured
- *
- * The source is a painted frame sitting on transparency — carved obsidian, gold
- * inlay and set gems around a flat black field. Run tools/cut-bg.mjs over the
- * render first; this reads what that leaves behind. Two things have to happen
- * to it before the game can use it.
- *
- * It has to be trimmed. The plate does not fill its own canvas — there is a
- * margin of nothing around it, and a scatter of stray pixels out in that margin
- * that the renderer would happily draw as confetti round the board. Anything at
- * or under EMPTY alpha is cleared outright, and what is left is cropped to its
- * own ink, so the file's edges *are* the plate's edges.
- *
- * And it has to be measured, because the one number the game cannot guess is
- * where the field starts. This frame is not a rule of even thickness: it is
- * deep at the corners and at the gem bosses and shallow between them. So the
- * opening is found rather than assumed — walked outwards from the centre of the
- * art until the field ends and the frame begins, on each of the four sides.
- * That box prints at the end as the FRAME_OPENING art/boardframe.js holds, and
- * the grid is hung in it.
- *
- * The frame is drawn as one sprite rather than nine-sliced: it is very nearly
- * square and so is the board, so it is scaled whole and every piece of ornament
- * stays where it was painted. That makes HEIGHT the honest limit — a picture
- * scaled past its own resolution is a picture invented — so it is packed a
- * shade over the largest box it is ever drawn into.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,49 +7,19 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "src/source/board/frame-nobg.png");
 const OUT = join(ROOT, "src/assets/board/frame");
 
-/** Alpha at or under this is backdrop, not art. */
 const EMPTY = 12;
 
-/**
- * Height to pack at, as a ceiling rather than a target.
- *
- * The board's box tops out at 560 points on a renderer clamped to resolution 2,
- * so 1120 device pixels is the worst case — and this is packed at 680, which is
- * a magnification of 1.65 there and 1:1 on the phone the creative is built for.
- * That is a deliberate trade: the frame is painted ornament with no hairline in
- * it, where a soft magnification costs almost nothing, and every step up in
- * height costs real bytes — the carved stone and its texture do not compress
- * the way the flat plate this replaced did.
- */
 const HEIGHT = 680;
 
-/**
- * Luminance over this is the frame, not the field.
- *
- * High, because the two are not far apart: the field is dark slate with a sheen
- * that runs to 75, and the stone of the frame is darker than that in places.
- * What is unambiguous is the gold rule around the opening — nothing inside the
- * field comes near it — so this sits above the sheen and below the gold.
- */
 const FIELD = 90;
 
-/** Alpha under this is outside the plate altogether. */
 const SOLID = 128;
 
-/** Consecutive lit pixels that are the frame rather than a speck in the field. */
 const RUN = 4;
 
-/**
- * The render's own drop shadow, which the background cut leaves behind: neutral
- * grey, fully opaque, banked along the right and bottom edges. A pixel this
- * neutral and this bright is shadow: the frame's stone is darker than the floor
- * and its gold and gems are nowhere near neutral.
- */
 const SHADOW_SPREAD = 14;
 const SHADOW_LO = 70;
 const SHADOW_HI = 215;
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -134,17 +71,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* --------------------------------------------------------------- trim, clean */
-
-/**
- * Clear everything the eye cannot see, in place.
- *
- * The stray pixels round this plate are the reason: a handful of them are lit
- * red and yellow at single-digit alpha, which is invisible in a paint program
- * over its own checkerboard and a scatter of coloured dust over a dark arena.
- * Clearing the colour as well as the alpha also gives the encoder a flat field
- * to spend no bits on.
- */
 function clean(px) {
   for (let i = 0; i < px.length; i += 4) {
     if (px[i + 3] > EMPTY) continue;
@@ -155,14 +81,6 @@ function clean(px) {
   }
 }
 
-/**
- * Clear the render's drop shadow, in place.
- *
- * It survives the background cut because it is not the backdrop — it is opaque
- * grey painted over it — and left alone it trims into the pack as a dirty band
- * down two sides of the board. Cleared as pixels rather than cropped as a box,
- * because it laps around the corners.
- */
 function unshadow(px, w, h) {
   let cleared = 0;
   for (let i = 0; i < w * h; i++) {
@@ -182,7 +100,6 @@ function unshadow(px, w, h) {
   return cleared;
 }
 
-/** Tightest box that holds every pixel the eye can see. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -200,7 +117,6 @@ function inkBox(px, w, h) {
   return { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/** The trimmed art, copied out into its own buffer. */
 function crop(px, w, box) {
   const out = Buffer.alloc(box.w * box.h * 4);
   for (let y = 0; y < box.h; y++) {
@@ -210,17 +126,6 @@ function crop(px, w, box) {
   return out;
 }
 
-/* ----------------------------------------------------------------- resample */
-
-/**
- * Area-average down to `dw` by `dh`, weighting colour by alpha.
- *
- * The same filter the other pack tools use, and premultiplied for the same
- * reason: outside the plate this file is transparent *black*, so averaging the
- * colour straight would pull a dark fringe around the one gold edge the whole
- * prop is made of. Idle at the moment — nothing here reduces — but it is what
- * makes HEIGHT a knob rather than a lie.
- */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -273,21 +178,6 @@ function resample(src, sw, sh, dw, dh) {
 
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/* ------------------------------------------------------------------ measure */
-
-/**
- * The opening: the flat field the grid is hung in, walked out from the centre.
- *
- * Outwards rather than inwards, which is the whole trick. Walking in from the
- * edge means deciding what the frame is made of — and this one starts on carved
- * stone as dark as the field it surrounds, so a walk inwards stops at the first
- * pixel it meets. The field is the only large flat dark region in the picture
- * and the centre of the art is certainly inside it, so from there the first
- * thing brighter than FIELD in each direction is the frame.
- *
- * RUN guards against a speck ending the walk early: the frame is many pixels
- * deep wherever it is met, a highlight in the field is not.
- */
 function opening(px, w, h) {
   const lum = (i) => 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
   const cx = Math.round(w / 2);
@@ -319,8 +209,6 @@ function opening(px, w, h) {
   return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/* --------------------------------------------------------------------- main */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SOURCE);
@@ -348,7 +236,6 @@ console.log(
     `  (1:${(box.w / dw).toFixed(2)}, aspect ${(dw / dh).toFixed(4)})`,
 );
 
-/* Measured on the packed art, because that is the file the game draws. */
 const open = opening(art, dw, dh);
 
 console.log(`\n     what art/boardframe.js needs, in packed pixels:`);
@@ -368,9 +255,6 @@ if (flags.has("--png")) {
   console.log(`\nout  ${rel(OUT)}.png`);
 }
 
-// `-quality` carries the alpha channel too. The field is flat and the rule is
-// one long smooth ramp, which is where a lossy codec bands first — this is the
-// knob to turn if the gold ever ripples.
 encode(art, dw, dh, `${OUT}.webp`, [
   "-c:v",
   "libwebp",
@@ -389,7 +273,6 @@ console.log(
     ` of base64 in dist/km3.html)`,
 );
 
-/** The measurement, drawn back over the art: the opening in cyan. */
 if (flags.has("--guides")) {
   const test = Buffer.from(art);
   const dot = (x, y) => {

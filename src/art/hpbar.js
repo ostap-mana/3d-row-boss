@@ -1,41 +1,3 @@
-/**
- * The boss health bar's shape.
- *
- * Four files in `src/assets/hp/`, and between them they are the whole bar:
- *
- *   black-bar.webp 972x48  the frame. Flat black at 40% alpha, and the only one
- *                          of the four that is a silhouette rather than a
- *                          colour: nothing in it is coloured, so nothing in it
- *                          can be tinted — black multiplied by any tint is
- *                          still black. It is normalised to an opaque white
- *                          stamp at load, and every layer of the bar is then
- *                          that one stamp, either under a tint or poured full
- *                          of one of the paints below.
- *   dark-red.webp  965x40  the empty gauge, a deep #6a1d1d bevelled dark along
- *                          its long edges. The track used to be a flat tint of
- *                          the stamp; this is the colour the art was drawn in.
- *   red-bar.webp   812x40  the health still standing, #ca3333, bevelled the
- *                          same way.
- *   white-bar.webp  12x40  the health just lost, a swatch of warm white. Twelve
- *                          pixels wide because there is nothing along its
- *                          length to resolve; it is a colour, and it stretches.
- *
- * The frame is eight pixels taller than the track and seven wider — it is drawn
- * behind the bar and stands proud of it on every side, which is where HP_FRAME
- * comes from.
- *
- * Sliced at the bar's own pixel size rather than stretched to it, because the
- * cap is the whole point of the shape: squashing 972x48 into 477x14 would
- * flatten the mitre into a long shallow spike. The cap is drawn at its own
- * aspect and only the flat middle is stretched, so the chevron reads the same on
- * a phone as it does in the file.
- *
- * Each end is measured separately rather than assumed to match the other. This
- * silhouette is square at the left and pointed at the right, which a slicer that
- * takes one cap width for both ends cannot cut: it would either saw the point
- * off the right or invent one at the left.
- */
-
 import { getRenderer } from "../core/context.js";
 import { canvasTexture } from "./textures.js";
 import barUrl from "../assets/hp/black-bar.webp";
@@ -45,38 +7,19 @@ import chipUrl from "../assets/hp/white-bar.webp";
 import doomTrackUrl from "../assets/doom/doom-track.webp";
 import doomFillUrl from "../assets/doom/doom-fill.webp";
 
-/**
- * How far the frame stands proud of the bar, as a fraction of the bar's height.
- *
- * (48 - 40) / 2 / 40. Read off the two files rather than picked, so the outline
- * around the gauge is as thick as the one the art was drawn with — the HUD grows
- * the silhouette by this much on every side and tints it near-black.
- */
 export const HP_FRAME = 0.1;
 
-/** The normalised stamp: white, opaque, plus where each of its mitres ends. */
 let stamp = null;
 
-/**
- * The paints, poured into the stamp's silhouette rather than drawn on their own,
- * so each one carries its own colour and still ends in the same mitre as the
- * frame it sits in.
- */
 const PAINT_URL = {
   track: trackUrl,
   fill: fillUrl,
   chip: chipUrl,
-  // The doom strip's two, poured into this same silhouette. It is drawn under
-  // the health bar at a third of its depth and the two are meant to read as one
-  // gauge running in two directions, which is an easier promise to keep when
-  // both are literally the same shape: one stamp, one mitre, four paints.
-  // tools/pack-doom.mjs packs them; they are Invokers Titan Legacy's own HUD.
   doomTrack: doomTrackUrl,
   doomFill: doomFillUrl,
 };
 const paints = {};
 
-/** Alpha at or above which a pixel of the normalised stamp is inside the shape. */
 const SOLID = 128;
 
 function makeCanvas(w, h) {
@@ -86,13 +29,6 @@ function makeCanvas(w, h) {
   return c;
 }
 
-/**
- * White out the art and push its alpha back up to opaque.
- *
- * The divisor is read from the middle of the file rather than hardcoded — this
- * silhouette is painted at 40% and the one before it at 66%, and neither number
- * is a decision this module should be carrying.
- */
 function normalise(img) {
   const w = img.width;
   const h = img.height;
@@ -114,18 +50,6 @@ function normalise(img) {
   return { canvas: c, w, h, ...caps(px, w, h) };
 }
 
-/**
- * How long the mitre at each end is, in source pixels.
- *
- * The shape is at its widest across the middle and at its narrowest along the
- * top, so the horizontal distance between where the two rows start is the run of
- * the mitre on the left, and the distance between where they end is the run on
- * the right. A square end puts both at the same column and measures as nothing,
- * which is exactly what a square end wants: no slice.
- *
- * Row 1 rather than row 0 because the top row of a soft-edged export is a ramp
- * and can miss the threshold along its whole length.
- */
 function caps(px, w, h) {
   const edge = (y, from, step) => {
     for (let x = from; x >= 0 && x < w; x += step) {
@@ -146,12 +70,6 @@ function caps(px, w, h) {
   };
 }
 
-/**
- * Decode the silhouette before the HUD lays itself out.
- *
- * Never rejects: without it the HUD keeps drawing the rounded bar it always
- * drew, which is why every reference to the shape is guarded.
- */
 export async function loadHpBarArt() {
   try {
     const img = new Image();
@@ -168,20 +86,11 @@ export async function loadHpBarArt() {
         img.src = url;
         await img.decode();
         paints[kind] = img;
-      } catch {
-        /* that layer falls back to a flat tint of the stamp */
-      }
+      } catch {}
     }),
   );
 }
 
-/**
- * Bake the stamp to a bar of `w` x `h` CSS pixels.
- *
- * @returns {{texture: import("pixi.js").Texture, pw: number, ph: number}|null}
- *   `pw`/`ph` are the baked size in texture pixels — the caller crops the fill
- *   by frame, and a frame is in texture space, not CSS space.
- */
 export function hpBarShape(w, h) {
   const baked = bake(w, h);
   return (
@@ -193,23 +102,12 @@ export function hpBarShape(w, h) {
   );
 }
 
-/**
- * The same silhouette, poured full of one of the paints.
- *
- * Falls back to the plain white stamp when that paint is missing, so the caller
- * gets a tintable layer either way and only has to know whether it got the paint
- * — `painted` — to pick the tint that suits.
- *
- * @param {"track"|"fill"|"chip"} kind
- */
 export function hpBarPaint(w, h, kind) {
   const baked = bake(w, h);
   if (!baked) return null;
   const paint = paints[kind];
   if (paint) {
     const ctx = baked.canvas.getContext("2d");
-    // source-in: the stamp's alpha decides where the paint lands, so the layer
-    // inherits the mitre for free.
     ctx.globalCompositeOperation = "source-in";
     ctx.drawImage(paint, 0, 0, baked.pw, baked.ph);
     ctx.globalCompositeOperation = "source-over";
@@ -222,7 +120,6 @@ export function hpBarPaint(w, h, kind) {
   };
 }
 
-/** Slice the stamp onto a fresh canvas of `w` x `h` CSS pixels. */
 function bake(w, h) {
   if (!stamp || w <= 1 || h <= 1) return null;
 
@@ -230,12 +127,9 @@ function bake(w, h) {
   const pw = Math.max(2, Math.round(w * res));
   const ph = Math.max(2, Math.round(h * res));
 
-  // Uniform: a mitre only holds its angle for as long as both axes agree.
   const k = ph / stamp.h;
   let left = Math.round(stamp.left * k);
   let right = Math.round(stamp.right * k);
-  // The flat middle has to survive, however short the bar is asked to be, or the
-  // two caps meet and overdraw each other.
   if (left + right > pw - 2) {
     const squeeze = (pw - 2) / (left + right);
     left = Math.floor(left * squeeze);

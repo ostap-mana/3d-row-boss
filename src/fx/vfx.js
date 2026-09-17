@@ -1,9 +1,3 @@
-/**
- * Impact layer: beams, bursts, shockwaves and the screen flash.
- * Everything here is additive sprites — no filters, which keeps the
- * Pixi tree-shake small and old GPUs happy.
- */
-
 import { Container, Graphics, Sprite } from "pixi.js";
 import { beamTexture, glowTexture, sparkTexture } from "../art/textures.js";
 import { tween, tweenValue, delay, Ease } from "../core/tween.js";
@@ -29,45 +23,12 @@ import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
 import { FIRE, ULT_CALL, ULT_FX } from "../config.js";
 
-/** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
 
-/** How many points down each side of a flame cone's edge. */
 const CONE_STEPS = 16;
 
-/** Points across the tip's forward bulge. */
 const CONE_CAP = 7;
 
-/**
- * One layer of a flame cone, pointing along +x from the origin.
- *
- * Drawn at full length and stretched in from zero by the caller, so the flame
- * reads as something shot out rather than something switched on.
- *
- * Three things here that the two quadratic curves it used to be did not have.
- *
- * The edge is sampled and pushed about by three sines at unrelated rates, so
- * what leaves the jaw has a broken outline that crawls — `t` is what makes it
- * crawl, because the shape is the animation. It is held still at the throat,
- * since a jet does not flap where it leaves the mouth, and held again at the
- * tip so the cap joins on without a seam.
- *
- * The tip is swept on a forward bulge. A cone sampled to a flat end is a
- * trapezium, and a bright trapezium landing on the hero row draws a hard
- * horizontal rule across six cards.
- *
- * And the whole thing is feathered: `feather` nested outlines at a fraction of
- * the alpha each, narrowing and shortening as they go inward, so the layer adds
- * up to a soft-edged wedge instead of a sheet of coloured gel with a visible
- * border. That border is the single thing that kept this reading as an overlay
- * rather than as fire — most of all on the layer that does not blend additively,
- * where there is no brightness to hide it. The stack costs one Graphics and no
- * extra objects: overlapping fills inside one path accumulate.
- *
- * @param {object} c layer spec — len, mouth, spread, color, alpha, wob, seed,
- *   feather
- * @param {number} t seconds since the flame opened
- */
 function paintCone(g, c, t) {
   const { len, mouth, spread, wob, seed } = c;
   const feather = c.feather || 1;
@@ -106,20 +67,6 @@ function paintCone(g, c, t) {
   }
 }
 
-/**
- * A lump of molten rock, centred on the origin.
- *
- * Deliberately not a circle. The glob that crosses the arena used to be one —
- * a flat `0xfff0c0` disc with `rotation += 0.4` ticking over on it every frame,
- * which does precisely nothing to a circle. So what the player actually saw
- * thrown at the board was a hard-edged pale dot that never turned: the single
- * most placeholder-looking thing on the screen.
- *
- * Nine vertices with the radius knocked about is enough to read as a rock at
- * the size it crosses at, and the moment it is not round the spin is free.
- * Built dark crust outwards-in to a hot centre, which is also what it is about
- * to become: these globs harden into the obsidian that locks the board.
- */
 function paintGlob(g, r) {
   const N = 9;
   const shape = [];
@@ -158,10 +105,7 @@ export class Vfx extends Container {
     this.flashRect.fill({ color: 0xffffff });
   }
 
-  /** Small spray of sparks, used on every gem pop. */
   burst(x, y, color, count, power) {
-    // Hard ceiling on live particles. A five-step cascade plus beams can ask
-    // for hundreds at once, and on a weak GPU that is where frames go to die.
     const room = MAX_PARTICLES - this.field.children.length;
     if (room <= 0) return;
     const n = Math.min(count || 6, room);
@@ -191,24 +135,6 @@ export class Vfx extends Container {
     }
   }
 
-  /**
-   * The painted mark on a gem that just cleared.
-   *
-   * Goes **over** `burst` rather than instead of it, the same bargain
-   * `bossSwing` makes with the procedural effects it lands on: the sparks throw
-   * outward and carry the direction and the count, this carries the shape. Both
-   * are additive, so the pair composites into one flash rather than two.
-   *
-   * Tinted, because the sheet is a mask — see art/gempop.js for why this one is
-   * the only one that ships grey.
-   *
-   * The frame is picked off a clock rather than tweened onto the sprite, so the
-   * whole thing is one Sprite and one tween however many gems went at once. A
-   * cascade can clear a dozen cells inside a second and this is the layer that
-   * would notice.
-   *
-   * @returns {boolean} whether a sheet was there to play
-   */
   pop(x, y, color, size) {
     const frames = popFrames();
     if (!frames) return false;
@@ -226,8 +152,6 @@ export class Vfx extends Container {
 
     tweenValue(0, 1, 0.34, (p) => {
       s.texture = frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
-      // It grows a little on the way out, which is what makes a starburst read
-      // as one rather than as a picture of one being cross-faded.
       const k = w * (1 + p * 0.35);
       s.setSize(k, k / POP_ASPECT);
       s.alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
@@ -260,7 +184,6 @@ export class Vfx extends Container {
     return true;
   }
 
-  /** Expanding ring — the punctuation mark on every hit. */
   ring(x, y, color, size, width) {
     const g = new Graphics();
     g.circle(0, 0, 50);
@@ -275,14 +198,6 @@ export class Vfx extends Container {
     tween(g, { alpha: 0 }, 0.45).then(() => g.destroy());
   }
 
-  /**
-   * One soft mote that fades where it was dropped.
-   *
-   * The trail behind anything thrown, and nothing else: `burst` scatters its
-   * sparks outwards, which is what an impact does and the opposite of what a
-   * wake does. Respects the particle ceiling, because a trail is the easiest
-   * thing in here to ask for hundreds of.
-   */
   ember(x, y, size, color) {
     if (this.field.children.length >= MAX_PARTICLES) return;
     const s = new Sprite(glowTexture());
@@ -302,16 +217,6 @@ export class Vfx extends Container {
     });
   }
 
-  /**
-   * Elemental beam from the board to the boss.
-   *
-   * Tinted quads, the same six ways. The painted lances in art/bolts.js are
-   * deliberately not here: they belong to the ultimate and nowhere else, so
-   * that spending one looks like something a match cannot buy. A volley that
-   * threw them too spent the biggest art in the fight on every third second.
-   *
-   * @returns {Promise<void>} resolves on impact, so damage can land in sync
-   */
   async beam(from, to, color, opts) {
     const o = opts || {};
     const dx = to.x - from.x;
@@ -409,24 +314,6 @@ export class Vfx extends Container {
     return true;
   }
 
-  /**
-   * The painted fireball: Ricklow's ultimate, and the only one in the fight
-   * that is a drawing rather than a stack of tinted glows.
-   *
-   * Ten frames off art/fire.js — five of the comet coming in, five of it
-   * landing — and they are played on one sprite rather than assembled out of
-   * cones and rings the way every other effect in this file is, because they
-   * were painted as one gesture and cutting them apart would only be a way of
-   * throwing the drawing away.
-   *
-   * Resolves the instant it lands, not when it burns out. The director bills
-   * the boss, shakes the screen and prints the damage on that frame, and the
-   * blast is left running behind all of it — which is why the last five frames
-   * are fired and forgotten below rather than awaited.
-   *
-   * Falls back to `beam` if the sheet never decoded, and keeps the same shape
-   * of promise either way so the caller cannot tell the difference.
-   */
   async fireball(from, to, color, opts) {
     const frames = fireFrames();
     const o = opts || {};
@@ -446,22 +333,6 @@ export class Vfx extends Container {
     );
   }
 
-  /**
-   * Any mage's ultimate, painted, with one call for all six.
-   *
-   * All six are looked up in `art/spells.js` by element now, Ricklow included:
-   * his `flame` is a build flipbook on the same grid as the other five, so it
-   * plays down the same path rather than out of its own module.
-   *
-   * The fallbacks are what is left of the old arrangement, and there are two of
-   * them because Ricklow has something better than a beam to fall back to. If
-   * `flame` never decoded he goes to `fireball` — the painted comet, its own
-   * grid, its own lead angle, exactly as it was — and everyone else goes to
-   * `beam`, which is what all six threw before any of this art existed.
-   *
-   * `opts.beam` is what that fallback is given, so the caller can keep the beam
-   * tuned the way it always was without knowing whether art exists today.
-   */
   async spell(element, from, to, color, opts) {
     const o = opts || {};
 
@@ -475,9 +346,6 @@ export class Vfx extends Container {
       {
         frames,
         aspect: SPELL_ASPECT,
-        // No painted heading to correct for: these are cut off clips of an
-        // effect gathering in the middle of frame, not of a comet flying in one
-        // direction, so turning them would only tip the drawing over.
         lead: null,
         travelLast: SPELL_TRAVEL_LAST,
       },
@@ -488,22 +356,6 @@ export class Vfx extends Container {
     );
   }
 
-  /**
-   * The ultimate, thrown by the hero who was spent.
-   *
-   * Three beats, and the first of them is the reason this exists rather than
-   * `spell` being called with a different origin. The cast used to launch off a
-   * point inside the board — see ULT_FX — so the biggest attack in the fight
-   * belonged to nobody on screen. Now the light gathers on the avatar, leaves
-   * it along a lance that lays the whole path down in one frame, and lands on
-   * the beast with a shock ring under the painted blast.
-   *
-   * The flight is walked here rather than handed to `paintedBolt` because the
-   * trail has to be dropped off the bolt's own positions as it goes, and that
-   * needs the clock that is moving it. The fallbacks are `spell`'s, unchanged:
-   * Ricklow to the painted comet, everybody else to the beam — both of which
-   * now also leave from the card, which was the whole complaint.
-   */
   async ultCast(element, from, to, color, light, opts) {
     const o = opts || {};
     const size = o.size || 420;
@@ -511,11 +363,6 @@ export class Vfx extends Container {
     await this.ultGather(from, color, light, size * ULT_FX.gatherSize);
     this.ultMuzzle(from, to, color, size);
 
-    // The painted lance is the first thing asked for and the jets are the
-    // fallback, not the other way round: a lance is a thrown object with a head
-    // and a heading, and it is the only one of the two that can be turned to
-    // face where it is going. An element with no lance still gets whatever jet
-    // art/streams.js holds for it, and then the bolt below.
     const lance = boltArt(element);
 
     if (
@@ -540,10 +387,6 @@ export class Vfx extends Container {
     }
 
     const bolt = new Sprite(lance ? lance.frames[0] : frames[0]);
-    // A lance is anchored at its head, so the point is what sits on the
-    // travelling position and the tail streams back down the path behind it.
-    // A sheet cell is a gathering effect with no heading at all and stays
-    // centred, exactly as it was.
     bolt.anchor.set(lance ? 1 : 0.5, 0.5);
     if (lance) bolt.rotation = Math.atan2(to.y - from.y, to.x - from.x);
     if (lance && lance.tint != null) bolt.tint = lance.tint;
@@ -565,8 +408,6 @@ export class Vfx extends Container {
 
     await tweenValue(0, 1, o.travel || ULT_FX.travel, (p) => {
       if (bolt.destroyed) return;
-      // Away slowly, in fast — the bolt is heavy leaving the hand and is at
-      // its quickest on the frame it arrives, which is what sells the hit.
       const e = p * 0.45 + Ease.quadIn(p) * 0.55;
       bolt.x = from.x + (to.x - from.x) * e;
       bolt.y = from.y + (to.y - from.y) * e;
@@ -600,10 +441,6 @@ export class Vfx extends Container {
 
     tween(lead, { alpha: 0 }, 0.24).then(() => lead.destroy());
 
-    // The blast stands upright where it landed, same rule as the comet's: the
-    // last five frames are drawn as fire going up off a floor. A lance arrives
-    // turned and anchored at its point, so both are given back here — what
-    // lands is the sheet's blast, not the thing that flew.
     bolt.x = to.x;
     bolt.y = to.y;
     if (lance) {
@@ -623,15 +460,12 @@ export class Vfx extends Container {
       const w = size * ULT_FX.blastScale * (1 + p * 0.35);
       bolt.texture = frames[first + Math.min(n - 1, Math.floor(p * n))];
       bolt.setSize(w, w / SPELL_ASPECT);
-      // Only the tail fades: an explosion that starts dying on the frame it
-      // arrives never reads as having arrived at all.
       bolt.alpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
     }).then(() => bolt.destroy());
 
     this.ultShock(to, from, color, light, size);
   }
 
-  /** The wind-up on the avatar: the board's light collecting in their hands. */
   async ultGather(at, color, light, size) {
     const core = new Sprite(glowTexture());
     core.anchor.set(0.5);
@@ -650,10 +484,6 @@ export class Vfx extends Container {
       core.alpha = p < 0.7 ? p / 0.7 : 1 - (p - 0.7) / 0.3;
     }).then(() => core.destroy());
 
-    // Inward, not outward. Everything else in this file throws particles away
-    // from a point; these are the only ones that arrive at one, and that is
-    // the whole of what reads as a hero winding up rather than as one already
-    // hit.
     const room = MAX_PARTICLES - this.field.children.length;
     const n = Math.min(ULT_FX.gatherMotes, Math.max(0, room));
     for (let i = 0; i < n; i++) {
@@ -678,14 +508,6 @@ export class Vfx extends Container {
     await delay(ULT_FX.gather);
   }
 
-  /**
-   * The flare on the card the bolt leaves from, stretched along its heading.
-   *
-   * This is the beat that says *this hero* threw it, and it does the job a ring
-   * closing on the card could not: a hoop at that size reads as a piece of
-   * interface drawn over the row, while a flare pinned to the launch point and
-   * turned along the line is the light of something leaving a hand.
-   */
   ultMuzzle(from, to, color, size) {
     const ang = Math.atan2(to.y - from.y, to.x - from.x);
     const w = size * ULT_FX.muzzle;
@@ -713,16 +535,6 @@ export class Vfx extends Container {
     });
   }
 
-  /**
-   * The path, laid down in one frame as the bolt leaves the card.
-   *
-   * Two lines rather than one. The wide tinted one is the element and the
-   * narrow white one inside it is the heat, and the white is what carries the
-   * line across the board: over a grid of lit gems a single tinted streak is
-   * one more coloured thing among thirty, and the eye does not follow it to
-   * the beast. Both collapse towards nothing as they fade, so what is left a
-   * third of a second later is a hairline rather than a bar.
-   */
   ultLance(from, to, color, size) {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
@@ -750,7 +562,6 @@ export class Vfx extends Container {
     });
   }
 
-  /** Ring and spray under the blast, thrown back along the bolt's own line. */
   ultShock(at, from, color, light, size) {
     const ring = new Graphics();
     ring.circle(0, 0, 50);
@@ -923,22 +734,6 @@ export class Vfx extends Container {
     }).then(() => lick.destroy());
   }
 
-  /**
-   * A boss swing, painted, played where it lands and left to burn out.
-   *
-   * Unlike a mage sheet this one has no flight half — nothing throws it — so all
-   * ten frames are played straight through in place.
-   *
-   * It goes on **over** the procedural effect the swing already had, not instead
-   * of it. Those effects are sized off the layout: the breath cone has to reach
-   * the hero row, the shock ring has to cross the screen, the claw marks have to
-   * land along the side the body actually swung to. A painted square dropped in
-   * their place would be prettier and would stop the attack reading. Additive
-   * light composites, so the sheet is detail laid into a shape that already
-   * works.
-   *
-   * @returns {boolean} whether a sheet was there to play
-   */
   bossSwing(kind, at, opts) {
     const frames = spellFrames(BOSS_SPELLS[kind]);
     if (!frames) return false;
@@ -962,22 +757,12 @@ export class Vfx extends Container {
       const w = size * (1 + p * grow);
       s.setSize(w, w / SPELL_ASPECT);
       if (o.mirror) s.scale.x = -s.scale.x;
-      // Only the tail fades, for the same reason the fireball's does: a swing
-      // that starts dying on the frame it lands never reads as having landed.
       s.alpha = base * (p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3);
     }).then(() => s.destroy());
 
     return true;
   }
 
-  /**
-   * The player behind every painted attack that travels.
-   *
-   * Split out of `fireball` when the other five ultimates got sheets of their
-   * own: the two differ only in which grid they walk and whether the drawing has
-   * a heading to correct for, and that is not enough to justify two copies of
-   * the clock, the lead glow and the blast.
-   */
   async paintedBolt(art, from, to, color, o) {
     const { frames, aspect, lead: leadAngle, travelLast } = art;
     const size = o.size || 420;
@@ -989,12 +774,9 @@ export class Vfx extends Container {
     s.blendMode = "add";
     s.x = from.x;
     s.y = from.y;
-    // Turned so the painted comet's own heading becomes the one it is flying.
     s.rotation = leadAngle === null ? 0 : angle - leadAngle;
     this.field.addChild(s);
 
-    // The head of the comet leads its own light, so the glow is not a halo on
-    // the sprite: it is the thing the arena is lit by while the ball crosses it.
     const lead = new Sprite(glowTexture());
     lead.anchor.set(0.5);
     lead.blendMode = "add";
@@ -1008,8 +790,6 @@ export class Vfx extends Container {
       s.setSize(w, w / aspect);
     };
 
-    // Frames rather than a tween on scale: the swell is painted into the sheet,
-    // and `tweenValue` is only the clock that walks it.
     await tweenValue(0, 1, travel, (p) => {
       s.x = from.x + (to.x - from.x) * p;
       s.y = from.y + (to.y - from.y) * p;
@@ -1023,9 +803,6 @@ export class Vfx extends Container {
 
     tween(lead, { alpha: 0 }, 0.22).then(() => lead.destroy());
 
-    // The blast stands upright and stays where it landed: the last five frames
-    // are drawn as fire going up off a floor, and carrying the comet's rotation
-    // into them would tip that floor on its side.
     s.rotation = 0;
     s.x = to.x;
     s.y = to.y;
@@ -1034,13 +811,10 @@ export class Vfx extends Container {
       const i = travelLast + 1;
       const n = frames.length - i;
       show(i + Math.min(n - 1, Math.floor(p * n)), size * (1 + p * 0.35));
-      // Only the tail fades: an explosion that starts dying on the frame it
-      // arrives never reads as having arrived at all.
       s.alpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
     }).then(() => s.destroy());
   }
 
-  /** Flash + ring + sparks where a beam lands. */
   impact(at, color, power) {
     const p = power || 1;
     const flash = new Sprite(glowTexture());
@@ -1059,7 +833,6 @@ export class Vfx extends Container {
     this.burst(at.x, at.y, color, Math.round(10 * p), 1.4 * p);
   }
 
-  /** Full-screen colour wash. */
   async flash(color, alpha, dur) {
     this.flashRect.tint = color === undefined ? 0xffffff : color;
     this.flashRect.alpha = alpha === undefined ? 0.9 : alpha;
@@ -1068,10 +841,6 @@ export class Vfx extends Container {
     });
   }
 
-  /**
-   * Arcing glob of lava, boss mouth to board cell.
-   * Resolves on landing so the obsidian can form on impact.
-   */
   async lob(from, to, color, opts) {
     const o = opts || {};
     const dur = o.duration || 0.5;
@@ -1082,9 +851,6 @@ export class Vfx extends Container {
     glob.tint = color;
     const size = o.size || 54;
     glob.setSize(size, size);
-    // Captured before the stretch starts playing with it: setSize writes scale,
-    // and the streak below is a multiple of the rest size rather than of
-    // whatever the last frame left.
     const base = glob.scale.x;
     glob.x = from.x;
     glob.y = from.y;
@@ -1096,7 +862,6 @@ export class Vfx extends Container {
     core.y = from.y;
     this.field.addChild(core);
 
-    // Height of the arc, well above both endpoints so it reads as thrown.
     const peak = Math.min(from.y, to.y) - (o.arc || 140);
 
     let tick = 0;
@@ -1108,7 +873,6 @@ export class Vfx extends Container {
       dur,
       (t) => {
         const x = from.x + (to.x - from.x) * t;
-        // Quadratic Bezier through the peak.
         const inv = 1 - t;
         const y = inv * inv * from.y + 2 * inv * t * peak + t * t * to.y;
         glob.x = x;
@@ -1117,10 +881,6 @@ export class Vfx extends Container {
         core.y = y;
         core.rotation += 0.34;
 
-        // The halo stretched along the way it is going, off the step just taken
-        // rather than off the curve's derivative — same answer, and it stays
-        // right if the path ever changes. A round glow on a thrown rock is a
-        // lamp being carried; a streak is something moving.
         const vx = x - lastX;
         const vy = y - lastY;
         const speed = Math.sqrt(vx * vx + vy * vy);
@@ -1134,8 +894,6 @@ export class Vfx extends Container {
         lastX = x;
         lastY = y;
 
-        // A trail, dropped in place. A glob crossing a bright arena with nothing
-        // behind it reads as a sprite being moved across a picture.
         if (tick++ % 3 === 0) {
           this.ember(
             x,
@@ -1154,23 +912,9 @@ export class Vfx extends Container {
     core.destroy();
   }
 
-  /**
-   * Sustained cone of flame — the boss breathing over the hero row.
-   * Resolves once the fire has died down, so the director can hold the beat.
-   */
   async cone(from, to, color, opts) {
     const o = opts || {};
     const hold = o.hold === undefined ? 0.5 : o.hold;
-    /**
-     * How hard the fire burns, as a multiplier on every alpha in here.
-     *
-     * A parameter rather than a constant because the two orientations are two
-     * different shots. Sideways the jet crosses the arena and lands on the hero
-     * row, and it can be as bright as it likes. Upright it crosses the entire
-     * play field on the way there — five columns of gem under a wall of flame —
-     * and the player has to be able to read the board they are about to play on.
-     * At full heat the middle column went white.
-     */
     const heat = o.heat === undefined ? 1 : o.heat;
     const spread = o.spread || 180;
     const mouth = o.mouth || 34;
@@ -1184,30 +928,6 @@ export class Vfx extends Container {
     flame.rotation = Math.atan2(dy, dx);
     this.field.addChild(flame);
 
-    /**
-     * Nested cones instead of a gradient: the same trick the gems use, and it
-     * costs nothing on a phone GPU.
-     *
-     * What changed is that the widest one no longer adds. Every layer used to,
-     * with a near-white core on top, and additive light over this arena's bright
-     * sky has only one destination: it went white, and a white wedge is a torch
-     * beam rather than a mouthful of lava. So the outermost layer is drawn
-     * normally in a deep red-orange — it pushes what is behind it *towards*
-     * fire, where adding could only push it towards paper — and the hot layers
-     * add on top of a ground that is already burning.
-     *
-     * The white-hot one is still here and it is short. White is right at the
-     * throat, where the fire leaves the jaw, and wrong everywhere else.
-     *
-     * The alphas stay modest for the reason they always did: this fire crosses
-     * the board on its way to the hero row, and the player has to still be able
-     * to read the board they are about to play on.
-     *
-     * `feather` is how many nested outlines each one is built from — see
-     * paintCone. The wide layers get the most, because a wide edge is where a
-     * border shows; the throat gets one, because at that size a stack is a
-     * blur on something the player reads as a hard hot core.
-     */
     const spec = [
       {
         len,
@@ -1262,8 +982,6 @@ export class Vfx extends Container {
       return g;
     });
 
-    // The throat: one hot spot pinned where the fire leaves the jaw. Without it
-    // the jet has no source — it starts, narrow and orange, in mid-air.
     const throat = new Sprite(glowTexture());
     throat.anchor.set(0.5);
     throat.blendMode = "add";
@@ -1273,14 +991,12 @@ export class Vfx extends Container {
     throat.scale.set((mouth * 2.1) / throatW);
     flame.addChild(throat);
 
-    // Shoot out along its own axis; the width comes in a touch behind.
     flame.scale.set(0.05, 0.5);
     await Promise.all([
       tween(flame.scale, { x: 1 }, 0.15, { ease: Ease.quadOut }),
       tween(flame.scale, { y: 1 }, 0.2, { ease: Ease.backOut }),
     ]);
 
-    // Embers keep falling on the target for as long as the flame is held.
     const embers = (async () => {
       const steps = Math.max(1, Math.round(hold / 0.09));
       for (let i = 0; i < steps; i++) {
@@ -1298,9 +1014,6 @@ export class Vfx extends Container {
 
     const tongues = this.flameTongues(flame, len, mouth, spread, hold, heat);
 
-    // Flicker: a flame that holds a steady alpha reads as a plastic triangle.
-    // The edges are repainted on the same clock — see paintCone, where the
-    // wobble is a function of this `t` and of nothing stored.
     await tweenValue(
       0,
       hold,
@@ -1326,19 +1039,6 @@ export class Vfx extends Container {
     flame.destroy({ children: true });
   }
 
-  /**
-   * Tongues rolling down a flame jet, for as long as it is held.
-   *
-   * The cone is the shape; these are the fire. A flame is read off the stuff
-   * travelling inside it rather than off its outline, and an outline on its own
-   * stays a plastic triangle however well it ripples. Each tongue starts small
-   * near the throat, swells as it goes, drifts off the axis and dies before the
-   * tip — which between them is most of what makes a jet look thrown rather
-   * than switched on.
-   *
-   * Parented to the flame, so they live in the cone's own space: the entrance
-   * stretch, the flicker and the collapse at the end all carry them.
-   */
   async flameTongues(flame, len, mouth, spread, hold, heat) {
     const widthAt = (d) => mouth + (spread - mouth) * d;
     const until = hold + 0.12;
@@ -1375,8 +1075,6 @@ export class Vfx extends Container {
         tween(s.scale, { x: w1 / tex, y: w1 / tex }, life, {
           ease: Ease.quadOut,
         });
-        // Guarded: the flame is destroyed with its children at the end of the
-        // beat, and a tongue still fading is one of them.
         tween(s, { alpha: 0 }, life * 0.6, { delay: life * 0.4 }).then(() => {
           if (!s.destroyed) s.destroy();
         });
@@ -1385,11 +1083,6 @@ export class Vfx extends Container {
     }
   }
 
-  /**
-   * Flattened ring hugging the floor — the fists landing.
-   * Perspective ring rather than the round one `ring()` draws, so it reads as
-   * something spreading across the ground instead of out of the screen.
-   */
   shock(x, y, color, opts) {
     const o = opts || {};
     const g = new Graphics();
@@ -1409,22 +1102,6 @@ export class Vfx extends Container {
     tween(g, { alpha: 0 }, dur).then(() => g.destroy());
   }
 
-  /**
-   * Three claws opening the air where the boss just swung.
-   *
-   * Played off the painted sheet in art/rake.js, mirrored onto the side
-   * `boss.rake()` says the body actually travelled to — marks torn against it
-   * are two effects playing at once rather than one attack. The drawn gashes
-   * below are the fallback for when that sheet never arrived.
-   *
-   * Three sprites on one frame, and the order is the whole trick. The arena is
-   * a bright sky and the drawing's gashes are darker than it, so the sheet is
-   * laid on the normal blend and a shadow goes under it: additively, a dark
-   * mark has nothing to add and disappears, which is what the first pass of
-   * this did. The third sprite is the same frame again on add, and it finds
-   * only the gold rims and the cyan wash, because those are the only parts with
-   * anything left to give. Painted tear, then the heat off it.
-   */
   claw(x, y, color, opts) {
     const o = opts || {};
     const dir = (o.dir || 1) < 0 ? -1 : 1;
@@ -1478,12 +1155,9 @@ export class Vfx extends Container {
     const marks = new Container();
     marks.x = x;
     marks.y = y;
-    // Down and across, mirrored onto whichever side the body travelled.
     marks.rotation = (o.angle === undefined ? 0.5 : o.angle) * dir;
     this.field.addChild(marks);
 
-    // The heat behind the cut. Without it the gashes are three bright lines on
-    // a dark screen; with it they are three lines torn in something.
     const heat = new Sprite(glowTexture());
     heat.anchor.set(0.5);
     heat.blendMode = "add";
@@ -1495,24 +1169,16 @@ export class Vfx extends Container {
       tween(heat, { alpha: 0 }, 0.34),
     );
 
-    // Sized off the gap rather than in pixels: `gap` is handed down from the
-    // layout, and a gash measured in constants is a hairline on a tablet and a
-    // bar on a small phone.
     const thick = gap * 0.42;
     const core = o.core || 0xffd9e2;
 
     for (let i = 0; i < 3; i++) {
       const off = (i - 1) * gap;
-      // The middle claw runs longest and cuts deepest — a hand is not a comb.
       const mid = i === 1;
       const l = len * (mid ? 1 : 0.84);
       const bow = l * 0.13;
 
       const gash = new Graphics();
-      // Two passes, and the second is what makes this read as a cut rather
-      // than as a stripe: a wide soft body in the attack's colour, and a thin
-      // white-hot line down the middle of it. One pass at either width is a
-      // ribbon; the pair is an edge with heat coming off it.
       for (const [k, tone] of [
         [1, color],
         [0.34, core],
@@ -1531,19 +1197,12 @@ export class Vfx extends Container {
         delay: i * 0.04,
         ease: Ease.quadOut,
       });
-      // Held before it goes. At 0.12 the third claw was fading before the
-      // first had finished opening, and what the eye caught was a flicker.
       tween(gash, { alpha: 0 }, 0.42, { delay: 0.2 + i * 0.04 });
     }
 
     delay(0.75).then(() => marks.destroy({ children: true }));
   }
 
-  /**
-   * Band of force rolling down the screen, boss floor to hero row.
-   * This is what connects a golem at the top of the screen to the cards at
-   * the bottom — without it the heroes just lose health for no visible reason.
-   */
   async wave(fromY, toY, color, opts) {
     if (!this.layout) return;
     const o = opts || {};
@@ -1552,9 +1211,6 @@ export class Vfx extends Container {
     band.anchor.set(0.5);
     band.blendMode = "add";
     band.tint = color;
-    // Across the composition, not across the window: the band is what carries
-    // a hit from the golem down to the hero row, and both of them live on the
-    // stage. On a phone the two are the same width.
     const stage = this.layout.stage;
     band.setSize(stage.w * 1.4, o.thickness || 130);
     band.x = stage.cx;
@@ -1566,7 +1222,6 @@ export class Vfx extends Container {
     tween(band, { alpha: 0 }, 0.2).then(() => band.destroy());
   }
 
-  /** Sweeping wall of energy used by the ultimate. */
   async sweep(color) {
     if (!this.layout) return;
     const { w, h } = this.layout;

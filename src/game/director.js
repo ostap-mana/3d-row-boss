@@ -1,30 +1,3 @@
-/**
- * The director owns the fight.
- *
- * It used to own a storyboard: boss health stepped down an authored ladder,
- * every accepted match advanced the story exactly one step, and the climax
- * landed on schedule no matter what the player did. None of that survives here.
- *
- * What replaced it:
- *   - damage is earned per gem, multiplied by how deep the cascade ran;
- *   - every match is a volley from the whole roster, not one hero picked by
- *     whichever colour came up — see partyVolley;
- *   - the boss answers every move, and every answer hits harder than the last;
- *   - it answers on its own track, alongside the player rather than in front of
- *     them: no attack of its own ever takes the board out of their hands;
- *   - heroes die, and every hero lost takes a share off every match that
- *     follows, so a bad run compounds instead of flatlining;
- *   - a doom clock runs the whole fight, and when it expires the boss lands one
- *     cataclysm on the entire party — and every one after it arrives sooner and
- *     hits harder than the one before;
- *   - the boss armours up as its health falls, so the last third of the bar is
- *     the expensive third and the fight ends on its hardest beat instead of its
- *     easiest.
- *
- * The creative can now be lost, and losing is the default outcome for anybody
- * clearing whichever match happens to be nearest. That is the point of it.
- */
-
 import {
   BOSS_ATTACKS,
   BOSS_MAX_HP,
@@ -64,98 +37,20 @@ const rollKillMatch = () => {
   return rolled && rolled.length ? pick(rolled) : Infinity;
 };
 
-/**
- * How far below the best score a cell can be and still get picked.
- *
- * Wide enough that the wave lands somewhere different every run, tight enough
- * that it never throws a block into a corner nobody cared about.
- */
 const OBSIDIAN_SLACK = 7;
 
-/**
- * How many of the player's best moves the boss rolls between when it picks one
- * to bury. Two: your best idea and your second best, and you do not get to know
- * which one it is going to take.
- */
 const OPTIONS_IN_PLAY = 2;
 
-/**
- * How often that roll comes up on the strongest of the moves left.
- *
- * The roll was flat, which is a coin: half the time the boss buried the obvious
- * move and half the time it buried the other one, and a coin is a boss who is
- * not really aiming. Four times in five is aiming hard, and the fifth is what
- * keeps it from being a rule the player can read and plan around.
- *
- * This is the fallback and not the aim. It decides between options the player
- * has shown no interest in; the moment they have reached for one, the roll does
- * not happen at all and the cell they reached for is taken — see AIM_MEMORY and
- * blockAnOption.
- */
 const AIM_BITE = 0.95;
 
-/**
- * How long the boss keeps hold of where the player was reaching, in seconds of
- * game clock — see Board.noteFocus.
- *
- * The whole difference between a wall and an opponent. A stone that lands on a
- * good cell is scenery; a stone that lands on the two gems somebody had a thumb
- * between, in the second they were closing the gesture, is the boss taking the
- * idea off them — and the thing worth doing, because now they have to find
- * another match instead of playing the one they had.
- *
- * Five and a half seconds. Four was measured against the gesture and not
- * against the turn that answers it: the boss waits out the board and then the
- * hand — see whenQuiet and handsOff — and after a cascade that wait alone spent
- * the memory, so the wave arrived with nothing recorded and fell back to
- * ranking cells nobody had touched. That is the exact failure this constant
- * exists to prevent, and it was happening on the busiest turns in the run. The
- * ceiling has not moved: longer still and the boss starts burying cells the
- * player has already moved on from, which reads as the lava landing at random
- * again.
- */
 const AIM_MEMORY = 5.5;
 
-/**
- * How deep into the player's options the ranking below looks.
- *
- * It has to look past the top score because on a five-by-five almost every
- * option is a plain three, so a sort on cells cleared alone leaves the whole
- * board tied and the tie resolved by scan order — which would aim the boss at
- * the top-left corner and nowhere else.
- *
- * Ten rather than six since the whole wave hunts: with one aimed stone a
- * shallow look was enough, because only the best option was ever going to be
- * taken. Now the wave works its way down the list, and a depth of six meant the
- * later blocks in a big wave fell off the end of the ranking and landed on
- * whatever the scan order offered. Still bounded — every candidate here is two
- * probeLocks and this runs inside a boss turn — and a five-by-five rarely
- * offers ten legal swaps anyway, so this is a ceiling more than a cost.
- */
 const RANK_DEPTH = 10;
 
 const MOVE_READ = { taught: 12, bigRun: 4, nearThumb: 5, middle: 3, water: 4 };
 
-/**
- * The longest the hard cap will hold for an ending that had already started
- * when it fired.
- *
- * Both endings are bounded a long way under this — see win and lose, whose
- * every wait is a fixed delay or a capped bossSettled — so it is a stop rather
- * than a schedule: the number exists so nothing can hold the end card open
- * forever, not because anything is expected to reach it.
- */
 const ENDING_GRACE = 4.0;
 
-/**
- * How often the ult lesson looks up from what it is doing — see teachUlt.
- *
- * Its window is a fixed span of seconds, but the thing it is pointing at can
- * stop being worth pointing at inside that: the hero is spent, or the boss
- * knocks them down. Waiting the span out in one delay would leave a frame round
- * a card nobody can tap; a fifth of a second is shorter than one beat of the
- * demo and costs five reads of two fields.
- */
 const ULT_TICK = 0.2;
 
 export class Director {
@@ -164,79 +59,21 @@ export class Director {
     this.ended = false;
     this.outcome = null;
 
-    /** Real boss health, 1..0. Nothing authors this any more. */
     this.bossHp = 1;
     this.killOn = rollKillMatch();
-    /**
-     * What this fight has actually been paying per move, for the autoplay pace
-     * guard to plan against — see autoDelay.
-     *
-     * Measured rather than assumed. Damage comes out of combo depth, run size,
-     * how much of the party is still standing and how much armour is up, so what
-     * a move is worth is a property of the fight in progress and not something
-     * that can be read off DIFFICULTY.
-     */
     this.movesPlayed = 0;
     this.damageDealt = 0;
-    /** Boss turns taken — drives both the attack rotation and its ramp. */
     this.turn = 0;
-    /**
-     * Armour layers the boss has already put up — see DIFFICULTY.armor.
-     *
-     * Only ever climbs. Nothing in this fight heals the boss, so a bar knocked
-     * past a threshold has passed it for good, and the counter exists purely so
-     * the callout fires once per layer rather than once per cascade step.
-     */
     this.phase = 0;
-    /**
-     * Game-clock reading at the first playable frame — see armDoom, which sets
-     * it, and pace(), which is the only thing that reads it.
-     *
-     * Not now() at construction: construction is boot, and the fight does not
-     * start until somebody touches the screen — the schedule pace() measures
-     * against is the fight's, not the app's. The two used to be a couple of
-     * seconds apart on top of that, because the intro was awaited before the
-     * first turn; it is not any more (see intro), so what is left between them
-     * is however long the creative sat there being looked at.
-     */
     this.fightStart = 0;
-    /** Cataclysms already landed. Each one is worse, and closer, than the last. */
     this.doomCount = 0;
-    /** Tides already spent — each refills the party less. DIFFICULTY.healDecay. */
     this.healsUsed = 0;
 
     this.idleToken = 0;
-    /**
-     * The one hint the creative gives. `openingSpent` is the whole of its
-     * lifetime rule: armed until the player touches the board, then never
-     * again — not paused, not re-armed, gone. `openingLive` is whether the
-     * hand is demonstrating right now, which is what refreshHint needs to know
-     * before it re-points at a moved board.
-     */
     this.openingToken = 0;
     this.openingSpent = false;
     this.openingLive = false;
-    /**
-     * Whether a lesson — either one — is on screen this instant.
-     *
-     * Read by refreshHint, which is the one caller that has to tell "the board
-     * moved under a hint nobody is watching" from "the board moved under a hand
-     * somebody is watching right now". The first waits its turn; the second is
-     * re-aimed on the spot, because a player following a hand has already been
-     * made to wait for it once.
-     */
     this.lessonLive = false;
-    /**
-     * The other lesson — the frame round a charged hero and the hand tapping
-     * it. See teachUlt.
-     *
-     * `ultLive` is whether it owns the screen, and while it does the board's
-     * own hint stands down entirely: both are drawn by the same Coach and
-     * pointed by the same Hand, and there is one of each. `ultTaught` is the
-     * one-way door the first tap on any card shuts — the same rule the board
-     * lesson keeps in `openingSpent` — and `ultShows` caps how many times it
-     * may be put in front of somebody who keeps ignoring it.
-     */
     this.ultToken = 0;
     this.ultLive = false;
     this.beckonAt = ULT_CALL.beckon.every;
@@ -244,82 +81,24 @@ export class Director {
     this.ultShows = 0;
     this.moveToken = 0;
     this.ultResolver = null;
-    /**
-     * Heroes tapped and not yet cast, in the order they were tapped.
-     *
-     * A queue and not a single slot. It used to be one index plus a boolean,
-     * which meant a second tap during a cast overwrote the first: tap three
-     * charged heroes while the first cut-in is playing and two of the three
-     * ultimates were silently thrown away, having already lit the card and
-     * taken the tap. Every tap on a charged hero who is still standing is a
-     * cast now, and they run in the order they were asked for.
-     */
     this.ultQueue = [];
-    /**
-     * Set while castUltimate is holding its own tail pause, cleared once that
-     * pause is over. If a hero is tapped while this is up, onCardTap fires it
-     * early — see castUltimate and onCardTap. A queued ultimate should not
-     * have to sit through a pause invented for a cast with nothing queued
-     * behind it.
-     */
     this.ultChainResolver = null;
-    /** Which hero the ultimate being cast belongs to — any of them can be spent. */
     this.ultHero = HEALER;
-    /**
-     * Raised by the tap that spends a hero, dropped once that ultimate has
-     * finished resolving. While it is up the party cannot be hurt — see
-     * strikeHeroes for what that is buying and what it deliberately does not
-     * cover.
-     */
     this.ultCasting = false;
-    /**
-     * Whether an ultimate is actually playing, as opposed to merely bought.
-     *
-     * `ultCasting` goes up on the tap and covers the wait as well as the cast,
-     * which is exactly right for the shield and exactly wrong for the rush:
-     * asked with that flag, a tap on a second hero during the first hero's
-     * cut-in would read as "something is in the way, hurry it up" and
-     * fast-forward the ultimate the player is watching. This is only up between
-     * the first frame of the cast and its last. See rushForUlt.
-     */
     this.ultInFlight = false;
-    /**
-     * The rate the world is being run at on this director's account.
-     *
-     * Held here as well as in core/juice.js so the raise and the drop are one
-     * object's business: a fight that ended, or was rebuilt, mid-rush must not
-     * be able to leave a five-times world behind it. See setUltRate.
-     */
     this.ultRate = 1;
-    /**
-     * The fight's clocks, held while an ultimate is being cast.
-     *
-     * `clockHeld` is how many seconds have been taken off the bill so far and
-     * `clockHoldAt` is when the current hold started, or 0 for a clock that is
-     * running. Everything the player is charged for by wall time — the
-     * cataclysm's fuse and the boss's rage ramp — goes through elapsed()
-     * rather than now(). See holdClock.
-     */
     this.clockHeld = 0;
     this.clockHoldAt = 0;
     this.doomResolver = null;
-    /** Pulls the player's turn out of the air when the fight is already over. */
     this.stopResolver = null;
 
-    /** Tail of the boss's track, and how many beats are on it. See queueBoss. */
     this.bossTrack = null;
     this.bossQueued = 0;
 
-    /**
-     * Set by the first touch on the board. The game will not play a move for
-     * anyone who has shown up — see armAutoPlay().
-     */
     this.playerActed = false;
 
-    /** Token for the boss's own clock — see armBossPress. */
     this.pressToken = 0;
 
-    /** The run's interrupts, as fractions of the clock — see dealSnaps. */
     this.snaps = [];
     this.snapAt = undefined;
     this.snapping = false;
@@ -339,9 +118,6 @@ export class Director {
       vfx.charge(x, y, GEM_COLORS[type], board.cell * 1.5, life);
     };
     board.onPop = (x, y, type) => {
-      // The sparks first and the painted mark over them. `pop` returns false
-      // until its sheet exists, which is the whole of the fallback: the burst
-      // is what a cleared gem always was and it is still what carries the beat.
       vfx.burst(x, y, GEM_COLORS[type], 5, 0.9);
       vfx.pop(x, y, GEM_COLORS[type], board.cell * 1.6);
     };
@@ -351,62 +127,20 @@ export class Director {
       scene.shake(7, 0.22);
     };
     board.onShuffle = () => {
-      // Held for the whole tell-slide-settle beat rather than half of it: the
-      // banner is the only thing on screen that names what is happening, and
-      // one that clears while the stones are still moving explains nothing.
       hud.shout(COPY.shuffle, 0.75, { fill: 0xc9b6ff, from: 1.3 });
-      // No refreshHint here on purpose: this fires before the stones have
-      // moved, so the board it would solve is the one about to be thrown away.
-      // dropObsidian and eruptObsidian re-point the hand after lockCells has
-      // been all the way through ensurePlayable, which is the correct moment.
     };
-    // A rejected swap gets no buzzer and no red flash: the nudge and the stones
-    // coming back is the whole of the answer. The lesson is not put back on the
-    // clock with it — a swap cannot bounce until the player has touched the
-    // board, and the touch that let them try is what spent it.
     board.onInvalid = () => {
       this.restartIdle(true);
     };
-    // Wired but dormant: SNAP.on is false, so interceptSwap refuses every swipe
-    // it is offered and the beast answers on its turn instead — see SNAP.
     board.onIntercept = (a, b) => this.interceptSwap(a, b);
     board.onInteract = () => {
       this.playerActed = true;
-      // A finger on the glass ends the lesson, and ends it for good. It used
-      // to only step aside: the rule was that comprehension is a move landing
-      // rather than a touch, so a tap on nothing or a swap that bounced put
-      // the hand back on its one second timer. The rule reads well and plays
-      // badly — a first-timer's opening gesture is exactly a tap on nothing,
-      // so the prop kept coming back over the board they were already trying
-      // to play, between every fumbled swipe. See spendOpeningHint.
       this.spendOpeningHint();
       this.restartIdle();
     };
 
-    /**
-     * The player's own swipe wears the hand — when the prop is wired up at all.
-     *
-     * The board reports the touch in its own pixels and the hand lives beside it
-     * in the world, so every point is offset by where the board is sitting —
-     * the same conversion pointHand does for the demo.
-     *
-     * Letting go re-arms the idle rather than leaving the hand off: the timer
-     * that would have brought it back was restarted by `onInteract` at the top
-     * of the touch, and on a press that turns out to be a tap on nothing, that
-     * is the only thing that ever asks for it again.
-     *
-     * With T.touchHand off the prop is not wired up at all. Gating it here
-     * rather than inside Hand keeps the two jobs on separate switches: T.hints
-     * decides whether anything ever points at a move, this decides whether the
-     * hand rides a swipe the player is already making.
-     */
     if (T.touchHand) {
       board.onTouchStart = (x, y) => {
-        // The gem actually under the finger, so the prop riding the player's own
-        // swipe is the colour of what they picked up. cellAt can answer null on
-        // a press inside the board's frame and typeAt answers -1 for a cell the
-        // boss has encased; setElement takes both and reaches for the neutral
-        // hand, which is what a touch on nothing should look like anyway.
         const cell = board.cellAt(x, y);
         hand.setElement(cell ? board.typeAt(cell.r, cell.c) : -1);
         hand.grab(board.x + x, board.y + y);
@@ -414,30 +148,18 @@ export class Director {
       board.onTouchMove = (x, y) => hand.dragTo(board.x + x, board.y + y);
     }
     board.onTouchEnd = () => {
-      // A no-op unless T.touchHand put the prop on the finger to begin with.
       hand.letGo();
-      // The lesson is not re-armed here either: onInteract spent it when this
-      // touch began.
       this.restartIdle();
     };
   }
 
-  /* ------------------------------------------------------------------ run */
-
   async run() {
-    // Which of the two won matters now. The fight resolving is a fight that
-    // reached its own ending; the clock resolving is a fight that did not, and
-    // that one has an ending of its own to play — see `timeUp`.
     const fight = this.playFight();
     const capped = await Promise.race([
       fight.then(() => false),
       delay(toWorld(T.hardCap)).then(() => true),
     ]);
     if (capped && this.verdict()) {
-      // The cap is a deadline on the fight, not on its ending. A boss who went
-      // down at twenty-nine seconds has a death already playing, and cutting to
-      // the card over it is the clock arguing with the fight it just watched.
-      // Raced against ENDING_GRACE all the same.
       await Promise.race([fight, delay(ENDING_GRACE)]);
     } else if (capped) {
       await this.timeUp();
@@ -445,31 +167,6 @@ export class Director {
     await this.finish();
   }
 
-  /**
-   * The clock ran out with the boss still standing.
-   *
-   * This used to be nothing at all: the race resolved, `finish` set the end
-   * card, and a creative that had spent thirty seconds telling the player
-   * a cataclysm was coming simply stopped one frame later. The one mechanic the
-   * whole mode is built on had never fired, because with DOOM.seconds equal to
-   * the runtime the clock can never reach zero inside it, and the ending was a
-   * cut rather than an ending.
-   *
-   * So the deadline collects. The boss casts, the party goes down to a man, and
-   * the card that follows says what happened. It is the same castDoom every
-   * turn of the fight could have met — same shout, same roar, same rolling wave
-   * down the row — with the damage taken off the ramp and set to lethal: this
-   * one is not a beat the party can be healed through, it is the thing the timer
-   * was counting to.
-   *
-   * The clock is driven to zero before the cast rather than left where the cap
-   * caught it, because a strip reading five seconds under a cataclysm landing is
-   * the creative disagreeing with itself in the last two seconds anybody watches.
-   *
-   * Runs after T.hardCap rather than inside it, so the deliverable is thirty
-   * seconds of fight and then this. Everything in it is already bounded — see
-   * bossSettled, which will wait 0.8s for an in-flight swing and no longer.
-   */
   async timeUp() {
     if (this.settled()) return;
     const { board, hud } = this.s;
@@ -486,36 +183,14 @@ export class Director {
     await this.lose();
   }
 
-  /**
-   * The fight loop — the player's half of it.
-   *
-   * A while loop rather than the old fixed march through MOVE_KIND: the number
-   * of moves is no longer decided in advance by anybody, and neither is who
-   * walks away from it.
-   *
-   * It does not wait for the boss any more. The counterattack used to be awaited
-   * right here, which meant a second and a half per move where the board was
-   * dead in the player's hands and every swipe was thrown away — the boss
-   * animating was the boss taking the turn away. It goes on its own track now
-   * (see queueBoss) and this loop goes straight back to listening.
-   */
   async playFight() {
     await this.intro();
     if (this.ended) return;
     this.armDoom();
 
     while (!this.ended) {
-      // Nothing between two turns is allowed to run rushed. The rush belongs to
-      // the gap between a tap and the cast it bought and to nothing else, and a
-      // fight that ends inside that gap — the hurried cascade was the one that
-      // emptied the boss's bar — leaves through the line below and never
-      // reaches the drop in takeQueuedUlt. Without this the whole victory beat
-      // would play at five times speed. See setUltRate.
       this.setUltRate(1);
 
-      // One place decides how this fight ends, and it reads a verdict claimed
-      // where the damage actually landed rather than two independent polls that
-      // could both come back true on the same frame. See claim.
       const called = this.verdict();
       if (called) return called === "victory" ? this.win() : this.lose();
       if (this.doomDue()) this.castDoomSoon();
@@ -523,17 +198,11 @@ export class Director {
       const action = await this.playerTurn();
       if (this.ended) return;
 
-      // A move actually made — a swap that matched, or a hero spent. A player
-      // who got here spent the lesson on the touch that started the move, so
-      // this is ordinarily a no-op; it is kept for the one path that reaches a
-      // move without a touch, which is T.autoPlay driving the board itself.
       if (action === "swap" || action === "ult") {
         trackOnce(EV.firstSwap, { action });
         this.spendOpeningHint();
       }
 
-      // A boss beat ended the fight while the player was still holding their
-      // move. The checks at the top of the loop are what act on it.
       if (action === "wiped" || action === "buried") continue;
       if (action === "doom") {
         this.castDoomSoon();
@@ -546,10 +215,6 @@ export class Director {
 
       await this.resolveMove();
       if (this.ended) return;
-      // Back to the top rather than straight into win(): the cascade that just
-      // resolved may have been running alongside a swing that emptied the row,
-      // and the verdict up there is what says which of the two got there first.
-      // It is also what stops a boss turn being queued into an ending.
       if (this.verdict()) continue;
 
       this.queueBoss(() => this.bossTurn());
@@ -560,15 +225,6 @@ export class Director {
     return this.s.heroRow.aliveCount() === 0;
   }
 
-  /**
-   * Every cell under stone — the other way to lose.
-   *
-   * A board with nothing left to swap is a fight the player cannot win and
-   * cannot act in, and waiting for the clock to notice would spend the last
-   * seconds of the run on a screen where nothing can happen. So it is a verdict
-   * of its own, read here beside the wipe. See DOOM.bury, which is the only
-   * thing that can seal a board this far.
-   */
   boardSealed() {
     const board = this.s.board;
     if (!board || !board.locks) return false;
@@ -580,55 +236,17 @@ export class Director {
     return true;
   }
 
-  /**
-   * Whether the fight has already been called.
-   *
-   * `ended` is the end card's flag and is only raised in `finish`, which is two
-   * animations and several seconds after the fight is actually over. Every
-   * clock still running in that window — the boss's track, the cascade the
-   * player is holding, the cataclysm — has to stand down at the verdict rather
-   * than at the card, or it goes on dealing damage into an ending that has
-   * already been decided. Which is what it used to do: a swing in the air when
-   * the boss went down landed anyway, and the party died inside its own
-   * victory.
-   */
   settled() {
     return this.ended || !!this.outcome;
   }
 
-  /**
-   * Call the fight, once.
-   *
-   * There is no draw in this mode, and the reason there looked like one is that
-   * both endings were read at the top of the fight loop — long after both
-   * conditions had become true. A boss swing and a cascade land on the same
-   * frame often enough: the row emptied inside the same beat that took the last
-   * of the boss's health, and whichever branch happened to be checked first
-   * played its ending over a screen showing the other one.
-   *
-   * So the verdict is claimed at the point of damage, and the first claim is
-   * final. Everything behind it reads `settled` and stops — including the half
-   * of the fight that was about to win it.
-   *
-   * @param {"victory"|"defeat"} kind
-   * @returns {boolean} whether this is the call that decided it
-   */
   claim(kind) {
     if (this.outcome) return false;
     this.outcome = kind;
-    // The clock is part of what has to stand down: a cataclysm queued on the
-    // frame the boss died is the same bug wearing a different coat.
     this.doomArmed = false;
     return true;
   }
 
-  /**
-   * The verdict, for the paths that arrive without having gone through a hit —
-   * the hard cap, a turn boundary, a wipe that landed between beats.
-   *
-   * Reads the claim first, so a fight that was already called stays called
-   * whatever the board looks like by the time anybody asks.
-   */
   verdict() {
     if (this.outcome) return this.outcome;
     if (this.bossHp <= 0) this.claim("victory");
@@ -636,23 +254,6 @@ export class Director {
     return this.outcome;
   }
 
-  /* ------------------------------------------------------------ escalation */
-
-  /**
-   * How much of the fight's schedule has been spent, 0 to 1.
-   *
-   * Not the curve's axis — that is pressure(), and the note there is where the
-   * argument for the health bar lives. This is only the clock term pressure()
-   * puts a floor under a stalled run with, and it is kept separate because a
-   * bare clock reading is a genuinely different question from "how far through
-   * the fight is this player", and conflating the two is what an earlier
-   * revision of this file did.
-   *
-   * On elapsed() rather than now(), for the same reason rage() is: seconds
-   * spent inside an ultimate are seconds nobody could have played in, and
-   * charging for them would make spending a hero the one move in the fight that
-   * escalated the boss. See holdClock.
-   */
   progress() {
     const curve = DIFFICULTY.curve;
     const secs = curve && curve.seconds ? curve.seconds : 0;
@@ -661,105 +262,26 @@ export class Director {
     return Math.max(0, Math.min(1, spent / secs));
   }
 
-  /**
-   * The other axis: how much of the boss is gone. Read by exactly one column of
-   * the curve — `resist` — and here is why that column is special.
-   *
-   * Everything else on the staircase is the boss getting angrier, which is a
-   * function of how long the fight has run. `resist` is the boss's hide, which
-   * is a function of how chewed up the boss is, and reading it off the clock
-   * turns out to be actively unfair rather than merely inaccurate.
-   *
-   * Measured, because it was written the other way first and the simulation
-   * caught it: on the clock, a weak player's win rate fell from 92% to 59%,
-   * every lost run a timeout. The reason is that the hide arrives on a schedule
-   * they are not on. A player who has taken a third of the bar in twenty
-   * seconds meets MOLTEN CORE's half-damage anyway, and spends the rest of the
-   * creative watching a health bar that has stopped moving — which is the exact
-   * "my best result was 1% of the boss's HP" the last round of feedback was
-   * about, rebuilt out of new parts.
-   *
-   * On health it cannot happen by construction: armour is something the player
-   * damaged the boss into putting up, so it is only ever met by somebody who
-   * earned it. The pace guard is the piece that handles the opposite case — a
-   * player running ahead of schedule — and it only ever bites when they are
-   * ahead. Between them nothing punishes being behind.
-   *
-   * The lumpiness that ruled health out for the attack column does not matter
-   * here. `resist` is sampled on every cascade step rather than once every four
-   * seconds, and what the player reads off it is a rate, not a value — how fast
-   * the bar is moving, integrated over the whole fight. Shelves in this column
-   * do not need two equal samples in a row to land.
-   */
   wounds() {
     return Math.max(0, Math.min(1, 1 - this.bossHp));
   }
 
-  /**
-   * The axis everything except `resist` is read at: the boss's health bar, with
-   * a slow clock floor underneath it.
-   *
-   * DIFFICULTY.curve is specified against the bar — easy down to half, medium
-   * to a quarter, brutal after that — and for anybody who is actually damaging
-   * the boss that is the whole of this function: wounds() wins, and the clock
-   * term never gets a look in. Checked at every pace a person plays at, the
-   * floor sits well under the bar the entire run.
-   *
-   * The floor exists for the run the spec does not describe. A player who never
-   * damages the boss would otherwise meet a golem swinging at 0.30 with one
-   * block on the board for a full thirty seconds — not an easy fight, an absent
-   * one, and an ad that ends on a health bar nobody touched. So the pressure the
-   * boss applies is allowed to walk forward on the clock at a rate that reaches
-   * `slack` of the way up the curve by the end of the schedule, which puts a
-   * stalled run in the middle of the medium zone rather than at a wall it did
-   * not earn.
-   *
-   * Deliberately NOT used for armour. `resist` reads wounds() directly, because
-   * armour is something the player damaged the boss into putting up and a
-   * laggard meeting it would be punished for being behind — see wounds. This
-   * one is the boss's aggression, which nothing says has to be earned.
-   *
-   * On elapsed() rather than now(), for the same reason rage() is: seconds
-   * spent inside an ultimate are seconds nobody could have played in, and
-   * charging for them would make spending a hero the one move in the fight that
-   * escalated the boss. See holdClock.
-   */
   pressure() {
     const curve = DIFFICULTY.curve;
     const hurt = this.wounds();
     if (!curve || !curve.seconds) return hurt;
     const clock = this.progress();
     const lead = curve.clockLead;
-    // The ceiling: temper may run at most `clockLead` ahead of the schedule.
     const held = lead === undefined ? hurt : Math.min(hurt, clock + lead);
-    // ...and the floor: a stalled run is dragged forward anyway.
     return Math.max(held, clock * (curve.clockFloor || 0));
   }
 
-  /**
-   * Read one column of DIFFICULTY.curve at the fight's current progress,
-   * interpolated between the keyframes either side of it.
-   *
-   * Linear and nothing cleverer on purpose: the table *is* the drawing, so two
-   * keyframes with equal values have to come out as a dead-flat shelf and two
-   * with different ones as a straight climb. Smoothing between them would round
-   * the corners off the one feature the shape exists for — the moment the floor
-   * drops.
-   *
-   * @param {string} field one of attack, resist, ult, obsidian, hold, crust
-   * @param {number} p where to read it — progress() for every column except
-   *   resist and ult, which are read at wounds(). See both for why there are
-   *   two axes.
-   * @param {number} fallback returned when the curve is off or empty
-   */
   curveAt(field, p, fallback) {
     const curve = DIFFICULTY.curve;
     if (!curve || !curve.enabled) return fallback;
     const steps = curve.steps || [];
     if (!steps.length) return fallback;
 
-    // Before the first keyframe and after the last, the curve holds its ends
-    // rather than extrapolating off them.
     if (p <= steps[0].p) return steps[0][field];
     for (let i = 1; i < steps.length; i++) {
       const b = steps[i];
@@ -772,13 +294,6 @@ export class Director {
     return steps[steps.length - 1][field];
   }
 
-  /**
-   * How many of DIFFICULTY.armor's layers the boss is currently wearing.
-   *
-   * The table is ordered deepest first, so this is just how many thresholds the
-   * health bar has fallen under: 0 while the boss is above the shallowest one,
-   * DIFFICULTY.armor.length once it is inside the last.
-   */
   armorDepth() {
     const layers = DIFFICULTY.armor || [];
     let depth = 0;
@@ -788,24 +303,6 @@ export class Director {
     return depth;
   }
 
-  /**
-   * The fraction of any damage aimed at the boss that actually lands.
-   *
-   * This is the fight's progression curve, and it runs the opposite way to the
-   * player's: the party gets weaker as heroes fall (HeroRow.partyPower) while
-   * the boss gets tougher as its bar empties. The last stretch of health is the
-   * expensive stretch — which is the one thing the old constant-rate bar could
-   * never say, and the reason a match that felt decisive on move one is only a
-   * chip on move seven.
-   *
-   * The `resist` column of DIFFICULTY.curve, so the hide thickens in the same
-   * rise-and-shelf pattern as everything else: it ramps over the tenth of the
-   * fight after an announced wall goes up, then holds dead flat until the next
-   * one. What the player sees is a bar that slows sharply on the beat the boss
-   * roared and then falls at a rate they can plan around — instead of one that
-   * quietly changed gear at a health threshold they had no way to know about.
-   * DIFFICULTY.armor is still here and still read when the curve is off.
-   */
   armor() {
     const curve = DIFFICULTY.curve;
     if (curve && curve.enabled) return this.curveAt("resist", this.wounds(), 1);
@@ -814,48 +311,9 @@ export class Director {
     return depth === 0 ? 1 : layers[layers.length - depth].mult;
   }
 
-  /**
-   * How much of a hit the boss shrugs off for being ahead of schedule.
-   *
-   * This one is a pace guard and not a piece of fiction, so it is worth being
-   * blunt about what it does: it reads how far the health bar is ahead of two
-   * lines — one falling to empty on the match before `killOn`, one falling to
-   * empty at DIFFICULTY.pace.seconds — and takes damage away from a player who
-   * is beating whichever of them is lower. Nothing is ever given back — a
-   * player behind the line is not helped, and `expected` past zero holds
-   * nothing at all, so the killing blow is always fought at full strength.
-   *
-   * The match line is the one that lands the count: it is counted in matches,
-   * so the win costs `killOn` of them whatever speed the player swipes at. The
-   * clock line is the release behind it — see DIFFICULTY.pace.seconds.
-   *
-   * It exists because time-to-kill and damage-per-move are not the same dial
-   * and only one of them was ever asked for. The fight is over in
-   * moves x seconds-per-move, and seconds-per-move belongs to the player: the
-   * author of this build swipes one every 1.9 seconds and finished in 15, an
-   * ordinary player takes 3.2 and finishes in 24, off the exact same numbers.
-   * Any damage figure that stretches the first one to 25 seconds needs twelve
-   * moves, and twelve moves is thirty-eight seconds for the second one — a
-   * fight nobody but the author can finish. That is not a number that exists;
-   * it is two requirements pulling opposite ways, and this is the join.
-   *
-   * `bite` is how sharply it answers: the shortfall is raised to that power, so
-   * a bar a tenth ahead of schedule is barely touched and one running at double
-   * pace is roughly quartered. `floor` is the least that ever lands, and it is
-   * a floor rather than a stop on purpose — a bar that freezes under a direct
-   * hit reads as a broken game, where one that crawls reads as a boss digging
-   * in. Set `enabled` false and the fight goes straight back to being decided
-   * by DIFFICULTY.damagePerGem alone, which is a legitimate build to ship; it
-   * is simply one that ends when the player is good rather than when the
-   * creative is over.
-   */
   pace() {
     const guard = DIFFICULTY.pace;
     if (!guard || !guard.enabled) return 1;
-    // The one wall-clock reader deliberately left un-held during an ultimate —
-    // see holdClock. Time only ever loosens this guard's grip, so taking the
-    // cast's seconds off the bill here would be charging the player for it, not
-    // sparing them: the fuse and the rage ramp are the two that bill.
     const byClock = 1 - toReal(now() - this.fightStart) / guard.seconds;
     const held = Math.max(1, this.killOn - 1);
     const byMatch = Math.pow(
@@ -863,52 +321,14 @@ export class Director {
       guard.matchBend || 1,
     );
     const expected = Math.max(0, Math.min(byClock, byMatch));
-    // Behind the line, or past the end of it: the boss holds nothing back.
     if (expected <= 0 || this.bossHp >= expected) return 1;
     return Math.max(guard.floor, Math.pow(this.bossHp / expected, guard.bite));
   }
 
-  /**
-   * Everything standing between one hit and the health bar: the hide the boss
-   * has grown, and the grip it keeps on a player who is ahead of the clock.
-   *
-   * Every point of damage in the fight goes through here — the volley and the
-   * ultimate both — because a route that skipped it would immediately become
-   * the only move worth making.
-   */
   resistance() {
     return this.armor() * this.pace();
   }
 
-  /**
-   * The same, for an ultimate — which the hide bites harder, not softer.
-   *
-   * DIFFICULTY.ultHideBite is an exponent on armor(), and the shape of a power
-   * is the whole reason this works. At full health armor() is 1 and 1 to any
-   * power is 1, so an opening ultimate is resisted exactly as much as a match
-   * is — nothing — and the fight's length, which matches set, does not move.
-   * As the hide thickens the exponent bends the ultimate away much faster than
-   * the match: at armor() 0.3 a match keeps 30% of its damage and an ultimate
-   * keeps 12%.
-   *
-   * That is the answer to a requirement one armour number could not hold. The
-   * ending had to be a grind an ultimate could not rescue — a cast worth a
-   * couple of percent rather than ten — while still being winnable inside
-   * T.hardCap. Thickening the hide far enough to starve the ultimate starves
-   * the matches too, and the boss stops dying at all: the note on ultHideBite
-   * has the measured numbers (37, 51, 87 seconds). Giving the ultimate its own
-   * curve through the same hide separates the two questions.
-   *
-   * pace() stays outside the exponent, and multiplied rather than raised. The
-   * guard is a schedule and not a hide — it is the thing holding time-to-kill
-   * to DIFFICULTY.pace.seconds whatever the player does — and bending an
-   * ultimate against it would be charging the player twice for the same lead.
-   *
-   * It is also floored at DIFFICULTY.pace.ultFloor, which is the guard being
-   * told the difference between a match and a cast. See the note on that field:
-   * at pace.floor an ultimate paid three points of a hundred-point bar, which is
-   * less than the match that charged it.
-   */
   ultResistance() {
     const bite = DIFFICULTY.ultHideBite;
     const hide = this.armor();
@@ -918,14 +338,6 @@ export class Director {
     return (bite === undefined ? hide : Math.pow(hide, bite)) * grip * shaped;
   }
 
-  /**
-   * Announce a layer the boss just put up — once, on the hit that broke it.
-   *
-   * Armour the player cannot see is indistinguishable from a bug. A bar that
-   * quietly starts falling slower reads as the game cheating unless something
-   * on screen says otherwise, so the golem visibly enrages and the layer shouts
-   * its own name at the moment it comes up.
-   */
   checkPhase() {
     const depth = this.curveDepth();
     if (this.settled() || depth <= this.phase) return;
@@ -937,24 +349,11 @@ export class Director {
     this.s.boss.enrage();
     this.s.hud.enrage();
     this.s.shake(16, 0.45);
-    // A wall coming off the beast is a beat in its own right and it used to go
-    // by inside whatever cascade knocked it loose. Held, so the flash and the
-    // layer's name land on a frame that is standing still.
     this.s.hitStop(0.5, 0.11);
     this.s.vfx.flash(0xff2a06, 0.3, 0.4);
     this.s.hud.shout(layer, 0.55, { fill: 0xff8a3d, from: 2 });
   }
 
-  /**
-   * How many announced rises the fight has already crossed.
-   *
-   * Off the curve's named keyframes when the curve is on, off the armour table
-   * when it is not, so `phase` counts the same thing either way: walls the
-   * player has been told about, only ever climbing. Nothing in this fight walks
-   * progress backwards — the health bar never refills and the clock never runs
-   * back — but the counter is one-way regardless, because its job is to fire
-   * each callout exactly once and not once per cascade step.
-   */
   curveDepth() {
     const curve = DIFFICULTY.curve;
     if (!curve || !curve.enabled) return this.armorDepth();
@@ -966,7 +365,6 @@ export class Director {
     return depth;
   }
 
-  /** The name of the `depth`th announced rise, or null if there isn't one. */
   phaseName(depth) {
     const curve = DIFFICULTY.curve;
     if (curve && curve.enabled) {
@@ -979,19 +377,6 @@ export class Director {
     return layer ? layer.name : null;
   }
 
-  /**
-   * Everything the boss throws, multiplied by how long it has been throwing it.
-   *
-   * Wall clock rather than turns, because DIFFICULTY.bossRamp already charges
-   * for taking many moves and this is the other half of the bill: a player who
-   * spends eight seconds hunting the perfect swap pays for the eight seconds.
-   * Capped by rageMax so a fight that somehow reaches the hard cap ends in a
-   * wipe rather than in an arithmetic accident.
-   *
-   * On elapsed() rather than now(): the seconds inside an ultimate are seconds
-   * nobody could have hunted a swap in, and charging for them made spending a
-   * hero the one move in the fight that armed the boss. See holdClock.
-   */
   rage() {
     const per = DIFFICULTY.ragePerSecond || 0;
     const cap =
@@ -999,13 +384,6 @@ export class Director {
     return Math.min(cap, 1 + this.elapsed() * per);
   }
 
-  /**
-   * How far the tide refills the party this time.
-   *
-   * Weaker with every cast, floored by ULT_HEAL_FLOOR. A heal as good on its
-   * third use as its first is an unlimited supply of second chances, and a
-   * fight with unlimited second chances has no ending worth watching.
-   */
   healTo() {
     return Math.max(
       ULT_HEAL_FLOOR,
@@ -1013,23 +391,6 @@ export class Director {
     );
   }
 
-  /* ------------------------------------------------------------ boss track */
-
-  /**
-   * Put one boss beat — a counterattack, the cataclysm — on the boss's track.
-   *
-   * The track is the whole point of the split: it runs alongside the player
-   * instead of in front of them, so the board stays live for every frame of it.
-   * Beats are serialized against each other, because two attacks playing at once
-   * is not a fight, it is a mess.
-   *
-   * Never more than one waiting behind the one in flight. A player fast enough
-   * to finish two moves inside a single swing outruns the boss, and that is the
-   * right answer — a queue that grew would land turn three's lava somewhere in
-   * the middle of turn five, long after the board it was aimed at was gone.
-   *
-   * @returns {boolean} whether the beat was taken
-   */
   queueBoss(job) {
     if (this.bossQueued >= 2 || this.settled()) return false;
     this.bossQueued++;
@@ -1038,132 +399,46 @@ export class Director {
       .catch(() => {})
       .then(() => {
         this.bossQueued--;
-        // A swing that emptied the row has to reach the player's turn, which
-        // is otherwise parked waiting for a swipe that will never come. Same
-        // for any verdict claimed on this track: the turn it interrupts is a
-        // turn nobody was ever going to take.
         if (this.settled() || this.partyWiped()) this.interrupt("wiped");
       });
     return true;
   }
 
-  /**
-   * Settles once the boss's track is empty — or after `cap` seconds, whichever
-   * lands first. The finale is allowed to interrupt a swing; it is not allowed
-   * to stand around waiting for one.
-   */
   bossSettled(cap) {
     if (!this.bossTrack) return Promise.resolve();
     return Promise.race([this.bossTrack, delay(cap === undefined ? 0.8 : cap)]);
   }
 
-  /** End the player's turn from outside it. */
   interrupt(action) {
     const resolve = this.stopResolver;
     this.stopResolver = null;
     if (resolve) resolve(action);
   }
 
-  /* ---------------------------------------------------------------- intro */
-
-  /**
-   * The pose the creative holds until somebody touches the screen.
-   *
-   * Which is the fight, standing still. The golem is up in the ruins, the board
-   * is dealt, the party is on its feet and the bar is full — the first frame
-   * drawn is the game, and there is nothing in front of it and nothing missing
-   * from it. Three things have stood here and two of them are gone: a gate
-   * screen with the wordmark on it, then one line of type over an emptied
-   * arena. Both were a frame spent on something that was not the game.
-   *
-   * Nothing in it advances. Every clock in the creative — the cataclysm, the
-   * boss's own turn timer, the auto-hint, the CTA banner — is armed from
-   * Director.run, and run is what the touch starts. What does move is the arena
-   * itself: the braziers, the drifting embers, the light. So the frame is alive
-   * without anything in the fight having happened, which is exactly the line
-   * the do-not-autostart rule draws.
-   *
-   * Two things are held back rather than shown, because both would be lying:
-   */
   armIntro() {
     const { boss, board, heroRow, hud } = this.s;
 
-    // Unless the entrance is switched back on, in which case it wants the same
-    // empty stage it always did. See T.entrance for why it is off, and note
-    // that this is `visible` rather than a position: a rotation before the
-    // touch runs the whole relayout, and that puts every one of these back
-    // exactly where it belongs.
     if (T.entrance) {
       boss.visible = false;
       board.visible = false;
       heroRow.visible = false;
       hud.alpha = 0;
-      // A board nobody can see is a board nobody can swipe, and a hand
-      // pointing into an empty arena teaches nothing. Both come on when the
-      // entrance puts the board on screen — see intro().
       board.lockInput();
       hud.hideDoom();
       return;
     }
 
-    // The board is playable, and it is playable now.
-    //
-    // It used to be locked here — nothing was waiting on a move, so nothing
-    // took one — which made the one line of type over it a gate after all.
-    // A first-timer's opening gesture on a match-3 board is a swipe on the
-    // board, and that swipe was thrown away: it started the fight, and then
-    // they had to make it again. The caption asks to be touched and the board
-    // is what they touch, so the board answers.
-    //
-    // Nothing autostarts because of this. The grid moves when a finger moves
-    // it and not before, no clock is running and no sound is playing — the
-    // rule is about the creative playing itself, and a board that sits still
-    // until it is swiped is the player playing it. `armInput` takes the touch
-    // with no turn behind it; Board.pendingMove is where the swap waits for
-    // the fight to start and collect it, which is the same touch.
     board.armInput();
 
-    // And the lesson, on the same clock it has always been on, from the frame
-    // the creative is first looked at rather than from the frame after the
-    // roar. The hand is the one thing on screen that says what the board is
-    // for, and holding it behind the touch showed it to nobody who needed it —
-    // whoever hesitated over the caption is exactly who it was written for.
-    // Spent for good by the first finger on the glass, as it always was. See
-    // spendOpeningHint.
     this.idleHint = this.currentHint();
     this.armOpeningHint();
 
-    // The doom strip, which would otherwise sit over the fight reading
-    // CATACLYSM against a clock that has not started counting. armDoom puts it
-    // back on the frame it starts.
     hud.hideDoom();
   }
 
   async intro() {
     const { boss, board, heroRow, hud, vfx, shake, layout } = this.s;
 
-    /**
-     * Everything arrives on the same frame, and leaves on the same one.
-     *
-     * Spec §3 puts the whole opening in one beat — "Бос вилазить з лави, рев,
-     * екран трясе. Дошка з'їжджає знизу", 0.0–1.2s. The rise used to be awaited
-     * before any of the rest started, which spent the first second on an arena
-     * with nothing in it but the boss, and made the board read as a second
-     * event arriving after him instead of as part of the same shot.
-     *
-     * Starting them together fixed half of that and left the other half: they
-     * all set off at zero and then finished in four instalments — the party at
-     * 0.35, the HUD at 0.4, the board at 0.55, the boss four tenths behind the
-     * last of them — so the shot still resolved as a queue, only a queue that
-     * had started tidily. Four things landing one after another is four events,
-     * whichever end of them is lined up.
-     *
-     * So all four are handed T.introIn and nothing else. One duration, four
-     * curves: the boss eases up out of the pool, the board overshoots its rail,
-     * the party lifts and fades, the HUD comes on flat — every one of them is
-     * moving on the first frame of the shot and still moving on the last. There
-     * is exactly one number behind the opening now, and it lives in config.js.
-     */
     if (T.entrance) {
       boss.visible = true;
       board.visible = true;
@@ -1176,46 +451,21 @@ export class Director {
         heroRow.introIn(T.introIn),
         tween(hud, { alpha: 1 }, T.introIn),
       ]);
-      // The ground settles when they do: the shake decays linearly over its own
-      // length, so given the same one it reaches zero on the frame the last
-      // mover stops. It ran 0.6 and left three tenths of a still arena with the
-      // boss still climbing through it.
       shake(6, T.introIn);
 
       await Promise.all([rising, entering]);
-      // The board has arrived, so it can be played and the lesson has
-      // something to point at. Off the touch for everyone else — see armIntro,
-      // which is where this lives when the entrance is off, which it is.
       board.armInput();
       this.idleHint = this.currentHint();
       this.armOpeningHint();
     }
 
-    // The flash, and with the entrance off it is the first frame of the whole
-    // creative that moves. It used to punctuate the arrival — it sat at 0.55,
-    // the frame the board came to rest on, and then moved onto the frame all
-    // four movers landed on together. There is no arrival left to punctuate, so
-    // what it punctuates now is the touch: the answer starts on the same frame
-    // the finger lands, which is the one thing this beat has to get right.
     vfx.flash(0xff7a1a, 0.28, 0.45);
 
-    // And the roar, on a screen that has been assembled since the first frame —
-    // so the shake it carries reads against the board and the row rather than
-    // against an empty arena, which is what it was written to do and never
-    // quite got to.
     const roaring = boss.roar();
     shake(14, 0.5);
 
-    // Not awaited. The roar is a second of monster, and a second of monster
-    // that the fight waits behind is a second the board is dead in the
-    // player's hands — the touch that started the run lands on a grid, the
-    // grid says no, and the creative has answered its own invitation with a
-    // wait. It plays over the top of the first turn instead: the shout and the
-    // banner clock still hang off it finishing, because both of those are
-    // talking about a fight that by then is already being played.
     roaring.then(() => {
       if (this.ended) return;
-      // Banner clock starts once the player can actually act.
       this.startBannerTimer();
       hud.shout(COPY.tutorial, COPY.tutorialHold);
     });
@@ -1227,39 +477,13 @@ export class Director {
     });
   }
 
-  /* ----------------------------------------------------------- the clock */
-
-  /**
-   * Stop the fight's clocks — unless DIFFICULTY.ultCostsTime says a cast is
-   * supposed to cost the player seconds, which it now does.
-   *
-   * The argument this was built on, kept because it is the argument for turning
-   * the flag back off: an ultimate is the one stretch of the fight the player is
-   * not playing. The board is locked, the cut-in owns the screen and there is no
-   * swap to be found for two and a half seconds. A clock that keeps counting
-   * through that bills them for watching the thing they just spent a full bar to
-   * earn — the cast quietly costs a tenth of the cataclysm's fuse and leaves the
-   * boss hitting harder afterwards for having been cast at all.
-   *
-   * That is all still true. It is now the intended cost rather than a side
-   * effect: a skill is meant to be a decision with a price on it, and the price
-   * is the clock. See DIFFICULTY.ultCostsTime for what it does to the fight.
-   *
-   * Nested holds are ignored rather than counted: one cast can only stop the
-   * clock once.
-   */
   holdClock() {
     if (DIFFICULTY.ultCostsTime) return;
     if (this.clockHoldAt) return;
     this.clockHoldAt = now();
-    // Stopping the count is not the same as looking stopped. The strip's sheen
-    // and its panic throb run off the HUD's own frame clock, so without this
-    // the fuse froze at a number while a highlight went on sweeping over it —
-    // which is the clock still moving as far as anybody watching is concerned.
     this.s.hud.holdDoom(true);
   }
 
-  /** Start them again, with the held stretch taken off the bill for good. */
   releaseClock() {
     if (!this.clockHoldAt) return;
     this.clockHeld += now() - this.clockHoldAt;
@@ -1267,33 +491,11 @@ export class Director {
     this.s.hud.holdDoom(false);
   }
 
-  /**
-   * Wall time the fight is allowed to charge the player for.
-   *
-   * The game clock minus every second the clock was held for, including a hold
-   * currently running, so a reading taken mid-cast is the same reading it would
-   * give on either side of it.
-   *
-   * With DIFFICULTY.ultCostsTime on — which is the shipped setting — nothing is
-   * ever held, so this is simply now() and every reader of it charges for the
-   * seconds a cut-in takes. The subtraction stays because the flag is meant to
-   * be switchable, and because it is the only thing standing between a paused
-   * clock and a fight that thinks it was paused.
-   */
   elapsed() {
     const holding = this.clockHoldAt ? now() - this.clockHoldAt : 0;
     return now() - this.clockHeld - holding;
   }
 
-  /**
-   * Raise or drop the cast shield.
-   *
-   * The clocks ride on the same flag as the party's immortality because both
-   * protect the same thing — the window between the tap that commits the bar
-   * and the last frame of the blast it pays for. Every path that drops the
-   * shield goes through here, so the fight can never be left with a clock that
-   * has stopped for an ultimate that finished.
-   */
   setCasting(on) {
     this.ultCasting = on;
     if (on && this.s.ultSurge) this.s.ultSurge.hide();
@@ -1301,20 +503,6 @@ export class Director {
     else this.releaseClock();
   }
 
-  /**
-   * Run the world at `rate` — the one door to core/juice.js setTimeScale.
-   *
-   * Owned in one place because the failure mode is not subtle: a rate left
-   * raised is the rest of the fight in fast-forward, and every path that raises
-   * it has an exit that does not obviously come back here. So the raise is
-   * always paired, the drop is idempotent, and both fight-ending routes call it
-   * on their way out whether or not anything was ever raised.
-   *
-   * A stop in flight is dropped on the way up. Hit-stop holds the frame for up
-   * to two tenths of a second, which is nothing under a blow that has landed
-   * and is the entire answer to a tap when it sits between the tap and the cast
-   * it bought: the one thing the player is owed there is movement.
-   */
   setUltRate(rate) {
     if (this.ultRate === rate) return;
     this.ultRate = rate;
@@ -1322,22 +510,10 @@ export class Director {
     setTimeScale(rate);
   }
 
-  /**
-   * Hurry whatever is standing between a tapped ultimate and its cast.
-   *
-   * Not an interrupt. The cascade that is playing goes on playing, the boss
-   * mid-swing finishes its swing and every promise waiting on either of them
-   * resolves in the order it always did — the clock under all of it simply runs
-   * at ULT_PACE.rush until the cast takes over, so a second and a half of gems
-   * falling is a fifth of a second of them. Nothing downstream has to know it
-   * is being rushed, which is why this is a clock and not a flag threaded
-   * through the board.
-   */
   rushForUlt() {
     this.setUltRate(ULT_PACE.rush);
   }
 
-  /** Start the countdown, the moment the player can actually act on it. */
   armDoom() {
     this.fightStart = now();
     this.doomArmed = true;
@@ -1348,18 +524,6 @@ export class Director {
     this.s.hud.setDoom(this.doomLeft, this.doomTotal);
   }
 
-  /**
-   * Deal the run's interrupts across the clock — see SNAP.
-   *
-   * Held as fractions of the countdown rather than as seconds, so they survive
-   * the clock being stretched or squeezed: WORLD_RATE and the ult's rushes both
-   * move what a second is worth, and a schedule in seconds would bunch up at
-   * one end of a run that was retimed. The player experiences the spread, and
-   * the spread is in clock read, not in wall time.
-   *
-   * One per window, rolled inside it. The windows are equal and they stop where
-   * the burial starts, because from there the board seals itself.
-   */
   dealSnaps() {
     const times = (SNAP && SNAP.times) || 0;
     this.snaps = [];
@@ -1374,38 +538,18 @@ export class Director {
     }
   }
 
-  /**
-   * Ticked from the main loop.
-   *
-   * The clock runs on wall time, not on turns: standing still thinking is the
-   * expensive thing, which is exactly the pressure the mode is missing without
-   * it. It is only *read* at turn boundaries, so a cataclysm never lands in the
-   * middle of a cascade animation and steps on it.
-   */
   update(dt) {
     this.callUlt(dt);
     if (!this.doomArmed || this.ended || this.doomFiring) return;
 
-    // Held for an ultimate: the fuse stops where it is, the strip holds the
-    // number it was showing, and the room stops tightening. See holdClock.
     if (this.clockHoldAt) return;
 
-    // The staircase walks forward on the clock as well as on damage (see
-    // progress), so a rise can come due on a frame where nothing was hit. Every
-    // other caller of this is a damage path; without one here the player who is
-    // losing — the one who most needs the warning — is the only one who never
-    // gets it.
     this.checkPhase();
 
     if (this.doomLeft > 0) {
-      // Shown seconds, not wall seconds — see doomRate and DOOM.stretch.
       this.doomLeft = Math.max(0, this.doomLeft - dt * this.doomRate());
       this.s.hud.setDoom(this.doomLeft, this.doomTotal);
-      // The room tightens with the clock — the one thing in the mix that says
-      // something the screen has not already said.
       sfx.bed.setTension(1 - this.doomLeft / this.doomTotal);
-      // Same number to the arrangement: the strings open up, the shaker comes
-      // in and the mix leans forward. See music.setTension.
       music.setTension(1 - this.doomLeft / this.doomTotal);
 
       this.buryTick(dt);
@@ -1422,9 +566,6 @@ export class Director {
       }
     }
 
-    // Keeps ringing rather than firing once: the boss's track can be full at
-    // the moment the clock runs out, and an expired clock that had already
-    // spent its one notification would leave the cataclysm owed forever.
     if (this.doomLeft <= 0 && this.doomResolver) {
       const resolve = this.doomResolver;
       this.doomResolver = null;
@@ -1432,57 +573,10 @@ export class Director {
     }
   }
 
-  /**
-   * How fast the clock on screen runs against the clock the run is on.
-   *
-   * 1 for all but the last `window` seconds of the countdown, and below 1
-   * inside them — so the first thirty of the forty shown seconds are wall time
-   * and the five the run is longer than it admits are all spent on the last
-   * ten. See DOOM.stretch, which is where the intent and the tuning are
-   * written down.
-   *
-   *     rate(u) = 1 / (1 + k * u^shape)
-   *
-   * with `u` running 0 to 1 across the window. The whole of the arithmetic is
-   * `k`, and it is solved rather than tuned: the real time the window takes is
-   * the integral of 1/rate over its shown seconds,
-   *
-   *     window + k * window / (shape + 1) = window + extra
-   *
-   * so k = extra * (shape + 1) / window and the run is exactly `extra` seconds
-   * longer than the strip claims, for any shape. Which is what makes the shape
-   * safe to play with: it moves *where* inside the window the time is handed
-   * out and never how much of it there is.
-   *
-   * Read off `doomLeft` rather than off wall time on purpose, and that matters
-   * more here than it did when this was spread across the whole run. The clock
-   * is armed after the intro and can be held for an ultimate — see holdClock —
-   * so elapsed real time says nothing about how close the strip is to zero, and
-   * "the last ten seconds" has to mean the last ten the player sees.
-   *
-   * Ticked on the real frame and not the world one — see main.js — so
-   * WORLD_RATE does not reach this. The countdown is wall time whatever the
-   * fight is animating at.
-   */
   doomRate() {
     return this.stretchRate() * this.castRate();
   }
 
-  /**
-   * Half speed while an ultimate is casting, and 1 the rest of the time.
-   *
-   * The two settings this sits between are DIFFICULTY.ultCostsTime's: true
-   * billed the player in full for a stretch of fight they cannot play — the
-   * board is locked and the cut-in owns the screen — and false stopped the fuse
-   * dead, which made a cast free and turned the clock into something to hide
-   * behind. A rate is the answer to both: the cast still costs seconds, it
-   * simply costs half of them.
-   *
-   * On the shown clock only, which is the one the price is paid in. The world
-   * clock the pace guard and the rage ramp read is untouched, so casting does
-   * not slow the boss down as well — see holdClock, which is the other
-   * mechanism and still the one `ultCostsTime` switches.
-   */
   castRate() {
     if (!this.ultCasting) return 1;
     const r = DIFFICULTY.ultTimeRate;
@@ -1501,35 +595,11 @@ export class Director {
     return this.doomArmed && this.doomLeft <= 0 && !this.doomFiring;
   }
 
-  /**
-   * Hand the cataclysm to the boss's track.
-   *
-   * `doomFiring` is raised here rather than inside castDoom, and only if the
-   * track took the beat: the clock stays at zero until the cataclysm has landed
-   * and rearmed it, so without the flag the loop would queue a second one on
-   * every pass through it.
-   */
   castDoomSoon() {
     if (this.doomFiring) return;
     this.doomFiring = this.queueBoss(() => this.castDoom());
   }
 
-  /**
-   * The cataclysm.
-   *
-   * One hit, the whole party, big enough that a healthy roster survives it with
-   * a sliver and a chewed-up one does not. Surviving restarts a much shorter
-   * clock — the boss does not get tired, and the fight has to end.
-   *
-   * It used to open by taking the board away and dropping whatever swap the
-   * player was in the middle of. The cast itself still does not touch the board
-   * at all: the cataclysm is the loudest thing in the fight and it does not get
-   * to be the thing that stops the player playing. What does is the clock it
-   * rides in on, and that starts long before this lands — see DOOM.bury and
-   * Director.buryTick, which seal the board over the last third of the strip so
-   * that running out of time is something the player watches happen rather than
-   * something they are told on the final frame.
-   */
   async castDoom(lethal) {
     const { boss, hud, vfx, shake, hitStop, layout } = this.s;
 
@@ -1537,9 +607,6 @@ export class Director {
     hud.shout(COPY.doomCast, 0.6, { fill: 0xff2f1a, from: 2.8 });
     boss.enrage();
     hud.enrage();
-    // A long low rumble under the roar: this is the ground failing, and ground
-    // does not crack — it hums. Half rate for twice the weight; see rumble in
-    // core/juice.js.
     shake(18, 0.5, { freq: 0.5 });
     await boss.roar();
     if (this.settled()) return;
@@ -1556,9 +623,6 @@ export class Director {
     });
     vfx.flash(0xff2a06, 0.85, 0.7);
     shake(30, 0.9);
-    // The hardest stop in the fight, and the only one worth a fifth of a
-    // second: the flash is at full white, both shock rings are open, and the
-    // whole frame is held there while the camera tears around it.
     hitStop(0.92, 0.18);
 
     const row = layout.cards;
@@ -1572,32 +636,18 @@ export class Director {
 
     const falling = this.strikeHeroes({
       targets: "all",
-      // Every cataclysm after the first lands harder than the one before it —
-      // except the one the clock itself casts, which is not a beat to be
-      // survived. Past a full bar rather than exactly one, so a hero the tide
-      // topped up on the way in goes down with everybody else. See timeUp.
       damage: lethal
         ? 1.2
         : DOOM.damage * Math.pow(DOOM.damageRamp || 1, this.doomCount),
-      // ...and it is the one hit an ultimate in flight does not shield against,
-      // for the same reason. timeUp goes straight to lose() whatever this cast
-      // does, so a cataclysm that bounced off a shield would buy nothing but a
-      // party dying on full bars.
       unstoppable: lethal,
     });
     await Promise.all([rolling, falling]);
     this.doomCount++;
-    // The last hero went down, or the fight was called out from under the cast:
-    // either way the clock has nothing left to count to.
     if (this.settled() || this.partyWiped()) {
       this.doomFiring = false;
       return;
     }
 
-    // Held the line — and the reprieve is shorter every time, so surviving one
-    // cataclysm buys strictly less than surviving the last one did. This is the
-    // squeeze the whole mode ends on: eventually the fuse is shorter than the
-    // time it takes to arm the tide, and the only way out is a dead boss.
     hud.shout(COPY.doomSurvived, 0.55, { fill: 0x9fffc4, from: 1.5 });
     const fuse = Math.max(
       DOOM.repeatFloor || 0,
@@ -1611,31 +661,10 @@ export class Director {
     await delay(0.3);
   }
 
-  /* ----------------------------------------------------------- player turn */
-
-  /**
-   * Wait for the player to do something.
-   *
-   * Five ways out: they swap, they spend a charged hero, the clock beats them
-   * to it, the boss's track ends the fight under them, or the burial seals the
-   * last cell and there is no longer a board to play on. Whichever lands first,
-   * the rest stop listening.
-   *
-   * The last two both arrive through `interrupt` and neither is a move: the
-   * loop takes them straight back to the verdict at the top. See buryTick.
-   *
-   * @returns {Promise<"swap"|"ult"|"doom"|"wiped"|"buried">}
-   */
   async playerTurn() {
     const board = this.s.board;
 
-    // A tap that arrived while the boss was mid-animation still counts, and so
-    // does every tap stacked up behind it. See takeQueuedUlt.
     if (this.takeQueuedUlt()) return "ult";
-    // Nothing left that can still be spent — whoever was queued went down while
-    // the boss was animating. The ultimate is gone, and the shield the tap
-    // raised goes with it rather than standing over a cast that will never
-    // happen.
     this.setCasting(false);
 
     const hint = this.currentHint();
@@ -1657,136 +686,60 @@ export class Director {
     this.stopResolver = null;
     this.stopIdle();
     if (action !== "swap") board.cancelWait();
-    // The tap that won the race put its hero on the queue and woke this — the
-    // cast still has to be taken off it, or the hero cast would be whoever went
-    // last and this one would be cast again on the next turn.
-    //
-    // The empty case is not reachable from onCardTap, which pushes and then
-    // wakes this in the same breath, and it is guarded anyway: "wiped" is the
-    // one action that sends playFight back around its loop without spending
-    // anything, which is what a turn with nothing to cast is.
     if (action === "ult" && !this.takeQueuedUlt()) return "wiped";
     return action;
   }
 
-  /**
-   * Pull the next spendable hero off the queue and make them the cast.
-   *
-   * Skips anyone who stopped being spendable while they waited — went down, or
-   * was already spent — and reports whether anybody is left to cast.
-   */
   takeQueuedUlt() {
     while (this.ultQueue.length) {
       const next = this.ultQueue.shift();
       if (!this.canUlt(next)) continue;
       this.ultHero = next;
-      // Back up for this cast. playUltimate drops the shield in its `finally`
-      // whether or not anything is queued behind it, so a chained ultimate
-      // would otherwise be cast with the party mortal and the clock running —
-      // the one window the tap is supposed to have bought. See setCasting.
       this.setCasting(true);
-      // Whatever the rush was hurrying it has caught: the cast is the next
-      // thing to happen, and it owns the clock from here. See setUltRate.
       this.setUltRate(1);
       return true;
     }
-    // Nobody left to cast — everyone queued went down while they waited. The
-    // rush was for an ultimate that is not going to happen, and letting it
-    // stand would run the rest of the fight at five times speed.
     this.setUltRate(1);
     return false;
   }
 
-  /** Any charged hero who is still standing can be spent, not just Arissa. */
   canUlt(index) {
     const card = this.s.heroRow.cards[index];
     return !!card && card.ready && !card.downed;
   }
 
-  /** Called by the hero row when a card is tapped. */
   onCardTap(index) {
     if (this.ended) return;
     this.playerActed = true;
-    // A tap on a hero card is somebody playing, whether or not that card turned
-    // out to be spendable, so it retires the lesson exactly as a touch on the
-    // board does. See spendOpeningHint.
     this.spendOpeningHint();
-    // And it ends the other lesson on the same rule and just as permanently:
-    // whoever has tapped a card has found the row, which is the whole of what
-    // teachUlt exists to tell them. Set before the card is checked for
-    // spendability, exactly as the line above is — a tap on a hero who is not
-    // charged is still somebody who knows the cards are there.
     this.ultTaught = true;
     this.endUltLesson();
     if (!this.canUlt(index)) {
-      // That hero is not charged, or is down: no penalty, and nothing to say.
       this.restartIdle();
       return;
     }
-    // Behind whatever is already waiting, rather than on top of it. Two taps in
-    // the same second are two ultimates.
     this.ultQueue.push(index);
-    // Immortal — and off the clock — from the tap, not from the first frame of
-    // the cut-in. The two can be a whole cascade apart: a tap that lands
-    // mid-resolve has no resolver to wake and waits in ultQueue until the next
-    // pass through playerTurn, and the boss's track is running for every frame
-    // of that gap.
-    // The player has committed the bar; the commitment is what is protected.
     this.setCasting(true);
     const resolve = this.ultResolver;
     this.ultResolver = null;
     if (resolve) {
-      // The turn was parked on exactly this. The cast starts on the next tick
-      // and there is nothing in the way to hurry.
       resolve("ult");
       return;
     }
-    // The cast already in flight may be sitting in its own tail pause with
-    // nothing queued behind it to justify one — now there is. Wake it so this
-    // ultimate does not wait out a pause invented for a solo cast. See
-    // castUltimate.
     if (this.ultChainResolver) {
       const chain = this.ultChainResolver;
       this.ultChainResolver = null;
       chain();
       return;
     }
-    // Nothing was listening, so something else owns the fight: a cascade the
-    // board is still playing out, a boss beat mid-swing, or the ultimate before
-    // this one. The first two are the whole reason a tap could ever feel dead —
-    // the hero is charged, the card is tapped, and the answer waits for gems to
-    // finish falling. Run the world at ULT_PACE.rush until playerTurn collects
-    // this, and the wait is a few frames instead of a second and a half.
-    //
-    // Never over an ultimate that is already playing: that one is the thing the
-    // player is watching, and fast-forwarding it is not what they asked for.
-    // ultCasting cannot make that distinction — the line above just raised it —
-    // which is what ultInFlight is for.
     if (!this.ultInFlight) this.rushForUlt();
   }
 
-  /* --------------------------------------------------------------- damage */
-
-  /**
-   * What one cascade step is worth.
-   *
-   * Per gem, so a four-in-a-row genuinely beats a three; times the cascade
-   * multiplier, so setting up a chain is the difference between chipping the
-   * boss and actually killing it; times how much of the party is still on its
-   * feet, so the roster on screen is load-bearing rather than decorative; and
-   * finally through the boss's hide, which thickens as its bar empties, so the
-   * same match is worth measurably less at the end of the fight than it was at
-   * the start of it.
-   */
   damageFor(step, cells) {
     const { heroRow } = this.s;
     const table = DIFFICULTY.comboMultiplier;
     const combo = table[Math.min(step, table.length) - 1];
-    // Cells cleared in this step, not the length of any one run: a five-cell
-    // step is a five-cell step whether it came as a row of five or an L.
     const size = DIFFICULTY.sizeBonus[Math.min(cells.length, 5)] || 1;
-    // The whole row swings at every match, so the backing is the party's, not
-    // the matched colour's owner alone. See HeroRow.partyPower.
     const party = heroRow.partyPower();
     return (
       cells.length *
@@ -1798,13 +751,6 @@ export class Director {
     );
   }
 
-  /**
-   * Which hero this step is billed to: whoever owns the colour that cleared the
-   * most cells. A cascade step can land two runs of different colours at once,
-   * and the hero who leads the volley should be the one who did the work.
-   *
-   * @returns {number} element index, or -1 if the step somehow cleared nothing
-   */
   leadElement(cells) {
     const board = this.s.board;
     const tally = [];
@@ -1818,13 +764,6 @@ export class Director {
     return best;
   }
 
-  /**
-   * Every gem cleared feeds the hero who owns its colour.
-   *
-   * All five charge now, off their own element, and this is the only way any
-   * ultimate is earned. The healer fills faster than the rest — she is the one
-   * the doom clock is aimed at.
-   */
   chargeParty(cells) {
     const { board, heroRow, hud, vfx } = this.s;
 
@@ -1853,11 +792,6 @@ export class Director {
         card.cardW || 0,
         board.cell,
       );
-      // The shout names the hero on the frame the bar fills and the lesson's
-      // hand then taps the card it named. Fired and not awaited — this is the
-      // middle of a cascade, and nothing in a cascade waits on a hand. See
-      // teachUlt, which does its own waiting, and T.ultHintIn, which is what
-      // keeps the hand behind the shout rather than under it.
       if (!this.surgeUlt(index)) {
         hud.shout(COPY.ultReady.replace("{hero}", card.hero.name), T.ultShout, {
           fill: GEM_LIGHT[card.hero.element],
@@ -1868,22 +802,6 @@ export class Director {
     });
   }
 
-  /**
-   * The party answers the match.
-   *
-   * This is the whole point of the row being on screen. The match itself still
-   * throws the first beam from the board — that is the "MATCH TO ATTACK" the
-   * tutorial promises, and it carries the damage number — and then every hero
-   * left standing fires their own element at the boss behind it, in their own
-   * colour, one after another.
-   *
-   * The hero whose colour was actually matched leads: first off, thickest beam,
-   * hardest impact. The rest are assists, thinner and softer, so five beams
-   * read as a squad volley rather than five copies of one attack.
-   *
-   * Fired and forgotten, like the beam it follows: board.resolve does not await
-   * its per-step callback, and the cascade must not wait on the light show.
-   */
   partyVolley(step, lead) {
     const { boss, heroRow, vfx, shake, hitStop } = this.s;
     const target = boss.impactPoint();
@@ -1908,19 +826,10 @@ export class Director {
             .then(() => {
               if (this.ended) return;
               boss.hit(isLead ? power : power * 0.6);
-              // Thrown along the beam's own line, so six heroes hitting from
-              // six places along the row knock the frame six different ways
-              // rather than all rattling it the same way at once.
               shake(isLead ? 5 + step * 2 : 2.5, isLead ? 0.24 : 0.14, {
                 axis: { x: target.x - from.x, y: target.y - from.y },
-                // The assists are texture, not beats: pitched up so that five
-                // of them inside a third of a second read as a patter under the
-                // lead's blow rather than as five blows.
                 freq: isLead ? 1 : 1.4,
               });
-              // The lead's blow is the one the row swung behind, so it is the
-              // one that gets a beat. Never the assists — see the merge rule in
-              // core/juice.js: five stops inside half a second is slow motion.
               if (isLead) hitStop(0.22);
             });
         },
@@ -1928,26 +837,15 @@ export class Director {
     });
   }
 
-  /** Clear, cascade, and take off exactly what the player earned. */
   async resolveMove() {
     const { board, boss, hud, vfx, shake, hitStop } = this.s;
     const before = this.bossHp;
 
     await board.resolve((step, cells) => {
-      // The party is already gone: the rest of this cascade is gems falling on
-      // a dead row, and it does not reach back and kill the boss. Whoever
-      // landed first won outright — see claim.
-      //
-      // A cascade that is *winning* goes on playing. The bar is already empty
-      // so the beams left in it cost nothing, and cutting a combo off halfway
-      // is the one place this gate would be visible.
       if (this.ended || this.outcome === "defeat") return;
 
       const share = this.damageFor(step, cells);
       this.bossHp = Math.max(0, this.bossHp - share);
-      // On the step that actually empties the bar, not at the next turn
-      // boundary: this is what makes the boss's track stand down before the
-      // swing it has in the air can land on anybody.
       if (this.bossHp <= 0) this.claim("victory");
       this.chargeParty(cells);
 
@@ -1957,7 +855,6 @@ export class Director {
       const color = GEM_COLORS[lead >= 0 ? lead : WATER];
       const power = 0.9 + step * 0.25;
 
-      // The match lands, and the whole row swings in behind it.
       this.partyVolley(step, lead);
 
       vfx
@@ -1969,21 +866,6 @@ export class Director {
         .then(() => {
           if (this.ended) return;
           boss.hit(power);
-          /**
-           * The world stops for as long as it takes to read the number.
-           *
-           * The single loudest thing added to the fight, and it costs a
-           * fraction of a second: the beam is still in the air, the shards are
-           * still hanging off the beast, the number is still coming up, and all
-           * of it holds while the camera goes on rattling around it. See
-           * core/juice.js, and note the camera is ticked on real time in
-           * main.js precisely so it keeps moving through this.
-           *
-           * Scaled by the rung of the cascade, because that is the one thing
-           * the beat has to say. A triple is a flicker; a five-chain stops the
-           * screen dead, which is a match-3 saying "that one counted" without
-           * printing a word.
-           */
           hitStop(0.3 + Math.min(0.45, step * 0.15));
           shake(6 + step * 3, 0.28, {
             axis: { x: target.x - origin.x, y: target.y - origin.y },
@@ -1996,25 +878,8 @@ export class Director {
           );
         });
 
-      // The combo number is whatever the board actually did, counting up as it
-      // goes. It is no longer decided before the player touched anything.
       if (step >= 2) {
         sfx.combo(step);
-        /**
-         * And it is louder every rung.
-         *
-         * The counter used to print at one size in one colour whether the
-         * player had earned a double or a six-chain, which throws away the one
-         * moment in a match-3 that escalates on its own. Three channels now,
-         * all of them off `step`: it is thrown in from further out, it is held
-         * a little longer, and it goes from gold to a hot orange once the chain
-         * is past the point where the player is watching something they set off
-         * rather than something they did.
-         *
-         * `from` is capped at 2.6 — see shout in ui/hud.js, which scales the
-         * type down to fit the screen but cannot stop an overshoot that starts
-         * off the edge of it.
-         */
         hud.shout("COMBO x" + step, 0.44 + Math.min(0.24, step * 0.05), {
           fill: step >= 4 ? 0xffa02a : 0xffe066,
           from: Math.min(2.6, 1.6 + step * 0.26),
@@ -2022,19 +887,11 @@ export class Director {
       }
 
       hud.setHp(this.bossHp, 0.4);
-      // Last thing in the step, so a layer breaking is the shout left standing
-      // rather than one the combo counter steps on half a frame later.
       this.checkPhase();
     });
 
-    // Not awaited: the bar settling is the last third of a second of the move,
-    // and awaiting it here held the board shut for exactly that long before the
-    // player was allowed to touch it again. The tween finishes on its own.
     hud.setHp(this.bossHp, 0.35);
 
-    // Booked after the fact, and only for a move that actually paid: a swap
-    // resolving into nothing would drag the running average towards zero and
-    // convince the pace guard the boss needs a thousand more moves.
     const paid = before - this.bossHp;
     if (paid > 0.0001) {
       this.movesPlayed++;
@@ -2042,14 +899,6 @@ export class Director {
     }
   }
 
-  /**
-   * Boss health one move takes off, as this fight has been going.
-   *
-   * The opening guess is a plain triple at full strength — three gems at
-   * DIFFICULTY.damagePerGem with no combo, no size bonus, a whole party and no
-   * armour — because that is the cheapest move the board can pay out, and a
-   * guard that opens optimistic would set the pace too slow to recover from.
-   */
   paidPerMove() {
     if (!this.movesPlayed) return 3 * DIFFICULTY.damagePerGem;
     return this.damageDealt / this.movesPlayed;
@@ -2070,32 +919,6 @@ export class Director {
     };
   }
 
-  /* ------------------------------------------------------- the boss turn */
-
-  /**
-   * This turn's attack, ramped by how long the fight has already run.
-   *
-   * The rotation is not fixed. An attack carrying `from` does not exist
-   * until that turn index, and on the turn it unlocks it jumps straight to the
-   * front of the queue — a two-beat rotation is learned in a single pass and
-   * after that it is weather, so the unlock is what stops the boss becoming
-   * predictable at exactly the point it is meant to be at its worst.
-   *
-   * Ramped off DIFFICULTY.curve's `attack` column — the staircase — times
-   * rage() for the seconds spent standing still inside one of its steps.
-   *
-   * This is the drawn shape at its most legible, because a boss's damage is the
-   * one number in the fight the player reads directly, off their own health
-   * bars, every four seconds. On a shelf the swing lands for what the last one
-   * landed for and the player learns what they can afford; on a rise it lands
-   * for half again, on the beat after the golem roared the wall's name. The
-   * exponential this replaced could only ever say "worse than last time", every
-   * time, which is the same sentence often enough that it stops being heard.
-   *
-   * The opening step is under 1 on purpose: bossPress starts with the fight, so
-   * the first swing arrives before the player has made a match. See
-   * curve.steps.
-   */
   currentAttack() {
     const pool = BOSS_ATTACKS.filter((a) => (a.from || 0) <= this.turn);
     const fresh = pool.filter((a) => a.from === this.turn);
@@ -2114,24 +937,6 @@ export class Director {
     };
   }
 
-  /**
-   * Where this turn's obsidian lands — and it is aimed, not sprayed.
-   *
-   * One candidate per column: the lowest free cell in it. That keeps the
-   * "everything below a block is also blocked" invariant true by construction
-   * rather than by an author remembering it, and it caps any column at three
-   * blocks. The board never holds more than this turn's ceiling at once — and
-   * that ceiling climbs with the turn, so the pressure does not merely stay on,
-   * it tightens, without this ever being the thing that walls the board in.
-   *
-   * Within those rules the boss plays to hurt. Each candidate is scored by
-   * what sealing it actually costs the player, and the blocks are placed one
-   * at a time so every pick sees the damage the previous one did.
-   *
-   * None of which survives the end of the clock. Past DOOM.bury.at the board is
-   * sealed on a timer instead, straight through this ceiling and the floor
-   * under it — see buryTick. Everything here describes the fight up to there.
-   */
   pickObsidian(attack) {
     const board = this.s.board;
     let held = 0;
@@ -2139,15 +944,6 @@ export class Director {
       for (let c = 0; c < COLS; c++) if (board.isLocked(r, c)) held++;
     }
 
-    // The wave this turn, plus whatever the attack itself brings with it: the
-    // late unlock in BOSS_ATTACKS pays in board as well as in health.
-    //
-    // Off the curve's `obsidian` column, so the board tightens on the same rise
-    // the boss's damage does and holds still on the same shelf. That matters
-    // more here than anywhere: obsidian costs the player options, and options
-    // arriving or leaving on a schedule of their own is the "half-glitch,
-    // half-unreadable" complaint in its purest form — the screen gets harder to
-    // read for no reason the player was given.
     const want =
       Math.round(
         this.curveAt(
@@ -2156,8 +952,6 @@ export class Director {
           DIFFICULTY.obsidianBase + this.turn * DIFFICULTY.obsidianGrowth,
         ),
       ) + ((attack && attack.obsidianBonus) || 0);
-    // The ceiling climbs with the fight too, so the endgame is played on a
-    // genuinely smaller board rather than on the same one under pressure.
     const ceiling = Math.floor(
       Math.min(
         DIFFICULTY.obsidianMaxCap,
@@ -2174,23 +968,15 @@ export class Director {
 
     const taken = [];
     try {
-      // Every block in the wave hunts an option. The beast reads the moves the
-      // player is about to make and takes them on its own turn, before the
-      // gesture, rather than catching one in the act of being made. It stops
-      // when blockAnOption runs out of cells it can seal without dropping the
-      // board under MIN_SWAPS, which is the floor that keeps this playable.
       while (taken.length < budget) {
         const aimed = this.blockAnOption();
         if (!aimed) break;
         board.setProbe(aimed.r, aimed.c, true);
         taken.push(aimed);
       }
-      // Whatever the wave could not aim just squeezes the board.
       while (taken.length < budget) {
         const cell = this.worstCell();
         if (!cell) break;
-        // Held as locked while the rest of the wave is chosen, so two blocks
-        // never both aim at the same swap and waste each other.
         board.setProbe(cell.r, cell.c, true);
         taken.push(cell);
       }
@@ -2200,39 +986,11 @@ export class Director {
     return taken.map((cell) => ({ ...cell, crust: this.crustLayers() }));
   }
 
-  /**
-   * A swipe that was about to land a match, caught in the act.
-   *
-   * Everything else the boss does is on its own clock, and a block that lands
-   * between two ideas is a block that lands on neither. This is the one beat
-   * aimed at an idea: the board asks before it moves the gems, and the answer
-   * is the cell being sealed. Nothing here is a guess about what the player
-   * meant — the swap in hand is the match they were making.
-   *
-   * The cell taken is the one the gem was being dragged *into* where that is
-   * allowed, because that is the place the three would have met; the cell it
-   * came from is the fallback, and if neither can be sealed without taking the
-   * board under MIN_SWAPS then nothing is, and the swap goes through. The
-   * player is never blocked into a corner — only out of one move.
-   *
-   * Returns synchronously, because the board is holding the swipe open waiting
-   * for it. The swing itself is fired and not awaited.
-   */
   interceptSwap(a, b) {
     if (!this.snapDue()) return null;
     const board = this.s.board;
-    // The wave's hold ceiling plus the interrupt's own allowance. Held to the
-    // ceiling exactly, this fires perhaps once a run: waves keep the board at
-    // its cap for most of the fight, and "the board is already as full as a
-    // turn may make it" is not a reason for the one beat that is supposed to
-    // be answering the player. SNAP.times is the real cap on it — six stones
-    // across a whole run, each of them breakable by a match next door.
     if (this.snapHeld() >= this.snapCeiling() + SNAP.over) return null;
 
-    // Whichever end of the swap leaves the player more to work with, and the
-    // cell being dragged into on a tie — that is where the three would have
-    // met. SNAP.leave and not MIN_SWAPS: see the note on it for why this one
-    // beat is allowed a lower floor than every wave.
     let best = null;
     [b, a].forEach((c) => {
       const left = board.probeLock(c.r, c.c, () => board.countSwaps());
@@ -2244,12 +1002,6 @@ export class Director {
 
     this.snapAt = now();
     this.snaps.shift();
-    // Deliberately not on the boss's track. That track is a queue, and a queue
-    // is the one thing this beat cannot be in: the swipe it answers is already
-    // being refused on screen, and a swing that waits its turn would leave the
-    // refusal unexplained for as long as it queued. It is safe off the track
-    // because the only two things it touches are serialised anyway — the board
-    // by claim(), and the beast's own pose by `solo` in bossSnap.
     this.snapping = true;
     this.bossSnap(cell)
       .catch(() => {})
@@ -2259,61 +1011,25 @@ export class Director {
     return cell;
   }
 
-  /**
-   * Whether the interrupt may fire — the whole of its fencing, in one place.
-   *
-   * The cooldown is the headline (see SNAP.gap), but most of these are about
-   * not talking over something the player is being shown: a lesson mid-prop, a
-   * cast mid-cut-in, a board mid-cascade. An interrupt that lands in any of
-   * those is not read as the boss answering a reach, which is the only thing it
-   * is for.
-   */
   snapDue() {
     if (!SNAP.on || this.ended || this.settled()) return false;
-    // The run's budget, dealt at armDoom and spent one window at a time.
     if (!this.doomArmed || !this.snaps || !this.snaps.length) return false;
     if (!(this.doomTotal > 0)) return false;
     if (1 - this.doomLeft / this.doomTotal < this.snaps[0]) return false;
-    // Nothing is thrown across a lesson, a cast or the opening prop: see
-    // teachUlt and pointOpeningHint, both of which own the screen while up.
     if (this.ultLive || this.ultInFlight) return false;
     if (this.openingLive && !this.openingSpent) return false;
-    // A board still writing itself is a board whose swaps are about to change,
-    // so both the aim and the press that asked for it are already stale.
     const board = this.s.board;
     if (!board || board.busy) return false;
-    // One interrupt at a time. The boss's own swing is not a reason to hold
-    // this one — its track is busy most of the fight, and fencing against it
-    // silenced the interrupt almost every time it was asked for.
     if (this.snapping) return false;
-    // The floor under a backlog: windows the player idled through are all owed
-    // at once, and two interrupts inside one gesture is a glitch, not a fight.
     return (
       now() - (this.snapAt === undefined ? -SNAP.gap : this.snapAt) >= SNAP.gap
     );
   }
 
-  /**
-   * The interrupt itself: spit, and one block on the move being reached for.
-   *
-   * A wave in miniature, and it obeys the wave's rules — blockAnOption for the
-   * aim so MIN_SWAPS survives, and the same hold ceiling pickObsidian works to,
-   * so interrupting cannot put more stone on the board than the boss was
-   * already allowed to hold. It takes no turn and no damage with it: this
-   * costs the player a move, and a move is enough.
-   *
-   * `boss.spit()` is the animation, and it was written for this and never used
-   * — a third of a second from the wind-up to the glob leaving, which is what a
-   * beat has to fit into if it is going to arrive inside a gesture.
-   */
   async bossSnap(cell) {
     const { board, boss, hud, vfx, shake } = this.s;
 
     hud.shout(COPY.snap, 0.3, { fill: 0xff5a6e, from: 1.2 });
-    // The body animation only when the beast is not already mid-swing: pose is
-    // one set of numbers and two attacks writing it is neither attack. The
-    // glob is thrown either way — it leaves the mouth whether or not the mouth
-    // had time to open for it, and the glob is the part that has to be seen.
     const thrown = this.bossQueued === 0 ? boss.spit() : null;
     const p = board.cellPos(cell.r, cell.c);
     await vfx.lob(
@@ -2324,8 +1040,6 @@ export class Director {
     );
     if (this.settled()) return;
     shake(8, 0.2);
-    // Straight onto the finger — see lockCells' `onto`. Waiting out the gesture
-    // here would mean the block landing after the swipe it was thrown to stop.
     await board.lockCells([{ ...cell, crust: this.crustLayers() }], {
       onto: true,
     });
@@ -2333,7 +1047,6 @@ export class Director {
     this.refreshHint();
   }
 
-  /** Blocks standing on the board right now. */
   snapHeld() {
     const board = this.s.board;
     let held = 0;
@@ -2343,7 +1056,6 @@ export class Director {
     return held;
   }
 
-  /** The same hold ceiling a wave works to — see pickObsidian. */
   snapCeiling() {
     return Math.floor(
       Math.min(
@@ -2358,12 +1070,6 @@ export class Director {
     );
   }
 
-  /**
-   * Whether the clock has run far enough down to start sealing the board.
-   *
-   * See DOOM.bury. Read off the shown clock rather than wall time, so it lands
-   * where the player watched it land — the strip and the burial agree.
-   */
   burialDue() {
     const cfg = DOOM.bury;
     if (!cfg || !this.doomArmed || this.ended) return false;
@@ -2371,14 +1077,6 @@ export class Director {
     return this.doomLeft / this.doomTotal <= cfg.at;
   }
 
-  /**
-   * Seal a few more cells, on the clock rather than on the boss's turn.
-   *
-   * It cannot ride a boss turn, which is what every other wave does: a turn
-   * costs a player move, and the whole point of this beat is that the player
-   * runs out of moves halfway through it. Hung off the turn loop the burial
-   * would stop at the exact moment it started working.
-   */
   buryTick(dt) {
     if (!this.burialDue() || this.burying) return;
     const board = this.s.board;
@@ -2391,23 +1089,11 @@ export class Director {
     this.burying = true;
     const done = () => {
       this.burying = false;
-      // The stone that sealed the last cell is the end of the fight. Claimed
-      // here and the player's turn woken with it, because that turn is parked
-      // on a board it can no longer be played on and nothing else is coming to
-      // wake it. See playFight, which re-reads the verdict on the way round.
       if (this.boardSealed() && this.claim("defeat")) this.interrupt("buried");
     };
     board.lockCells(cells).then(done, done);
   }
 
-  /**
-   * Cells for the burial — the same aim as a wave, with the floor taken off.
-   *
-   * Still scored rather than sprayed, and for the one reason that survives the
-   * board becoming unwinnable: worstCell picks whatever costs the player the
-   * most, so the moves die in order of how much they were worth and the last
-   * thing to go is the least useful corner.
-   */
   pickBurial(n) {
     const board = this.s.board;
     const taken = [];
@@ -2431,89 +1117,6 @@ export class Director {
     return whole + (rnd() < want - whole ? 1 : 0);
   }
 
-  /**
-   * Bury one of the moves the player can actually see.
-   *
-   * The board guarantees at least two legal swaps at all times, and this takes
-   * exactly one of them. There is always another one left, which is the
-   * difference between pressure and a softlock.
-   *
-   * A move is killed by sealing any cell it needs, and every one of those is
-   * offered here: the cells the run itself would have covered — Board.listSwaps
-   * plays each swap out and hands back the three it makes — and the two ends of
-   * the swap that makes it, which are not always in the run and are where the
-   * finger is. Aiming at the two ends alone was aiming at the gesture and not
-   * at the match: a three that meets two cells away from either thumb had its
-   * meeting point left standing every time, and the block landed beside the
-   * thing it was thrown at.
-   *
-   * Which of them it takes is decided in three tiers. The first is the player:
-   * every press and every cell a gesture leaned at is recorded — see
-   * Board.noteFocus — and a swap with one of those cells in it is taken ahead
-   * of anything else on the board, at the end the finger was actually on. That
-   * is the beat worth having. You spot the match, you start pulling the gem
-   * across, and the thing you were reaching for goes to stone under your hand;
-   * the board still has moves on it, they are simply not the move you had.
-   *
-   * The second is the run: with nothing to separate them on the finger, the
-   * stone goes where the three would have stood rather than onto an end that
-   * merely feeds it. Same move denied either way, and the player is shown the
-   * place they were building instead of a block next to it.
-   *
-   * The third is for a player who has touched nothing this turn — an opening, a
-   * cascade they are watching, a thumb off the glass — and for the ties the
-   * second leaves. It used to score the board: how many swaps die with this
-   * cell, how close to the middle, whether it is water, how big the match was.
-   * That is the boss reading its own advantage, and it is the wrong question.
-   * The board always offers a handful of moves and the player is going to take
-   * one particular one of them; the beat this whole mechanism exists for only
-   * lands if the stone is already sitting on that one when they look up. So the
-   * question is which move they are about to make, and MOVE_READ is the answer
-   * to it — the boss guessing at the thumb instead of at the grid.
-   *
-   * Four things say a move is the one, and every one of them is already on
-   * hand:
-   *
-   * `taught` is the largest by a distance, because it is not a guess. It is the
-   * swap the game's own hand points at — currentHint, the same call the coach
-   * makes when the player stalls — so it is the move the creative is about to
-   * recommend out loud, and after T.hint of silence most players press exactly
-   * it. Aiming anywhere else while that hand is up is the boss ignoring the
-   * only move it can actually be sure of.
-   *
-   * `bigRun` is the four and the five. A plain three is one of eight on the
-   * board and reads as none of them in particular; a longer run is the thing
-   * the eye lands on and the thing a player holds out for.
-   *
-   * `nearThumb` is where they last reached, however long ago — older than
-   * AIM_MEMORY, which is the window the first tier owns. Past that window it
-   * is no longer evidence of an intention, but it is still where the eye is,
-   * and the next move is usually a short walk from the last one rather than
-   * across the board.
-   *
-   * `middle` and `water` are the two places the mode itself teaches them to
-   * look: the centre because every match on a five-by-five runs through a row
-   * and a column and the centre cells are in more of both, so it is where the
-   * options visibly are — and water because charging Arissa is the strategy the
-   * hint, the bars and the HUD all push, and a player following that push goes
-   * for blue. The middle has a second life as plain board damage, which is why
-   * it survived the rewrite: a stone in the centre denies moves the player has
-   * not thought of yet on top of the one it takes, while a stone in a corner
-   * denies almost nothing twice.
-   *
-   * Cost has not gone away — it still decides which CELL of the chosen move
-   * gets sealed, and it is still the last tiebreak between moves that read the
-   * same. What changed is that it no longer decides which move.
-   *
-   * The roll survives all of it (see AIM_BITE): nineteen times in twenty the
-   * boss takes the move it read, and the twentieth keeps the read from being a
-   * rule the player can plan around.
-   *
-   * Ranking on cells cleared alone is what it used to do, and on a board this
-   * small that is a tie between almost every option, broken by the order the
-   * grid happens to be scanned in. Weighting a roll over that order would have
-   * aimed the boss at the top-left corner for the whole fight. See RANK_DEPTH.
-   */
   taughtSwap() {
     const live = this.idleHint;
     if (live && this.swapMakesMatch(live.a, live.b)) return live;
@@ -2526,12 +1129,6 @@ export class Director {
     const focus = board.focusedCells(AIM_MEMORY);
     const reached = (cell) =>
       focus.some((f) => f.r === cell.r && f.c === cell.c) ? 1 : 0;
-    // Never take the board under the floor it owes the player. It used to be
-    // allowed down to a single move, which meant the boss itself was the thing
-    // triggering most reshuffles: it buried an option, ensurePlayable found the
-    // count short and mixed the board, and the player got a wave and a
-    // scramble as one indistinguishable event. Leaving MIN_SWAPS standing
-    // makes "he takes one of your ideas" the whole of what happens.
     if (swaps.length <= MIN_SWAPS) return null;
 
     const taught = this.taughtSwap();
@@ -2542,21 +1139,11 @@ export class Director {
       ((isSameCell(taught.a, swap.a) && isSameCell(taught.b, swap.b)) ||
         (isSameCell(taught.a, swap.b) && isSameCell(taught.b, swap.a)));
 
-    // The strongest options, plus any option the player has reached for however
-    // weak it scored, plus the one the hand is teaching: the match somebody is
-    // in the middle of making is rarely the biggest one on the board, and
-    // RANK_DEPTH alone would never see it.
     const pool = swaps.slice(0, RANK_DEPTH);
     swaps.slice(RANK_DEPTH).forEach((swap) => {
       if (reached(swap.a) || reached(swap.b) || isTaught(swap)) pool.push(swap);
     });
 
-    // Any cell the three would have stood on kills it, and so does either end
-    // of the swap that makes it. Prefer the end the finger was on — that is the
-    // gem that has to turn to stone for the player to feel robbed rather than
-    // merely blocked — then a cell the run would actually have covered, then
-    // the one that costs them more elsewhere, and never one that would leave
-    // the board under its floor.
     const midR = (ROWS - 1) / 2;
     const midC = (COLS - 1) / 2;
     const central = (cell) =>
@@ -2629,8 +1216,6 @@ export class Director {
       (x, y) => y.watched - x.watched || y.reads - x.reads || y.cost - x.cost,
     );
 
-    // A move the player has reached for is taken outright: rolling on it would
-    // only mean sometimes missing the one beat this whole mechanism is for.
     const shortlist = ranked.slice(0, Math.min(OPTIONS_IN_PLAY, ranked.length));
     const target =
       shortlist[0].watched || shortlist.length < 2 || rnd() < AIM_BITE
@@ -2639,27 +1224,6 @@ export class Director {
     return target.cell;
   }
 
-  /**
-   * The single most inconvenient cell on the board to seal right now.
-   *
-   * Aiming at the player's actual move is blockAnOption()'s job; this is the
-   * rest of the wave, and it deliberately does not hunt options. It squeezes
-   * instead: swaps denied is the player's freedom measured directly, water
-   * starves the only ultimate in the fight, and the middle of the board is
-   * where more matches run through.
-   *
-   * How many of the wave hunt is no longer a number: every block in it does,
-   * until blockAnOption runs out of cells it can take. This function is the
-   * remainder rather than the bulk of the wave, and on an open board it may
-   * place nothing at all. The floor is MIN_SWAPS and it is enforced inside
-   * blockAnOption, not here: a board is always left with a move, it is simply
-   * left with the move nobody wanted.
-   *
-   * The pick is randomised across everything within reach of the top score. A
-   * strict argmax on a scoring function this smooth lands in the same cells run
-   * after run, which is exactly the "he always spits in the same place" the
-   * aiming was supposed to fix.
-   */
   worstCell(bury) {
     const board = this.s.board;
     const before = board.countSwaps();
@@ -2671,12 +1235,6 @@ export class Director {
       for (let c = 0; c < COLS; c++) {
         if (board.isLocked(r, c)) continue;
         const left = board.probeLock(r, c, () => board.countSwaps());
-        // Never a cell that takes the board under its floor — the player is
-        // owed MIN_SWAPS, and a squeeze that spends them is a squeeze that
-        // hands the turn straight to the reshuffle. See blockAnOption. The
-        // burial is the one caller that is allowed past it, and is allowed
-        // because taking the last move is the whole of what it is for: see
-        // DOOM.bury and pickBurial.
         if (!bury && left < MIN_SWAPS) continue;
         const water = board.typeAt(r, c) === WATER ? 1 : 0;
         const central =
@@ -2701,19 +1259,6 @@ export class Director {
     return shortlist[rndInt(shortlist.length)];
   }
 
-  /**
-   * The boss answers every player move.
-   *
-   * One action, two consequences: the same attack that burns the party also
-   * lays the obsidian that shrinks the board. Playing them as two separate
-   * beats cost three seconds of the player watching and doing nothing, which
-   * is the most expensive thing a short creative can spend.
-   *
-   * Runs on the boss's track, so the player is very likely swapping through all
-   * of it. That is why the aim waits for the board to stand still: the cells are
-   * scored off the position the player is reading right now, not off whatever
-   * was on screen when the swing started.
-   */
   async bossTurn() {
     const attack = this.currentAttack();
     await this.s.board.whenQuiet();
@@ -2730,21 +1275,6 @@ export class Director {
     this.turn++;
   }
 
-  /**
-   * Claw rake: the beast swipes, and three gashes come down the screen.
-   *
-   * The short beat on the track. Breath and slam are both a wind-up, a
-   * travelling effect and a landing, and they take the better part of a second
-   * and a half each — on a fourteen second playable window that is a tenth of
-   * the run per swing, which is why there were only ever going to be four of
-   * them. This one is a wind-up and a hit, it is over in about half of that,
-   * and it is the one the fight can afford to repeat.
-   *
-   * `boss.rake()` returns the side the body actually travelled to, and the
-   * claw marks are laid along it. That handshake is the whole point of the
-   * beat: a swipe to the left with the marks torn to the right is two effects
-   * playing at once, not one attack.
-   */
   async bossRake(attack, cells) {
     const { boss, hud, vfx, shake, hitStop, layout } = this.s;
 
@@ -2752,22 +1282,8 @@ export class Director {
     const dir = await boss.rake();
     if (this.settled()) return;
 
-    // The swipe keeps the beast's column — `at.x` is his chest, so the marks
-    // still come off the body that threw them — but they are torn down on the
-    // board and across the row, not up in his own airspace. Up there they were
-    // three gashes opening in a part of the screen nothing is at stake in; the
-    // board and the heroes are what the rake is actually doing damage to, and
-    // that is where it should land.
     const at = boss.impactPoint();
-    // Low on the grid, so the drawing covers the bottom of it and reaches into
-    // the cards. Off the board rather than off the stage: the board is the term
-    // that moves when the CTA band or a short phone squeezes the composition,
-    // and marks measured against the window drift off it when it does.
     const clawY = layout.board.y + layout.board.size * 0.75;
-    // Along the swipe. `dir` is the side the body actually travelled to, which
-    // the marks are already laid down — the camera is now thrown the same way,
-    // so the swipe, the slashes and the frame all agree about which way the
-    // claws went.
     shake(16, 0.4, { axis: { x: dir, y: 0.3 }, freq: 1.15 });
     hitStop(0.6, 0.1);
     vfx.claw(at.x, clawY, 0xff3a5a, {
@@ -2791,46 +1307,23 @@ export class Director {
     await Promise.all([spreading, falling, delay(0.22)]);
   }
 
-  /**
-   * Lava breath: a cone of fire washes over the whole party, and the globs
-   * that drip out of it on the way harden into obsidian on the board.
-   */
   async bossBreath(attack, cells) {
     const { boss, hud, vfx, shake, layout } = this.s;
 
-    // The one shout printed inside its own effect — the jet opens across the
-    // same band the callout sits on. It used to invert here, dark letters with
-    // a hot rim, because light type with a dark rim had nothing darker than
-    // itself to sit on over a wall of fire. With outlines gone from the build
-    // there is no rim to invert: white over the shout's own shadow is what
-    // every other beat uses, and it holds over the jet the same way.
     hud.shout(attack.shout || COPY.breath, 0.4, { from: 1.4 });
     await boss.lavaBreath(0.62);
     if (this.settled()) return;
 
-    // A jet is pressure, not a blow: it wants a long even hum rather than a
-    // rattle, so it runs at under half the rate everything else shakes at.
-    // Everything else in the fight lands once; this one is still arriving half
-    // a second later.
     shake(10, 0.5, { freq: 0.45 });
     const row = layout.cards;
     const mouth = boss.mouthPoint();
     const onto = { x: row.x + row.w / 2, y: row.y + row.h * 0.45 };
     const flame = vfx.cone(mouth, onto, 0xff6a10, {
       hold: 0.5,
-      // A shade under the row rather than exactly it: the tip carries a forward
-      // bulge now — see paintCone — and at the full width that bulge put the
-      // corner of the fire over the first column of gems.
       spread: row.w * 0.9,
-      // Upright, the jet crosses the whole play field to reach the row. See
-      // `heat` in vfx.cone: the fire gives way to the board, not the other way
-      // round.
       heat: layout.portrait ? 0.48 : 1,
       mouth: 44 * layout.ui,
     });
-    // The painted fire rides the middle of the jet the cone already draws, so
-    // the detail lands where the player is looking rather than at either end of
-    // a shape that is mostly travel.
     vfx.bossSwing(
       "breath",
       { x: (mouth.x + onto.x) / 2, y: (mouth.y + onto.y) / 2 },
@@ -2838,7 +1331,6 @@ export class Director {
     );
     const spreading = this.dropObsidian(cells, 0.1);
 
-    // Let the fire actually arrive before anyone loses health.
     await delay(0.22);
     if (this.settled()) return;
 
@@ -2849,10 +1341,6 @@ export class Director {
     await Promise.all([flame, spreading, falling]);
   }
 
-  /**
-   * Magma slam: both fists into the floor. The shock rolls down the screen
-   * into the hero row, and the board cracks open where it passes.
-   */
   async bossSmash(attack, cells) {
     const { hud, boss, vfx, shake, hitStop, layout } = this.s;
 
@@ -2861,8 +1349,6 @@ export class Director {
     if (this.settled()) return;
 
     const impact = boss.fistPoint();
-    // Two fists coming straight down: thrown down the same line they were, and
-    // pitched up, because the one thing a fist is not is a rumble.
     shake(20, 0.55, { axis: { x: 0, y: 1 }, freq: 1.2 });
     hitStop(0.7, 0.12);
     vfx.shock(impact.x, impact.y, 0xff8a3d, {
@@ -2874,8 +1360,6 @@ export class Director {
       width: 8,
       duration: 0.4,
     });
-    // Under both rings, at the fists. The rings are the shape of the blast and
-    // the sheet is what is actually burning inside it.
     vfx.bossSwing("smash", impact, {
       size: layout.stage.w * 1.15,
       duration: 0.5,
@@ -2883,8 +1367,6 @@ export class Director {
     });
     vfx.flash(0xff2a06, 0.18, 0.35);
 
-    // Obsidian erupts under the shock rather than being spat: the same block,
-    // arriving from the attack the player just watched land.
     const spreading = this.eruptObsidian(cells);
 
     const row = layout.cards;
@@ -2899,7 +1381,6 @@ export class Director {
     await Promise.all([spreading, falling, delay(0.32)]);
   }
 
-  /** Globs arcing out of the flame onto the board. */
   async dropObsidian(cells, wait) {
     const { board, boss, vfx } = this.s;
     if (cells.length === 0) return;
@@ -2920,7 +1401,6 @@ export class Director {
     this.refreshHint();
   }
 
-  /** Obsidian punched up through the board by the slam. */
   async eruptObsidian(cells) {
     const { board, vfx } = this.s;
     if (cells.length === 0) return;
@@ -2934,48 +1414,14 @@ export class Director {
     this.refreshHint();
   }
 
-  /**
-   * Spread one attack across the party: flinch the cards, pop the numbers.
-   *
-   * The card owns the clamp, so the number shown is whatever the bar actually
-   * lost — a hero already on the floor shows nothing rather than lying.
-   *
-   * Awaited by its callers now: with a health floor of zero the answer to
-   * "is anybody still standing" is only correct once the bars have finished
-   * draining, and the fight loop asks that question immediately afterwards.
-   *
-   * @returns {Promise<void>} settles when every bar has finished moving
-   */
   strikeHeroes(attack) {
     const { heroRow, hud, vfx, layout, hitStop } = this.s;
-    // The fight is already called. A swing still in the air when the boss went
-    // down does not get to take the party with it, and that is the whole of the
-    // draw this mode does not have. See claim.
     if (this.settled()) return Promise.resolve();
-    // An ultimate is in the air, and it is the one move in the fight sold as
-    // the answer to exactly this. A swing landing inside its two seconds of
-    // cut-in used to take the party with it — which then zeroed the ultimate's
-    // own damage on the way past, because playUltimate reads the verdict before
-    // it bills the boss. The player spent a full bar and watched the light show
-    // pay out nothing into a fight it had already won.
-    //
-    // So the cast is immortal rather than merely favoured: the swing still
-    // plays, its obsidian still lands on the board, and the health bars do not
-    // move. The single exception is the clock's own cataclysm — see castDoom.
     if (this.ultCasting && !attack.unstoppable) return Promise.resolve();
     const targets = heroRow.resolveTargets(attack.targets);
     const solo = targets.length === 1;
     const jobs = [];
     let fell = 0;
-    /**
-     * The party's turn to have the frame held for them.
-     *
-     * Once for the wave and not once per card. The pops are staggered seventy
-     * milliseconds apart so that six of them do not arrive as one noise, and
-     * six stops down that stagger would be a third of a second of slow motion
-     * — so the first card to actually lose health takes the beat and the rest
-     * land inside it.
-     */
     let held = false;
 
     heroRow.cards.forEach((card, i) => {
@@ -2985,7 +1431,6 @@ export class Director {
 
       const lost = card.lossFor(amount);
       if (card.hp - amount <= 0.001) fell++;
-      // The single target of a slam lands first; everyone else ripples out.
       const wait = direct && solo ? 0 : 0.07 * i;
       jobs.push(card.hurt(amount, wait));
       if (lost <= 0) return;
@@ -2996,9 +1441,6 @@ export class Director {
         if (this.ended) return;
         if (!held) {
           held = true;
-          // Harder than a hero's own blow lands, and harder still for the one
-          // card a slam picked out: taking damage is the beat the player is
-          // meant to feel, not the beat they are meant to enjoy.
           hitStop(direct ? (solo ? 0.55 : 0.42) : 0.24);
         }
         vfx.impact({ x: card.x, y: card.y }, 0xff5a1f, direct ? 0.55 : 0.3);
@@ -3011,16 +1453,8 @@ export class Director {
       else pop();
     });
 
-    // Claimed here, on the frame the hit is committed, rather than once the
-    // bars have finished draining. The drain is four tenths of a second of
-    // tweening, and a cascade resolving inside it would otherwise take the last
-    // of the boss's health after the party was already dead — two winners, one
-    // fight. `fell` skips anyone already down, so this reads as "the attack
-    // takes everybody still standing".
     if (fell > 0 && fell >= heroRow.aliveCount()) this.claim("defeat");
 
-    // Announced once for the wave, not once per corpse — and not at all over a
-    // wipe, which has an ending of its own to say.
     if (fell > 0 && !this.settled()) {
       delay(0.45).then(() => {
         if (this.ended || this.partyWiped()) return;
@@ -3031,7 +1465,6 @@ export class Director {
     return Promise.all(jobs);
   }
 
-  /** The swap the hand demonstrates: scripted on the opener, solved after. */
   currentHint() {
     const { board } = this.s;
     if (this.turn === 0 && !this.playerActed) {
@@ -3045,36 +1478,18 @@ export class Director {
         return { a, b };
       }
     }
-    // Prefer Arissa's element: charging her is the whole strategy of the mode,
-    // so the one piece of help the game still gives should teach that.
     return board.findBestSwap(WATER) || board.findBestSwap();
   }
 
-  /**
-   * Solve the board again for the hand.
-   *
-   * The lava lands in the middle of the player's turn now, and it lands on the
-   * cells they are most likely to be looking at — the hand would otherwise go on
-   * pointing at a swap that is under a block, or at gems the reshuffle moved.
-   */
   refreshHint() {
     if (this.ended) return;
-    // Nothing is re-aimed at the board while the ult lesson has the screen: it
-    // would take the prop off a card mid-tap to point at a swap nobody is being
-    // asked for yet. teachUlt hands the hint back when it is done.
     if (this.ultLive) return;
-    // The opening hand is not on the idle timer and restartIdle will not touch
-    // it, so it is the one that has to be re-aimed by hand.
     if (this.openingLive && !this.openingSpent) {
       this.retireLesson();
       this.pointOpeningHand();
       return;
     }
     if (!this.idleHint) return;
-    // Straight back up if it was already up. A hint on screen when the lava
-    // lands is a hand pointing at a cell that is now under a block, and the
-    // player who was following it should not have to sit through another
-    // `hint` of silence to be told where to look instead.
     const live = this.lessonLive;
     this.idleHint = this.currentHint();
     this.restartIdle(live);
@@ -3088,47 +1503,18 @@ export class Director {
     return ok;
   }
 
-  /* -------------------------------------------------------------- the ult */
-
-  /**
-   * An ultimate — any of the five, earned, not scheduled.
-   *
-   * Each hero wipes their own colour off the board and bills the boss for every
-   * gem of it, on top of a flat chunk. Arissa is still the one who matters most:
-   * hers is the only heal in the fight and the only thing that clears obsidian,
-   * which is what makes hunting water instead of whatever match is nearest the
-   * actual skill here. The other four trade that for a straight burn.
-   *
-   * It deliberately does not hand the boss a turn: the player paid for it — and
-   * for the same reason it cannot be killed out from under itself. The party is
-   * immortal from the tap until the cast has resolved; `strikeHeroes` is where
-   * that is enforced and why.
-   */
   async playUltimate() {
     this.ultInFlight = true;
-    // The whole cast at one rate rather than thirty tweens re-timed across four
-    // files. Everything in it — the cut-in, the card, the board wipe, the
-    // spell, the damage number climbing — runs off this clock, so they stay in
-    // step with each other; trimming the cut-in alone would only walk it out of
-    // step with the blast it is a build-up for. See ULT_PACE.cast.
     this.setUltRate(ULT_PACE.cast);
     try {
       await this.castUltimate();
     } finally {
-      // The one place the shield comes down. The cast below has four returns in
-      // it — one for a card that is not there, three for a fight that ended
-      // underneath it — and a shield left standing on any of those paths would
-      // make the party immortal for the rest of the run, over a fight whose
-      // clocks had stopped.
       this.setCasting(false);
       this.ultInFlight = false;
-      // Same argument, same four returns: a rate is as bad a thing to leave
-      // raised as a shield is.
       this.setUltRate(1);
     }
   }
 
-  /** The cast itself. Split out only so `playUltimate` has one exit to guard. */
   async castUltimate() {
     const { board, boss, heroRow, hud, vfx, cutin, shake, hitStop, layout } =
       this.s;
@@ -3143,33 +1529,16 @@ export class Director {
     const light = GEM_LIGHT[element];
 
     board.lockInput();
-    // Overlapped, not sequenced. The card's punch and its draining bar run on
-    // under the cut-in, which used to wait a third of a second for them to
-    // finish first — a pause between the tap and the payoff, in the one place
-    // in the fight where the player has just been promised something loud.
     const spending = card.spend();
-    // The card's own animation gets its moment before the cut takes the screen,
-    // and how long that is is the card's to say: a hero whose element has a
-    // burst sheet has an arc to show and the cut lands on its peak, everybody
-    // else keeps the tenth of a second this always waited. See
-    // HeroCard.flareLead and ULT in art/heroes.js — both leads are 0 there, so
-    // this is presently a wait of nothing and the cut still arrives on the frame
-    // the player tapped. It is asked for anyway, because where that beat lives
-    // is the card's business and this is where it is spent.
     await delay(card.flareLead());
     await cutin.play(index);
     if (this.ended) return;
 
-    // Underneath the cut-in's wash, which is still on screen: play() hands the
-    // board back on the white rather than after it, so the swing, the sweep and
-    // the kick are already running by the time the board is uncovered.
     card.strike(true);
     vfx.sweep(color);
     shake(14, 0.45);
     await spending;
 
-    // Only the tide washes the board clean. Everybody else has to live with the
-    // obsidian, which is what keeps her the ultimate worth saving for.
     const hadObsidian = healer && board.hasObsidian();
     const cleansing = hadObsidian
       ? board.clearAllObsidian()
@@ -3179,43 +1548,18 @@ export class Director {
     }
 
     const cleared = await board.clearElement(element);
-    // Through the hide, and bitten harder by it than a match is — see
-    // ultResistance and DIFFICULTY.ultHideBite. The ultimate opens as the
-    // biggest number in the fight and ends the run worth a twentieth of the
-    // bar, because the last quarter was asked for as a grind that ultimates do
-    // not rescue.
     const billed = Math.max(cleared, DIFFICULTY.ultGemFloor || 0);
     const total =
       (DIFFICULTY.ultDamage +
         billed * DIFFICULTY.damagePerGem * DIFFICULTY.ultGemMultiplier) *
       this.ultResistance();
-    // Cast into a fight the boss has already won: the light show plays out,
-    // the damage does not. Same rule the cascade runs on — see resolveMove.
     const dealt = this.outcome === "defeat" ? 0 : total;
     this.bossHp = Math.max(0, this.bossHp - dealt);
     if (this.bossHp <= 0) this.claim("victory");
 
     const target = boss.impactPoint();
-    // The hero's own card, which is the whole point: this is their ultimate.
-    // It used to leave a point inside the board — `board.x + size/2`, a fifth
-    // of the way down — and so belonged to nobody on screen. In portrait that
-    // start sits a hand's width under the beast, so the biggest attack in the
-    // fight barely travelled; sideways, with the board against one edge and the
-    // beast in a column off the other, it slid in from the side. Neither read
-    // as the mage the player just spent doing anything at all.
     const origin = heroRow.cardPoint(index);
 
-    // One call for all six. `vfx.ultCast` looks every mage up by element and
-    // plays their own sheet, and anyone whose sheet has not been packed yet
-    // falls back — Ricklow to the painted fireball, everybody else to `beam`,
-    // which is what all six of them threw before the sheets existed, tuned
-    // exactly as it was. Both fallbacks now leave from the card too, and both
-    // keep the wind-up and the shock ring around them.
-    //
-    // This used to branch on `element === "fire"`, comparing a hero's element
-    // against a string when every element in config.js is an index. It was
-    // never true, so the one painted ultimate in the build had never played:
-    // Ricklow fell through to the same beam as everybody else.
     await vfx.ultCast(element, origin, target, color, light, {
       size: layout.board.size * 1.25,
       beam: { thickness: 64, impact: 2.6, travel: 0.22 },
@@ -3227,18 +1571,12 @@ export class Director {
     shake(22, 0.6, {
       axis: { x: target.x - origin.x, y: target.y - origin.y },
     });
-    // The payoff for a full bar, and the second longest stop in the fight: the
-    // spell is landing, the wash is at full brightness and the biggest number
-    // in the run is on its way up. Held just short of the cataclysm's, because
-    // the cataclysm is the one beat that outranks it.
     hitStop(0.85, 0.15);
     vfx.flash(light, 0.55, 0.55);
     hud.damage(dealt * BOSS_MAX_HP, target.x, target.y - 24, 2);
     hud.setHp(this.bossHp, 0.6);
     this.checkPhase();
 
-    // The same tide that shatters the obsidian washes the burns off the party,
-    // and picks up anyone who has already gone down.
     const hurt = heroRow.cards.some((c) => c.hp < 1 || c.downed);
     const healing = healer ? heroRow.healAll(this.healTo()) : Promise.resolve();
     if (healer) this.healsUsed++;
@@ -3246,26 +1584,6 @@ export class Director {
       hud.shout(COPY.ultHeal, 0.5, { fill: 0x9fffc4, from: 1.4 });
     }
 
-    // ULT_PACE.tail is pacing for a cast with nothing behind it — a beat to let
-    // the number land before the board goes quiet. It buys nothing when the
-    // player has already tapped the next hero: that ultimate is queued and
-    // waiting on this very function to return, so the pause would only be a gap
-    // between two casts the player asked for back to back.
-    //
-    // Two ways it gets cut. Either a hero was already queued before the cast
-    // reached here — the ordinary case, the tap having landed seconds ago
-    // during the cut-in — or one is tapped while the pause is running, which is
-    // what the gate is for. Both are needed: the gate alone only catches taps
-    // that arrive inside this window, and the tap that matters is almost never
-    // one of those.
-    //
-    // cleansing and healing are real animation and are let run either way —
-    // and, when a hero is queued, they are no longer *waited* on either. Both
-    // are the tide washing over a party that is about to be washed over again;
-    // holding the next cast behind half a second of green bars filling was the
-    // last gap left between two ultimates, and it was the one the player most
-    // obviously did not ask for. They go on playing under the cut-in that
-    // follows, which is where they belong.
     const chained = this.ultQueue.length
       ? Promise.resolve()
       : new Promise((resolve) => {
@@ -3278,24 +1596,6 @@ export class Director {
     this.ultChainResolver = null;
   }
 
-  /* -------------------------------------------------------- how it ends */
-
-  /**
-   * The boss is down, and the card says so on the next frame.
-   *
-   * Nothing here is awaited. There used to be about three seconds between the
-   * killing blow and the verdict — a capped wait on the boss's track, a hit
-   * stop, the collapse played out in full, then a hold on top of it —
-   * and every one of those beats was time the player spent watching a fight
-   * they had already won. The verdict is the payoff; the run-up to it was the
-   * creative holding its own ending back.
-   *
-   * The collapse is still started, so the still the card is built on is the
-   * beast coming apart rather than the beast standing there. What is gone is
-   * anybody waiting on it, and the white flash with it: the card opens on a
-   * flash of its own and two of them stacked would have baked the first one
-   * into the photograph. See OutcomeScreen.show.
-   */
   async win() {
     const { boss, board, hud } = this.s;
     this.claim("victory");
@@ -3306,18 +1606,6 @@ export class Director {
     boss.die().catch(() => {});
   }
 
-  /**
-   * The party is down. The boss does not die, the screen does not celebrate,
-   * and the end card says what happened — a "COLLECT YOUR HEROES" banner over
-   * a wipe is the kind of thing a player notices and stops trusting.
-   *
-   * Cut to the verdict on the same frame the win is, and for the same reason:
-   * the roar, the DEFEAT callout and the half second after it were three
-   * seconds of a fight that was already over. The enrage and the roar are
-   * still fired — the beast is snarling in the still, and the roar carries on
-   * under the card — and the oxblood flash is not, because the card brings its
-   * own. See win, and OutcomeScreen.show.
-   */
   async lose() {
     const { boss, board, hud } = this.s;
     this.claim("defeat");
@@ -3330,8 +1618,6 @@ export class Director {
     boss.roar().catch(() => {});
   }
 
-  /* ---------------------------------------------------------- idle nagging */
-
   beginIdle(hint) {
     this.idleHint = hint;
     this.armAutoPlay();
@@ -3340,38 +1626,10 @@ export class Director {
     this.restartIdle();
   }
 
-  /* ------------------------------------------------------- the one hint */
-
-  /**
-   * Arm the opening hint: the lesson on the first swap, before the first touch.
-   *
-   * Once, and only ever before the player has shown up. What takes over
-   * afterwards is the auto-hint on `T.hint` — same lesson, same door in — so
-   * this is not the last help anybody gets, it is the help that arrives without
-   * being earned by stalling. See restartIdle and escalate.
-   *
-   * Armed from every player turn rather than once from the intro, and that is
-   * deliberate. A turn can end without the player having touched anything —
-   * the cataclysm collects, the boss's track wipes the party — and the
-   * `stopIdle` that ends it takes the hand off the screen with everything
-   * else. Re-arming here is what puts it back for a player who has still not
-   * touched the board, and `openingSpent` is what guarantees it never comes
-   * back for one who has.
-   */
   armOpeningHint() {
     if (this.openingSpent || T.openingHint == null) return;
-    // Already demonstrating, which is only ever the one armed before the touch
-    // — every other caller gets here through a `stopIdle` that put the prop
-    // away first. Re-arming over a live demo would restart it mid-sentence a
-    // second into the fight, for a player who has been watching that exact
-    // loop since before they touched anything.
     if (this.openingLive) return;
     const token = ++this.openingToken;
-    // No wait at all, and taken synchronously rather than through a promise
-    // that has already resolved: armIntro runs before the first frame is
-    // rendered, so the lesson placed from here is in that frame — and the
-    // first frame is the only one a playable is guaranteed to be looked at.
-    // A microtask later is a frame later, and a frame later is after it.
     if (T.openingHint <= 0) {
       this.pointOpeningHand();
       return;
@@ -3384,56 +1642,12 @@ export class Director {
     });
   }
 
-  /**
-   * Run the opening lesson on the swap the board is currently offering.
-   *
-   * The swap is solved fresh rather than remembered: the board it was armed
-   * against is a second old by the time this runs, and on a bad second the
-   * boss has dropped a block on the cell it was going to point at.
-   *
-   * `matchShape` is what makes this a lesson rather than a hint — it takes the
-   * swap apart into the pair that is already lined up, the stone that has to
-   * travel and the run the two of them make, which are the three things
-   * ui/coach.js needs to say "three of these, in a line" without a word of
-   * copy. If the board somehow offers a swap whose shape cannot be read, the
-   * old behaviour is still underneath: hand, two lit gems, no lesson.
-   */
   pointOpeningHand() {
-    // A shade larger than the auto-hint's hand: this one is talking to
-    // somebody who has not yet worked out that the board is a board.
-    //
-    // Cold, which is the second half of T.openingHint being zero: the first
-    // pass comes up already lit and reads its two beats short, so the prop is
-    // on the glass a third of a second in rather than a second and a third.
-    // Nothing is being interrupted — there is no fight yet — and a lesson
-    // fading up over an arena the player has only just laid eyes on is a
-    // lesson that arrives after they have decided nothing is happening.
     this.openingLive = this.showLesson(1.15, true);
   }
 
-  /**
-   * Put the lesson on screen for whatever the board is offering right now.
-   *
-   * The one door in. The opening hint and the auto-hint used to be two paths
-   * showing two different things — a lesson for the first, a hand sliding
-   * between two cells for the second — so the help a stalled player got in the
-   * middle of the fight was both the weaker of the two and unrecognisable as
-   * the thing that had taught them the rule at the top of the run.
-   *
-   * The swap is solved here rather than handed in: whatever armed this is at
-   * least a second old by the time it runs, and on a bad second the boss has
-   * dropped a block on the cell it was going to point at.
-   *
-   * @param {number} urgency how large the hand stands — see Hand.setUrgency
-   * @param {boolean=} cold whether the first pass skips its fade and reads its
-   *   opening beats short — for the lesson that is on screen before anything
-   *   else is. See Coach.play.
-   * @returns {boolean} whether anything is now being shown
-   */
   showLesson(urgency, cold) {
     const { hand, board, coach } = this.s;
-    // The ult lesson owns the prop outright while it is up — one hand, one
-    // Coach, and of the two moves on offer it is teaching the more valuable.
     if (this.ultLive) return false;
     const hint = this.currentHint();
     if (!hint) return false;
@@ -3444,12 +1658,6 @@ export class Director {
     this.lessonLive = true;
     hand.setUrgency(urgency);
 
-    // The lesson loops for as long as the player stalls, and it re-solves its
-    // own swap when the board moves out from under the one it is teaching. It
-    // is handed this rather than left to call currentHint itself so that the
-    // answer lands back here too: `idleHint` is what autoPlay reaches for and
-    // what the escalation lights up, and a coach that re-aimed privately would
-    // leave both of those pointing at the swap before last.
     const solve = () => {
       const next = this.currentHint();
       if (next) {
@@ -3459,59 +1667,12 @@ export class Director {
           return fresh;
         }
       }
-      // Nothing teachable on the board this instant, which in practice means a
-      // reshuffle is in the air. The lesson is handed back to the clock rather
-      // than simply stopped: restartIdle re-arms the chain, escalate waits the
-      // board out, and the player gets the hint again a beat later instead of
-      // never again for the rest of the run.
       this.lessonLive = false;
       this.openingLive = false;
       this.restartIdle();
       return null;
     };
 
-    /**
-     * The hero the demonstrated swap charges — but only once that hero's bar is
-     * actually full.
-     *
-     * This used to answer with whoever wore the swap's colour, charged or not,
-     * and only for the opening demo. What that put on the start screen was a
-     * hand knocking on a card reading 7 / 120 — a hand on a control that does
-     * nothing yet. A player who follows it taps, gets no ultimate, and has been
-     * taught by the creative itself that the hand is not to be trusted; a player
-     * who does not follow it has been shown a gesture with no consequence. Both
-     * are worse than saying nothing, and the second half of the sentence — match
-     * these, and *then* the hero lights up — was the half that never landed.
-     *
-     * So the gate is the charge bar and nothing else. `ready` is the flag
-     * HeroCard.addCharge sets on the frame the bar reaches its maximum, which is
-     * the same instant the card pops, says READY and the HUD shouts the hero's
-     * name; `downed` takes out a hero who filled and was then knocked over,
-     * because a hand on a corpse is the same broken promise one cell along. The
-     * hand now only ever lands on a card that will fire if it is tapped.
-     *
-     * Which also takes the `cold` gate off it. It was standing in for this test
-     * — before the fight nobody is charged, so before the fight was the only
-     * time the answer was harmless — and now that the real condition is written
-     * down, the opening demo and the in-play hint can both ask honestly. On the
-     * start screen the party is dealt at DIFFICULTY.chargeStart and this answers
-     * null every time, which is why the demo's card half is not seen there any
-     * more. It is seen the moment somebody's bar fills instead.
-     *
-     * `ultTaught` is the one thing that shuts it up for good: whoever has tapped
-     * a card has found the row, and teachUlt's whole job is done. See onCardTap,
-     * which sets it on the first tap on any card, charged or not.
-     *
-     * Two answers and not one, in that order. The colour match is the better
-     * sentence — match these, and *this* is the hero they charge — so it is
-     * asked for first. But the demo does not choose which swap the board is
-     * offering, and a run where the only charged hero is the healer while the
-     * board keeps serving up fire would say nothing at all for the whole of it.
-     * So the fallback is any charged hero: a weaker sentence, still a true one,
-     * and still the only thing on screen pointing at the row. Both answers pass
-     * the same test — the card will fire if it is tapped — which is the rule
-     * this whole function exists to keep.
-     */
     const ready = (card) => card.ready && !card.downed;
     const cardFor = this.ultTaught
       ? null
@@ -3529,33 +1690,17 @@ export class Director {
       coach.play(board, hand, shape, solve, cold, cardFor);
       return true;
     }
-    // A board whose swap cannot be taken apart into a pair and a traveller
-    // still gets what this always did: hand, two lit gems, no lesson.
     this.pointHand();
     this.highlighted = [hint.a, hint.b];
     board.setHighlight(this.highlighted, true);
     return true;
   }
 
-  /**
-   * Take the lesson off the screen and give the board back to the model.
-   *
-   * Every path that ends a hint comes through here, because a lesson on screen
-   * is three things at once — the marks, the prop, and real gems standing
-   * somewhere the model does not think they are — and dropping any one of them
-   * on its own leaves an outline floating over a board that has moved on.
-   */
   retireLesson() {
     const { board, coach, hand } = this.s;
     this.lessonLive = false;
     if (coach) coach.stop();
-    // Glided, not snapped. This is the one preview cancel the player is looking
-    // at when it happens — it is fired by their own first touch — and the two
-    // stones the lesson borrowed are a cell from home with the model already
-    // agreeing where they belong, so they can be allowed to travel there.
     board.cancelPreview(true);
-    // Back to its own size before anything else can pick the prop up: the demo
-    // hand is shown a shade large on purpose and nothing else here is a demo.
     hand.setUrgency(1);
     hand.stop();
     if (this.highlighted) {
@@ -3564,16 +1709,6 @@ export class Director {
     }
   }
 
-  /**
-   * The player showed up. The hand comes off, and stays off.
-   *
-   * The only exit the lesson has, and it is a one-way door: `openingSpent` is
-   * never cleared, so nothing below can put the prop back on screen for the
-   * rest of the run. Driven off the first touch on the board rather than off
-   * the first move that lands — see onInteract, which Board.handleDown fires
-   * before it has even looked at whether input is enabled, so a tap during a
-   * cascade retires the lesson exactly as a swipe does.
-   */
   spendOpeningHint() {
     if (this.openingSpent) return;
     this.openingSpent = true;
@@ -3581,8 +1716,6 @@ export class Director {
     this.openingToken++;
     this.retireLesson();
   }
-
-  /* ------------------------------------------------------- the ult callout */
 
   surgeUlt(index) {
     const { heroRow, hud, ultSurge } = this.s;
@@ -3667,38 +1800,6 @@ export class Director {
     this.rushForUlt();
   }
 
-  /* -------------------------------------------------------- the ult lesson */
-
-  /**
-   * Teach the ultimate: the frame round the hero who just charged, and the hand
-   * tapping it.
-   *
-   * The creative teaches two moves and this is the second of them. The board
-   * lesson says what a match is; nothing said what the row underneath it was
-   * for — and the ultimate is both the largest number anybody can put on the
-   * boss and the only thing a player can do that is not a swipe. What used to
-   * carry it was the READY caption on the card and a shout that is gone in two
-   * thirds of a second, over the head of somebody who has spent the whole run
-   * looking at the board.
-   *
-   * So it is the same lesson aimed at the row — same painted frame, same hand,
-   * same element colour — and it is bounded on every side, because a hand on
-   * the cards is a hand pointing away from the fight:
-   *
-   *   - it waits T.ultHintIn, so the shout naming the hero lands first rather
-   *     than being talked over by a prop arriving on top of it;
-   *   - it holds the screen for T.ultHint and then gives the board hint its
-   *     clock back — see endUltLesson, and the restartIdle under it;
-   *   - it is offered at most T.ultHintShows times in a run;
-   *   - and the first tap on any card ends it for good, exactly as the first
-   *     touch on the board ends the other one. See onCardTap.
-   *
-   * Nothing here blocks input either: the card is live under the frame from the
-   * first frame of the demo, and a player who taps straight through it gets
-   * their ultimate and never sees the second tap.
-   *
-   * @param {number} index the hero who just charged
-   */
   async teachUlt(index) {
     if (!T.ultHints || this.ultTaught || this.ended || this.ultLive) return;
     if (this.ultShows >= T.ultHintShows) return;
@@ -3708,63 +1809,30 @@ export class Director {
 
     this.ultShows++;
     const token = ++this.ultToken;
-    // Live from here rather than from the first frame of the demo, and the
-    // board's lesson comes off now rather than then. The two are on clocks that
-    // cross — the board hint waits T.hint of a settled board, this waits
-    // T.ultHintIn — so anything less would have them trading the hand between
-    // them in front of the player. Every way out below goes through
-    // endUltLesson, which is what gives the other one its clock back.
     this.ultLive = true;
     this.retireLesson();
 
     await delay(T.ultHintIn);
     if (token !== this.ultToken) return;
-    // Half a second is long enough for the fight to move: the hero can be
-    // knocked down by a boss beat that was already in the air, or spent by a
-    // player who did not need telling.
     if (this.ended || this.ultTaught || !this.canUlt(index)) {
       this.endUltLesson();
       this.restartIdle();
       return;
     }
 
-    // A shade larger than the board hint's hand, for the same reason the
-    // opening lesson's is: this one is pointing away from the thing the player
-    // has been looking at for the whole run.
     hand.setUrgency(1.15);
     coach.playCard(card, hand, card.hero.element);
 
-    // Polled rather than waited out in one piece — see ULT_TICK.
     for (let left = T.ultHint; left > 0; left -= ULT_TICK) {
       await delay(ULT_TICK);
       if (token !== this.ultToken) return;
       if (this.ended || !this.canUlt(index)) break;
     }
     this.endUltLesson();
-    // And the board gets its hint back, on the clock rather than in the same
-    // frame: the player has just been shown something, and a swipe demo landing
-    // where the tap demo left off is two lessons in one breath.
     this.restartIdle();
     this.reofferUlt(index);
   }
 
-  /**
-   * Put the lesson up again, while that hero is still charged and untapped.
-   *
-   * The one thing the callout could not do before. A hero fills, the row says
-   * READY, the hand taps the card for 3.2 seconds — and if the player happened
-   * to be watching the boss for those 3.2 seconds, nothing ever told them again:
-   * the lesson fired once per fill, and a hero who stays charged never fills a
-   * second time. So the largest number in the fight sat there unspent behind a
-   * control nobody had been shown.
-   *
-   * Cheap to keep offering, because every way it can become pointless is
-   * already checked. `ultTaught` shuts it for the whole run on the first tap on
-   * any card, `canUlt` drops it the moment the hero is spent or knocked down,
-   * T.ultHintShows is the ceiling, and the token retires this the instant
-   * another hero's lesson takes the hand — read after endUltLesson has bumped
-   * it, so what is captured here is the quiet, not the pass that just finished.
-   */
   async reofferUlt(index) {
     if (!T.ultHintAgain || this.ultTaught || this.ended) return;
     if (this.ultShows >= T.ultHintShows) return;
@@ -3775,16 +1843,6 @@ export class Director {
     this.teachUlt(index);
   }
 
-  /**
-   * Take the ult lesson off the screen.
-   *
-   * The token retires whatever pass of it is in flight — including one still
-   * inside its opening wait — and retireLesson does the clearing, because the
-   * marks and the prop are shared with the board's lesson and there is one
-   * teardown for both. Deliberately does not re-arm the idle chain: the callers
-   * disagree about what should happen next, and a tap that is about to spend an
-   * ultimate does not want a hand over the board a frame later.
-   */
   endUltLesson() {
     if (!this.ultLive) return;
     this.ultToken++;
@@ -3792,20 +1850,6 @@ export class Director {
     this.retireLesson();
   }
 
-  /**
-   * The boss swings on his own clock, whether or not anybody has moved.
-   *
-   * Re-arms itself rather than firing once, because the case it exists for is
-   * the one where nothing else will ever wake it: a viewer who never touches the
-   * board leaves `playerTurn` parked on a swipe that is not coming, and one
-   * beat of boss and then silence is barely better than silence. Every player
-   * turn calls in here again and the token retires the previous chain, so the
-   * clock is always measured from the last thing that actually happened.
-   *
-   * `queueBoss` is the only way on to the boss's track and it refuses at two
-   * deep, so a slow swing cannot stack a queue of them behind it — the tick that
-   * gets turned away simply loses that beat and the next one tries again.
-   */
   armBossPress() {
     if (!T.bossPress) return;
     const token = ++this.pressToken;
@@ -3816,18 +1860,6 @@ export class Director {
     });
   }
 
-  /**
-   * Play the move ourselves — but only for a viewer who has never touched the
-   * screen, and only while T.autoPlay says so.
-   *
-   * `playerActed` is the whole difference between a creative that demos itself
-   * to a passive impression and one that takes the board away from someone who
-   * is playing it: the moment it is set, nothing here ever fires again and a
-   * stalled player simply runs out of clock like anybody else.
-   *
-   * T.autoPlay is off, so nothing here fires for anybody. See the flag for what
-   * a passive impression looks like as a result.
-   */
   armAutoPlay() {
     if (!T.autoPlay || this.playerActed) return;
     const token = ++this.moveToken;
@@ -3837,29 +1869,10 @@ export class Director {
     });
   }
 
-  /**
-   * Restart the hand nagging. Unlike the deadline above, this one *should*
-   * reset on every touch — nobody wants a hand animating under their thumb.
-   *
-   * The single gate for the whole prop: every path that could put a hand or a
-   * highlight on screen — the idle timer, a rejected swap, a boss beat landing
-   * mid-turn — comes through here, so T.hints off here is T.hints off
-   * everywhere. `idleHint` is still solved and still kept, because autoPlay
-   * falls back to it for a viewer who never touches the screen.
-   *
-   * @param {boolean} immediate skip the initial silence (used after a bad swap)
-   */
   restartIdle(immediate) {
     if (this.ended) return;
-    // Everything below begins by taking the marks and the hand down, which is
-    // the one thing that must not happen to a lesson that is mid-sentence on a
-    // card. The chain is armed again by teachUlt on its way out.
     if (this.ultLive) return;
     const token = ++this.idleToken;
-    // The opening lesson is not on this timer — it owns the prop outright
-    // until the player touches the board — so it is the one thing here that is
-    // not taken down. Everything else comes off now and comes back on the
-    // clock, which is what makes a touch landing during a hint read as instant.
     if (!this.openingLive) this.retireLesson();
     if (!T.hints || !this.idleHint) return;
     this.escalate(token, immediate);
@@ -3873,35 +1886,17 @@ export class Director {
       if (token !== this.idleToken || this.ended) return;
     }
 
-    // And then it waits on the board as well as on the clock. The lesson
-    // slides the real stones — Board.previewSwap, which refuses outright while
-    // a cascade or a wave of obsidian is in the air — so a hint that fired on
-    // time onto a moving board would spend its first pass drawing outlines
-    // over gems that are somewhere else and then quietly do nothing at all.
     while (board.busy) {
       await delay(0.12);
       if (token !== this.idleToken || this.ended) return;
     }
 
-    // The opening lesson owns the prop outright while it is up, and it is
-    // already showing this exact swap. Restarting it here would reset a demo
-    // mid-sentence every time the two clocks crossed, which is the one thing a
-    // loop like this must never look like. The idle chain is armed again by
-    // the touch that spends the opening hint — see onInteract.
     if (this.openingLive && !this.openingSpent) return;
 
     if (!this.showLesson(1)) return;
 
-    // Clamped: the two delays are independent knobs and nothing stops a
-    // retune putting `pulse` under `hint`, which would otherwise light the
-    // gems up in the same frame as the hand and skip the escalation entirely.
     await delay(Math.max(0, T.pulse - T.hint));
     if (token !== this.idleToken || this.ended) return;
-    // The escalation is the one beat of this chain that outlives its own
-    // lesson: showLesson refuses while the ult lesson is up, but a pass that
-    // got past it a moment earlier is still holding this delay, and what it
-    // does on the other side is grow the hand and light two gems. Both of
-    // those would land on top of a demo pointing at a card.
     if (this.ultLive) return;
     hand.setUrgency(1.3);
     if (this.idleHint) {
@@ -3910,30 +1905,6 @@ export class Director {
     }
   }
 
-  /**
-   * How long to wait before playing the move ourselves — passive viewers only.
-   * Shrinks as the clock runs down so a hands-off impression still gets a whole
-   * fight rather than a countdown and an end card.
-   *
-   * The divisor used to be the literal 4: spread what is left of the run over
-   * four more moves. Four is not the number, and it never was a number this
-   * file gets to hold an opinion about — DIFFICULTY.damagePerGem has moved
-   * five times since, and every move changed how many moves the boss is
-   * actually worth. A guard planning a fixed four of them paced the demo to a move every
-   * seven seconds, which is the ceiling T.auto, which is what it would have
-   * done with no guard at all.
-   *
-   * Measured, that is a health bar which moves twice in the whole creative and
-   * stands perfectly still for the nine seconds in between. The bar was not
-   * broken and neither was the drain; there was simply almost nothing happening
-   * to it. A boss fight whose boss visibly loses no health is not selling a boss
-   * fight.
-   *
-   * So the divisor is the number of moves the boss actually still needs, at what
-   * this fight has been paying for one — see paidPerMove. It costs the passive
-   * viewer nothing except the pauses, and it never fires for anybody who has
-   * touched the screen, so nothing here can take a turn off a real player.
-   */
   autoDelay() {
     const left = T.hardCap - T.finaleReserve - toReal(now());
     const moves = Math.max(1, Math.ceil(this.bossHp / this.paidPerMove()));
@@ -3946,10 +1917,6 @@ export class Director {
     if (!this.idleHint) return;
     const a = board.cellPos(this.idleHint.a.r, this.idleHint.a.c);
     const b = board.cellPos(this.idleHint.b.r, this.idleHint.b.c);
-    // The hand takes the colour of the gem it is about to drag, which is the one
-    // it starts on. The lesson wears the run's colour instead — see
-    // ui/coach.js — and cannot here: a swap whose shape could not be read is
-    // exactly why this path is the one being taken, so there is no run to ask.
     hand.setElement(board.typeAt(this.idleHint.a.r, this.idleHint.a.c));
     hand.swipeLoop(
       { x: board.x + a.x, y: board.y + a.y },
@@ -3957,11 +1924,6 @@ export class Director {
     );
   }
 
-  /**
-   * Retries rather than firing once: a stray tap can leave the board mid-swap
-   * exactly when the deadline lands, and a single missed attempt would strand
-   * the demo for the rest of the run.
-   */
   async autoPlay() {
     const token = this.moveToken;
     const board = this.s.board;
@@ -3982,70 +1944,25 @@ export class Director {
     this.idleToken++;
     this.moveToken++;
     this.pressToken++;
-    // Only the pending chain, not the rule: armOpeningHint puts it back on the
-    // next player turn if the player still has not moved. spendOpeningHint is
-    // the one thing that ends it for good.
     this.openingToken++;
     this.openingLive = false;
-    // The other lesson comes off with it. This is the end of a turn, and
-    // whatever the turn ended for — a swap, an ultimate, the boss, the clock —
-    // owns the hand from here.
     this.endUltLesson();
     this.retireLesson();
     this.idleHint = null;
   }
 
-  /* ------------------------------------------------------- the last screen */
-
-  /**
-   * The verdict, and the pitch on it — one screen, not two.
-   *
-   * It was one screen, then two, and it is one again. The two-screen split
-   * existed because the end card came up with a plaque stamped into the key art
-   * and spent the one beat the player had actually earned: the moment they beat
-   * a boss, or a boss beat them, went by inside an advert. Splitting them gave
-   * the verdict its own screen and put the store behind it.
-   *
-   * What that cost is a whole extra screen between the fight and the install —
-   * a dissolve, a second card to read, and a second tap before the only tap that
-   * matters. So the store card is gone and its PLAY NOW plate stands on the
-   * verdict instead: the player wins, reads it, and the button under the word is
-   * the store. See OutcomeScreen, which owns both endings now.
-   *
-   * Both endings are therefore terminal and this method ends on `show`. A win
-   * ends on PLAY NOW, a wipe on RETRY — which rebuilds the whole cast on the
-   * spot, see main.js `restart`, so this run's last act is to not put a card
-   * over a fight that has already started again. Which control the card stands
-   * is the card's own answer; the install is still asked for twice on both
-   * paths, because the banner in the HUD is up for the whole fight.
-   */
   async finish() {
     if (this.ended) return;
     this.ended = true;
     this.stopIdle();
-    // The last of the three drops, and the one that catches the routes that
-    // never go round playFight's loop again — the hard cap collecting from
-    // Director.run while a rush was in flight. See setUltRate.
     this.setUltRate(1);
-    // The room goes out with the fight — a drone under a store button is a
-    // drone nobody asked for. The music does not go out with it: it crosses to
-    // the game's lobby theme under both screens, which is the one piece of sound
-    // on them that is also the thing being sold. See music.endcard, and
-    // AUDIO.musicEndcard for placements that want the ending quiet.
     sfx.bed.stop();
     music.endcard();
     this.doomArmed = false;
     this.s.hud.hideDoom();
     this.s.board.lockInput();
-    // Taken off in one frame rather than faded, because the card's still is
-    // captured the instant `show` is called and a fading callout would be
-    // welded half-transparent across the photograph. The 0.18s beat that used
-    // to buy that fade its time is gone with every other wait on this path:
-    // the verdict lands on the frame the fight ends. See Director.win.
     this.s.hud.hideShout(true);
     if (this.s.ultSurge) this.s.ultSurge.hide(true);
-    // Cut off by the hard cap with the boss still standing: that is a loss, and
-    // calling it anything else would be the old lie in a new place.
     const outcome = this.outcome || (this.bossHp <= 0 ? "victory" : "defeat");
     track(EV.end, {
       outcome,
@@ -4053,13 +1970,8 @@ export class Director {
       bossHp: Math.max(0, Math.round(this.bossHp)),
     });
 
-    // Asked before the card is shown rather than after: `show` settles the
-    // moment a terminal card is standing, and by then the card is up and the
-    // answer has to already have been acted on.
     const terminal = this.s.outcome.terminalFor(outcome);
 
-    // The verdict, over a frozen still of the fight that just ended. On a win it
-    // takes a tap or about three seconds and there is no way off it but forward.
     await this.s.outcome.show(outcome);
 
     if (terminal) return;

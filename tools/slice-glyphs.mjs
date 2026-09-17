@@ -1,39 +1,3 @@
-/**
- * Cut a contact sheet of separate shapes into one PNG each, found rather than
- * measured.
- *
- *   node tools/slice-glyphs.mjs src/assets/numbers/image.png 1 2 3 4 5 6 7 8 9
- *   node tools/slice-glyphs.mjs sheet.png --prefix=digit --out=src/assets/numbers
- *   node tools/slice-glyphs.mjs sheet.png --box        # common box, not tight
- *
- * The third slicing tool in here, and the reason it is a third rather than a
- * flag on either of the other two is what it is given to work with.
- *
- * tools/slice-pack.mjs cuts by hand-authored rectangles, stored as fractions of
- * the sheet. That is the right answer when the layout is a decision somebody
- * made and wrote down — re-export the sheet at another resolution and the
- * fractions still hold. It is the wrong answer for a sheet somebody was handed,
- * where the layout is whatever the artist happened to do and typing out nine
- * boxes by eye is nine chances to clip a serif.
- *
- * tools/cut-glow.mjs splits on empty rows, which is all a stack of bars needs.
- * A grid of glyphs has two axes and the columns do not line up between rows —
- * five digits over four, on this sheet — so rows and columns cannot both be
- * found by projection without cutting one of them wrong.
- *
- * So this one finds the shapes themselves: every run of touching pixels is one
- * asset. Nothing about the layout is assumed except that two glyphs do not
- * touch, which is a property of the art rather than of the grid, and it holds
- * for a sheet laid out in rows, in a ring, or thrown down at random.
- *
- * What it does assume is a real alpha channel. This sheet has one — 62% of it is
- * a clean zero — so there is no backdrop to cut and none of cut-bg's or
- * cut-glow's machinery is wanted. What it does need is ALPHA_FULL: the art tops
- * out at 254, so left alone every glyph would render very slightly see-through.
- *
- * ffmpeg is the only dependency, and only to decode and encode PNG.
- */
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -41,45 +5,12 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-/**
- * Alpha at or above which a pixel belongs to a shape.
- *
- * Low, because it decides membership and not opacity. A glyph with a soft edge
- * fades to nothing over two or three pixels, and every one of those pixels is
- * part of the glyph — the number that matters is only how much of the edge gets
- * carried into the crop, and eight is under one level in thirty.
- */
 const FLOOR = 8;
 
-/**
- * Alpha the art is normalised so its solid interior reaches.
- *
- * The sheet peaks at 254 rather than 255, over 345,000 pixels of it, which is a
- * quantised export and not a decision anybody made: the digits are meant to be
- * opaque. Scaling by 255/254 rather than clamping keeps the soft edge a ramp
- * instead of pushing its top step flat.
- */
 const ALPHA_FULL = 255;
 
-/**
- * Smallest run of touching pixels that is a shape rather than a speck, as a
- * fraction of the sheet's area.
- *
- * A hundredth of a percent. On a 1536x1024 sheet that is 157 pixels, which is
- * three orders of magnitude under the smallest digit here and still well clear
- * of the stray anti-aliased dot a lossy export leaves behind.
- */
 const SPECK = 0.0001;
 
-/**
- * How much two shapes have to overlap vertically to be called the same row, as
- * a fraction of the shorter one's height.
- *
- * Half. Digits on one line overlap almost entirely; a 7 and a 4 on separate
- * lines do not overlap at all. Nothing on a sheet like this lands near the
- * boundary, which is why a plain threshold is enough and no clustering is
- * needed.
- */
 const SAME_ROW = 0.5;
 
 function decode(file) {
@@ -132,17 +63,6 @@ function encode(file, w, h, px) {
   );
 }
 
-/**
- * Every run of touching pixels on the sheet, as a box and a pixel count.
- *
- * Eight-connected, so a shape joined only corner to corner is still one shape —
- * a diagonal stroke on a soft edge can thin to exactly that, and four-connected
- * labelling would saw a 7 in half at the bend.
- *
- * The frontier is an explicit array rather than recursion. A glyph on this sheet
- * is around sixty thousand pixels and a recursive fill would be sixty thousand
- * frames deep.
- */
 function shapes({ w, h, px }) {
   const seen = new Uint8Array(w * h);
   const found = [];
@@ -187,14 +107,6 @@ function shapes({ w, h, px }) {
   return found;
 }
 
-/**
- * Put the shapes in reading order: rows down the sheet, and left to right
- * within a row.
- *
- * Sorting on y alone would interleave the two lines wherever one glyph sits a
- * few pixels higher than its neighbour — which on this sheet is most of them,
- * because a 7 has no descender and a 9 does.
- */
 function readingOrder(found) {
   const rows = [];
   [...found]
@@ -218,13 +130,6 @@ function readingOrder(found) {
   return rows.flatMap((r) => r.items.sort((a, b) => a.x0 - b.x0));
 }
 
-/**
- * Lift one shape out of the sheet, with its alpha pushed up to opaque.
- *
- * `box` overrides the crop, which is how --box gives every glyph the same
- * canvas: the shape keeps its own position inside a taller frame, so the set can
- * be drawn side by side without carrying a table of offsets around.
- */
 function lift({ w, px }, s, box) {
   const b = box || s;
   const bw = b.x1 - b.x0 + 1;
@@ -247,7 +152,6 @@ function lift({ w, px }, s, box) {
   return { w: bw, h: bh, px: out };
 }
 
-/** Scale the whole sheet's alpha so its strongest pixel lands on opaque. */
 function normalise(sheet) {
   let peak = 0;
   for (let i = 3; i < sheet.px.length; i += 4) {
@@ -261,8 +165,6 @@ function normalise(sheet) {
   }
   return peak;
 }
-
-/* ---------------------------------------------------------------------- run */
 
 const argv = process.argv.slice(2);
 const flags = argv.filter((a) => a.startsWith("--"));
@@ -304,9 +206,6 @@ if (names.length && names.length !== found.length) {
   process.exit(1);
 }
 
-// The common frame, when --box is on: the tallest shape's height, over the
-// highest top and under the lowest bottom, so nothing is clipped and every
-// glyph keeps where it sat on the line.
 const frame = {
   y0: Math.min(...found.map((s) => s.y0)),
   y1: Math.max(...found.map((s) => s.y1)),

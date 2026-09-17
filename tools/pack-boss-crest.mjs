@@ -1,33 +1,3 @@
-/**
- * Pack the boss crest — the badge at the head of the health bar.
- *
- *   node tools/pack-boss-crest.mjs
- *
- * Two files go in and three come out.
- *
- *   boss-crest-frame.png  268x431  the gold hexagon, and only the gold: 96% of
- *                                  the file is transparent. It is an outline
- *                                  with no bore, so a badge built from it alone
- *                                  would be a window onto the arena.
- *   boss-crest-face.png   256x256  the beast's head, cut out, and cut off — the
- *                                  render ends mid-chest on a hard horizontal
- *                                  edge, which inside a badge reads as a
- *                                  photograph someone has trimmed with scissors.
- *
- * So this bakes what the two files are missing rather than leaving the game to
- * derive it every boot:
- *
- *   1. The plate. Filled per row between the outermost gold pixels — the shape
- *      is convex, so that is exactly its interior, and taking it off the art
- *      means the bore can never drift out of the frame it sits in. Comes out
- *      white, for the badge to tint.
- *   2. The fade. The face's bottom fifth ramps to nothing on a curve, so the
- *      head emerges out of the dark of the plate instead of being pasted onto
- *      it.
- *   3. WebP. The head alone is 124 kB of PNG, which is 165 kB of base64 in a
- *      deliverable that is one inlined HTML file.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,25 +7,15 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const IN = join(ROOT, "src/source/ui");
 const OUT = join(ROOT, "src/assets/ui");
 
-/** Repo-relative, forward slashes, for the log lines. */
 const rel = (p) =>
   p
     .slice(ROOT.length + 1)
     .split(sep)
     .join("/");
 
-/** Alpha at or under this is backdrop, not art. */
 const EMPTY = 8;
 
-/**
- * Share of the face's height that ramps out at the bottom.
- *
- * A fifth: enough to swallow the render's cut edge and the shoulders just above
- * it, and not so much that it starts eating the jaw.
- */
 const FADE = 0.2;
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -83,9 +43,6 @@ function decode(file) {
   );
 }
 
-// `-quality` is the colour; the alpha channel rides along at the same setting
-// and is what a cutout lives or dies by, so this is the knob to turn if an edge
-// ever picks up a fringe.
 function encode(buf, w, h, file) {
   execFileSync(
     "ffmpeg",
@@ -119,9 +76,6 @@ function encode(buf, w, h, file) {
   );
 }
 
-/* -------------------------------------------------------------------- trim */
-
-/** The art's own bounds, and the pixels inside them. */
 function load(name) {
   const file = join(IN, name);
   const { w, h } = probe(file);
@@ -158,14 +112,9 @@ function load(name) {
   return { px: out, ...cut };
 }
 
-/* -------------------------------------------------------------------- main */
-
 const frame = load("boss-crest-frame.png");
 const face = load("boss-crest-face.png");
 
-// 1. The plate: the frame's interior, as a white stamp. Per row, between the
-// outermost painted pixels — which for a convex outline is the inside of it,
-// gold rim included, so the frame lands exactly on the plate's edge.
 const plate = Buffer.alloc(frame.w * frame.h * 4);
 let filled = 0;
 for (let y = 0; y < frame.h; y++) {
@@ -187,8 +136,6 @@ for (let y = 0; y < frame.h; y++) {
   }
 }
 
-// 2. The fade: the face's bottom ramps out, squared so it leaves gently and
-// lands hard rather than the other way round.
 const from = Math.round(face.h * (1 - FADE));
 for (let y = from; y < face.h; y++) {
   const t = 1 - (y - from) / (face.h - from);

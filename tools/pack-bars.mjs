@@ -1,76 +1,3 @@
-/**
- * Pack the hero card's two gauges: the trough, and the paints that go in them.
- *
- *   node tools/pack-bars.mjs          # -> src/assets/board/bar-*.webp
- *   node tools/pack-bars.mjs --png    # keep intermediate PNGs too
- *
- * None of it is drawn. It all existed as art already, and the card used to draw
- * its own versions of all of it: a rounded rectangle at 12% alpha for the
- * trough, and flat fills with a white gloss band over them for the paints.
- * Smudges standing in for files.
- *
- * TROUGH — `src/source/board/bars/progress-2-blue.png`, a ready-made 269x29 bar
- * out of the original asset pack: a lit rim, a near-black interior, and a blue
- * fill already painted into its left third. The rim is what we came for. The
- * baked fill is not, because a reading that is part of the art cannot move — so
- * it is cut off and the bar rebuilt empty out of the flat middle of the end
- * with no paint in it, stretched the whole length.
- *
- * The rim goes too, and so do the two arcs it turned at the ends — see `bore`,
- * which is what is left: a square, borderless, near-black track. The rim is why
- * this file was pointed at this source, and the gauge is better without it. At
- * the four-odd points a card's bar is drawn at, three source rows of border on
- * a twenty-five row bar is a quarter of the gauge given over to an outline, and
- * the paint inset to clear it drew a dark line round a bar that was full. The
- * paints below are cut square to match — nothing in either gauge is rounded, and
- * nothing is framed.
- *
- * PAINTS — `src/source/board/bars/green.png` and `blue.png`: one bar per file, at the
- * size it was painted, each already on nothing rather than on a field. They are
- * cut off `src/source/board/bars/sheet.png` by tools/slice-bars.mjs, which is where
- * the field-removal lives and where the reasoning about it is written down: that
- * sheet's four bars are pictures of bars on black, and the blend along every edge
- * of one has to be divided back out before it can be reduced. Nothing in here has
- * to know that. It gets two cutouts.
- *
- * They replace `pill-sheet.png`, which is no longer read: the pills were glossy
- * in the wrong way — a hard specular band across the top third — and next to the
- * flat frames and plates the rest of a card is built from they read as plastic.
- * These are the gauge the mockup asks for: a lit edge along the top, a long even
- * fall to a dark bottom edge, and nothing else.
- *
- * The ends are found on each cutout's own alpha — see `flatSlab` — so there is no
- * corner radius written down in here at all: the first column opaque from top to
- * bottom is the first one past the arc. The flat middle between them is what gets
- * packed, and both arcs are left on the floor. That is not a shortcut, it is what
- * the art turns out to be: no row of either bar's body varies along its whole
- * length by more than 18 of 255, and the median row varies by 6, so a bar is a
- * vertical bevel and nothing else and sixteen rows of it stretch to any length.
- * The worst this tool prints is larger — 29 on the green and 56 on the blue —
- * because it measures every row of the slab and the two feathered rows at each
- * end are the export's own antialiasing rather than the painting. Nothing is
- * put back at the ends: the slab is packed as it is cut, square, because the
- * trough it lies in is square. It used to leave here with stadium caps, which
- * was right for as long as the bore was round.
- *
- * Three come out of the three files:
- *
- *   bar-hp      the green bar as painted, for a hero who is fine.
- *   bar-hp-low  the same bevel under the card's own HP_LOW red, for one who is
- *               not. The gauge cannot get there by tint — Pixi's tint is a
- *               multiply, and no multiple of a green bar is red — and drawing
- *               the low state instead would give one gauge two looks. So the
- *               green's shading is measured as a ramp against its own mean row
- *               and the red is poured through it, which keeps the bevel and
- *               changes only the hue.
- *   bar-mana    the blue bar, for the charge rule. It replaces a 440x64 swatch
- *               of flat cornflower that used to come from
- *               `src/source/board/mana-bar.png`; that file is no longer read.
- *
- * Everything here is encoded lossless: gradients and thin lit rims are exactly
- * what a lossy encoder bands and smears.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,64 +11,23 @@ const SRC = {
 };
 const OUT = join(ROOT, "src/assets/board/bar");
 
-/**
- * Size to pack each piece at.
- *
- * The rule is `readouts()`: 0.86 of a card wide and 0.035 of it tall, so about
- * 48x4 points on a phone and half again as much in the landscape column, on a
- * renderer clamped to resolution 2. 160 across covers the worst case with a
- * pixel to spare, and past that every pixel is base64 nobody sees.
- *
- * The height is deliberately generous — four times what is drawn. The trough's
- * rim is one source pixel deep after the reduction and has to survive it, and
- * the swatch has nothing along that axis at all, so it rides along for free.
- */
 const SIZE = {
   trough: { w: 160, h: 16 },
   paint: { w: 160, h: 16 },
 };
 
-/**
- * The paints packed, and what each one becomes.
- *
- * `src` is which of the two cutouts it is read from — the colour the bar was
- * painted, which is all the file knows about itself. `recolour` is the hue poured
- * through that bar's own bevel, see the header; a bar with none is packed once,
- * in the colour it was painted.
- */
 const PAINTS = [
   { src: "green", name: "hp", also: { name: "hp-low", recolour: 0xff3b2f } },
   { src: "blue", name: "mana" },
 ];
 
-/** Alpha at or under this is nothing, not art. */
 const EMPTY = 12;
 
-/** Alpha at or over this is the body of the bar rather than its rounded end. */
 const SOLID = 250;
 
-/**
- * How much of the fullest row a row has to match to count as the bar's body.
- *
- * Half. `bodyRows` is separating two things that are nowhere near each other —
- * the rows opaque for the bar's whole flat length, about 1090 columns of these
- * cutouts, and the two feathered rows at each end which are opaque for none of
- * it — so anything between 0 and 1 picks the same rows, and half says that
- * without pretending to a precision the measurement does not have.
- */
 const BODY_ROW = 0.5;
 
-/**
- * Columns dropped past each rounded end, on top of the arc itself.
- *
- * Two. The slab is about to be stretched the whole length of a gauge, so a single
- * half-covered column left at one end of it is a ghost along the entire bar — and
- * the arcs here are cut by coverage, which puts a feathered column at exactly the
- * place `SOLID` stops looking.
- */
 const END_MARGIN = 2;
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -202,11 +88,8 @@ const LOSSLESS = [
   "6",
 ];
 
-/* -------------------------------------------------------------------- pixels */
-
 const at = (w, x, y) => (y * w + x) * 4;
 
-/** Tightest box holding every pixel the eye can see. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -233,14 +116,6 @@ function crop(px, w, box) {
   return out;
 }
 
-/**
- * Rightmost column with paint in it.
- *
- * Blue rather than "brighter than the interior": the interior is near-black and
- * so is the shadow under the fill's cap, but nothing in the empty half of this
- * bar is blue. The glow the fill throws past its own edge is caught by the same
- * test, which is what we want — it is paint too, and it has to go.
- */
 function paintEdge(px, w, h) {
   let last = -1;
   for (let x = 0; x < w; x++) {
@@ -256,11 +131,6 @@ function paintEdge(px, w, h) {
   return last;
 }
 
-/**
- * How many rows of rim there are top and bottom, read off a column that is all
- * trough. The interior is the darkest thing in the bar, so the rim is however
- * many rows it takes to get down to it.
- */
 function rim(px, w, h, x) {
   const lum = (y) => {
     const i = at(w, x, y);
@@ -277,26 +147,6 @@ function rim(px, w, h, x) {
   return { top, bottom };
 }
 
-/**
- * The bar, rebuilt with no paint in it and no border on it: the bore, and
- * nothing else.
- *
- * Two things are cut away here, and both of them are the same instruction —
- * this is a track, not a frame.
- *
- * Along the length: the paint is cut at `paintTo` and the source's own arc is
- * left on the floor at the other end, and what is between them is stretched over
- * the whole width. Both ends used to be that arc, the right one as drawn and the
- * left one mirrored off it, so the bar wore half its own height of rounding at
- * each end.
- *
- * Across it: `edges` are dropped, which is the lit rim the source was cut for in
- * the first place. It read as a frame — at the depth a card's gauge is drawn, a
- * three-row border on a twenty-five-row bar is a quarter of the gauge spent on
- * an outline, and the paint sitting inside it left a dark line all the way round
- * a full bar. What is left is the interior: near-black, with the shallow fall
- * from top to bottom that the art has and a flat fill does not.
- */
 function bore(px, w, h, paintTo, edges) {
   const cap = Math.round(h / 2);
   const midFrom = paintTo + END_MARGIN;
@@ -323,23 +173,6 @@ function bore(px, w, h, paintTo, edges) {
   return { px: out, w, h: oh };
 }
 
-/**
- * Which rows of a cutout are the bar's body rather than its feathered edges.
- *
- * The top and bottom rows of one of these bars are part coverage, and that is the
- * art: the lit edge and the dark one, recovered from a blend with the field the
- * sheet was painted on, neither of them opaque anywhere along its length. So a
- * column cannot be asked whether it is opaque from the top of the ink box to the
- * bottom of it — none is. `flatSlab` asked exactly that, and with no column ever
- * answering yes it walked its left edge all the way to its right one and packed
- * the single half-covered column at the tip of the arc. Both gauges shipped as a
- * 2%-alpha haze: sprites in place, textures decoded, nothing on screen.
- *
- * The body is measured rather than trimmed by a written-down count of rows: a row
- * is body if it is opaque over BODY_ROW of the length the fullest row manages. On
- * these cutouts that is rows 2 to 102 of 105 — two feathered rows fall off each
- * end and everything between them is opaque for the bar's whole flat middle.
- */
 function bodyRows(px, w, h) {
   const opaque = [];
   for (let y = 0; y < h; y++) {
@@ -358,21 +191,6 @@ function bodyRows(px, w, h) {
   return { y0, y1 };
 }
 
-/**
- * The flat middle of a cutout: its ink box, less the rounded ends.
- *
- * Three measurements and no constants but the margin. The ink box is every pixel
- * the eye can see, which on a cutout is the bar and only the bar; the body is
- * which rows of it are asked about; the ends are wherever the alpha stops being
- * solid down that body, which is the corner arc and only the arc. A bar with
- * square ends measures as having none and keeps its whole length.
- *
- * Nothing comes off the top or the bottom, and nothing needs to: the row that was
- * a blend of the lit edge and the field left the slicer as the lit edge at the
- * coverage it actually has. Dropping it would throw away the brightest row of the
- * bevel, which is the one row of it a gauge four points deep really shows. It is
- * left out of the arc test and kept in the slab.
- */
 function flatSlab(px, w, h) {
   const box = inkBox(px, w, h);
   const body = bodyRows(px, w, h);
@@ -399,20 +217,6 @@ function flatSlab(px, w, h) {
   };
 }
 
-/**
- * The same bevel in another hue.
- *
- * Every row is scaled to the ramp its own luminance makes against the slab's
- * mean row, and the new colour is put through that ramp. So the row that was
- * average stays exactly the colour asked for, the lit row above it comes out as
- * far above that as the source's was above its own mean, and the dark edge as
- * far below — the bevel is the source's, measured rather than invented, and only
- * the hue is new.
- *
- * Channels clip rather than desaturating together. HP_LOW is already almost pure
- * red, so its top rows have nowhere to go but white-ward in green and blue,
- * which is what a lit edge on a red bar looks like anyway.
- */
 function recolour(px, w, h, color) {
   const lum = (y) => {
     const i = at(w, 0, y);
@@ -437,7 +241,6 @@ function recolour(px, w, h, color) {
   return out;
 }
 
-/** The widest a single column varies down its own length, over every column. */
 function verticalSpread(px, w, h) {
   let worst = 0;
   for (let x = 0; x < w; x++) {
@@ -455,7 +258,6 @@ function verticalSpread(px, w, h) {
   return worst;
 }
 
-/** Area-average down, weighting colour by alpha. Same filter as the other packers. */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -508,8 +310,6 @@ function resample(src, sw, sh, dw, dh) {
 
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/* --------------------------------------------------------------------- main */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 function write(name, buf, w, h) {
@@ -522,8 +322,6 @@ function write(name, buf, w, h) {
     `out  ${rel(OUT)}-${name}.webp  ${kb(statSync(`${OUT}-${name}.webp`).size)}`,
   );
 }
-
-/* ---- the trough the rule sits in ---- */
 
 const tInfo = probe(SRC.trough);
 const tRaw = decode(SRC.trough);
@@ -551,8 +349,6 @@ write(
   SIZE.trough.w,
   SIZE.trough.h,
 );
-
-/* ---- the paints, one cutout per colour ---- */
 
 for (const paint of PAINTS) {
   const file = SRC[paint.src];
@@ -582,7 +378,6 @@ in   ${rel(file)}  ${info.w}x${info.h}  ${kb(statSync(file).size)}`,
   }
 }
 
-/** Rows for columns, so `verticalSpread` can be asked about the other axis. */
 function transpose(px, w, h) {
   const out = Buffer.alloc(w * h * 4);
   for (let y = 0; y < h; y++) {

@@ -1,16 +1,3 @@
-/**
- * Hero cards.
- *
- * All five act. Every match is a volley the whole row fires — see `strike` and
- * HeroRow.strikeOrder — every card charges off its own colour, and every card
- * has an ultimate the player can spend. The four who used to be silhouettes
- * promising a roster are the roster.
- *
- * And they have faces now: the portrait is the painted bust from src/avatars —
- * see avatars.js — not the drawn cowl, which survives only as the stand-in for
- * a hero whose art is missing.
- */
-
 import { Container, Graphics, Sprite, Text, Rectangle } from "pixi.js";
 import {
   DIFFICULTY,
@@ -67,39 +54,11 @@ const ART = 128;
 
 const HP_GOOD = 0x4ee27a;
 const HP_LOW = 0xff3b2f;
-/** Colour the card flashes through when it eats a hit. */
 const HURT_FLASH = 0xff4a3a;
-/** Rest tint of a hero who has been knocked out. */
 const DOWN_TINT = 0x6a6270;
 
-/**
- * How much of a cover fit's vertical overflow is taken off the bottom rather
- * than shared with the top. 0 centres the bust the way a cover fit does by
- * default; 0.5 puts the top of the art flush with the top of the card.
- *
- * 0.34 keeps a little air over the head — a crown clipped by a millimetre reads
- * worse than one with room, and these six are the roster this creative is
- * selling.
- */
 const HEAD_BIAS = 0.34;
 
-/**
- * The wash the card's readouts sit on, and how far up the card it runs.
- *
- * Drawn by the card rather than baked into the bust — see avatars.js, which
- * still lays the hero's own element colour over the bottom of the art. The
- * difference matters: the bust is square and the card is not, so the card
- * cover-fits it and crops whatever runs past the short side. A scrim painted
- * into the art therefore lands wherever the crop leaves it, and on a card wider
- * than it is tall the dark end of it falls off the bottom edge entirely — which
- * is exactly where the name is, and why the name was reading over a chin.
- *
- * There is only one of these now. The card used to carry a second wash across
- * the top to hold a health bar up there, and between the two of them the
- * portrait was fenced in at both ends. Everything the card has to say is said
- * along one edge instead — see `readouts` — so the top of the tile is the hero
- * and nothing else.
- */
 const FOOT_SCRIM = [
   [0, "rgba(9,5,16,0)"],
   [0.45, "rgba(9,5,16,0.46)"],
@@ -107,71 +66,8 @@ const FOOT_SCRIM = [
 ];
 const FOOT_BAND = 0.46;
 
-/**
- * The element sigil every card wears in its top left corner.
- *
- * The card says its element three other ways — the frame's hue, the plate under
- * the art, the wash along the bottom — and all three are colour. Colour alone is
- * a poor thing to hang the one mechanic the row runs on: which gem charges which
- * hero. At card size, in a row of six, the orange one and the gold one are the
- * same card, and a player who cannot tell them apart cannot tell why their match
- * lit the hero it did. The sigil is that reading in a shape.
- *
- * It is the board's own gem and nothing else — see gemTexture. No disc behind
- * it, no ring around it: the gems are opaque roundels that carry their own edge,
- * and at pip size a backing plate and a rim read as two more circles drawn round
- * a circle. What the player is being pointed at is the thing they are matching,
- * so the card shows them exactly that and no ornament of its own.
- *
- *   k, min, max  the pip's box, taken off the card's short side and then held
- *                between the two so it stays a pip on a tall card and stays
- *                legible on a small one.
- *   gap          how far in from the inside of the frame it sits, as a share of
- *                that same short side. Wide, and deliberately: this is the one
- *                number that decides whether the card's top left corner reads
- *                as a corner or as a gem wedged into an arc, and the old 0.05
- *                was the latter.
- */
 const SIGIL = { k: 0.32, min: 13, max: 30, gap: 0.085 };
 
-/**
- * The animated border a charged card wears, and the flare it throws when the
- * ultimate is actually spent — see art/ultborder.js, which owns the art and the
- * geometry. These four numbers are only how loudly the card wears it.
- *
- * `alpha` is the one worth arguing about, because the card used to carry light
- * of its own and it was taken off: a wash over the portrait and a halo off the
- * border, breathing on the ready pulse, six of them under a board whose subject
- * is the boss. What comes back here is deliberately not that. It is only on the
- * border, it is only on a card the player can actually spend, and at 0.85 over
- * a sheet that is already hot along its own line the border reads as lit rather
- * than as blooming. Turn it down here if a row with two charged cards in it ever
- * pulls the eye off the fight; there is nothing else to tune.
- *
- * The tap is either of the next two, depending on what art the element has.
- *
- * `burst` is the good one: a sheet of its own — a build, a white-hot peak and a
- * settle — played once, straight through. `lead` is what the cut-in waits for
- * before it takes the screen, and it is the only number here the *fight* can
- * feel.
- *
- * Both leads are 0, and that is a deliberate reversal. The burst's was 0.42 so
- * that the cut would land on the sheet's white-hot peak rather than over its
- * first two frames, which is a good argument about the art and the wrong answer
- * for the fight: it is four tenths of a second between the player's tap and
- * anything taking the screen, on the one input in the creative sold as
- * instant. The sheet is not lost — it plays on under the cut-in's wash, which
- * fades up over its first fifth of a second rather than cutting to black — and
- * what the player gets back is the cut arriving on the frame they tapped.
- * Restore 0.42 here if the peak is ever wanted back; nothing else has to move.
- *
- * `flare` is the fallback for the four elements with no burst sheet: `rate`
- * spins the loop's own frames faster and `grow` throws them outwards,
- * which is what the still set needed a second painted file for — see the burst
- * in art/frameaura.js. See `flareLead`, which is what the director asks, and
- * Director.castUltimate, which asks it — and ULT_PACE in config.js, which is
- * the rest of the same tuning.
- */
 const ULT = {
   alpha: 0.85,
   in: 0.26,
@@ -180,23 +76,13 @@ const ULT = {
   flare: { grow: 1.18, rate: 2.6, dur: 0.3, lead: 0 },
 };
 
-/** element -> drawn-shape fallback, baked at most once each */
 const sigils = {};
 
-/**
- * The gem for one element, at pip size.
- *
- * Almost always the board's own texture, handed straight over. The bake below is
- * only reached before initGemTextures has run, which the scene's build order
- * rules out — see main.js — and is kept because a texture this file cannot
- * produce is not a reason for a card to be built without its element on it.
- */
 function elementSigil(element) {
   const board = gemTexture(element);
   if (board) return board;
   if (sigils[element]) return sigils[element];
 
-  // The same padded box the board's bakes use, so both kinds size alike.
   const ART = 100;
   const PAD = 8;
   const holder = new Graphics();
@@ -217,16 +103,6 @@ function elementSigil(element) {
 let portraitTextures = null;
 let cardArtTextures = null;
 
-/**
- * Bake the six portraits once — roundels for the cut-in and the end card, and
- * the full-bleed card art for the row.
- *
- * Painted busts where src/avatars has one — see avatars.js — and the drawn
- * hooded figure for whoever it does not, which is now nobody: all six elements
- * have art, so the cowl is only reached by a file that fails to decode. The
- * fallback is the same texture in both sets: it was authored to sit inside a
- * card, and there is no second framing of it to bake.
- */
 function initPortraits() {
   if (portraitTextures) return portraitTextures;
 
@@ -243,12 +119,6 @@ function initPortraits() {
   return portraitTextures;
 }
 
-/**
- * The old hooded silhouette, still the stand-in for a hero with no bust.
- *
- * Kept whole rather than trimmed to the one element that needs it: a seventh
- * element, or a file that fails to decode, has to land on something.
- */
 function drawnPortrait(hero) {
   const renderer = getRenderer();
   const el = hero.element;
@@ -257,14 +127,12 @@ function drawnPortrait(hero) {
   g.rect(-ART / 2, -ART / 2, ART, ART);
   g.fill({ color: 0xffffff, alpha: 0 });
 
-  // Element crest, high enough to read behind the cowl
   const crest = new Graphics();
   drawGemShape(crest, el);
   crest.scale.set(0.92);
   crest.y = -22;
   crest.alpha = 0.3;
 
-  // Cloak
   g.moveTo(-58, 64);
   g.quadraticCurveTo(-48, -4, -20, -24);
   g.lineTo(20, -24);
@@ -273,7 +141,6 @@ function drawnPortrait(hero) {
   g.fill({ color: GEM_DARK[el] });
   g.stroke({ width: 5, color: 0x0d0812, alpha: 0.9 });
 
-  // Cloak shading on the left half
   g.moveTo(-58, 64);
   g.quadraticCurveTo(-42, 2, -16, -22);
   g.lineTo(-4, -24);
@@ -281,13 +148,11 @@ function drawnPortrait(hero) {
   g.closePath();
   g.fill({ color: 0x000000, alpha: 0.24 });
 
-  // Collar V
   g.moveTo(-30, 12);
   g.lineTo(0, 44);
   g.lineTo(30, 12);
   g.stroke({ width: 6, color: GEM_COLORS[el], alpha: 0.85 });
 
-  // Chest emblem
   g.circle(0, 30, 13);
   g.fill({ color: 0x0b0713, alpha: 0.85 });
   g.circle(0, 30, 13);
@@ -295,7 +160,6 @@ function drawnPortrait(hero) {
   g.circle(0, 30, 5.5);
   g.fill({ color: GEM_LIGHT[el] });
 
-  // Hood — pointed cowl rather than a round blob
   g.moveTo(-36, 10);
   g.quadraticCurveTo(-42, -48, -6, -68);
   g.lineTo(4, -70);
@@ -305,16 +169,13 @@ function drawnPortrait(hero) {
   g.fill({ color: GEM_COLORS[el] });
   g.stroke({ width: 5, color: 0x0d0812, alpha: 0.9 });
 
-  // Hood rim highlight
   g.moveTo(-34, 2);
   g.quadraticCurveTo(-38, -44, -4, -62);
   g.stroke({ width: 5, color: GEM_LIGHT[el], alpha: 0.75 });
 
-  // Face in shadow
   g.ellipse(0, -12, 23, 27);
   g.fill({ color: 0x0a060e, alpha: 0.97 });
 
-  // Eye glow, then the eyes themselves
   g.ellipse(-10, -14, 11, 7);
   g.fill({ color: GEM_COLORS[el], alpha: 0.32 });
   g.ellipse(10, -14, 11, 7);
@@ -324,7 +185,6 @@ function drawnPortrait(hero) {
   g.poly([17, -17, 4, -14, 17, -9]);
   g.fill({ color: GEM_LIGHT[el] });
 
-  // Shoulder trim
   g.moveTo(-54, 42);
   g.quadraticCurveTo(0, 22, 54, 42);
   g.stroke({ width: 6, color: GEM_LIGHT[el], alpha: 0.45 });
@@ -333,7 +193,6 @@ function drawnPortrait(hero) {
   holder.addChild(crest, g);
   const tex = renderer.generateTexture({
     target: holder,
-    // Bakes big enough to stay sharp when the cut-in blows it up full screen.
     resolution: 3,
     antialias: true,
   });
@@ -341,90 +200,17 @@ function drawnPortrait(hero) {
   return tex;
 }
 
-/** Baked roundel for a hero index — shared by the cut-in and the end card. */
 export function heroPortrait(index) {
   return initPortraits()[index];
 }
 
-/** The same hero's card art: the bust edge to edge, scrim and all. */
 function heroCardArt(index) {
   initPortraits();
   return cardArtTextures[index];
 }
 
-/**
- * The rim the trough art used to carry, as a fraction of the bar's depth, and
- * the seed for every proportion in the readout stack: the type's air, the space
- * between the two bars, and the weight of the outline on the numbers.
- *
- * The same number as BAR_INSET, which is where it is measured — this is a second
- * name for it rather than a second value, because everything below reads it as a
- * rim rather than as an inset and the arithmetic is unreadable otherwise.
- *
- * Used to, because the gauge is unframed now and the packer drops that rim
- * before it ships the track — see cardbars.js. It stays as the measure the stack
- * is spaced by: it is a proportion off the art either way, and a layout keeps
- * its rhythm whether or not the edge it was taken from is still being drawn.
- */
 const BAR_RIM = BAR_INSET;
 
-/**
- * Where the card's readouts sit, measured up from its bottom edge.
- *
- * One stack, not three placements. The name used to sit in the middle of the
- * art, the health bar rode the top edge and the charge bar the bottom, so a tile
- * the size of a thumbnail was fenced at both ends and captioned across the
- * middle. Read up from the bottom they are a caption and two gauges, and the
- * whole top half of the card is the hero.
- *
- * The two gauges are the same width and the same height as each other, and both
- * are wide enough to carry their own numbers. The charge used to be a hairline
- * along the bottom edge at two thirds the health bar's height and a different
- * width again — trim rather than a gauge — on the reasoning that a second,
- * slower number deserved less. It is a gauge: a party screen shows health over
- * charge as a matched pair, and the moment either one has to say `8000 / 8000`
- * the argument for a hairline is over.
- *
- * The foot is what keeps the lower gauge clear of the painted frame rather than
- * merely inside the card. The border is the hero's own colour and so is the
- * charge; with the two touching they read as one thick edge with a bright patch
- * on it.
- *
- * One width for all three. The name used to be fitted to 0.92 of the card while
- * the bars kept to 0.86, which is a difference small enough to look like a
- * mistake rather than a decision: every name longer than ARISSA overhung the
- * gauges under it by a couple of points at each end, and three stacked things at
- * two different widths never settle. `barW` is the measure now, and the name and
- * the READY that replaces it are fitted to it.
- *
- * The gap is two rims deep — see BAR_RIM. At one rim the two bars very nearly
- * touched and read as a single double-height widget with a scratch across the
- * middle of it; at two they are two gauges. Spacing a stack by the weight of the
- * border inside it is the cheapest kind of rhythm there is: nothing in the layout
- * needs a number of its own, and if the trough art is ever redrawn with a deeper
- * rim the whole stack loosens with it.
- *
- * A bar's depth is BAR_SHARE of the card, and a bar with a reading in it is
- * also never shallower than the depth that reading needs — see READOUT_MIN, and
- * readoutDepth, which is the fit below solved for the depth. On anything roomier
- * than a phone the share is the deeper of the two and the stack is proportional
- * to the card it stands on. On a phone the floor is, and that is the whole of
- * this card's difficulty: six cards across a 390 point screen is 56 points each,
- * 8.8% of which is a gauge whose digits stand six points tall.
- *
- * So the floor is paid once rather than twice. The health bar takes it, because
- * health is the number the fight is actually spending. The charge bar keeps its
- * share and says what it has to say without printing anything — it is a bar
- * filling up, the sigil in the card's corner already says whose colour fills it,
- * and the card lights its whole frame and prints READY the moment it is full.
- * A number on it was the third reading on a 56 point card and the one nobody
- * needed.
- *
- * That is nine points of bust on a phone, and it is the difference between a
- * portrait cropped under the eyes and one with a chin in it. Both bars print
- * again the moment the card is deep enough that the share carries them on its
- * own — about 150 points, which is a landscape card or a tablet.
- */
 function readouts(w, h) {
   const floor = readoutDepth(READOUT_MIN);
   const share = h * BAR_SHARE;
@@ -444,154 +230,16 @@ function readouts(w, h) {
   };
 }
 
-/**
- * A gauge's depth as a share of the card it is on.
- *
- * The proportion the stack is drawn at wherever the card is big enough to have
- * the choice, and the number READOUT_MIN is measured against to find out whether
- * it is.
- */
 const BAR_SHARE = 0.088;
 
-/**
- * Hitzone's own metrics, measured off the shipped WOFF2 rather than assumed.
- *
- * Taken from the 400 cut, which is the one that draws here: the readout asks
- * for FONT at weight 700, FONT heads on plain Hitzone, and that family is
- * registered across the whole weight scale — see ui/fonts.js — so 700 lands on
- * the 400 file exactly rather than on Hitzone Med.
- *
- *   cap      how far a digit reaches above the baseline, as a fraction of the
- *            type size. 0.713, against the 0.825 of the Oswald this replaced:
- *            a lower cap, so the rule below draws the numbers about a seventh
- *            larger to fill the same bar to the same depth of ink.
- *   descend  how far one reaches below it. 0.008, which is a hair of overshoot
- *            on the round digits and nothing else: the ink of a line of numerals
- *            is its cap height and no more.
- *   advance  the width of the widest digit, which is `0`. Hitzone's figures are
- *            proportional and not tabular — `1` is nearly a third narrower — so
- *            this is the guard a reading is fitted against and not a promise
- *            that a tick from 999 to 1000 grows by exactly one digit's width.
- *
- * Re-measure if the face or the weight changes; the type sizing below is derived
- * from these and nothing else. These readouts are the one place in the game
- * whose type size is not fitted at runtime but solved from the three numbers
- * here, so a face with its own cap height draws at the last face's size until
- * they are taken again.
- */
 const HITZONE = { cap: 0.713, descend: 0.008, advance: 0.617 };
 
-/**
- * How the numbers are fitted to the bar they sit in.
- *
- * The bar hands the type its size rather than the other way round, and it hands
- * it over through the rim its art was drawn with. Writing that rim as `r` and
- * the bar's depth as `u`: `r = u * BAR_INSET` ran along the top and the bottom,
- * so the bore between them was `u - 2r`. Take half a rim off each side of that
- * bore and what is left is the cap height:
- *
- *     cap = u - 3r
- *
- * which is 0.64 of the bar. The rim is no longer drawn — see BAR_RIM — and the
- * measure it left behind is still the right one: it is the air this type wants
- * over a bar of this depth, and it was never arrived at by tuning. The air over the
- * digits is half the weight of the border above them, and so is the air under —
- * the type's margin is measured off the same file as the edge it stands off, and
- * that is the whole rule. There is no tuned number in it: the type size falls out
- * as `cap / HITZONE.cap`, which is 0.898 of the bar's depth.
- *
- * It was a whole rim each side — `cap = u - 4r`, digits with as much air over
- * them as the border holding them — and on a screen where the numbers are
- * legible at all that is the better setting of the two. On a phone they were not
- * legible at all: the same rule on a 56 point card gives six points of cap, and
- * the half rim it hands back is a fifth of the height of every digit on the row.
- * What is left is still air — a quarter of a rim, once the outline has taken its
- * half — and the outline is doing the job the rest of it was doing, which is
- * holding the ink off the border.
- *
- *   width  of the bar, before fitFont starts shrinking. The reading is the hero's
- *          own number and nothing else — see drawHpBar — so the longest it ever
- *          runs is `8000` at 2.2 em, which lands at two thirds of the bar: it is
- *          never actually shrunk at the sizes the row is drawn at, and it keeps
- *          better than a digit's width of air at each end. This is the guard for
- *          a longer reading, not the thing that sets the type.
- *   track  of the em. Small positive tracking, because tabular figures set solid
- *          at six points close up, and the counters in 8 and 0 are the first
- *          thing to go.
- *
- * There is no vertical correction here, and there were two before. Numerals have
- * no descender — see HITZONE.descend — so a line of them is centred on a box with
- * empty space along one edge, and both earlier attempts were constants tuned to
- * put the ink back on the bar's centre line. Both drifted the moment anything
- * else moved, because what was actually throwing the ink off was the outline: at
- * a fifth of the em it was heavy enough that the padding Pixi reserves for it
- * shifted the box out from under the digits. At half a rim it does not, and the
- * type centres on its own box to the pixel — measured at 0 offset with equal air
- * above and below on both bars. The fix for a fudge factor was to find the thing
- * it was compensating for.
- */
 const READOUT_TYPE = { width: 0.82, track: 0.02 };
 
-/**
- * The smallest a gauge's numbers are allowed to be, in points on the glass —
- * which is what every size in this file is, the app running at autoDensity.
- *
- * The one number in the readout stack that is not a proportion, and it is not one
- * on purpose. Everything else here is a share of the card, and a share is exactly
- * the wrong thing for type to be when the card is 56 points wide: six points of
- * cap is sharp on a retina screen and unreadable at arm's length, which is the
- * only distance this thing is ever seen from. So the bar is at least deep enough
- * to carry this size, and the numbers are legible before the layout is tidy.
- *
- * 10.5 sits under the rest of the chrome — the boss's name and the doom strip
- * are set at 11 to 15 points on the same screen — and it is meant to: those are
- * read across a whole screen and this is read inside a bar 48 points wide, on a
- * card the player is looking straight at because they are about to tap it.
- *
- * It was 13, which is a size the chrome elsewhere would be pleased with and this
- * card cannot afford. Every point of type here is a point and a quarter of bar
- * depth, that depth was being paid twice — see readouts, which now pays it once
- * — and the two of them together were spending 42% of a phone card on two bars.
- * The portrait behind them was cropped under the eyes: six heroes, six foreheads.
- * At 10.5 with the charge bar on its own share the bars are 20%, and there is a
- * chin in every card.
- */
 const READOUT_MIN = 10.5;
 
-/**
- * The smallest a gauge is allowed to set `3587 / 3587` at before it gives the
- * maximum up and prints the current value on its own.
- *
- * The pair is the reading a party screen wants and the one the mockup asks for:
- * a bar says how much is left, and only the pair says how much that is out of.
- * It costs width — eight digits, a slash and two spaces is about 5.5 em of
- * tabular figures against a little over two for `3587` — and that width is
- * exactly what a phone has not got. Six cards across a 390 point screen leaves a
- * bar 48 points wide, which sets the pair at seven points: not a maximum, a
- * smudge where a maximum used to be. That arithmetic is why the reading was the
- * current value alone everywhere, and it only ever ruled against the pair on a
- * phone — a card 100 points wide carries it at the full size with air to spare.
- *
- * So the pair is asked for first and dropped when it cannot be read. 11 points
- * is the bottom of the chrome elsewhere on the screen — the boss's name and the
- * doom strip run 11 to 15 — and two under READOUT_MIN, because a maximum is the
- * quieter half of a reading and may sit a shade smaller than the number that
- * actually moves. Below it the card keeps the number that changes and lets the
- * paint say the rest: the bar stops where the reading stops, which is the
- * maximum drawn rather than printed.
- */
 const READOUT_PAIR_MIN = 11;
 
-/**
- * The fit above, solved each way round: the size a bar of depth `u` carries, and
- * the depth a size of type asks for.
- *
- * Two functions rather than one constant because the two ends of the stack need
- * opposite directions of the same rule. A gauge that has been placed asks what
- * size its numbers come out at; the layout, which has a floor under those numbers
- * and no type to measure, asks how deep a bar has to be to carry them. Written
- * once, so a redrawn trough with a different rim moves both.
- */
 function readoutSize(u) {
   return (u * (1 - BAR_RIM * 3)) / HITZONE.cap;
 }
@@ -600,40 +248,10 @@ function readoutDepth(size) {
   return (size * HITZONE.cap) / (1 - BAR_RIM * 3);
 }
 
-/**
- * One gauge on a hero card: a trough, the paint lying in it, and the numbers
- * over the top.
- *
- * Both of a card's gauges are one of these. They were two separate piles of
- * sprites and Graphics calls that did nearly the same thing in nearly the same
- * way — the health bar drew its own trough and filled it with a flat colour, the
- * charge wore the packed trough and a gradient — and the moment the mockup asked
- * for two identical bars, keeping them apart bought nothing but two places to
- * fix every bug.
- *
- * Everything is a sprite except the fallbacks. A trough is a lit rim the card
- * cannot draw and a paint is a bevel, and a Graphics fill takes a colour, not a
- * ramp. Both are anchored top left so a reading grows out of the trough's own
- * left end.
- *
- * Either piece of art can be missing — see cardbars.js, where nothing ever
- * rejects — and then the Graphics underneath draws what the card drew before any
- * of this was art: a dark track, a flat fill, a white gloss band over its top
- * half, and a pale rim around the lot. A plainer gauge, not a missing one. The
- * numbers do not depend on any of it and are always there.
- *
- * Every corner in here is square, drawn and packed alike. The gauge wore a
- * stadium — the trough's bore, the paint lying in it, and the rim over the top
- * all rounded to half the bar's depth — and at the four-odd points a bar is
- * drawn at on a phone, half its depth of radius at each end is most of the bar:
- * a pill with a reading in it rather than a gauge. Squared, the two of them read
- * as the boxes the name plate and the frame around them already are.
- */
 class Gauge extends Container {
   constructor(paint) {
     super();
 
-    /** Trough fallback, fill fallback, and the rim — drawn, in that order. */
     this.g = new Graphics();
     this.addChild(this.g);
 
@@ -652,9 +270,6 @@ class Gauge extends Container {
       this.addChild(this.paint);
     }
 
-    // Over the paint, and white with a dark edge on it, because it has to be
-    // read against both: the lit half of the bar and the near-black bore past
-    // where the reading stops.
     this.label = new Text({
       text: "",
       style: {
@@ -662,9 +277,6 @@ class Gauge extends Container {
         fontSize: 12,
         fontWeight: "700",
         fill: 0xffffff,
-        // The rim these digits used to carry came off with every other one in
-        // the build; a tight shadow does the same job of holding them against
-        // both the lit paint and the bore past where the reading stops.
         dropShadow: {
           color: 0x0a0714,
           alpha: 0.85,
@@ -677,7 +289,6 @@ class Gauge extends Container {
     this.label.anchor.set(0.5);
     this.addChild(this.label);
 
-    /** Geometry from `place`, reading from `read`; `draw` needs both. */
     this.top = 0;
     this.barW = 0;
     this.barH = 0;
@@ -686,27 +297,11 @@ class Gauge extends Container {
     this.max = "";
     this.fallback = 0xffffff;
 
-    /**
-     * Whether the reading carries its maximum. Owned by the card rather than
-     * settled here, so a card's two gauges never disagree — see `pairFits` and
-     * READOUT_PAIR_MIN. True until told otherwise: a gauge nobody asked is a
-     * gauge on a screen roomy enough that nobody had to.
-     */
     this.pair = true;
 
-    /**
-     * Whether this gauge prints anything at all.
-     *
-     * Also the card's to decide, and for the same kind of reason: a phone card
-     * has the depth for one legible reading and two bars — see readouts, where
-     * the charge gives its digits up so the health can keep them. A gauge that
-     * is not reading is still a gauge; it fills, it is bevelled, and it is the
-     * one the player watches to know when the hero fires.
-     */
     this.reads = true;
   }
 
-  /** Where the gauge is and how big, in the card's own coordinates. */
   place(top, barW, barH) {
     this.top = top;
     this.barW = barW;
@@ -714,15 +309,6 @@ class Gauge extends Container {
     this.draw();
   }
 
-  /**
-   * What the gauge reads: a fraction, the paint for that state, the two numbers
-   * to print, and the colour to fall back to if there is no paint.
-   *
-   * Both numbers rather than the finished string, because whether the maximum is
-   * printed at all is a question about how wide this bar is and how big its type
-   * comes out — see `pairFits`, which answers it, and `draw`, which sets
-   * whichever reading the answer allows.
-   */
   read(v, paint, value, max, fallback) {
     this.v = Math.max(0, Math.min(1, v));
     if (paint && this.paint) this.paint.texture = paint;
@@ -732,28 +318,6 @@ class Gauge extends Container {
     this.draw();
   }
 
-  /**
-   * Whether a bar `w` by `h` can set this gauge's longest reading — `max` over
-   * `max`, which is the most digits the pair ever carries — at a size a player
-   * can read.
-   *
-   * Measured rather than predicted, and measured on the label itself: the answer
-   * comes out of the same face, weight and tracking the reading will be set in,
-   * which a width computed off HITZONE.advance cannot promise for the slash and
-   * the two spaces around it — the less so now that the figures are proportional
-   * and a reading of the same length can run a little wider than this one. The floor goes to fitFont as 1 so what comes back
-   * is the size the pair actually wants rather than the size it was allowed, and
-   * that is the number READOUT_PAIR_MIN judges.
-   *
-   * Off the constant maximum rather than the reading in hand, so the answer holds
-   * still for the whole fight. Measured off `950 / 8000` the pair fits on a bar
-   * that cannot carry `5320 / 8000`, and the gauge would have to change its mind
-   * about what it prints in the middle of a drain — which is worse than either
-   * reading.
-   *
-   * It leaves the label where it found it in the only sense that matters: `draw`
-   * sets the text and the size on every pass, and one always follows.
-   */
   pairFits(w, h, max) {
     const size = readoutSize(h);
     this.label.style.letterSpacing = size * READOUT_TYPE.track;
@@ -771,22 +335,9 @@ class Gauge extends Container {
     const g = this.g;
     g.clear();
 
-    // Edge to edge, where there is a trough. The paint used to be inset by the
-    // trough's own rim so it landed inside the border rather than over it, and
-    // there is no border: the trough is a bare track now — see pack-bars.mjs,
-    // which drops the rim it was cut for. An inset with nothing to clear is just
-    // a dark line drawn round a full bar.
-    //
-    // The drawn fallback keeps its own inset, because a Graphics track has no
-    // shading to tell it from the paint and the only thing separating the two is
-    // that gap.
     const rim = h * BAR_RIM;
     const pad = this.trough ? 0 : Math.max(0.6, h * 0.2);
     const bore = h - pad * 2;
-    // A hairline at the least, so a hero on their last point of health is still
-    // showing something. Never mind the shape of it: with the ends square a
-    // sliver reads as a sliver at any width, where the stadium this bar used to
-    // wear collapsed into a dot.
     const lit = Math.max((w - pad * 2) * this.v, Math.max(1, rim));
 
     if (this.trough) {
@@ -810,22 +361,9 @@ class Gauge extends Container {
       g.fill({ color: 0xffffff, alpha: 0.26 });
     }
 
-    // No outline over the top. There was a pale one, on the reasoning that the
-    // gauge has to be found against two very different backs — a lit face above
-    // it and the name's near-black band beside it — and that is what the paint
-    // itself is for: a bar of flat green on a card of painted bust is not a
-    // thing anyone loses. Against the dark track, the empty half needs no help
-    // either. Two borders were being drawn round a shape that reads on its own.
-
-    // A silent gauge stops here, with its trough and its paint drawn and no
-    // digits over them — see `reads`, and readouts, which is where a card
-    // decides that this one is a bar and not a reading.
     this.label.visible = this.reads;
     if (!this.reads) return;
 
-    // Cap height is the bore less half a rim at each side, and the type size is
-    // whatever puts this face's cap there — see READOUT_TYPE for the whole of
-    // the reasoning, and readoutSize, which is that rule and nothing else.
     const size = readoutSize(h);
     this.label.style.letterSpacing = size * READOUT_TYPE.track;
     this.label.text = this.pair ? `${this.value} / ${this.max}` : this.value;
@@ -834,66 +372,9 @@ class Gauge extends Container {
   }
 }
 
-/**
- * What a charged card stands at, and how far it swings either side of that.
- *
- * Exported because it is the card's own size and something else has to draw
- * round it: the ult lesson puts its teaching mark on a hero the moment they
- * charge, and a mark measured off the layout box would sit inside the card
- * rather than round it — a ready card is a seventh larger than its slot before
- * the pulse is even counted. See Coach.drawCard, which sizes itself off the
- * peak so the card never pokes out of the thing pointing at it.
- */
 export const READY_SCALE = 1.14;
 export const READY_SWING = 0.045;
 
-/**
- * The arming sequence: what happens on the one frame an ultimate becomes
- * spendable. See HeroCard.flareReady, which fires all of it together.
- *
- * A card that fills used to say READY, stand a seventh taller and start
- * breathing — and all three of those happen *inside* one tile of six along the
- * bottom of the screen, none of them is the element, and the loudest of them is
- * a caption. The thing the player has just earned is the biggest button in the
- * game and it was announced by a word changing.
- *
- * So it is announced five ways at once instead, which is the whole of why this
- * is a table and not a number. No single one of these carries it: the blast is
- * detail and dies in half a second, the wash is light with no shape, the rune is
- * shape with no detail. Together they read as an arrival.
- *
- *   splash  the hero's own blast — the art his ultimate throws, out of
- *           art/spells.js — going off on his face. Free: those sheets are
- *           already in the bundle for the ultimates themselves. Only the blast
- *           half is played, frames past SPELL_TRAVEL_LAST, because the first
- *           half is a bolt in flight and there is nothing here for it to fly
- *           from.
- *             size  across, as a fraction of the card's width. Well over one,
- *                   so the burst breaks past the card's edges instead of
- *                   sitting inside them — at the card's own width the element
- *                   reads as a tint on a portrait rather than as an event, and
- *                   what laps onto a neighbour is additive light, not a box.
- *                   Cells are square (SPELL_ASPECT), so this is both axes.
- *             y     up from the card's middle, as a fraction of its height. The
- *                   portrait is cover-fitted with the crop pushed down
- *                   (HEAD_BIAS) so the head stays in the tile, which puts the
- *                   face above centre — a burst centred on the box goes off on
- *                   a collarbone.
- *             dur   the whole of it, across five frames.
- *             grow  how much wider it ends than it started. A blast that holds
- *                   one size reads as a decal being faded out.
- *   rune    the board gem this hero charges off, thrown out of the card and
- *           dissolved — the element's own mark leaving the tile. Also free, and
- *           deliberately the *board's* bake rather than a new shape: it is the
- *           gem the player was matching when this happened, so the card is
- *           answering the move in the move's own vocabulary.
- *   flash   the ignition, on the wash the card already carries for its swing.
- *           Light with no shape, under everything that has shape.
- *   pip     how hard the corner sigil is punched.
- *   word    what READY is scaled from. Punched rather than faded: the caption
- *           is the one part of this that was already here, and a word that
- *           lands is worth more than a word that appears.
- */
 const READY_FX = {
   splash: { size: 2.05, y: -0.13, dur: 0.6, grow: 0.3 },
   rune: { from: 0.86, to: 2.45, dur: 0.5, alpha: 0.95 },
@@ -902,83 +383,6 @@ const READY_FX = {
   word: { from: 1.5, dur: 0.44 },
 };
 
-/**
- * The burn a charged card's caption wears — see `lightReady`, which is this
- * table and nothing else, and `dressReady`, which cuts all of it to the word.
- *
- * READY is the label on the biggest button in the game, and it was a small
- * bright word sat on a busy portrait. flareReady announces the *moment* an
- * ultimate arms and is gone in half a second; after that the card has to keep
- * saying "spend me" for as long as it is spendable, and a caption swap does not
- * say it. So the word catches fire and stays on fire until it is spent.
- *
- * Two things burn, and between them they are the whole effect:
- *
- *   crown  a row standing on the caption, each one a real flipbook out of the
- *          shipped game's own effects — see art/readyfx.js — and a *different*
- *          flipbook per hero, because an element is a shape before it is a
- *          colour. Ricklow's rises in licks and breaks into tongues, Selisa's
- *          throws a splash, Quinnto's boils up in leaf-shaped lobes, Taranis's
- *          cracks in bolts, Silanth's curls up as dark wisps, Arissa's is a gust
- *          with static in it. Not a glow doing an impression of any of them: the
- *          shapes have edges, and edges are the whole difference between a word
- *          that is burning and a word with a light behind it.
- *
- *          Every one runs its element's frames a fraction of a cycle apart, so
- *          the row never goes out together and never catches together. One
- *          sprite each, all on one texture, all additive.
- *            licks   how many stand along the word
- *            h       how tall one is, as a multiple of the caption's own height.
- *                    Width follows from CROWN_CELL.aspect — every element is
- *                    packed into one cell at its own proportions, so a bolt
- *                    arrives narrow and a splash arrives wide without either
- *                    being stretched to fit a word.
- *            spread  how much of the word's width the row covers
- *            root    how far the licks are planted *into* the word, as a
- *                    fraction of its height. Zero stands them on the cap line,
- *                    where fire reads as a hat sitting on top of a word; a third
- *                    of the way down, with the caption drawn over their feet,
- *                    reads as the letters themselves alight.
- *            fps     the flipbook's own rate
- *
- *   comet  the pass: a head and a tapering trail that come round the word every
- *          few seconds and are gone. The crown says *on fire*; this says *ready
- *          now*, because a loop is wallpaper after ten seconds and an event that
- *          arrives on a beat never is. It orbits rather than crosses — an ellipse
- *          on the caption's own box, under the word on the way out and over it on
- *          the way back — so the effect keeps belonging to the word instead of
- *          flying past it.
- *            every  seconds between passes, and `dur` is how long one takes.
- *                   Staggered by card index, so a row of charged heroes is not
- *                   a chorus line.
- *            rx,ry  the orbit, as fractions of the caption's width and height
- *            head   the head's size, against the caption's height
- *            trail  how many segments behind it, over `span` of a turn
- *
- * Under both, unchanged: `core`, a tight pale bed that keeps the letters
- * legible against their own fire and is the whole of the burn on the frame the
- * sheet has not decoded yet, and `word`, the caption drawn a second time
- * additively over itself so the glyphs glow rather than only being lit.
- *
- * Everything is additive and everything is driven off one number, `readyLit`,
- * so the whole thing lights, breathes and dies as a single object:
- *
- *   breath   the slow swell of the light. Shallow, because the fire carries the
- *            movement now and a second clock under a flipbook is two clocks
- *            fighting.
- *   flicker  a fast, shallow tremor on top of it. Torchlight, not a strobe.
- *   swell    how much the burn breathes with it. Inwards only — see lightReady:
- *            the caption is the edge and nothing here crosses it.
- *   ignite   what `readyLit` is thrown to on the frame the ultimate arms,
- *            before it settles back to 1 — the overdrive under flareReady.
- *   ceiling  where that drive is clamped.
- *   type     the caption's own ink, all of it a fraction of its type size:
- *            `stroke` is the element-dark contour that keeps the word legible
- *            while it is sat in its own fire, `blur` the coloured halo baked
- *            into the glyphs, `pad` the room the text texture is given for that
- *            halo — a blur wider than its padding is a glow with a square cut
- *            off it.
- */
 const READY_GLOW = {
   crown: {
     licks: 5,
@@ -1010,39 +414,18 @@ const READY_GLOW = {
 };
 
 export class HeroCard extends Container {
-  /**
-   * @param {object} hero the roster entry — see HEROES
-   * @param {number} index the card's slot in the row
-   * @param {boolean} opening true for the one hero dealt a full bar. Rolled per
-   *   run rather than nailed to the healer — see rollOpeningHero.
-   */
   constructor(hero, index, opening = false) {
     super();
     this.hero = hero;
     this.index = index;
     this.ready = false;
-    // Every bar is earned from its own colour now. Whoever won the opening roll
-    // is dealt full; the healer fills faster than the rest whether or not she is
-    // that hero, because she is the one racing the doom clock — see
-    // DIFFICULTY.chargeStart against DIFFICULTY.partyChargeStart, and
-    // rollOpeningHero for who is holding the first one.
     this.charge = opening
       ? DIFFICULTY.chargeStart
       : DIFFICULTY.partyChargeStart;
 
-    /**
-     * What the charge rule is showing, and the object that walks it there.
-     *
-     * The rule used to be drawn straight off `charge`, and `charge` is fed a
-     * gem at a time by the director — so a cascade that landed four gems of a
-     * colour stepped its owner's rule four times in four frames. The number was
-     * right and the movement was a stutter. Health has been driven this way
-     * since it was simulated; this is the same treatment for the other gauge.
-     */
     this.chargeShown = this.charge;
     this.chargeDriver = { v: this.charge };
 
-    /** Health, 0..1. Authored by the director, never simulated. */
     this.hp = 1;
     this.hpShown = 1;
     this.hpDriver = { v: 1 };
@@ -1052,28 +435,9 @@ export class HeroCard extends Container {
     this.bg = new Graphics();
     this.addChild(this.bg);
 
-    /**
-     * The hero, edge to edge.
-     *
-     * Cover-fitted in resize() and clipped to the frame's own rounded rectangle,
-     * so the art fills the tile rather than sitting in it: a portrait a third of
-     * the card wide read as a placeholder next to the painted plate.
-     */
     this.art = new Container();
     this.addChild(this.art);
 
-    /**
-     * Painted plate, over the drawn background and under the bust: the busts are
-     * cut-outs, so the plate is what shows through wherever the hero does not
-     * cover the tile. Null when the art failed to decode, which is why every
-     * reference to it is guarded.
-     *
-     * Inside `art` so that it is clipped with the bust rather than beside it.
-     * The plate is a square sprite laid over the whole card and two of the three
-     * are opaque to their own corners, so unclipped it put four square dark
-     * nubs outside the border's four rounded ones — the card sticking out past
-     * its own frame, on every hero wearing the blue plate or the violet.
-     */
     const plate = cardPlate(hero.element);
     this.plate = null;
     if (plate) {
@@ -1087,9 +451,6 @@ export class HeroCard extends Container {
     this.portrait.anchor.set(0.5);
     this.art.addChild(this.portrait);
 
-    // Anchored on the edges they hug, so resize only has to say how deep they
-    // run. Both are clipped with the bust: a square-cornered wash over a rounded
-    // tile shows as two dark nubs at the corners the frame is meant to round.
     this.footScrim = new Sprite(gradientTexture("cardFoot", FOOT_SCRIM));
     this.footScrim.anchor.set(0.5, 1);
     this.art.addChild(this.footScrim);
@@ -1098,8 +459,6 @@ export class HeroCard extends Container {
     this.addChild(this.artMask);
     this.art.mask = this.artMask;
 
-    // Over the art, not under it: both are additive and have to wash across the
-    // whole card, and the art now covers every pixel the plate used to.
     this.aura = new Sprite(glowTexture());
     this.aura.anchor.set(0.5);
     this.aura.blendMode = "add";
@@ -1107,8 +466,6 @@ export class HeroCard extends Container {
     this.aura.alpha = 0;
     this.addChild(this.aura);
 
-    // Separate from `aura` on purpose: the ready pulse and the hurt flash can
-    // overlap on Arissa, and one sprite driven by two owners flickers.
     this.burn = new Sprite(glowTexture());
     this.burn.anchor.set(0.5);
     this.burn.blendMode = "add";
@@ -1116,37 +473,9 @@ export class HeroCard extends Container {
     this.burn.alpha = 0;
     this.addChild(this.burn);
 
-    /**
-     * Where the arming burst is played — see `splashElement`.
-     *
-     * An empty container rather than a sprite, because the burst exists for
-     * half a second every few matches and a card should not carry an invisible
-     * sheet the rest of the time. What it buys is the z-slot: above the portrait
-     * and the two washes, below the gauges, the sigil and the type. The element
-     * is allowed to break over the hero's face and is not allowed to break over
-     * the number telling the player how much health he has left.
-     */
     this.ultFx = new Container();
     this.addChild(this.ultFx);
 
-    /**
-     * The flames standing on a charged card's caption. See READY_GLOW.crown.
-     *
-     * Anchored bottom-centre, because that is what the art is: the flipbook
-     * catches on the floor of its cell and rises out of it, so a lick's origin
-     * is its foot and nothing else would keep the fire planted while it grows.
-     *
-     * Tinted a third of the way from the element's own colour towards its pale
-     * end. The saturated hue alone is a flat cut-out at this size — anything
-     * burning is white where it is hottest — and the pale end alone is not the
-     * element any more. Additive on top of that does the rest: where two of
-     * these overlap they go white by themselves, which is exactly where a fire
-     * is brightest.
-     *
-     * Built with no texture. The sheets are decoded with the essentials — see
-     * art/readyfx.js — but a build shipped without this hero's is a card that
-     * burns on its glow alone rather than a card that throws.
-     */
     this.readyCrown = [];
     for (let i = 0; i < READY_GLOW.crown.licks; i++) {
       const lick = new Sprite();
@@ -1162,14 +491,6 @@ export class HeroCard extends Container {
       this.readyCrown.push(lick);
     }
 
-    /**
-     * How much bigger than its neighbours each lick burns, and it is a table
-     * rather than a call to the rng for one reason: a card is rebuilt on nothing
-     * and re-laid out on every resize, and a fire whose licks changed height
-     * when the phone was turned would be a fire nobody believed. Deterministic,
-     * unequal, and different from the card next door because the row's index is
-     * in it.
-     */
     this.lickSize = this.readyCrown.map(
       (_, i) => 0.78 + 0.3 * (1 + Math.sin(i * 2.399 + index * 1.7)),
     );
@@ -1181,51 +502,18 @@ export class HeroCard extends Container {
     this.readyCore.alpha = 0;
     this.addChild(this.readyCore);
 
-    /**
-     * How lit the caption is: 0 dark, 1 burning, and briefly past 1 on the
-     * frame it arms — see READY_GLOW.ignite. An object rather than a number so
-     * the tweens in setReady and flareReady can drive it, and read once a frame
-     * by lightReady, which is the only thing that touches the three layers'
-     * alphas. One owner, so a card that arms while an older fade is still
-     * running does not end up with two.
-     */
     this.readyLit = { v: 0 };
 
-    /**
-     * The animated border, over the card's art and under everything the card
-     * says in words.
-     *
-     * There is no painted frame under it any more — that came off with the card
-     * frames — so this is the card's edge rather than a light on somebody else's
-     * line: the sheet carries its own drawn stroke, which is what still reads as
-     * an edge on a card that has none. Under the gauges, the sigil and the two
-     * captions because those are inside the tile and this is the edge of it.
-     *
-     * Null for an element whose sheet has not been packed, which is the whole of
-     * the fallback: that card is the card it was before this existed. Every
-     * reference is guarded for that reason, `update` included.
-     */
     this.ultArt = ultBorder(hero.element);
     this.ultBurstArt = ultBurst(hero.element);
-    /**
-     * Which of the two the sprite is currently wearing, because the sprite is
-     * *sized* by it. The two sheets need not be the same shape — water's burst
-     * came in on the card's own geometry and fire's came off the halo shelf,
-     * whose margin is nearly three times as wide — so switching sheets is a
-     * texture and a re-fit, never a texture alone. See fitUltBorder.
-     */
     this.ultShown = this.ultArt || this.ultBurstArt;
     this.ultBorder = null;
-    /** The loop's own clock, its rate, and how far the tap has thrown it. */
     this.ultT = 0;
     this.ultRate = 1;
     this.ultGrow = 1;
-    /** Whether the loop is stepping, and whether the tap owns the sprite. */
     this.ultLit = false;
     this.ultFlaring = false;
-    /** Which pass of the border owns the sprite — see dimUlt for what for. */
     this.ultToken = 0;
-    /** The tap's 0..1, on its own object so killTweensOf can reach it. */
     this.ultDriver = { v: 0 };
     if (this.ultShown) {
       this.ultBorder = new Sprite(this.ultShown.frames[0]);
@@ -1235,44 +523,15 @@ export class HeroCard extends Container {
       this.ultBorder.visible = false;
       this.addChild(this.ultBorder);
     } else {
-      /**
-       * Where the border would have gone, kept for a sheet that lands late.
-       *
-       * The twelve ult sheets are sixteen of the thirty megapixels this creative
-       * decodes, and none of them can be needed until a hero charges — so they
-       * are decoded after the first frame is on screen rather than before it.
-       * See the deferred pass in main.js.
-       *
-       * The index is the whole of what that costs. This sprite's place in the
-       * child list is the point of it: it goes under the frame, the gauges, the
-       * sigil and the captions, and a border appended once those exist is a glow
-       * laid over the readouts instead of behind them. Everything added after
-       * this branch is added unconditionally, so the length here is the slot,
-       * exactly, whether or not the art ever turns up. See adoptUltArt.
-       */
       this.ultSlot = this.children.length;
     }
 
-    /**
-     * The two gauges, health over charge — see the Gauge above, which is the
-     * whole of what either one is.
-     *
-     * Over `frame` rather than inside it: they carry sprites and type, and a
-     * Graphics object holds neither. Separate objects rather than one pair,
-     * because the health gauge blinks on its own — see `update` — and the charge
-     * has no business dimming with it.
-     */
     this.hpGauge = new Gauge(hpPaintTexture(false));
     this.addChild(this.hpGauge);
 
     this.manaGauge = new Gauge(manaPaintTexture());
     this.addChild(this.manaGauge);
 
-    /**
-     * The element sigil, over the frame rather than under it: it sits in the
-     * corner of the card, and tucked beneath the art it would be a gem half
-     * eaten by a neon edge.
-     */
     this.sigil = new Sprite(elementSigil(hero.element));
     this.sigil.anchor.set(0.5);
     this.addChild(this.sigil);
@@ -1303,16 +562,8 @@ export class HeroCard extends Container {
         fontFamily: FONT,
         fontSize: 18,
         fontWeight: "900",
-        // Bright on a dark card: the previous near-black was invisible.
         fill: GEM_LIGHT[hero.element],
         letterSpacing: 0.6,
-        // The contour is the element's own dark rather than the old near-black
-        // ink, and the shadow is the element's own colour rather than a shadow:
-        // the word is sat in the middle of the light it is throwing, so what it
-        // needs from these two is an edge to be read against and a halo to be
-        // read as burning. Both are re-cut in dressReady off the size the
-        // caption actually fits at — what is here is the pair for the 18pt it
-        // is declared at, and no card is 18pt.
         stroke: { color: GEM_DARK[hero.element], width: 2, join: "round" },
         dropShadow: {
           color: GEM_COLORS[hero.element],
@@ -1328,16 +579,6 @@ export class HeroCard extends Container {
     this.readyLabel.alpha = 0;
     this.addChild(this.readyLabel);
 
-    /**
-     * The caption again, additively, over itself — the glyph-shaped half of the
-     * burn. See READY_GLOW.word.
-     *
-     * A second Text rather than a blur filter on the first: this creative runs
-     * on whatever GPU the ad network's webview hands it, and a filter per card
-     * is a render target per card, every frame, for six cards. Two text
-     * textures baked once at layout are free beside that — and it is the same
-     * word at the same size, so it registers on the original exactly.
-     */
     this.readyBloom = new Text({
       text: "READY",
       style: {
@@ -1361,21 +602,6 @@ export class HeroCard extends Container {
     this.readyBloom.alpha = 0;
     this.addChild(this.readyBloom);
 
-    /**
-     * The comet that comes round the caption every couple of seconds — the
-     * trail first and the head over it, which is the only order that reads as
-     * one object. See READY_GLOW.comet.
-     *
-     * Over the word rather than behind it, unlike the crown: this one passes in
-     * front on its way round, and a streak that vanished behind the letters
-     * would read as two streaks. The trail is beamTexture — a soft bar, bright
-     * in the middle, out at both ends — laid chord by chord along the orbit and
-     * turned to it, which is how a curve is drawn out of straight sprites
-     * without a mesh.
-     *
-     * Pale, not saturated: this is the spark off the fire, and GEM_LIGHT is
-     * near enough white to read as one on any card.
-     */
     this.cometTrail = [];
     for (let i = 0; i < READY_GLOW.comet.trail; i++) {
       const seg = new Sprite(beamTexture());
@@ -1402,38 +628,13 @@ export class HeroCard extends Container {
     this.readyFor = 0;
     this.beckonK = { v: 1 };
 
-    /**
-     * A hero can be dealt already charged — see DIFFICULTY.chargeStart.
-     *
-     * `ready` is otherwise only ever set by addCharge crossing the line, and
-     * everything that goes with it is set by setReady on the same frame: the
-     * caption swaps to READY, the card stands taller and starts breathing. A
-     * card dealt at the top had the full bar and none of that — a hero the
-     * director agreed was spendable, drawn as an ordinary card, which is what
-     * left the opening demo with nothing it was willing to point at.
-     *
-     * The same state is put on here, minus the two things setReady does that
-     * only make sense as *events*: the charge sound, which would fire into a
-     * page the player has not touched yet and which the audio unlock would
-     * swallow anyway, and the pop, which is a card *arriving* at full rather
-     * than one that started there. The charge rule is not drawn here either —
-     * resize() draws it, and a card has no size until it runs.
-     */
     this.ready = this.charge >= 1;
     if (this.ready) {
       this.readyLabel.alpha = 1;
       this.label.alpha = 0;
-      // Lit, not igniting. The burn is a *state* — it says this ultimate is
-      // spendable — so the card that opens the fight charged wears it from the
-      // first frame, exactly as it already wears the caption and the height.
-      // What it skips is the ignition over the top of it, which is an event and
-      // has nothing to announce on a page the player has not touched yet.
       this.readyLit.v = 1;
       this.pulsing = true;
       this.scale.set(READY_SCALE);
-      // Lit rather than fading in, for the same reason the pop is skipped: this
-      // card did not arrive at full, it started there. Its size is resize()'s,
-      // like the charge rule's.
       if (this.ultBorder && this.ultArt) {
         this.ultLit = true;
         this.ultBorder.visible = true;
@@ -1442,29 +643,6 @@ export class HeroCard extends Container {
     }
   }
 
-  /**
-   * Take the ult art on, for a sheet that decoded after this card was built.
-   *
-   * The deferred half of the boot reads the twelve ult sheets once the fight is
-   * already on screen — see main.js — so a card built before that has no border
-   * and no sprite to put one on. This is the other end of that: the art is
-   * re-read, the sprite is made, and it goes in at the slot the constructor kept
-   * for it rather than on top of the readouts.
-   *
-   * Two guards and both are the same guard: a card that already has a sprite has
-   * nothing to adopt, and a card whose element was never packed has nothing to
-   * adopt either. Between them, calling this on every card whenever a sheet
-   * lands is safe and cheap, which is why the row simply does.
-   *
-   * A card that is *already* charged is lit from here, and that is not the edge
-   * case it reads as — it is the opening. DIFFICULTY.chargeStart deals the demo
-   * hero at full, so applyReadyState runs in the constructor, a frame before any
-   * sheet exists, and its `if (this.ultBorder && this.ultArt)` finds neither. It
-   * set `ultLit` while the sheets were decoded ahead of the first frame; since
-   * they moved behind it, nothing lit that card until it had been spent and
-   * charged again. Which is to say the one card the hint hand points at stood
-   * there charged and dark for the whole of the demo.
-   */
   adoptUltArt() {
     if (this.ultBorder || this.ultSlot === undefined) return;
 
@@ -1484,11 +662,6 @@ export class HeroCard extends Container {
     this.addChildAt(this.ultBorder, this.ultSlot);
     this.ultSlot = undefined;
 
-    // Fitted here rather than left to the next relayout: the row is laid out
-    // once at boot and then only when the window moves, so a border that waited
-    // for a resize would be a sprite at its texture's own pixel size until the
-    // phone was turned over. `cardW` is set by the first resize, which has
-    // already run by the time any of this is reached.
     if (this.cardW) {
       fitUltBorder(
         this.ultBorder,
@@ -1499,13 +672,6 @@ export class HeroCard extends Container {
       );
     }
 
-    // Through lightUlt rather than by hand, so what goes on is the loop at the
-    // loop's own size — `ultShown` above is the burst for any element that
-    // shipped one without a loop, and lightUlt is the one place that knows to
-    // wear the other. `ultFlaring` cannot be set on a card that had no sprite
-    // until three lines ago, because flareUlt returns on exactly that; it is
-    // checked anyway, because the rule in this file is that the sprite has one
-    // owner, not that this path happens to reach it first.
     if (this.ready && !this.ultFlaring) this.lightUlt();
   }
 
@@ -1515,15 +681,6 @@ export class HeroCard extends Container {
     this.hitArea = new Rectangle(-w / 2, -h / 2, w, h);
 
     const el = this.hero.element;
-    // The card is its own box and nothing else: no painted frame round it, and
-    // square corners rather than rounded ones. `clip` is where the art stops,
-    // which is now the card's edge exactly — the fill, the portrait and the
-    // plate all end on the same four straight lines.
-    //
-    // The animated ult border is the one thing that reaches outside them, and it
-    // is deliberately not clipped to this: it is laid on the card's box with its
-    // own margin hanging past it — see fitUltBorder — because a border trimmed
-    // to the card would be a line drawn on the card rather than round it.
     const clip = { x: -w / 2, y: -h / 2, w, h };
 
     this.bg.clear();
@@ -1532,21 +689,8 @@ export class HeroCard extends Container {
     this.bg.rect(-w / 2, -h / 2, w, h * 0.55);
     this.bg.fill({ color: GEM_DARK[el], alpha: 0.45 });
 
-    // The plate is baked at the card's own aspect, so this is a fit, not a
-    // stretch — landscape cards run a few percent wider and wear it.
     if (this.plate) this.plate.setSize(w, h);
 
-    // Cover, not fit, and off the art's own aspect rather than off an assumption
-    // that it is square. The portraits are 160x328 — near enough the card's own
-    // proportion that this fit is close to one to one — but the drawn stand-in a
-    // hero falls back to is square, and a fit hard-coded for either one crops or
-    // stretches the other.
-    //
-    // What runs past the tile is not split evenly. Centring takes the same amount
-    // off the top and the bottom — off the top being the crown of a helmet, the
-    // top of a hairline, the point of an ear, which is the half of a portrait
-    // that says who it is. The bottom is a collarbone. So the overflow is pushed
-    // down: most of the crop comes off the chest and the head stays in the card.
     const art = this.portrait.texture;
     const cover = Math.max(w / art.width, h / art.height);
     const aw = art.width * cover;
@@ -1554,13 +698,6 @@ export class HeroCard extends Container {
     this.portrait.setSize(aw, ah);
     this.portrait.y = (ah - h) * HEAD_BIAS;
 
-    // The wash the readouts are read against, measured off them rather than
-    // authored: deep enough to clear the top of the name, or FOOT_BAND of the
-    // card, whichever is more. The constant on its own was exactly enough for the
-    // shallower stack this card used to carry, and the moment the bars got deep
-    // enough to read — see READOUT_MIN — it left the name standing on a
-    // collarbone. The gradient stretches, so a deeper band is a longer fade
-    // rather than a darker one.
     const stack = readouts(w, h);
     const nameSize = Math.max(7, Math.min(h * 0.145, w * 0.2));
     const nameY = stack.hpY - stack.gap - nameSize * 0.5;
@@ -1577,58 +714,27 @@ export class HeroCard extends Container {
     this.aura.setSize(w * 1.9, h * 1.9);
     this.burn.setSize(w * 2.1, h * 2.1);
 
-    // Laid on the card's own box, margin hanging outside it — the same contract
-    // the frame above is laid on. Sized by whichever sheet is on the sprite, and
-    // `ultGrow` is carried through so a resize landing inside the tap does not
-    // snap the throw back to the card.
     if (this.ultBorder)
       fitUltBorder(this.ultBorder, this.ultShown, w, h, this.ultGrow);
 
-    // Off the short side, so the pip is the same size on a card held either way.
-    // The gem carries the board's own padding inside its texture, so the circle
-    // that lands on the card is a little smaller than the box asked for here.
     const sig = Math.max(
       SIGIL.min,
       Math.min(Math.min(w, h) * SIGIL.k, SIGIL.max),
     );
     this.sigil.setSize(sig, sig);
 
-    // Sat in from the card's corner by a gap wide enough that the corner is
-    // allowed to be a corner. Measured off `clip`, which is that corner — the
-    // pip used to be laid out against the outer edge of a border and had the
-    // line and its radius eating the clearance it was given.
     const pad = Math.max(2.5, Math.min(w, h) * SIGIL.gap);
     this.sigil.x = clip.x + sig / 2 + pad;
     this.sigil.y = clip.y + sig / 2 + pad;
 
-    // Sat on the stack rather than placed at a fraction of the card: the name
-    // is the top of the block, so it moves with whatever is under it. Solved up
-    // with the foot scrim, which is cut to reach past it.
     fitFont(this.label, stack.barW, nameSize);
     this.label.y = nameY;
 
     const readySize = Math.max(7, Math.min(h * 0.16, w * 0.21));
     this.readyLabel.y = nameY;
-    // The caption is fitted first and everything that burns is cut to what it
-    // fitted to — see dressReady. Fitted before the ink is re-cut rather than
-    // after, because fitFont measures the text it is handed and a fatter stroke
-    // is a wider word: sizing the stroke off the fitted size and then fitting
-    // again is a loop that walks the caption down a point on every resize.
     this.dressReady(fitFont(this.readyLabel, stack.barW, readySize));
 
     const { barW, hpH, manaH, manaReads, hpY, manaY } = stack;
-    // Both gauges print their maximums or neither does, and the health bar is the
-    // one that decides: `8000 / 8000` is the longer of the two readings, so any
-    // bar that carries it carries `120 / 120` as well. Two gauges the same size
-    // settling it apart would put a narrow card in the one state that reads worse
-    // than either — a matched pair with one half saying what it is out of and the
-    // other half not.
-    //
-    // Still measured on the health bar, and on a phone that is the only bar it
-    // is deciding for: the charge is silent there and has no maximum to keep or
-    // drop. Handed to it anyway rather than guarded, because the card that goes
-    // back to printing both — see readouts — is the card where the two have to
-    // agree again, and one assignment is cheaper than one condition.
     const pair = this.hpGauge.pairFits(barW, hpH, HERO_MAX_HP);
     this.hpGauge.pair = pair;
     this.manaGauge.pair = pair;
@@ -1641,22 +747,6 @@ export class HeroCard extends Container {
     this.drawCharge();
   }
 
-  /**
-   * Cut the caption's burn to the caption. See READY_GLOW.
-   *
-   * Everything here is a fraction of one number — the type size READY actually
-   * landed on, which on the narrowest phone this ships to is about half what it
-   * is on a tablet. A stroke, a blur and a wash authored in points would be a
-   * hairline round a huge word on one and a smear round a tiny one on the
-   * other; authored as multiples of the word they are drawn on, they are the
-   * same picture at both ends.
-   *
-   * Called from resize only. Restyling a Text rebakes its texture, so this is
-   * deliberately off the frame path — what runs every frame is lightReady,
-   * which writes alphas and scales and nothing else.
-   *
-   * @param {number} size the caption's fitted type size, in points
-   */
   dressReady(size) {
     const el = this.hero.element;
     const t = READY_GLOW.type;
@@ -1687,32 +777,14 @@ export class HeroCard extends Container {
     this.readyBloom.style.padding = size * word.pad;
     this.readyBloom.y = this.readyLabel.y;
 
-    // The caption's own box, which is what everything that burns is cut to.
-    // Measured off the Text rather than guessed from the type size: READY is
-    // fitted to the card it landed on — see resize — so its width is the one
-    // number here that no formula knows, and its height is the face's ascent
-    // and descent rather than the point size it was asked for.
-    //
-    // Divided by the live scale because it may not be 1: the arming punch
-    // throws the caption out at half again its size, and a resize that lands
-    // mid-punch would otherwise read a word half again too wide and cut the
-    // fire to it for the rest of the fight.
     const wordW = this.readyLabel.width / (this.readyLabel.scale.x || 1);
     const wordH = this.readyLabel.height / (this.readyLabel.scale.y || 1);
 
-    // Rest sizes, held rather than only written. lightReady breathes all of
-    // this off the beat every frame, and a thing that grows from wherever it
-    // happens to be grows without end — and the fire cels are re-sized there in
-    // any case, because a sprite built with no texture has no size to set until
-    // the sheet lands.
     this.coreW = wordW * READY_GLOW.core.w;
     this.coreH = wordH * READY_GLOW.core.h;
     this.readyCore.setSize(this.coreW, this.coreH);
     this.readyCore.y = this.readyLabel.y;
 
-    // The crown: one lick's size, and where the row of them is planted. The
-    // width comes off the sheet's own aspect rather than off the word, so a
-    // flame is never a flame squashed sideways to fit a caption.
     const crown = READY_GLOW.crown;
     this.lickH = wordH * crown.h;
     this.lickW = this.lickH * CROWN_CELL.aspect * crown.narrow;
@@ -1724,7 +796,6 @@ export class HeroCard extends Container {
       lick.y = foot;
     }
 
-    // The comet's orbit, on the caption's own box.
     const comet = READY_GLOW.comet;
     this.cometRx = wordW * comet.rx;
     this.cometRy = wordH * comet.ry;
@@ -1732,25 +803,6 @@ export class HeroCard extends Container {
     this.cometTrailW = wordH * 0.19;
   }
 
-  /**
-   * Health, directly under the name: the gauge's reading and its numbers.
-   *
-   * It used to ride the top edge, which put a lit green bar across every hero's
-   * brow. It is the card's one real gauge, so it belongs with the other thing
-   * the card says in words — see `readouts`.
-   *
-   * Green while the hero is fine, red once they are not, and two textures rather
-   * than one under a tint for the reason cardbars.js gives. The numbers are the
-   * simulated health rounded to whole points, which is what the fight is
-   * actually spending — see HERO_MAX_HP.
-   *
-   * The reading is `5320 / 8000` wherever the pair can be read, and the current
-   * value alone where it cannot. Both numbers go over rather than a string: the
-   * gauge measures its own bar and picks — see READOUT_PAIR_MIN for which way and
-   * why, and `resize`, where the pick is made once for this bar and the charge's
-   * together. Where the pair is dropped, what the maximum was there to say the
-   * bar still says: the paint stops where the reading stops.
-   */
   drawHpBar() {
     if (!this.cardW) return;
     const v = this.hpShown;
@@ -1764,22 +816,6 @@ export class HeroCard extends Container {
     );
   }
 
-  /**
-   * Charge, under the health: the same gauge, the same numbers treatment.
-   *
-   * The lit part is mana blue on every card rather than the hero's own colour.
-   * Which gem charges which hero is the sigil's job, and a second reading of the
-   * same fact in the same hue only made the bar look like more frame. The
-   * fallback colour is still the element's, because with no paint to lay in it
-   * the bar has nothing else to say whose it is.
-   *
-   * The number is the fraction shown at the scale the card counts in — see
-   * HERO_MAX_CHARGE, which nothing in the simulation reads — over that scale,
-   * `77 / 120`. It is the shorter pair of the two and would fit on cards where
-   * the health's does not, and it is deliberately not allowed to: the gauges are
-   * a matched pair, and they keep or drop the maximum together on the health
-   * bar's measurement. See `resize`.
-   */
   drawCharge() {
     if (!this.cardW) return;
     const v = this.chargeShown;
@@ -1792,20 +828,6 @@ export class HeroCard extends Container {
     );
   }
 
-  /**
-   * The whole arming sequence, fired together. See READY_FX.
-   *
-   * Order is z-order, bottom up: the wash has no shape and goes under, the rune
-   * and the blast have shape and go over it, and the two pieces of the card that
-   * were already there — the pip and the caption — are punched last so they land
-   * on top of light that is already up.
-   *
-   * Every layer is independent and every layer is optional. The blast needs
-   * deferred art and the rune needs the board's bakes; either can be missing on
-   * a slow first second, and what is left is still louder than the caption swap
-   * this replaced. Nothing here is on the path of the tap that spends the
-   * ultimate — it is all announcement.
-   */
   flareReady() {
     if (!this.cardW) return;
 
@@ -1813,15 +835,8 @@ export class HeroCard extends Container {
     this.throwRune();
     this.splashElement();
 
-    // `base` off the live scale: both of these are sized with setSize, which
-    // writes scale, so their resting scale is whatever the last resize made it
-    // and never 1. punch() would otherwise snap them to a sixth of their size.
     punch(this.sigil, READY_FX.pip, 0.5, { base: this.sigil.scale.x });
 
-    // The burn arrives over-driven and settles into its resting brightness, so
-    // the caption's standing light has a flashbulb on the front of it instead of
-    // fading up into one. Longer than the punch on the word below on purpose:
-    // the pop is the impact, the light is what the impact leaves behind.
     killTweensOf(this.readyLit);
     this.readyLit.v = READY_GLOW.ignite;
     tween(this.readyLit, { v: 1 }, 0.55, { ease: Ease.quadOut });
@@ -1833,23 +848,6 @@ export class HeroCard extends Container {
     });
   }
 
-  /**
-   * The ignition: one bright wash over the tile, snapped up and let go.
-   *
-   * Its own sprite rather than the `aura` the card already carries, for two
-   * reasons. It is tinted out of GEM_LIGHT and not GEM_COLORS — the pale end of
-   * the element, near enough white to lift a card whatever colour the card is,
-   * where the saturated tint is additive purple on a purple tile and reads as
-   * almost nothing on Silanth. And `strike` owns that sprite: a hero very often
-   * swings on the same match that fills him, and two owners snapping one alpha
-   * inside the same frame is the flicker that comment warns about.
-   *
-   * This is deliberately not the standing halo that came off the charged card.
-   * Six tiles glowing for as long as they were full was the brightest thing on a
-   * screen whose subject is the boss; four tenths of a second on the one tile
-   * that just changed is the opposite of that — it is what makes the change
-   * findable at the size these cards actually are.
-   */
   washElement() {
     const s = new Sprite(glowTexture());
     s.anchor.set(0.5);
@@ -1860,25 +858,12 @@ export class HeroCard extends Container {
 
     const { w, h, alpha, dur } = READY_FX.wash;
     tweenValue(0, 1, dur, (p) => {
-      // Opens a little as it goes, so the light is leaving rather than dimming.
       const k = 1 + p * 0.3;
       s.setSize(this.cardW * w * k, this.cardH * h * k);
-      // Squared, so most of it is gone in the first third: this is the flash on
-      // the front of the sequence, not the light the rest of it is read through.
       s.alpha = alpha * (1 - p) * (1 - p);
     }).then(() => s.destroy());
   }
 
-  /**
-   * Throw the element's own gem out of the card and dissolve it.
-   *
-   * The board's bake, at the size the card is, opened out past it and faded —
-   * the shape half of the arrival, against the blast's detail and the wash's
-   * light. Additive, so the gem's dark body drops out and only its rune and rim
-   * travel; drawn normally this would be a grey disc sliding off a portrait.
-   *
-   * @returns {boolean} whether the board's art was there to throw
-   */
   throwRune() {
     const tex = gemTexture(this.hero.element);
     if (!tex || !this.cardW) return false;
@@ -1891,8 +876,6 @@ export class HeroCard extends Container {
 
     const { from, to, dur, alpha } = READY_FX.rune;
     tweenValue(0, 1, dur, (p) => {
-      // Eased out, so it leaves fast and thins slowly — a gem opening at a
-      // constant rate reads as a circle being scaled, which is what it is.
       const e = 1 - (1 - p) * (1 - p);
       const d = this.cardW * (from + (to - from) * e);
       s.setSize(d, d);
@@ -1902,26 +885,9 @@ export class HeroCard extends Container {
     return true;
   }
 
-  /**
-   * Break the hero's element over his portrait. See READY_FX.splash.
-   *
-   * Sized and placed here rather than in resize() because it is built per shot
-   * and there is never one waiting for the next layout. It rides inside the
-   * card, so the pop `setReady` throws and the pulse that follows carry it —
-   * which is the point of it being on the card rather than in the vfx field: a
-   * burst that stayed put while the tile grew under it would read as two
-   * separate things happening at once.
-   *
-   * @returns {boolean} whether there was a sheet to play
-   */
   splashElement() {
-    // Deferred art — see the loader in main.js. A card that charges before the
-    // sheets land keeps the READY caption, the pop and the pulse, and simply
-    // does not get the element; nothing here is load-bearing for the tap.
     const frames = spellFrames(SPELL_BY_ELEMENT[this.hero.element]);
     if (!frames || !this.cardW) return false;
-    // The landing, not the throw. `slice` and not an index walk, so this reads
-    // the same as art/spells.js's own split of the grid.
     const blast = frames.slice(SPELL_TRAVEL_LAST + 1);
     if (!blast.length) return false;
 
@@ -1936,9 +902,6 @@ export class HeroCard extends Container {
       s.texture = blast[Math.min(blast.length - 1, (p * blast.length) | 0)];
       const d = size * (1 + p * READY_FX.splash.grow);
       s.setSize(d, d);
-      // Only the tail, and only a little: these frames already thin out to
-      // almost nothing by the last one, so this is here to stop the embers
-      // being cut off rather than to do the fading itself.
       s.alpha = p < 0.72 ? 1 : 1 - (p - 0.72) / 0.28;
     }).then(() => s.destroy());
 
@@ -1947,41 +910,18 @@ export class HeroCard extends Container {
 
   setReady(on) {
     this.ready = on;
-    // The charge's fallback colour brightens with `ready`, so it is redrawn from
-    // here as well as from its own tween.
     this.drawCharge();
     tween(this.readyLabel, { alpha: on ? 1 : 0 }, 0.2);
     tween(this.label, { alpha: on ? 0 : 1 }, 0.2);
-    // The burn comes up with the word and goes out with it. Killed first,
-    // because a hero can be spent and recharged inside a couple of seconds and
-    // two tweens on one number is a flicker nobody authored. On the way up this
-    // is immediately overtaken by flareReady's ignition, which is the point:
-    // what is here is the fallback the state change carries on its own.
     killTweensOf(this.readyLit);
     tween(this.readyLit, { v: on ? 1 : 0 }, on ? 0.22 : 0.2);
-    // A charged card still carries no *standing* light and no border: it says
-    // READY, it stands taller and it breathes on its own scale, and the halo
-    // that used to burn off the border for as long as the card was full is gone.
-    // Six tiles blooming at once under the board was the brightest thing on a
-    // screen whose subject is the boss, and that has not changed. What arrived
-    // instead is all in the half second the card *changes* — see flareReady.
     if (on) {
       sfx.charged(this.hero.element);
-      // The element arriving on the card, on the same frame as the sound that
-      // announces it. Only from here, which is what keeps it an event: a hero
-      // *dealt* charged takes the other path at the end of the constructor and
-      // deliberately skips everything that only makes sense as one.
       this.flareReady();
-      // And the border, which is the other half of the callout — see lightUlt
-      // and art/ultborder.js. It needs no breath of its own: the sprite is a
-      // child of the card, so the ready pulse swells it with everything else.
       this.lightUlt();
-      // Pop first, then hand the scale over to the idle pulse in update().
       tween(this.scale, { x: READY_SCALE, y: READY_SCALE }, 0.32, {
         ease: Ease.backOut,
       }).then(() => {
-        // Restart the phase so the pulse picks up exactly where the pop
-        // landed instead of snapping to wherever the sine happens to be.
         this.pulseT = 0;
         this.pulsing = this.ready;
       });
@@ -1992,21 +932,9 @@ export class HeroCard extends Container {
     }
   }
 
-  /* ------------------------------------------------------ the animated border */
-
-  /**
-   * Light the border and start it moving.
-   *
-   * The clock is not reset. Twelve frames ping-ponged is three seconds of cycle
-   * and a card can charge, be spent and charge again inside that, so a border
-   * that restarted from frame one every time would put the same two frames of
-   * fire under every callout in the fight. Where the loop happens to be is
-   * nobody's business but its own.
-   */
   lightUlt() {
     const s = this.ultBorder;
     if (!s || !this.ultArt) return;
-    // Whatever the last tap threw is over: this card is charged again.
     this.ultToken++;
     killTweensOf(this.ultDriver);
     killTweensOf(s);
@@ -2019,15 +947,6 @@ export class HeroCard extends Container {
     tween(s, { alpha: ULT.alpha }, ULT.in);
   }
 
-  /**
-   * Put one of the two sheets on the sprite, texture and size together.
-   *
-   * Its own two lines because they cannot be separated: the sheets are not
-   * guaranteed to share a geometry, so a texture swap without the re-fit under
-   * it lays fire's burst — a hairline in a bloom half a card wide — on the box
-   * cut for a solid line with a 13% margin, and the light lands a tenth of a
-   * card inside the border.
-   */
   wearUlt(art) {
     this.ultShown = art;
     this.ultBorder.texture = art.frames[0];
@@ -2035,47 +954,18 @@ export class HeroCard extends Container {
       fitUltBorder(this.ultBorder, art, this.cardW, this.cardH, this.ultGrow);
   }
 
-  /**
-   * Take it off: spent, knocked down, or drained by anything else that clears
-   * `ready`.
-   *
-   * A no-op while the tap's flare is running, and that is the whole reason these
-   * are three methods rather than one flag. `spend` flares and then immediately
-   * clears `ready`, which comes back through here — and two owners on one alpha
-   * do not cooperate: updateTweens walks its list backwards, so of two tweens on
-   * the same property the one added *first* is written last and wins. The fade
-   * would therefore have beaten the flare it was added on top of, and the tap
-   * would have thrown a border that was already going out.
-   */
   dimUlt(dur) {
     const s = this.ultBorder;
     if (!s || this.ultFlaring) return;
     const id = ++this.ultToken;
     killTweensOf(s);
     tween(s, { alpha: 0 }, dur === undefined ? ULT.out : dur).then(() => {
-      // The token, not the alpha. A killed tween still resolves — that is the
-      // engine's contract, so nothing awaiting one can deadlock — so a card that
-      // charged again mid-fade lands here anyway, and reading the alpha would
-      // hide the border it has just lit out from under it.
       if (id !== this.ultToken) return;
       s.visible = false;
       this.ultLit = false;
     });
   }
 
-  /**
-   * The tap that spends the ultimate: the border thrown outwards and spun.
-   *
-   * One driver rather than three tweens, because the three have to agree on
-   * where they are: the size is written through fitUltBorder — a Sprite's width
-   * *is* its scale in Pixi, so this cannot be a scale tween — the alpha rides
-   * the same curve, and the rate falls back to 1 across it so that the frames
-   * slow as the light goes rather than stopping with it.
-   *
-   * Fired and forgotten. `spend` is awaited by the director and its own beats
-   * are the card's punch and its draining bar; a border still burning out is not
-   * something the fight should be waiting on.
-   */
   flareUlt() {
     const s = this.ultBorder;
     if (!s) return;
@@ -2090,24 +980,16 @@ export class HeroCard extends Container {
 
     const burst = this.ultBurstArt;
     const beat = burst ? ULT.burst : ULT.flare;
-    // The burst is driven frame by frame from here, so the loop in `update` has
-    // to keep its hands off the texture; the spin *is* the loop, faster.
     this.ultLit = !burst;
     if (burst) this.wearUlt(burst);
 
     tween(this.ultDriver, { v: 1 }, beat.dur, {
-      // Linear through a burst and eased out of a spin. A sheet whose
-      // frames are a build and a peak has its own timing in it, and an ease
-      // over the top of that is a second opinion about when the peak is.
       ease: burst ? Ease.linear : Ease.quadOut,
       onUpdate: () => {
         const p = this.ultDriver.v;
         this.ultGrow = 1 + (beat.grow - 1) * p;
         if (burst) {
           s.texture = ultBurstTexture(burst, p);
-          // Only the tail fades, for the same reason Vfx.bossSwing's does: an
-          // effect that starts dying on the frame it lands never reads as
-          // having landed.
           s.alpha = p < beat.tail ? 1 : 1 - (p - beat.tail) / (1 - beat.tail);
         } else {
           this.ultRate = beat.rate + (1 - beat.rate) * p;
@@ -2117,8 +999,6 @@ export class HeroCard extends Container {
           fitUltBorder(s, this.ultShown, this.cardW, this.cardH, this.ultGrow);
       },
     }).then(() => {
-      // A card charged again inside the tap owns the sprite — same reason the
-      // fade above checks the token rather than what it can see.
       if (id !== this.ultToken) return;
       this.ultFlaring = false;
       this.ultLit = false;
@@ -2126,30 +1006,14 @@ export class HeroCard extends Container {
       this.ultGrow = 1;
       s.visible = false;
       s.alpha = 0;
-      // Back on the loop, so the next charge lights the sheet it should and at
-      // the size that sheet wants.
       if (this.ultArt) this.wearUlt(this.ultArt);
     });
   }
 
-  /**
-   * How long the tap's own animation wants before the cut-in takes the screen.
-   *
-   * Asked rather than assumed, because the answer is per hero: an element with a
-   * burst sheet has an arc to show and wants the cut to land on its peak, and
-   * one without has a tenth of a second of flare and wants the cut immediately,
-   * exactly as the fight ran before any of this art existed. See
-   * Director.castUltimate, which awaits it, and ULT.
-   */
   flareLead() {
     return (this.ultBurstArt && this.ultBorder ? ULT.burst : ULT.flare).lead;
   }
 
-  /**
-   * Feed the charge bar.
-   * @returns {boolean} true on the frame it fills — the caller owns the callout
-   *   that follows, and must not fire it again every time another gem lands.
-   */
   addCharge(amount) {
     if (this.ready || this.downed) return false;
     this.charge = Math.min(1, this.charge + amount);
@@ -2159,15 +1023,6 @@ export class HeroCard extends Container {
     return true;
   }
 
-  /**
-   * Walk the rule to a value instead of cutting to it.
-   *
-   * Faster filling than draining on purpose. Filling is feedback — it answers a
-   * match the player just made, and an answer three tenths of a second late is
-   * not an answer. Draining is the card standing down after an ultimate, which
-   * has the cut-in and the whole party's volley over it and can afford to take
-   * its time.
-   */
   driveCharge(value, dur) {
     killTweensOf(this.chargeDriver);
     this.chargeDriver.v = this.chargeShown;
@@ -2185,23 +1040,12 @@ export class HeroCard extends Container {
     );
   }
 
-  /** Charge this card earns per gem of its own colour. */
   chargeRate() {
     return this.hero.heal
       ? DIFFICULTY.chargePerGem
       : DIFFICULTY.partyChargePerGem;
   }
 
-  /**
-   * The card takes a swing.
-   *
-   * Lunges towards the boss and flares its element aura. The motion rides on
-   * `pivot` — the same channel `hurt` uses — rather than `position`, so it
-   * composes with the row layout, and rather than `scale`, which the ready
-   * pulse in update() owns and would overwrite on the next frame.
-   *
-   * @param {boolean} lead true for the hero whose colour was actually matched
-   */
   strike(lead) {
     if (this.downed) return;
     sfx.heroStrike(this.hero.element, lead);
@@ -2212,37 +1056,18 @@ export class HeroCard extends Container {
       ease: Ease.backOut,
     });
 
-    /**
-     * The lunge.
-     *
-     * The row stands under the boss, so a hero throwing something at it throws
-     * it upward — and the card stretches that way and narrows as it goes, which
-     * is the whole of what separates a card that attacked from a card that
-     * jumped. The travel was already here in the pivot; this is the effort
-     * behind it.
-     *
-     * Not on a charged card. `pulsing` means update() is writing this scale
-     * every frame off its own sine, and a punch into that is a punch that is
-     * gone before the next frame draws. The lead of a volley is very often the
-     * charged one, so this is a real case and not a guard against a hypothetical.
-     */
     if (!this.pulsing) {
       punch(this, lead ? 0.13 : 0.06, lead ? 0.42 : 0.32, { axis: "y" });
     }
 
-    // A pulsing card is already glowing on its own schedule; a second owner on
-    // the same alpha just makes it stutter.
     if (this.pulsing) return;
     killTweensOf(this.aura);
     this.aura.alpha = lead ? 0.95 : 0.55;
     tween(this.aura, { alpha: 0 }, lead ? 0.4 : 0.3);
   }
 
-  /** Spent: drain the bar and drop back to a normal card. */
   async spend() {
     this.charge = 0;
-    // Before setReady, which is what clears `ready` and would otherwise fade the
-    // border out from under the flare — see dimUlt, which stands aside for it.
     this.flareUlt();
     this.driveCharge(0, 0.5);
     this.setReady(false);
@@ -2250,24 +1075,14 @@ export class HeroCard extends Container {
     await tween(this.scale, { x: 1, y: 1 }, 0.22, { ease: Ease.backOut });
   }
 
-  /* ------------------------------------------------------------- health */
-
-  /** Rest tint the hurt flash returns to. */
   restTint() {
     return this.downed ? DOWN_TINT : 0xffffff;
   }
 
-  /**
-   * How much a hit of `amount` actually takes off.
-   *
-   * The clamp lives here rather than in the director so the floating number
-   * and the bar can never disagree about what the hit was worth.
-   */
   lossFor(amount) {
     return Math.max(0, this.hp - Math.max(HERO_HP_FLOOR, this.hp - amount));
   }
 
-  /** Drive the health bar to a value. */
   async setHp(value, dur, wait) {
     this.hp = value;
     this.critical = value <= HERO_CRITICAL && !this.downed;
@@ -2285,12 +1100,6 @@ export class HeroCard extends Container {
     if (this.hp <= 0.001 && !this.downed) this.down();
   }
 
-  /**
-   * Eat a hit: flinch, flash red, drain the bar.
-   *
-   * The flinch runs on `pivot` rather than `position` so it composes with the
-   * ready pulse on `scale` and never fights the row layout.
-   */
   async hurt(amount, wait) {
     if (this.downed) return;
     const to = Math.max(HERO_HP_FLOOR, this.hp - amount);
@@ -2300,14 +1109,9 @@ export class HeroCard extends Container {
     sfx.heroHurt();
 
     killTweensOf(this.pivot);
-    // Driven down as well as sideways: everything that hits this row comes
-    // from the beast above it, and a card knocked purely sideways reads as
-    // having been nudged by the card beside it.
     this.pivot.set(kick * 8, -9);
     tween(this.pivot, { x: 0, y: 0 }, 0.45, { ease: Ease.elasticOut });
 
-    // Flattened by the blow — the mirror of the lunge in strike(), which
-    // stretches the other way. Same `pulsing` guard, same reason.
     if (!this.pulsing) punch(this, 0.12, 0.46, { axis: "x" });
 
     this.burn.alpha = 0.85;
@@ -2320,7 +1124,6 @@ export class HeroCard extends Container {
     await this.setHp(to, 0.42);
   }
 
-  /** Arissa's tide, or any other pick-me-up: refill and shake off the burns. */
   async heal(to, wait) {
     const target = Math.min(1, Math.max(this.hp, to));
     if (this.downed) this.revive();
@@ -2336,10 +1139,6 @@ export class HeroCard extends Container {
     await this.setHp(target, 0.5, wait);
   }
 
-  /**
-   * Knocked out. Unreachable with the shipped HERO_HP_FLOOR, and deliberately
-   * kept working: drop that floor to 0 and the fight can actually be lost.
-   */
   down() {
     this.downed = true;
     sfx.heroDown();
@@ -2363,10 +1162,6 @@ export class HeroCard extends Container {
   update(dt) {
     this.t += dt;
 
-    // The border's flipbook, stepped only while there is one lit. A window onto
-    // one texture per frame — see art/ultborder.js — so this is an assignment
-    // and not a texture swap: six cards stepping their own borders stay in the
-    // same batch as everything else on the card.
     if (this.ultLit && this.ultBorder && this.ultShown === this.ultArt) {
       this.ultT += dt;
       this.ultBorder.texture = ultLoopTexture(
@@ -2376,8 +1171,6 @@ export class HeroCard extends Container {
       );
     }
 
-    // Blink the strip once a hero is in real trouble — on a card this small
-    // the colour change alone is not enough to catch a thumb-height glance.
     if (this.critical) {
       this.hpGauge.alpha = 0.55 + Math.abs(Math.sin(this.t * 5.5)) * 0.45;
     } else if (this.hpGauge.alpha !== 1) {
@@ -2393,10 +1186,6 @@ export class HeroCard extends Container {
     this.readyFor += dt;
     this.pulseT += dt;
     const beat = Math.sin(this.pulseT * 6.5);
-    // Scale is the whole of the beat now. The card used to breathe in light
-    // as well — a wash over the portrait and a halo off the border — and both
-    // are gone: six cards blooming under the board was the brightest thing on a
-    // screen whose subject is the boss.
     this.scale.set(READY_SCALE * (1 + beat * READY_SWING) * this.beckonK.v);
   }
 
@@ -2406,21 +1195,6 @@ export class HeroCard extends Container {
     tween(this.beckonK, { v: 1 }, 0.42, { ease: Ease.elasticOut });
   }
 
-  /**
-   * Burn the caption of a charged card, once a frame. See READY_GLOW.
-   *
-   * Run off the card's own clock rather than off `pulseT`, which the ready
-   * pulse restarts every time a card arms: the light is a fire, and a fire does
-   * not start its stroke again because something happened. It also keeps the
-   * row out of step with itself — the phase offset is the card's index, so six
-   * charged cards shimmer along the row instead of pumping as one.
-   *
-   * Nothing here allocates and nothing here rebakes a texture: three alphas,
-   * two sizes and a scale. The early-out is the ordinary case — most of the row
-   * is dark most of the fight — and it deliberately lets one last frame through
-   * after the light reaches zero, so the layers are left at zero rather than at
-   * whatever the final frame of the fade happened to write.
-   */
   lightReady() {
     const lit = this.readyLit.v;
     if (!this.cardW || (lit <= 0 && this.readyCore.alpha === 0)) return;
@@ -2444,22 +1218,9 @@ export class HeroCard extends Container {
     this.readyCore.alpha = Math.min(1, g.core.alpha * heat);
     this.readyBloom.alpha = Math.min(1, g.word.alpha * heat);
 
-    // Alpha on its own reads as a decal being dimmed, so the burn opens and
-    // closes with the stroke as well — inwards only. The rest size is the word
-    // itself and the word is the edge this is not allowed to cross, so the
-    // ignition's overdrive is spent on light rather than on size.
     const swell = Math.min(1, 1 + (heat - 1) * g.swell);
     this.readyCore.setSize(this.coreW * swell, this.coreH * swell);
 
-    // The crown. Every lick runs its element's own frames, spaced a whole
-    // fraction of the loop apart so the row is never all alight or all out, and
-    // every other one is mirrored so five copies of one flipbook do not read as
-    // a stencil repeated five times.
-    //
-    // The count comes off the sheet rather than a constant: the bolt is eight
-    // frames and the rest are sixteen — see art/readyfx.js — so lightning runs
-    // its loop in half the time, which is the right speed for lightning and is
-    // not something this has to be told.
     const flame = this.crownArt();
     if (flame) {
       const c = g.crown;
@@ -2471,8 +1232,6 @@ export class HeroCard extends Container {
         lick.texture = flame[Math.floor(((step % n) + n) % n)];
         const k = this.lickSize[i] * swell;
         lick.setSize(this.lickW * k, this.lickH * k);
-        // After the size, never before: setSize *is* the scale in Pixi, so a
-        // flip written first is a flip thrown away.
         if (i % 2) lick.scale.x = -lick.scale.x;
         lick.alpha = Math.min(1, c.alpha * heat);
       }
@@ -2480,32 +1239,12 @@ export class HeroCard extends Container {
 
     this.sweepComet(heat);
 
-    // The bloom rides the caption's own scale rather than one of its own: the
-    // arming punch throws the word out at half again its size, and a bloom that
-    // stayed put would be a coloured shadow sliding out from under it.
     this.readyBloom.scale.set(
       this.readyLabel.scale.x * g.word.scale,
       this.readyLabel.scale.y * g.word.scale,
     );
   }
 
-  /**
-   * The hero's own element, banded for the caption — or null until it decodes.
-   *
-   * Asked for every frame the card is lit and cached the first time it answers,
-   * which is the same bargain splashElement makes with the same sheets: they
-   * land a second or two into the fight, whenever core/idle.js gets to them, and
-   * until they do a charged card burns on its core alone. Nothing waits and
-   * nothing is scheduled — the card simply picks the art up on the frame it
-   * exists.
-   */
-  /**
-   * This hero's own crown frames — or null, while the sheet is missing.
-   *
-   * Cached the first time it answers, because it is asked for on every frame a
-   * card is lit and a lookup through two objects to reach the same array is a
-   * lookup nobody needs sixty times a second.
-   */
   crownArt() {
     if (!this.crownFrames) {
       this.crownFrames = readyCrownFrames(this.hero.element);
@@ -2513,32 +1252,12 @@ export class HeroCard extends Container {
     return this.crownFrames;
   }
 
-  /**
-   * Run the comet round the caption. See READY_GLOW.comet.
-   *
-   * One pass every couple of seconds and dark in between, which is the point of
-   * it: the crown burns without stopping and anything that never stops stops
-   * being seen, so this is the beat that keeps pulling the eye back. The card's
-   * index is added to the clock, so six charged heroes sweep one after another
-   * rather than together.
-   *
-   * The trail is drawn chord by chord: each segment is stretched between two
-   * points on the orbit and turned to face along them, which draws a curve out
-   * of straight sprites and, unlike a fixed length per segment, cannot leave
-   * gaps when the ellipse is wider than it is tall. It tapers twice over — in
-   * width and in alpha — because a trail of even bars is a worm.
-   *
-   * @param {number} heat the caption's own drive, so the comet dies with the
-   *   rest of the burn when the ultimate is spent
-   */
   sweepComet(heat) {
     const c = READY_GLOW.comet;
     const clock = this.t + this.index * 0.41;
     const p = (clock % c.every) / c.dur;
 
     if (p > 1) {
-      // Between passes. Written once and only when something is still lit,
-      // rather than every frame for a card that has been dark for a second.
       if (this.cometHead.alpha !== 0) {
         this.cometHead.alpha = 0;
         for (const seg of this.cometTrail) seg.alpha = 0;
@@ -2546,14 +1265,9 @@ export class HeroCard extends Container {
       return;
     }
 
-    // In at the start and out at the end. A comet that appears at full brightness
-    // is a comet that was cut in, and one that vanishes at full brightness is a
-    // dropped frame.
     const fade = Math.max(0, Math.min(1, p / 0.14, (1 - p) / 0.24));
     const lit = c.alpha * fade * heat;
 
-    // A whole turn per pass, starting at the caption's left shoulder: under the
-    // word on the way out, over it on the way back.
     const head = Math.PI * (1 - 2 * p);
     const step = (c.span * 2 * Math.PI) / c.trail;
     const at = (a) => [
@@ -2574,40 +1288,13 @@ export class HeroCard extends Container {
       const taper = 1 - k / this.cometTrail.length;
       const seg = this.cometTrail[k];
       seg.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-      // A little over the chord, so consecutive segments overlap into one
-      // streak instead of a dotted line.
       seg.setSize(this.cometTrailW * taper, Math.hypot(dx, dy) * 1.25);
-      // The bar's own long axis is y, so it is turned a quarter past the chord.
       seg.rotation = Math.atan2(dy, dx) + Math.PI / 2;
       seg.alpha = Math.min(1, lit * taper * taper);
     }
   }
 }
 
-/**
- * Who opens the fight already charged.
- *
- * The opening ultimate used to be Arissa's by construction: chargeStart was
- * read off `hero.heal`, so the same hero was dealt the same full bar in every
- * impression, and the demo hand, the cut-in and the first spell the player ever
- * sees were the same three seconds every time. Five sixths of the roster this
- * creative is selling never did anything before the player made up their mind.
- *
- * So the card that starts ready is drawn instead. Off the run's seed, not
- * Math.random: the row is built after main.js reseeds, so a pinned RUN_SEED
- * deals the same opener with the same board — see core/rng.js — and a rematch
- * reseeds and rolls again, which is what makes the second run look different
- * from the first.
- *
- * Everybody is in the hat, the healer included: her tide is one of the six
- * openings rather than the only one. Nothing else about her moves — she still
- * fills fastest, and her ultimate is still the only one that heals.
- *
- * DIFFICULTY.randomOpeningHero turns the roll off and hands it back to HEALER,
- * which is the exact behaviour this replaced.
- *
- * @returns {number} index into HEROES
- */
 export function rollOpeningHero() {
   return DIFFICULTY.randomOpeningHero ? rndInt(HEROES.length) : HEALER;
 }
@@ -2617,15 +1304,8 @@ export class HeroRow extends Container {
     super();
     initPortraits();
 
-    /**
-     * Whose bar is dealt full, for this row and this run. One roll per row: the
-     * cards are built from it a line later, and a rebuilt row — which is what a
-     * restart does — is a new fight and a new roll.
-     */
     this.opening = rollOpeningHero();
 
-    // No tray under the row: the cards stand straight on the arena, each one
-    // framed by its own plate.
     this.cards = HEROES.map((hero, i) => {
       const card = new HeroCard(hero, i, i === this.opening);
       card.on("pointertap", () => onCardTap(i, card));
@@ -2634,24 +1314,6 @@ export class HeroRow extends Container {
     });
   }
 
-  /**
-   * Lay the row out on whole device pixels.
-   *
-   * The band the layout hands over is honest arithmetic on a viewport — six cards
-   * and five gaps out of whatever is left after the gutters — and it lands
-   * wherever it lands: 56.33 wide, 117.42 tall, starting at x 8.5. Nothing about
-   * a portrait minds that. The frame around it does. Its line is three source
-   * pixels asked for at about a pixel and a half, so an edge half a pixel off the
-   * grid is drawn across two rows at half strength each, and a card whose top
-   * edge rounds one way while its bottom rounds the other wears a frame that is
-   * visibly heavier along the bottom.
-   *
-   * So the card is snapped here rather than corrected there. Sizes go to an even
-   * number of device pixels, because the card is drawn from its own centre and
-   * half of an odd number is not a pixel; positions go to the nearest pixel. The
-   * gaps absorb what the rounding takes, which is under a pixel per card and
-   * nothing anybody can see — unlike the frame, which is the thing this is for.
-   */
   resize(layout) {
     const { x, y, w, h, gap } = layout.cards;
     const q = 1 / getRenderer().resolution;
@@ -2680,23 +1342,13 @@ export class HeroRow extends Container {
     return pick;
   }
 
-  /**
-   * Hand the late ult sheets to whichever cards were built without them.
-   *
-   * Called once by the deferred boot pass in main.js, and a no-op on every card
-   * that already has its border — see HeroCard.adoptUltArt, which is written to
-   * be safe to call on all six whatever state they are in.
-   */
   adoptUltArt() {
     this.cards.forEach((c) => c.adoptUltArt());
   }
 
-  /** "all", "lowest" or a list of indices -> the cards that eat the full hit. */
   resolveTargets(targets) {
     if (!targets || targets === "all") return this.cards.map((_, i) => i);
     if (targets === "lowest") {
-      // Standing heroes only: a golem that keeps punching a body it already
-      // dropped is wasting the turn that was supposed to scare the player.
       let pick = -1;
       this.cards.forEach((card, i) => {
         if (card.downed) return;
@@ -2707,24 +1359,10 @@ export class HeroRow extends Container {
     return targets;
   }
 
-  /** Heroes still standing. Zero of them is the losing condition. */
   aliveCount() {
     return this.cards.reduce((n, card) => n + (card.downed ? 0 : 1), 0);
   }
 
-  /**
-   * How much of its damage the party is still landing.
-   *
-   * This replaces the old per-element lookup, and it had to: when only the
-   * matched colour's owner swung, only that hero's death mattered to that
-   * match. Now the whole row fires at everything, so the backing is the row's
-   * average and every hero lost takes a fifth of the gap between 1 and
-   * DIFFICULTY.downedPenalty off every match that follows.
-   *
-   * Across a run this lands where the old version did — a party one hero down
-   * was already losing the penalty on one match in five — but it no longer
-   * depends on which colour happens to come up.
-   */
   partyPower() {
     if (this.cards.length === 0) return 1;
     const total = this.cards.reduce(
@@ -2734,12 +1372,6 @@ export class HeroRow extends Container {
     return total / this.cards.length;
   }
 
-  /**
-   * Who fires this volley, and in what order.
-   *
-   * The hero whose colour the player actually matched leads; everyone else
-   * still standing follows in row order. The dead do not fire.
-   */
   strikeOrder(leadElement) {
     const lead = [];
     const rest = [];
@@ -2751,7 +1383,6 @@ export class HeroRow extends Container {
     return lead.concat(rest);
   }
 
-  /** Indices of heroes charged and standing — anyone the player could spend. */
   readyCards() {
     const out = [];
     this.cards.forEach((card, i) => {
@@ -2760,36 +1391,16 @@ export class HeroRow extends Container {
     return out;
   }
 
-  /** Point on a card the damage number should fly out of. */
   cardPoint(index) {
     const card = this.cards[index];
     return { x: card.x, y: card.y - (card.cardH || 0) * 0.5 };
   }
 
-  /** Whole party back on its feet — the payoff of Arissa's ultimate. */
   async healAll(to) {
-    // Sung by the row, not by the cards: the tide reaches all six of them and
-    // six copies of the same chime is a chord nobody wrote.
     sfx.heal();
     await Promise.all(this.cards.map((card, i) => card.heal(to, i * 0.06)));
   }
 
-  /**
-   * The row comes up as one.
-   *
-   * The cards used to be dealt in, 0.05s apart, which put the sixth of them a
-   * quarter of a second behind the first. That is a nice enough flourish on its
-   * own and the wrong one here: the opening is meant to land as a single shot,
-   * so a party that arrives in six instalments is six more things appearing
-   * after the thing before them.
-   *
-   * One clock for the row and one for the shot around it: the length comes from
-   * the caller — T.introIn, the same number the boss, the board and the HUD are
-   * given — and the fade and the lift are both handed it, so a card is not done
-   * appearing before it is done arriving. The fade eases out, which is what
-   * keeps a longer span from reading as a card left hanging half transparent:
-   * it is legible early and simply finishes on cue.
-   */
   async introIn(seconds) {
     const d = seconds === undefined ? 0.35 : seconds;
     await Promise.all(

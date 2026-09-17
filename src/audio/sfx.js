@@ -1,27 +1,3 @@
-/**
- * Every sound the fight makes, in one place.
- *
- * The rule the palette is built on: a phone speaker is a two-centimetre cone
- * with nothing under about 400 Hz. Everything that has to read as *heavy* — the
- * boss's fists, the cataclysm, obsidian landing — carries its weight in filtered
- * noise and low harmonics rather than in a deep sine that only a pair of
- * headphones will ever hear. The sub is still there underneath for the players
- * who have them; nothing depends on it.
- *
- * The other rule: the board is the instrument. Matches are tuned, not sampled —
- * a cascade walks up a pentatonic ladder, so a four-step combo is a phrase that
- * resolves rather than the same pop four times. Everything the boss does is
- * deliberately untuned against that, all noise and detuning, so the two sides of
- * the fight never sound like each other.
- *
- * Both rules describe what plays when the game's own recordings cannot. Every
- * function below opens by offering the event to samples.js, which fires the
- * sound the real game makes and reports whether it did; what follows the guard
- * is the synthesized version, unchanged, for the webview that would not decode
- * an MP3 and for anyone who sets `sfxSamples` false. The palette here is
- * therefore still the whole palette — it is just no longer the first choice.
- */
-
 import { AUDIO } from "../config.js";
 import {
   audioBus,
@@ -33,13 +9,6 @@ import {
 } from "./engine.js";
 import { samples } from "./samples.js";
 
-/**
- * A voice per element, so a hero's attack sounds like their colour.
- *
- * Fire growls, water is round and clean, nature is woody, lightning buzzes,
- * arcane sits dark and detuned, wind is thin and airy. Indexed by the element
- * constants in config.js, and appended to in the same order.
- */
 const ELEMENT = [
   { note: 196.0, type: "sawtooth", cut: 2000 },
   { note: 261.6, type: "sine", cut: 3200 },
@@ -49,39 +18,21 @@ const ELEMENT = [
   { note: 392.0, type: "triangle", cut: 4400 },
 ];
 
-/**
- * The cascade ladder: one note per step, pentatonic so no two rungs can clash.
- *
- * A player who chains four steps hears a rising figure, which is the whole
- * reason the combo counter is worth chasing. It tops out rather than climbing
- * forever — past the sixth step it would be shrill on a phone speaker.
- */
 const LADDER = [523.3, 587.3, 659.3, 784.0, 880.0, 1046.5, 1174.7];
 
 const voice = (element) => ELEMENT[element] || ELEMENT[0];
 
-/* ------------------------------------------------------------------ board */
-
-/** Tap-select: the smallest sound in the creative, and the most frequent. */
 export function select() {
   if (samples.play("select")) return;
   tone({ freq: 680, to: 1020, dur: 0.08, gain: 0.1, type: "triangle" });
 }
 
-/** Two gems changing places — a short cloth whoosh, not a click. */
 export function swap() {
   if (samples.play("swap")) return;
   noise({ freq: 900, to: 2600, dur: 0.13, gain: 0.09, q: 0.7 });
   tone({ freq: 300, to: 460, dur: 0.09, gain: 0.06, type: "sine" });
 }
 
-/**
- * A swap that made nothing.
- *
- * A wooden knock, deliberately not a buzzer: the board answers a bad move with
- * a nudge and the hand coming back, and a failure tone on top of that would be
- * the one moment in the fight that tells the player off.
- */
 export function reject() {
   if (samples.play("reject")) return;
   tone({
@@ -94,13 +45,6 @@ export function reject() {
   });
 }
 
-/**
- * A match clearing.
- *
- * @param {number} step which rung of the cascade this is — the pitch
- * @param {number} cells how many gems went, which decides how full the chord is
- * @param {number} element the colour that led the clear, which decides the tone
- */
 export function match(step, cells, element) {
   if (
     samples.play("match", {
@@ -127,7 +71,6 @@ export function match(step, cells, element) {
     cut: v.cut,
     cutTo: v.cut * 0.5,
   });
-  // The sparkle over the top, brighter every step.
   noise({
     type: "highpass",
     freq: 1800 + step * 500,
@@ -137,7 +80,6 @@ export function match(step, cells, element) {
   });
 }
 
-/** The whole cascade landing back down. One thunk for the wave, not per gem. */
 export function drop(count) {
   if (samples.play("drop", { gain: 0.8 + Math.min(count, 12) * 0.03 })) return;
   if (!count) return;
@@ -158,7 +100,6 @@ export function drop(count) {
   });
 }
 
-/** A dead board being dealt again — a shimmer walking up the ladder. */
 export function shuffle() {
   if (samples.play("shuffle")) return;
   LADDER.slice(0, 5).forEach((f, i) => {
@@ -173,7 +114,6 @@ export function shuffle() {
   });
 }
 
-/** Obsidian hardening over a cell. */
 export function obsidianForm(count) {
   if (samples.play("obsForm", { gain: 0.85 + Math.min(count, 4) * 0.08 })) {
     return;
@@ -188,8 +128,6 @@ export function obsidianForm(count) {
     cut: 700,
   });
   noise({ type: "lowpass", freq: 1400, to: 200, dur: 0.36, gain: 0.16 });
-  // One extra crust per block after the first, so a four-block wave is heavier
-  // than a one-block one without being four separate sounds.
   for (let i = 1; i < Math.min(n, 4); i++) {
     noise({
       type: "lowpass",
@@ -225,7 +163,6 @@ export function obsidianChip(count) {
   }
 }
 
-/** A block cracking open — the one genuinely bright sound the board makes. */
 export function obsidianBreak(count) {
   if (samples.play("obsBreak", { gain: 0.85 + Math.min(count, 4) * 0.08 })) {
     return;
@@ -244,20 +181,12 @@ export function obsidianBreak(count) {
   }
 }
 
-/**
- * Every touch the board cannot take: a block that will not move, a stone the
- * cascade is still writing, a swipe off the edge, a finger on a board the
- * boss's turn has taken away. The sound of being heard and told no.
- */
 export function knock() {
   if (samples.play("knock")) return;
   tone({ freq: 140, to: 96, dur: 0.11, gain: 0.13, type: "sine", cut: 600 });
   noise({ type: "lowpass", freq: 600, to: 220, dur: 0.09, gain: 0.07 });
 }
 
-/* ------------------------------------------------------------------ heroes */
-
-/** A hero's bar filling: their own note, arpeggiated up an octave. */
 export function charged(element) {
   if (samples.play("charged", { rate: samples.elementRate(element) })) return;
   const v = voice(element);
@@ -273,7 +202,6 @@ export function charged(element) {
   });
 }
 
-/** The quiet nag under a charged card nobody has tapped. */
 export function ultCall(element, gain) {
   const v = voice(element);
   const g = 0.05 * (gain === undefined ? 1 : gain);
@@ -289,15 +217,6 @@ export function ultCall(element, gain) {
   });
 }
 
-/**
- * A hero swinging.
- *
- * Fired once per standing hero per cascade step, staggered fifty milliseconds
- * apart — so it has to be short, quiet and different enough per element that six
- * of them in a row read as a squad and not as a stutter.
- *
- * @param {boolean} lead the hero whose colour was actually matched
- */
 export function heroStrike(element, lead) {
   if (
     samples.play("strike", {
@@ -327,7 +246,6 @@ export function heroStrike(element, lead) {
   });
 }
 
-/** A hero eating a hit. */
 export function heroHurt() {
   if (samples.play("hurt")) return;
   tone({
@@ -341,7 +259,6 @@ export function heroHurt() {
   noise({ type: "bandpass", freq: 700, to: 300, dur: 0.16, gain: 0.1, q: 0.8 });
 }
 
-/** A hero going down: the same fall, slower and further. */
 export function heroDown() {
   if (samples.play("down")) return;
   tone({
@@ -362,7 +279,6 @@ export function heroDown() {
   });
 }
 
-/** The tide picking the party back up. */
 export function heal() {
   if (samples.play("heal")) return;
   [523.3, 659.3, 784.0, 1046.5].forEach((f, i) => {
@@ -378,9 +294,6 @@ export function heal() {
   noise({ type: "highpass", freq: 3000, to: 7000, dur: 0.5, gain: 0.04 });
 }
 
-/* --------------------------------------------------------------- the ult */
-
-/** The cut-in: a riser that has to pay off in ultBlast half a second later. */
 export function ultCutin(element) {
   if (samples.play("cutin", { rate: samples.elementRate(element) })) return;
   const v = voice(element);
@@ -402,7 +315,6 @@ export function ultCutin(element) {
     gain: 0.09,
     q: 0.6,
   });
-  // The slam the portrait lands on.
   tone({
     freq: 160,
     to: 55,
@@ -413,7 +325,6 @@ export function ultCutin(element) {
   });
 }
 
-/** The ultimate landing on the boss. The biggest sound in the fight. */
 export function ultBlast(element) {
   if (samples.play("ult", { rate: samples.elementRate(element) })) {
     samples.play("boom", { delay: 0.06, gain: 0.7 });
@@ -440,9 +351,6 @@ export function ultBlast(element) {
   });
 }
 
-/* -------------------------------------------------------------- the boss */
-
-/** Climbing out of the lava. */
 export function bossRise() {
   if (samples.play("rise")) return;
   tone({ freq: 46, to: 34, dur: 1.1, gain: 0.24, type: "sine", attack: 0.3 });
@@ -456,7 +364,6 @@ export function bossRise() {
   });
 }
 
-/** The roar: detuned, filthy, and the loudest thing the boss owns. */
 export function bossRoar() {
   if (samples.play("roar")) return;
   [0, -14, 11].forEach((detune, i) => {
@@ -483,7 +390,6 @@ export function bossRoar() {
   tone({ freq: 58, to: 40, dur: 0.9, gain: 0.16, type: "sine" });
 }
 
-/** The wind-up before lava lands on the board. */
 export function bossSpit() {
   if (samples.play("spit")) return;
   noise({
@@ -497,11 +403,8 @@ export function bossSpit() {
   tone({ freq: 90, to: 150, dur: 0.24, gain: 0.1, type: "sawtooth", cut: 900 });
 }
 
-/** A cone of fire over the party — a held hiss with a fire rumble under it. */
 export function bossBreath(hold) {
   const dur = 0.5 + (hold || 0.6);
-  // Stretched to the length the fight asked for rather than cut off at it: the
-  // cut is 1.2 s of held fire and the hold is whatever the attack needs.
   if (samples.play("breath", { rate: 1.2 / dur })) return;
   noise({
     type: "bandpass",
@@ -517,7 +420,6 @@ export function bossBreath(hold) {
   tone({ freq: 70, to: 52, dur, gain: 0.12, type: "sawtooth", cut: 500 });
 }
 
-/** Both fists into the floor. */
 export function bossSmash() {
   if (samples.play("smash")) return;
   tone({ freq: 130, to: 38, dur: 0.55, gain: 0.28, type: "sine" });
@@ -530,7 +432,6 @@ export function bossSmash() {
     cut: 1400,
   });
   noise({ type: "lowpass", freq: 3000, to: 200, dur: 0.6, gain: 0.2 });
-  // Debris skittering off the impact.
   for (let i = 0; i < 4; i++) {
     noise({
       type: "highpass",
@@ -542,7 +443,6 @@ export function bossSmash() {
   }
 }
 
-/** The boss taking a hit. `power` is the same number the flinch is scaled by. */
 export function bossHit(power) {
   const p = Math.max(0.3, Math.min(power || 1, 3));
   if (samples.play("hit", { gain: 0.55 + p * 0.3, rate: 1.06 - p * 0.04 })) {
@@ -566,7 +466,6 @@ export function bossHit(power) {
   });
 }
 
-/** The tell that the fight just got worse. */
 export function bossEnrage() {
   if (samples.play("enrage")) return;
   [155.6, 220].forEach((f, i) => {
@@ -583,7 +482,6 @@ export function bossEnrage() {
   noise({ type: "highpass", freq: 1200, to: 4000, dur: 0.4, gain: 0.08 });
 }
 
-/** Dying: a groan, an explosion, and the crumble after it. */
 export function bossDie() {
   if (samples.play("die")) {
     samples.play("boom", { delay: 0.18 });
@@ -603,9 +501,6 @@ export function bossDie() {
   });
 }
 
-/* ----------------------------------------------------------------- the fight */
-
-/** The combo callout, one rung above the match that earned it. */
 export function combo(step) {
   if (samples.play("combo", { rate: samples.rate(step) })) return;
   const root = LADDER[Math.min(step + 1, LADDER.length) - 1];
@@ -618,10 +513,6 @@ export function combo(step) {
   });
 }
 
-/**
- * The doom clock's warnings.
- * @param {number} level 0 is the first warning, 1 and up are the panic ones
- */
 export function doomWarn(level) {
   const base = level > 0 ? 740 : 620;
   if (
@@ -644,7 +535,6 @@ export function doomWarn(level) {
   });
 }
 
-/** The cataclysm: charge, then the whole screen. */
 export function doomCast() {
   if (samples.play("doomCast")) return;
   tone({
@@ -676,49 +566,12 @@ export function doomCast() {
   });
 }
 
-/**
- * How long after a stinger the narrator says which ending it was.
- *
- * The victory cut opens a fifth of a second before its hit — see pack-outcome —
- * so 0.45 puts the word a quarter-second *behind* the impact, riding the
- * sustain rather than fighting the transient. The braam has its weight at the
- * front instead, and 0.4 clears it by about the same margin.
- *
- * Both were first set against `hud.shout`, which took 0.9 s to put the word on
- * screen, and both survived the move to the outcome card unchanged — see the
- * `at` argument below. The card stands its word up in 0.18 s rather than 0.9,
- * so the same numbers now land the voice a little under four tenths *after* the
- * word instead of half a second before it. That is the same side of the hit the
- * pair was tuned for: the point was never where the voice falls relative to the
- * text, it was that it clears its own stinger's transient, and 0.45 over a cut
- * whose weight arrives at 0.176 still does.
- */
 const VO_DELAY = { victory: 0.45, defeat: 0.4 };
 
-/**
- * The narrator, or nothing.
- *
- * The only sound in the palette with no synthesized twin, and deliberately: the
- * rest of this file exists so a webview that will not decode an MP3 still gets
- * a full mix, but there is no oscillator that says "victory". A missing voice
- * is a stinger on its own, which is what the creative shipped with and is still
- * a complete ending — so this returns silently and the caller does not care.
- */
 function outcomeVoice(which, at) {
   samples.play(`${which}Vo`, { delay: VO_DELAY[which] + at });
 }
 
-/**
- * The boss falls: a major arpeggio with a bell on top.
- *
- * `at` slides the whole ending — stinger, narrator and the synthesized twin —
- * forward by that many seconds, scheduled on the audio clock rather than the
- * game's. It exists because the two endings do not hit at the same distance
- * from the instant they are started: measured in outcome.mp3, past the 0.153 s
- * head `findHead` already takes off, this cut reaches half its power at 0.176
- * and the braam at 0.116. The card's word crosses readable at 0.18, so a win
- * asks for nothing and a loss asks for the difference. See ui/outcome.js.
- */
 export function victory(at = 0) {
   outcomeVoice("victory", at);
   if (samples.play("victory", { delay: at })) return;
@@ -741,7 +594,6 @@ export function victory(at = 0) {
   });
 }
 
-/** The party falls: the same shape, minor and going the other way. */
 export function defeat(at = 0) {
   outcomeVoice("defeat", at);
   if (samples.play("defeat", { delay: at })) return;
@@ -765,21 +617,13 @@ export function defeat(at = 0) {
   });
 }
 
-/** The install banner sliding in. */
 export function banner() {
   if (samples.play("banner")) return;
   tone({ freq: 880, to: 1320, dur: 0.16, gain: 0.11, type: "triangle" });
   noise({ type: "highpass", freq: 3000, dur: 0.1, gain: 0.04 });
 }
 
-/** The end card arriving. */
 export function endcard(defeated) {
-  // Not transposed on a loss any more. The recorded cut is the game's own title
-  // sting, and dropping a recording of a tuned instrument 8% is a detune rather
-  // than a mood — audible as a warble on the one screen the player stops on.
-  // The synthesized twin below still branches, because an oscillator asked for
-  // a lower note is not a stretched sample; and the verdict has already been
-  // said by then anyway, by the outcome screen. See ui/outcome.js.
   if (samples.play("endcard")) return;
   if (defeated) {
     tone({
@@ -802,32 +646,15 @@ export function endcard(defeated) {
   noise({ type: "highpass", freq: 2000, to: 7000, dur: 0.6, gain: 0.05 });
 }
 
-/** The tap that leaves for the store — see `cta` in SLICES for the level. */
 export function cta() {
   if (samples.play("cta")) return;
   tone({ freq: 740, to: 1180, dur: 0.1, gain: 0.24, type: "triangle" });
   tone({ freq: 1180, dur: 0.12, gain: 0.18, type: "sine", delay: 0.08 });
 }
 
-/* --------------------------------------------------------------- the bed */
-
-/**
- * The lava under everything.
- *
- * Two detuned saws through a lowpass and a band of noise over them — not music,
- * a room. It exists so that the gaps between beats are not silence, and it is
- * mixed low enough that nothing else has to fight it.
- *
- * `setTension` opens the filter as the doom clock runs down, which is the one
- * piece of the mix that tells the player something the screen has not already.
- */
 let bedNodes = null;
 let bedTension = -1;
 
-// The nodes belong to the context that made them. If that context is thrown
-// away — see rebuild in engine.js — the bed has to forget its own, or start()
-// looks at a set of dead nodes, decides it is already running, and the room
-// goes quiet for the rest of the session.
 onAudioReset(() => {
   bedNodes = null;
   bedTension = -1;
@@ -853,7 +680,6 @@ function buildBed(c, out) {
     return o;
   });
 
-  // The hiss of the pool, kept under the saws rather than beside them.
   const hiss = c.createBufferSource();
   const len = Math.floor(c.sampleRate * 2);
   const buf = c.createBuffer(1, len, c.sampleRate);
@@ -872,7 +698,6 @@ function buildBed(c, out) {
   hissGain.connect(gain);
   hiss.start();
 
-  // Slow swell, so the room breathes instead of humming.
   const lfo = c.createOscillator();
   lfo.frequency.value = 0.13;
   const lfoGain = c.createGain();
@@ -886,22 +711,11 @@ function buildBed(c, out) {
 
 export const bed = {
   start() {
-    // The game's own volcano first — see samples.room, which is the same room
-    // recorded rather than built, and which fails the same way everything else
-    // in this file does.
-    // `playing` as well as `start`: samples.js starts the room from its own
-    // onAudioOpen hook, which can land before this does, and without the first
-    // half of this test the synthesized bed would start underneath it.
     if (samples.room.playing() || samples.room.start()) return;
     if (!AUDIO.bed) return;
     const c = audioContext();
     const out = audioBus();
     if (!c || !out) return;
-    // Second start, on a rematch: `stop` below never tore the graph down, it
-    // faded the gain out, so the nodes are still here and still running and the
-    // only thing missing is the level. Returning early on `bedNodes` — which is
-    // what this did — left a second fight with no room tone at all on every
-    // device that fell back to the synthesized bed.
     if (bedNodes) {
       bedNodes.gain.gain.setTargetAtTime(AUDIO.bedLevel, c.currentTime, 1.2);
       return;
@@ -910,21 +724,13 @@ export const bed = {
     bedNodes.gain.gain.setTargetAtTime(AUDIO.bedLevel, c.currentTime, 1.2);
   },
 
-  /**
-   * @param {number} v 0 at the top of the clock, 1 when it is about to land
-   */
   setTension(v) {
     samples.room.setTension(v);
     if (!bedNodes) return;
     const t = Math.max(0, Math.min(1, v || 0));
-    // Quantized: this is called every frame and a ramp per frame on the same
-    // param is a stutter, not a swell.
     const step = Math.round(t * 12);
     if (step === bedTension) return;
     const c = audioContext();
-    // No context is no bed to sweep, and asking one for its clock is how a
-    // tension call that arrives a frame after the audio was thrown away turns
-    // a swell into a thrown exception on the ticker.
     if (!c) return;
     bedTension = step;
     const at = c.currentTime;

@@ -4,11 +4,11 @@ import rakeUrl from "../assets/fx/claw-rake.webp";
 
 const SHEET = {
   cols: 4,
-  cellW: 640,
-  cellH: 377,
-  pad: 2,
+  cellW: 397,
+  cellH: 235,
+  pad: 1,
   count: 12,
-  block: 1139,
+  block: 708,
 };
 
 const FRAME_HOLD = [1, 1, 1, 1, 1, 1, 2.6, 2.6, 2.6, 2.6, 4, 4];
@@ -29,17 +29,6 @@ export function rakeFrameAt(p) {
 let frames = null;
 let loaded = false;
 
-/**
- * The sheet arrives as two grids stacked in one image with no alpha channel —
- * the paint on top, its matte below in grey — and is put back together here.
- * See tools/pack-claw.mjs: an alpha plane is written losslessly by libwebp and
- * on this sheet costs more than the picture, so carrying the matte as grey is
- * what pays for the cell being big enough to hold up on a phone.
- *
- * Both halves are drawn into one canvas rather than the whole image into one
- * twice as tall, which is eleven megabytes of RGBA saved at the one moment
- * this is decoded.
- */
 export async function loadRakeArt() {
   if (loaded) return frames;
   loaded = true;

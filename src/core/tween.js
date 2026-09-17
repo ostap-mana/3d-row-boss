@@ -1,15 +1,8 @@
-/**
- * Minimal promise-based tween engine.
- * A dependency-free stand-in for GSAP — every animation in the creative
- * awaits one of these, which keeps the director readable as a script.
- */
-
 const active = [];
 let timers = [];
 let clock = 0;
 
 export const Ease = {
-  /** Used where the caller drives its own curve, e.g. a thrown arc. */
   linear: (t) => t,
   quadIn: (t) => t * t,
   quadOut: (t) => t * (2 - t),
@@ -35,46 +28,27 @@ export const Ease = {
     );
   },
 
-  /**
-   * backOut with a tenth of the overshoot, for travel of about one cell.
-   *
-   * `backOut` overshoots its distance by a tenth, which is a nice settle over a
-   * card sliding in from off screen and a gem visibly bumping into the next
-   * column over the width of one tile. This carries the same settle at a size
-   * that fits inside the cell it lands in.
-   */
   backOutSoft: (t) => {
     const c = 0.9;
     return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
   },
 
-  /** backOut with half again the overshoot — for things that arrive hard. */
   backOutHard: (t) => {
     const c = 2.6;
     return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
   },
 
-  /**
-   * Pull back, then throw — the windup and the overshoot in one curve.
-   *
-   * Worth having as a curve rather than as two tweens because the anticipation
-   * is what makes a snap read as intended rather than as a dropped frame, and a
-   * two-tween version of it has to be awaited to stay in order.
-   */
   anticipate: (t) => {
     const c = 1.9;
     if (t < 0.36) {
       const k = t / 0.36;
       return -0.14 * ((c + 1) * k * k * k - c * k * k);
     }
-    // Picks up exactly where the windup left off, so the curve is continuous:
-    // -0.14 at the handover, 1 at the end.
     const k = (t - 0.36) / 0.64;
     const back = 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2);
     return -0.14 + 1.14 * back;
   },
 
-  /** Lands, bounces twice, settles. */
   bounceOut: (t) => {
     const n = 7.5625;
     if (t < 1 / 2.75) return n * t * t;
@@ -91,15 +65,12 @@ export const Ease = {
   },
 };
 
-/** Advance every running tween/timer. Driven once per frame from main.js. */
 export function updateTweens(dt) {
   clock += dt;
 
   for (let i = active.length - 1; i >= 0; i--) {
     const tw = active[i];
 
-    // A creative must never throw. If something tore down its target while a
-    // tween was still running, drop the tween instead of writing to a corpse.
     if (!tw.target || tw.target.destroyed) {
       active.splice(i, 1);
       tw.resolve();
@@ -135,7 +106,6 @@ export function updateTweens(dt) {
   }
 }
 
-/** Resolve dotted paths so `tween(gem, { "scale.x": 1 })` works. */
 function setProp(target, path, value) {
   if (path.indexOf(".") === -1) {
     target[path] = value;
@@ -155,10 +125,6 @@ function getProp(target, path) {
   return obj;
 }
 
-/**
- * Tween properties on an object.
- * @returns {Promise<void>} resolves when the tween lands
- */
 export function tween(target, props, duration, opts) {
   const o = opts || {};
   const keys = Object.keys(props);
@@ -182,7 +148,6 @@ export function tween(target, props, duration, opts) {
   });
 }
 
-/** Tween a bare number, reporting each step to a callback. */
 export function tweenValue(from, to, duration, onStep, opts) {
   const holder = { v: from };
   const o = opts || {};
@@ -193,7 +158,6 @@ export function tweenValue(from, to, duration, onStep, opts) {
   });
 }
 
-/** Await a number of seconds on the game clock (pauses with the tab). */
 export function delay(seconds) {
   if (seconds <= 0) return Promise.resolve();
   return new Promise((resolve) =>
@@ -201,10 +165,6 @@ export function delay(seconds) {
   );
 }
 
-/**
- * Kill the tweens driving a given object.
- * Killed tweens still resolve, so nothing awaiting them can deadlock.
- */
 export function killTweensOf(target) {
   for (let i = active.length - 1; i >= 0; i--) {
     if (active[i].target === target) {
@@ -213,33 +173,6 @@ export function killTweensOf(target) {
   }
 }
 
-/**
- * Squash-and-stretch scale kick, snapped on and elastic on the way home.
- *
- * The one bit of animation vocabulary the creative was missing everywhere at
- * once. A thing that is struck, or that strikes, does not change size smoothly
- * in both directions — it is deformed on the frame of the event and springs
- * back, and it conserves its area while it does, so a stretch along x is a
- * squash along y. Written once here because six files wanted it.
- *
- * Set rather than tweened on the way out: the deformation IS the impact frame,
- * and easing into it over a tenth of a second is what makes an impact read as a
- * throb. Only the return is animated.
- *
- * Takes over the scale it is given — whatever else was tweening it is killed,
- * because two owners on one scale is a stutter and a punch is a caller saying
- * "this is mine now".
- *
- * @param {{scale?:object, x?:number, y?:number}} target a display object, or a
- *        bare point to drive directly
- * @param {number} amount how far it deforms; 0.2 is a nudge, 0.6 is a wallop
- * @param {number} [duration] seconds of spring-back
- * @param {object} [opts] `base` rest scale (default 1), `ratio` how much of the
- *        stretch the cross axis gives back (default 0.6, i.e. mostly), `axis`
- *        "x" to stretch wide and squash flat, "y" for tall and thin, and
- *        `ease` for the return
- * @returns {Promise<void>} resolves when it has settled
- */
 export function punch(target, amount, duration, opts) {
   const o = opts || {};
   const scale = target.scale || target;

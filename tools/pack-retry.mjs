@@ -1,42 +1,3 @@
-/**
- * Trim and pack the RETRY plate for the end card.
- *
- *   node tools/pack-retry.mjs           # -> src/assets/brand/retry.webp
- *   node tools/pack-retry.mjs --png     # keep the intermediate PNG too
- *   node tools/pack-retry.mjs --proof   # composite it over the end card
- *
- * The source is `src/source/endcard/retry.png`, 2172x724: a blue faceted gem
- * plate in a chromed frame, RETRY cut into it in the same bevelled type the
- * PLAY NOW plate wears, with a four-pointed star finial off each end and one
- * more centred top and bottom.
- *
- * It is the defeat card's second button — see EndCard.fitRetry — and it
- * replaces a pill this file used to draw in Graphics. The drawn one is still
- * there and is still what a device that cannot decode this gets, exactly as the
- * PLAY NOW plate has always had a drawn pill behind it.
- *
- * ## Not a keyer, for the same reason pack-victory.mjs is not one
- *
- * This source arrived with its matte already on it: the backdrop is alpha 0
- * carrying rgb 0,0,0, which is what every ramp over "distance from white" reads
- * as maximum ink. Running a keyer on it hands back a black rectangle. So this is
- * the same two operations pack-victory.mjs does and nothing more — snap the
- * near-solid body shut, trim to the ink, resample to the width the card draws
- * at. Nothing is keyed, and nothing here may become a keyer.
- *
- * ## Trim, and why the aspect is the output
- *
- * The margin is dead weight in a file that gets base64'd into a single-page
- * bundle, and worse, it is a lie about the art's shape: the card fits this by
- * width and asks it for its own height — see `retryHeight` in art/brand.js — so
- * a transparent border becomes padding the layout cannot see and cannot remove.
- * Trimmed to the ink, the packed size *is* the drawn box, and RETRY_ART is a
- * transcript of what this tool prints.
- *
- * ffmpeg is the only dependency, and only to decode and encode, as everywhere
- * else in this folder.
- */
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -47,34 +8,15 @@ const SRC = join(ROOT, "src/source/endcard/retry.png");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 const OUT = join(OUT_DIR, "retry");
 
-/** Alpha at or under this is not art, and is what the trim measures against. */
 const ALPHA_FLOOR = 6;
 
-/** Alpha at or over this is the plate's body and is snapped shut. See above. */
 const SOLID = 248;
 
-/**
- * The packed width, in pixels.
- *
- * The same 640 the PLAY NOW plate packs to, because this is drawn *under* that
- * plate at a fraction of its width — see RETRY_W in ui/endcard.js — and so is
- * the smaller of the two on every screen the card is solved for. A plate that
- * out-resolved the one above it would be spending bytes on detail the card never
- * asks for: the widest this is ever drawn is about 275 points, which is 550
- * device pixels at a renderer clamped to resolution 2.
- *
- * Not the banners' 1024 either, and that is the same argument from the other
- * end: those are laid across the whole card and this is a button on it.
- */
 const WIDTH = 640;
 
-/** libwebp quality. Painted metal with a gem behind it; 84 is invisible. */
 const QUALITY = 84;
 
-/** What --proof composites onto: the end card's own backdrop at its darkest. */
 const PROOF_BG = [11, 6, 24];
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 const rel = (p) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
 const kb = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`);
@@ -133,9 +75,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* ------------------------------------------------------------------- pixels */
-
-/** Snap the near-solid band to fully opaque. Returns how many pixels moved. */
 function solidify(px) {
   let hit = 0;
   for (let i = 3; i < px.length; i += 4) {
@@ -147,7 +86,6 @@ function solidify(px) {
   return hit;
 }
 
-/** The box the art actually occupies, ignoring anything at the alpha floor. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -165,16 +103,6 @@ function inkBox(px, w, h) {
   return { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/**
- * Box-average `box` down to `dw` by `dh`, weighting colour by alpha.
- *
- * The same resampler tools/pack-defeat.mjs uses, and the weighting is the whole
- * of why it is written out rather than handed to ffmpeg's scaler: colour has to
- * be averaged *premultiplied* or the fully transparent pixels around a spike
- * drag their own colour into its edge. Every partial pixel in this file is a
- * spike edge, a letter's antialiasing or the gem's glow, so that is most of
- * what there is to get wrong.
- */
 function resample(src, sw, sh, box, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = box.w / dw;
@@ -225,8 +153,6 @@ function resample(src, sw, sh, box, dw, dh) {
   return out;
 }
 
-/* ---------------------------------------------------------------------- run */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SRC);
@@ -268,14 +194,6 @@ console.log(
     `   aspect ${(outW / outH).toFixed(3)}`,
 );
 
-/**
- * The banner over the end card's own backdrop, at the size it is drawn.
- *
- * Worth looking at even though nothing here is keyed: the glow behind the type
- * is red light on a near-black card, and light that reads as a warm halo in a
- * viewer's white gutter can read as a dirty smear over black. This is the only
- * place that question gets answered.
- */
 if (flags.has("--proof")) {
   const pw = 520;
   const ph = Math.round((outH * pw) / outW);

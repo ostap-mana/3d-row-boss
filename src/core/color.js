@@ -1,5 +1,3 @@
-/** Colour helpers for tint animations. */
-
 export function lerpColor(a, b, t) {
   const ar = (a >> 16) & 255;
   const ag = (a >> 8) & 255;

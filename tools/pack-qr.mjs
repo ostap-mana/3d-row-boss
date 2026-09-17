@@ -1,67 +1,3 @@
-/**
- * Generate the store QR code and pack it for the end card.
- *
- *   node tools/pack-qr.mjs                # -> src/assets/brand/qr.webp
- *   node tools/pack-qr.mjs --png          # keep a lossless PNG beside it
- *   node tools/pack-qr.mjs --round        # rounded white plate, clear corners
- *   node tools/pack-qr.mjs --ecc M        # smaller matrix, less damage budget
- *   node tools/pack-qr.mjs --url https://…
- *   node tools/pack-qr.mjs --dump         # print the matrix as text
- *
- * ## Why this is generated and not painted
- *
- * Everything else in this folder packs a picture somebody made. This one packs
- * *data*: a QR is a lossless encoding of a string, and the only correct one for
- * a given URL is the one the standard produces. Draw it by hand, or resample it
- * with the box filter the other packers use, and it stops being a QR — it
- * becomes a picture of one that a camera may or may not agree to read.
- *
- * Two consequences run through the whole file. The URL is read from
- * src/config.js rather than typed here, so the code and the badges under it can
- * never point at two different places — see STORE_URL, and `pc` in it, which is
- * the one entry that is a landing page rather than a storefront and so the only
- * one worth putting in front of a camera. And every scaling step is an integer
- * multiply with no interpolation: a module is MODULE pixels of one colour, or
- * the file is wrong.
- *
- * ## Why there is an encoder in here
- *
- * `qrcode` on npm would do this in four lines. It is not here for the same
- * reason the resampler in pack-victory.mjs is written out: this folder's only
- * dependency is ffmpeg, and a build tool that pulls a tree of packages to emit
- * a kilobyte of black and white is a bad trade. The encoder below is byte mode,
- * versions 1 to 6, which covers any URL up to 84 characters at the default
- * error correction — comfortably more than a landing page needs. Past that it
- * refuses rather than guessing, because version 7 and up carry a second block
- * of version information that is not implemented here.
- *
- * ## Why it verifies itself
- *
- * A QR that is subtly wrong looks completely right. Reed-Solomon over the wrong
- * generator, a mask written into the format bits that is not the mask applied
- * to the data, one transposed coordinate in the zigzag — every one of those
- * produces a plausible-looking square of noise, and the first time anybody
- * finds out is when a phone will not read it off a screen in a meeting.
- *
- * So the matrix is decoded back before it is written: the format bits are read
- * out of the finished grid, the mask is undone, the codewords are lifted in the
- * same zigzag, de-interleaved, run through a Reed-Solomon syndrome check — all
- * syndromes must be zero — and the payload is parsed back to a string that has
- * to equal the URL that went in. Nothing reaches disk unless that passes.
- *
- * ## Error correction
- *
- * Default H, the highest: up to 30% of the code can be damaged and still read.
- * That is not paranoia about print, it is what buys the option of dropping the
- * game's crest into the middle of it later without re-deriving anything. It
- * costs nothing here — `https://invokers.com/` is 21 bytes, which lands in
- * version 3 at level H and version 3 at level Q alike, so the weaker level
- * would have bought the same 29x29 grid and less margin. `--ecc M` drops it to
- * 25x25 if a smaller grid ever matters more than the damage budget.
- *
- * ffmpeg is the only dependency, and only to encode, as everywhere else here.
- */
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -71,23 +7,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 const OUT = join(OUT_DIR, "qr");
 
-/** Pixels per module. Integer, and every scale below is a whole multiple. */
 const MODULE = 12;
 
-/**
- * The light border, in modules.
- *
- * Four is the standard's own minimum and it is not decoration: a scanner finds
- * the code by looking for the finder patterns against light, and a QR butted up
- * against the end card's near-black backdrop has no light for it to find. This
- * is also why the packed file is white rather than transparent.
- */
 const QUIET = 4;
 
-/** Corner radius for --round, in modules. Never eats into the quiet zone. */
 const RADIUS = 3;
-
-/* ----------------------------------------------------------------- GF(256) */
 
 const EXP = new Uint8Array(512);
 const LOG = new Uint8Array(256);
@@ -103,7 +27,6 @@ const LOG = new Uint8Array(256);
 
 const mul = (a, b) => (a === 0 || b === 0 ? 0 : EXP[LOG[a] + LOG[b]]);
 
-/** The generator polynomial for `deg` error correction codewords. */
 function generator(deg) {
   let g = [1];
   for (let i = 0; i < deg; i++) {
@@ -117,7 +40,6 @@ function generator(deg) {
   return g;
 }
 
-/** The Reed-Solomon remainder: `count` codewords appended to a block. */
 function eccOf(data, count) {
   const g = generator(count);
   const buf = new Uint8Array(data.length + count);
@@ -130,12 +52,6 @@ function eccOf(data, count) {
   return Array.from(buf.slice(data.length));
 }
 
-/* ------------------------------------------------------------------ tables */
-
-/**
- * Block layout per version and level: [eccPerBlock, g1Blocks, g1Data, g2Blocks,
- * g2Data]. Straight out of the standard's block table, versions 1 to 6 only.
- */
 const BLOCKS = {
   "1L": [7, 1, 19],
   "1M": [10, 1, 16],
@@ -163,7 +79,6 @@ const BLOCKS = {
   "6H": [28, 4, 15],
 };
 
-/** Alignment pattern centres per version. */
 const ALIGN = {
   1: [],
   2: [6, 18],
@@ -173,7 +88,6 @@ const ALIGN = {
   6: [6, 34],
 };
 
-/** The two bits that name each level inside the format information. */
 const LEVEL_BITS = { L: 1, M: 0, Q: 3, H: 2 };
 
 const dataCapacity = (v, lvl) => {
@@ -181,9 +95,6 @@ const dataCapacity = (v, lvl) => {
   return b[1] * b[2] + (b[3] || 0) * (b[4] || 0);
 };
 
-/* ------------------------------------------------------------------ encode */
-
-/** Mode indicator, 8-bit length, payload, terminator, pad — as a byte array. */
 function codewords(bytes, version, level) {
   const cap = dataCapacity(version, level);
   const bits = [];
@@ -205,12 +116,10 @@ function codewords(bytes, version, level) {
     for (let j = 0; j < 8; j++) b = (b << 1) | bits[i + j];
     out.push(b);
   }
-  // The standard's own pad bytes, alternating, until the block is full.
   for (let i = 0; out.length < cap; i++) out.push(i % 2 ? 0x11 : 0xec);
   return out;
 }
 
-/** Split, add ECC to each block, and interleave the way the standard wants. */
 function interleave(data, version, level) {
   const [ecc, n1, d1, n2 = 0, d2 = 0] = BLOCKS[`${version}${level}`];
   const blocks = [];
@@ -230,9 +139,6 @@ function interleave(data, version, level) {
   return out;
 }
 
-/* ------------------------------------------------------------------ matrix */
-
-/** The function patterns: everything that is not payload. */
 function skeleton(version) {
   const size = version * 4 + 17;
   const m = Array.from({ length: size }, () => new Uint8Array(size));
@@ -243,7 +149,6 @@ function skeleton(version) {
     fn[r][c] = 1;
   };
 
-  // Finders, plus the light separator that rings each one.
   for (const [r0, c0] of [
     [0, 0],
     [0, size - 7],
@@ -256,13 +161,11 @@ function skeleton(version) {
         put(r0 + dr, c0 + dc, inside && d !== 2 ? 1 : 0);
       }
 
-  // Timing: the alternating spine between the finders, on both axes.
   for (let i = 8; i < size - 8; i++) {
     put(6, i, i % 2 === 0 ? 1 : 0);
     put(i, 6, i % 2 === 0 ? 1 : 0);
   }
 
-  // Alignment, minus the three that would land on a finder.
   const pos = ALIGN[version];
   for (const r of pos)
     for (const c of pos) {
@@ -281,7 +184,6 @@ function skeleton(version) {
           );
     }
 
-  // The one module that is always dark, and the format areas held open for it.
   put(size - 8, 8, 1);
   for (let i = 0; i <= 8; i++) {
     if (!fn[i][8]) put(i, 8, 0);
@@ -295,7 +197,6 @@ function skeleton(version) {
   return { size, m, fn };
 }
 
-/** Walk the payload zigzag, handing every free module to `visit`. */
 function zigzag(size, fn, visit) {
   let i = 0;
   for (let right = size - 1; right >= 1; right -= 2) {
@@ -323,7 +224,6 @@ const maskAt = (mask, r, c) =>
     (((r + c) % 2) + ((r * c) % 3)) % 2 === 0,
   ][mask];
 
-/** The 15 bits of format information, BCH-coded and masked, per the standard. */
 function formatBits(level, mask) {
   const data = (LEVEL_BITS[level] << 3) | mask;
   let rem = data;
@@ -344,14 +244,6 @@ function writeFormat(m, size, level, mask) {
   m[size - 8][8] = 1;
 }
 
-/**
- * How bad a masked grid looks to a scanner. Lower is better.
- *
- * The four rules of the standard, with the third simplified to a literal search
- * for the two finder-lookalike runs rather than the full window walk. Only the
- * ordering matters here — every mask produces a readable code, and this only
- * decides which one is picked.
- */
 function penalty(m, size) {
   let score = 0;
   const FIND = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
@@ -394,7 +286,6 @@ function penalty(m, size) {
   return score;
 }
 
-/** Encode `text` and return the finished matrix, mask and all. */
 function encode(text, level) {
   const bytes = Array.from(Buffer.from(text, "utf8"));
   let version = 0;
@@ -436,16 +327,6 @@ function encode(text, level) {
   };
 }
 
-/* ------------------------------------------------------------------ verify */
-
-/**
- * Read the finished grid back and prove it says what it was asked to say.
- *
- * Deliberately walks in from the outside: the format bits are recovered by
- * matching all 32 legal words rather than by trusting the mask the encoder
- * chose, the codewords come back out of the same zigzag, and every block is
- * checked against its own Reed-Solomon syndromes before a byte is believed.
- */
 function verify(grid, text) {
   const { size, m } = grid;
   let read = 0;
@@ -477,7 +358,6 @@ function verify(grid, text) {
     stream.push(b);
   }
 
-  // De-interleave back into blocks, exactly reversing the walk above.
   const [ecc, n1, d1, n2 = 0, d2 = 0] = BLOCKS[`${version}${found.lvl}`];
   const lens = [];
   for (let i = 0; i < n1; i++) lens.push(d1);
@@ -516,9 +396,6 @@ function verify(grid, text) {
   return { version, level: found.lvl, mask: found.mask, len };
 }
 
-/* ------------------------------------------------------------------ render */
-
-/** Nearest-neighbour by construction: every module is MODULE px of one colour. */
 function render(grid, round) {
   const n = grid.size + QUIET * 2;
   const px = n * MODULE;
@@ -572,8 +449,6 @@ function encodeFile(buf, size, file, args) {
     { input: buf, maxBuffer: 1 << 29 },
   );
 }
-
-/* --------------------------------------------------------------------- run */
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);

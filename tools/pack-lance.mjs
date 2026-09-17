@@ -152,7 +152,6 @@ const raw = (n) =>
     { maxBuffer: 1 << 28 },
   );
 
-/** The key from tools/pack-water-ult.mjs, unchanged. */
 function key(r, g, b) {
   const other = Math.max(r, b);
   const chroma = (g - other) / 255;

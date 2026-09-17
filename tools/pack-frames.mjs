@@ -1,28 +1,3 @@
-/**
- * Pack the sliced frames into the six textures the hero cards wear.
- *
- *   node tools/slice-frames.mjs          # first: cut the sheet apart
- *   node tools/pack-frames.mjs           # -> src/assets/cards/frame-<colour>.webp
- *   node tools/pack-frames.mjs --png     # keep the intermediate PNGs too
- *
- * The cut-outs are not interchangeable as they arrive, and they have to be: the
- * card asks for a frame by element and must not care which one it gets back.
- * Three of them are a bare 224x224 border and three carry a glow that makes them
- * 256 across, so a card that sized itself off the file would draw the glowing
- * three a tenth smaller than the plain three and hang them a pixel high.
- *
- * So every frame is rebuilt on the same grid here: its border box centred in a
- * canvas with an identical margin all round, whether it has anything to put in
- * that margin or not. What comes out is six files with one geometry — one set
- * of constants in art/cardframe.js, and a glow that lands outside the card's
- * edge instead of eating into it.
- *
- * They are then reduced. A card is at most about 120 points wide on the biggest
- * screen this creative runs on, at a renderer clamped to resolution 2, so the
- * border is never asked for at more than ~240 device pixels — and it is drawn
- * nine-sliced, which means only the corners are ever sampled at their own size.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,22 +7,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const IN_DIR = join(ROOT, "src/source/cards/frames");
 const OUT_DIR = join(ROOT, "src/assets/cards");
 
-/** Alpha over this is the border itself rather than the glow around it. */
 const CORE = 200;
 
-/**
- * Margin around the border, in source pixels, and what the border is packed to.
- *
- * 18 because the widest glow on the sheet reaches 16 past the border and two
- * clean pixels keep the reduction from smearing it against the edge. 200 for
- * the border because that is a shade over the 196 device pixels a landscape
- * card's height comes to at resolution 2 — sharp where it is looked at, and not
- * a byte past it.
- */
 const PAD = 18;
 const CORE_TARGET = 200;
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -99,9 +62,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* ---------------------------------------------------------------- geometry */
-
-/** Box of the opaque border — the frame without whatever glows around it. */
 function coreBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -119,7 +79,6 @@ function coreBox(px, w, h) {
   return { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/** The border box centred in a canvas with `PAD` of margin on every side. */
 function onGrid(px, w, h, core) {
   const outW = core.w + PAD * 2;
   const outH = core.h + PAD * 2;
@@ -142,7 +101,6 @@ function onGrid(px, w, h, core) {
   return { px: out, w: outW, h: outH };
 }
 
-/** How thick the border is, walked in along the core's middle row. */
 function borderWidth(px, w, core) {
   const y = Math.round((core.y0 + core.y1) / 2);
   let n = 0;
@@ -153,7 +111,6 @@ function borderWidth(px, w, core) {
   return n;
 }
 
-/** Corner radius, off the silhouette of the border. */
 function cornerRadius(px, w, core) {
   for (let y = core.y0; y <= core.y1; y++) {
     let x = core.x0;
@@ -163,9 +120,6 @@ function cornerRadius(px, w, core) {
   return 0;
 }
 
-/* ----------------------------------------------------------------- resample */
-
-/** Area-average down to `dw` by `dh`, weighting colour by alpha. */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -218,8 +172,6 @@ function resample(src, sw, sh, dw, dh) {
 
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/* --------------------------------------------------------------------- main */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const files = readdirSync(IN_DIR)
@@ -253,8 +205,6 @@ for (const file of files) {
 
   const out = join(OUT_DIR, file.replace(/\.png$/, ".webp"));
   if (flags.has("--png")) encode(art, dw, dh, out.replace(/\.webp$/, ".png"));
-  // Quality high enough for a glow: a neon halo is one long smooth ramp, and
-  // banding across it is exactly what a lossy codec does first.
   encode(art, dw, dh, out, [
     "-c:v",
     "libwebp",

@@ -2,36 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!--
-      The container's own API — and the only request this one file is allowed
-      to make. See src/net/mraid.js: the SDK the ad plays inside intercepts
-      this URL and answers it with its own build, and a few of them inject
-      nothing unless it is asked for. First in the head and not deferred,
-      because nothing may read window.mraid before it exists. Standalone it
-      404s, which is silent, and is the case every path in net/cta.js covers.
-    -->
     <script src="mraid.js"></script>
-    <!--
-      The `ready` subscription, and the only reason it is here rather than in
-      the bundle with the rest of net/mraid.js: it has to be registered before
-      the SDK fires the event, and the bundle is not running yet when that
-      happens. Measured on a real container, `ready` fired ten milliseconds
-      after the page finished loading — by which point the module graph has
-      only just been evaluated and the creative is still decoding art. The
-      network's own compliance check reads it exactly that way ("never
-      subscribed to ready before it fired"), and a creative that starts
-      regardless is racing the SDK for real: every getter is allowed to lie
-      while the state is `loading`.
-
-      All this does is latch the event. `window.__siegeMraid` is the whole
-      contract with the bundle — `ready` is whether it has fired, `waiting` is
-      what to call when it does — and net/mraid.js queues on it in whenReady.
-      No container is ready by definition, which is the standalone case and
-      the dev server; a page served without this script still works, because
-      whenReady falls back to subscribing itself.
-
-      Nothing in here may throw: it runs before the error handling does.
-    -->
     <script>
       (function () {
         var latch = { ready: false, waiting: [] };
@@ -45,38 +16,27 @@
           for (var i = 0; i < queue.length; i++) {
             try {
               queue[i]();
-            } catch (e) {
-              /* one bad listener must not swallow the rest */
-            }
+            } catch (e) {}
           }
         }
 
         var m = null;
         try {
           m = window.mraid;
-        } catch (e) {
-          /* a cross-origin window.mraid can throw in a hostile frame */
-        }
+        } catch (e) {}
         if (!m || typeof m.addEventListener !== "function") {
           fire();
           return;
         }
 
-        // Subscribe first and read the state after, in that order: an SDK
-        // that fires `ready` between the two is caught by the listener, where
-        // one asked the other way round would be missed by both.
         try {
           m.addEventListener("ready", fire);
-        } catch (e) {
-          /* a wrapper without addEventListener is a wrapper without events */
-        }
+        } catch (e) {}
         try {
           if (typeof m.getState === "function" && m.getState() !== "loading") {
             fire();
           }
         } catch (e) {
-          // A wrapper that will not say whether it is ready is treated as
-          // ready: late is recoverable, never is not.
           fire();
         }
       })();
@@ -111,26 +71,9 @@
         user-select: none;
       }
 
-      /*
-       * This background is the whole of the no-white-flash guarantee: it applies
-       * before a byte of script runs and it is the colour the renderer clears to.
-       * A splash used to sit over it and was never what held the flash off — do
-       * not put another one back for that reason.
-       */
       html,
       body {
         width: 100%;
-        /*
-         * Three declarations of the same height, in the order the browsers that
-         * understand them arrived. `100%` of a fixed body resolves against the
-         * initial containing block, which on a mobile browser is the viewport
-         * with the URL bar retracted whether it is retracted or not — so on its
-         * own it puts the bottom of the page under a toolbar. `100dvh` is that
-         * same height measured honestly, and every engine since 2022 has it.
-         * A browser that has neither takes the first line and is corrected by
-         * core/viewport.js on the first frame; the fallbacks are what stops it
-         * being visibly wrong for that frame.
-         */
         height: 100%;
         height: 100dvh;
         height: 100svh;
@@ -143,12 +86,6 @@
         left: 0;
       }
 
-      /*
-       * Pre-script defaults only. core/viewport.js pins this box to a measured
-       * size in pixels on the first frame and on every resize after it — these
-       * are what it looks like until then, and they are written to match what
-       * the pin sets so that nothing moves when it lands.
-       */
       #pixi-container {
         position: fixed;
         top: 0;
@@ -161,29 +98,9 @@
         display: block;
         width: 100% !important;
         height: 100% !important;
-        /*
-         * The canvas is the thing under the finger, and a gesture that starts
-         * on it must never be handed to the browser as a scroll or a
-         * double-tap zoom — a swipe on the board is a move. The rule is on
-         * html and body already; it is repeated here because a canvas is a
-         * replaced element and some webviews do not inherit it onto one.
-         */
         touch-action: none;
       }
 
-      /*
-       * Safe-area probe.
-       *
-       * `viewport-fit=cover` has been set since the first build, which is what
-       * lets the canvas run under a notch — and nothing ever read the insets
-       * back, so the boss name and the doom clock were laid out under the
-       * cutout and the hero row's health bars under the home indicator.
-       *
-       * Read as real padding on a hidden element rather than as a custom
-       * property. `--x: env(safe-area-inset-top)` looks tidier, but
-       * getPropertyValue hands back the unresolved `env(...)` token on some
-       * webviews; a computed padding is a used value everywhere.
-       */
       #safe-probe {
         position: fixed;
         inset: 0;

@@ -8,19 +8,19 @@ const SHEETS = {
   [WATER]: {
     url: waterUrl,
     cols: 4,
-    cellW: 512,
-    cellH: 152,
-    pad: 2,
+    cellW: 339,
+    cellH: 101,
+    pad: 1,
     count: 16,
-    block: 618,
+    block: 408,
     blend: "normal",
   },
   [FIRE]: {
     url: fireUrl,
     cols: 4,
-    cellW: 512,
-    cellH: 160,
-    pad: 2,
+    cellW: 339,
+    cellH: 107,
+    pad: 1,
     count: 16,
     block: 0,
     blend: "add",
@@ -88,9 +88,7 @@ export async function loadStreamArt() {
   for (const element of Object.keys(SHEETS)) {
     try {
       out[element] = await cut(SHEETS[element]);
-    } catch {
-      /* that element throws whatever it threw before */
-    }
+    } catch {}
   }
   streams = out;
   return streams;

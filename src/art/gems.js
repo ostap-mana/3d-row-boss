@@ -18,31 +18,11 @@ import sunUrl from "../assets/gems/lightning.webp";
 import moonUrl from "../assets/gems/arcane.webp";
 import windUrl from "../assets/gems/wind.webp";
 
-/** All shapes are authored in a 100x100 box centred on the origin. */
 const ART = 100;
 
 const PAD = 8;
 const TEX_SPAN = (ART + PAD * 2) / ART;
 
-/**
- * Painted gems, by element — the flat roundels in src/assets/gems.
- *
- * They were assigned by colour as much as by name, and the files are now named
- * for the slot each one won rather than for what it depicts: the element colours
- * drive the beams, the pop sparks, the hint glow and the hero cards, so a gem
- * whose art disagrees with its colour makes the whole board fire the wrong hue.
- * That is why the sun disc answers to `lightning.webp` (gold) and the leaf to
- * `nature.webp` (green) — the slot each one lands in is the one whose GEM_COLORS
- * entry it already matches, and the filename says so now instead of describing
- * the drawing and leaving the reader to work it out.
- *
- * `arcane.webp` is the purple moon-and-star; it carries the element SILANTH casts
- * VOID ECLIPSE with. It arrived as `image.png` off the roundel sheet.
- *
- * `wind.webp` is the one that brought a sixth element onto the board with it. Its
- * pale aqua is the only colour on that sheet the five slots had no home for, so
- * WIND, TARANIS and a re-authored opening board exist because of it.
- */
 const GEM_ART = {
   [FIRE]: fireUrl,
   [WATER]: waterUrl,
@@ -54,17 +34,6 @@ const GEM_ART = {
 
 const painted = {};
 
-/**
- * Re-centre a bitmap inside a square that leaves the same margin the drawn
- * gems carry, and hand it back as a texture.
- *
- * The roundels are full-bleed — the disc runs edge to edge of its 128px canvas
- * — while GemView.resize() sizes every gem as if the art filled only the inner
- * ART box of a padded texture. Handed over raw they would each be a sixth
- * bigger than the drawn shapes and crowd their neighbours on a 5x5 board, so
- * the padding the drawn gems get from their bounds anchor is added here
- * instead. Both kinds then answer to the same resize().
- */
 function paddedTexture(img) {
   const span = Math.round(Math.max(img.width, img.height) * TEX_SPAN);
   const c = document.createElement("canvas");
@@ -81,13 +50,6 @@ function paddedTexture(img) {
   return canvasTexture(c);
 }
 
-/**
- * Decode the painted gems before the textures are baked.
- *
- * Never rejects: an element whose bitmap fails to decode falls back to its
- * drawn shape, so the board is always complete even on a WebView that chokes
- * on the file.
- */
 export async function loadGemArt() {
   await Promise.all(
     Object.entries(GEM_ART).map(async ([type, url]) => {
@@ -96,15 +58,12 @@ export async function loadGemArt() {
         img.src = url;
         await img.decode();
         painted[type] = paddedTexture(img);
-      } catch {
-        /* drawn shape stands in */
-      }
+      } catch {}
     }),
   );
 }
 
 const SHAPES = [
-  // Fire — jagged diamond
   {
     path: (g) =>
       g.poly([
@@ -113,7 +72,6 @@ const SHAPES = [
       ]),
     facet: (g) => g.poly([0, -34, 16, -8, 0, 22, -16, -8]),
   },
-  // Water — droplet
   {
     path: (g) => {
       g.moveTo(0, -49);
@@ -130,7 +88,6 @@ const SHAPES = [
       g.closePath();
     },
   },
-  // Nature — leaf
   {
     path: (g) => {
       g.moveTo(0, -50);
@@ -145,19 +102,15 @@ const SHAPES = [
       g.closePath();
     },
   },
-  // Lightning — bolt
   {
     path: (g) =>
       g.poly([-8, -50, 30, -50, 10, -12, 34, -12, -12, 52, -1, 4, -30, 4]),
     facet: (g) => g.poly([-2, -42, 20, -42, 4, -12, 14, -12, -8, 26, -2, -4]),
   },
-  // Arcane — hex crystal
   {
     path: (g) => g.poly([0, -50, 44, -26, 44, 26, 0, 50, -44, 26, -44, -26]),
     facet: (g) => g.poly([0, -50, 44, -26, 0, 0, -44, -26]),
   },
-  // Wind — three-blade vortex. The same blade at 0, 120 and 240 degrees, with
-  // the rotation baked into the numbers so this reads like every shape above it.
   {
     path: (g) => {
       g.moveTo(0, 0);
@@ -177,10 +130,6 @@ const SHAPES = [
   },
 ];
 
-/**
- * Paint one gem at art scale into a Graphics.
- * Exported so hero cards can reuse the same silhouettes as element crests.
- */
 export function drawGemShape(g, type, opts) {
   const o = opts || {};
   const color = o.color !== undefined ? o.color : GEM_COLORS[type];
@@ -188,38 +137,27 @@ export function drawGemShape(g, type, opts) {
   const light = GEM_LIGHT[type];
   const shape = SHAPES[type];
 
-  // Body
   shape.path(g);
   g.fill({ color });
 
-  // Rim: darker outside edge gives every gem a readable border on the board.
   shape.path(g);
   g.stroke({ width: 5, color: dark, alpha: 0.95, alignment: 0.5 });
 
-  // Interior facet catches the light
   shape.facet(g);
   g.fill({ color: light, alpha: 0.34 });
 
-  // Specular dot
   g.ellipse(-13, -20, 9, 6);
   g.fill({ color: 0xffffff, alpha: 0.55 });
 }
 
 let gemTextures = null;
 
-/**
- * Bake the five gems into textures so the whole board batches into a
- * single draw call instead of 25 tessellated Graphics objects.
- */
 export function initGemTextures(renderer) {
   if (gemTextures) return gemTextures;
   gemTextures = SHAPES.map((_, type) => {
-    // A painted gem is already a texture and needs no baking.
     if (painted[type]) return painted[type];
 
     const g = new Graphics();
-    // Invisible bounds anchor: keeps every baked gem the same size and stops
-    // the rim stroke from being cropped by tight geometry bounds.
     g.rect(-ART / 2 - PAD, -ART / 2 - PAD, ART + PAD * 2, ART + PAD * 2);
     g.fill({ color: 0xffffff, alpha: 0 });
     drawGemShape(g, type);
@@ -234,26 +172,10 @@ export function initGemTextures(renderer) {
   return gemTextures;
 }
 
-/**
- * The baked gem for one element, for anything outside the board that has to
- * name an element — the sigil on a hero card, so far.
- *
- * Handed out rather than re-drawn on purpose: the card is telling the player
- * which colour charges that hero, and the only art that answers that honestly
- * is the art they are matching. A second drawing of the same element is a
- * second thing to keep in step, and the one time it drifts is the one time the
- * card is lying.
- *
- * Null until initGemTextures has run, so every caller guards it.
- */
 export function gemTexture(type) {
   return (gemTextures && gemTextures[type]) || null;
 }
 
-/**
- * One gem on the board. Holds its own glow so the hint system can light
- * up individual cells without touching the board's own rendering.
- */
 export class GemView extends Container {
   constructor(type) {
     super();
@@ -279,7 +201,6 @@ export class GemView extends Container {
     this.glow.tint = GEM_COLORS[type];
   }
 
-  /** Fit the gem into a board cell of `cell` pixels. */
   resize(cell) {
     const span = cell * 0.86 * TEX_SPAN;
     this.sprite.setSize(span, span);

@@ -1,85 +1,12 @@
-/**
- * The web fonts, decoded before a single line of text is measured.
- *
- * This creative ran on the system stack, then on two faces borrowed from
- * Google, and now on the type the game it is advertising is actually set in.
- * All three faces here come out of the Invokers Titan Legacy build. The two
- * Hitzone cuts also do the job the build itself gives them; the third is put to
- * a job of this creative's choosing:
- *
- *   Hitzone        the UI. Everything the game labels rather than announces:
- *                  the hero names, MATCH TO ATTACK, the readouts in the HP
- *                  bars. This is the cut the build sets its interface in.
- *   Hitzone Med    the three places the fight is announced rather than
- *                  labelled: the boss's name, the hero's name on an ultimate,
- *                  the end card's headline. The build reserves this cut for the
- *                  titles it draws on gold, and so does this.
- *   Montserrat It  the damage numbers, and only those. Bold Italic, because a
- *                  figure thrown off a hit is the one piece of type in the
- *                  fight that is a consequence rather than a label, and this is
- *                  the one cut in the build's set that leans.
- *
- * They are registered as three families rather than as weights and styles of
- * one, and that is what makes the split hold: `FONT` names the first,
- * `FONT_TITLE` the second and `FONT_DAMAGE` the third, so a request at any
- * weight lands on a real file instead of on the browser's guess at a heavier or
- * slanted version of one of the others. See config.js.
- *
- * The Hitzone cuts are subset to Latin-1 — the range this creative draws, and
- * nothing past it — at a little under twenty kilobytes each, down from around
- * 218 kB of TrueType; Montserrat, which draws digits and nothing else, is 1.7
- * kB. The full faces carry Cyrillic as well; where they came from and how they
- * were cut is in README-hitzone.md, next to the files.
- *
- * Elan ITC Pro is still wired below and still has no bytes here. It sits behind
- * Hitzone in the two general family lists, but heads one of its own:
- * FONT_OUTCOME, the VICTORY/DEFEAT word on the outcome card. A licensed cut
- * dropped into this folder is therefore drawn on that card the moment it lands,
- * and nowhere else until FONT and FONT_TITLE are re-ordered too. FONT_DAMAGE
- * does not name it at all — a text serif is not what a hit prints in.
- *
- * Never rejects. A device that cannot decode a WOFF2 keeps the system stack
- * that is still the tail of every family list in config.js, and the layout is
- * unchanged: every text in the game is fitted to a box at runtime rather than
- * authored against one font's metrics.
- */
-
 import hitzoneUrl from "../assets/fonts/hitzone-400.woff2";
 import hitzoneMedUrl from "../assets/fonts/hitzone-500.woff2";
 import montserratItUrl from "../assets/fonts/montserrat-700i.woff2";
 
-/**
- * Elan ITC Pro — asked for by name, and the only face here that cannot ship.
- *
- * ITC Elan is Monotype's and is sold per licence. There is no free cut of it and
- * no legal download, so the file cannot sit in this folder beside two OFL fonts
- * the way the other two do. Everything around it is wired regardless: drop the
- * licensed webfont in as
- *
- *     src/assets/fonts/elan-book.woff2          ->  400
- *     src/assets/fonts/elan-medium.woff2        ->  500
- *     src/assets/fonts/elan-bold.woff2          ->  700
- *     src/assets/fonts/elan-black.woff2         ->  900
- *     src/assets/fonts/elan-bold-italic.woff2   ->  700 italic
- *
- * — any subset of those, and numeric names like `elan-700.woff2` are read the
- * same way. One list in config.js asks for it first — FONT_OUTCOME, the single
- * word on the outcome card — so a cut dropped in here draws that word as soon as
- * it lands, with no further edit. FONT and FONT_TITLE still head with Hitzone,
- * and re-ordering them is what would hand it the rest of the creative.
- *
- * A glob rather than an `import`: an import of a file that is not on disk fails
- * the build, and this build has to keep working with no Elan in it. `.otf` and
- * `.ttf` are matched too, because that is what a desktop licence hands you —
- * they are two to three times the bytes of a WOFF2 in a single-file creative,
- * so convert before shipping one.
- */
 const ELAN_URLS = import.meta.glob(
   "../assets/fonts/elan-*.{woff2,woff,otf,ttf}",
   { eager: true, query: "?url", import: "default" },
 );
 
-/** What the family ships its weights as, mapped onto the numbers CSS wants. */
 const ELAN_WEIGHTS = {
   light: 300,
   book: 400,
@@ -93,21 +20,6 @@ const ELAN_WEIGHTS = {
   black: 900,
 };
 
-/**
- * The Elan files that are actually on disk, read into face descriptors.
- *
- * The weight comes off the filename because nothing else can tell us: a WOFF2
- * carries its weight in its OS/2 table and `FontFace` will not read it back, so
- * a file registered under the wrong number is a file the browser smears bolder
- * itself. Naming it is the cheapest contract that holds.
- *
- * The range trick is the same one Hitzone gets below, applied per style: a style
- * that arrived as a single file answers for the whole 100–900 scale, because the
- * UI asks for 800 and 900 in a dozen places and those numbers were picked when
- * the only faces available were whatever the device had. One file matched
- * exactly is drawn as drawn; one file left at its own weight is one the browser
- * synthesises a heavier version of, which on a text face closes the counters up.
- */
 function elanFaces() {
   const files = Object.entries(ELAN_URLS);
   if (!files.length) return [];
@@ -135,49 +47,9 @@ function elanFaces() {
   return faces;
 }
 
-/**
- * `weight` is a range, not a number, and both ranges are wider than the file.
- *
- * The UI asks for 700, 800 and 900 all over — those numbers were picked when
- * the only faces available were whatever the device had, where 900 means "as
- * heavy as you have". Registering each cut across the whole scale is what makes
- * those requests land on it: matched exactly, drawn as drawn. Without the range
- * the browser takes the nearest face and smears it bolder itself, which closes
- * up the counters and reads as a blur at 11 points.
- *
- * The two cuts are told apart by family name rather than by weight, which is
- * the only way to keep the UI on one and the headlines on the other when both
- * are asked for at 900: a weight split would hand every heavy request to Med
- * and leave the lighter cut drawing nothing at all.
- */
 const FACES = [
   { family: "Hitzone", url: hitzoneUrl, weight: "100 900" },
   { family: "Hitzone Med", url: hitzoneMedUrl, weight: "100 900" },
-  /**
-   * Montserrat Bold Italic — the digits that fly off a hit.
-   *
-   * Third family, same reason as the first two: named rather than weighted, so
-   * FONT_DAMAGE lands on this file and the UI's own 900s never do. It comes out
-   * of the same Invokers build as Hitzone, which is embedded there as plain
-   * TrueType with its own licence beside it — and that licence is the
-   * difference: Montserrat is OFL and can actually ship, where Hitzone still
-   * cannot. See OFL-Montserrat.txt and README-montserrat.md in that folder.
-   *
-   * Registered `normal` although the outlines lean 11.3° by design. The slant
-   * is drawn, not requested: declaring it italic would oblige every caller to
-   * ask for `fontStyle: "italic"`, and on a device that failed to decode this
-   * file that request would land on Hitzone and be *synthesised* — the fallback
-   * would arrive sheared when the real face is not. Left at `normal`, a hit
-   * that cannot load Montserrat prints upright Hitzone, which is precisely the
-   * previous design rather than a broken version of this one.
-   *
-   * Cut to forty-six glyphs — `A-Z`, `0-9` and a little punctuation — because
-   * that is every character `comma()` and the sign can produce plus the word
-   * READY and every hero name under it. 3.5 kB, against 20 kB for a Latin-1 cut
-   * and 202 kB of TrueType. It carries no lower case: a caller who sets a
-   * mixed-case word in this family gets per-glyph fallback for the rest, which
-   * is why the two general lists in config.js do not name Montserrat at all.
-   */
   { family: "Montserrat It", url: montserratItUrl, weight: "100 900" },
   ...elanFaces(),
 ];
@@ -193,16 +65,11 @@ export function loadFonts() {
         const font = new FontFace(face.family, `url("${face.url}")`, {
           weight: face.weight,
           style: face.style || "normal",
-          // `block` rather than `swap`: nothing is drawn until this resolves,
-          // so there is no flash to swap out of — and a fallback frame baked
-          // into a Pixi text texture would stay wrong until that text changed.
           display: "block",
         });
         await font.load();
         document.fonts.add(font);
-      } catch {
-        /* the system stack stands in */
-      }
+      } catch {}
     }),
   );
   return loaded;

@@ -1,83 +1,3 @@
-/**
- * The outcome card — the fight's verdict, and the last screen of the run.
- *
- * The game does not stop a fight and put a scoreboard over it. It freezes the
- * frame, flashes, and lays one word inside a thin gold band with a line under it
- * asking to be tapped. That is the whole card, and it is over in three seconds.
- * This is that card.
- *
- * It replaced a screen that had a painted plaque, four counted statistics, a
- * row of six hero portraits and two store-styled buttons on it. All of that is
- * gone. It was a decent result *screen* and the wrong thing entirely: the game
- * this is an advert for does not have one there, and a creative that invents a
- * scoreboard the product has never shown is a creative teaching the player
- * something they will not find when they install it.
- *
- * ## What it is made of
- *
- * Four things, and two of them cost nothing:
- *
- *   the fight itself   frozen sharp — see `freeze` and the note below
- *   the flash          drawn: one filled rectangle
- *   the band + word    one finished banner per ending — see art/outcomeui.js
- *   the tap line       S_TitleOrnamentLine out of the build, plus type
- *
- * Nineteen kilobytes of new art, and it takes forty-two out: the two result
- * skies this screen used to be set against are gone, because the backdrop is
- * now the fight the player was looking at a frame ago.
- *
- * ## There is no blur on this card
- *
- * There was, and it is off. The backdrop is the frozen frame at the resolution
- * the renderer drew it at — texel for pixel, no downsample, no stretch, no
- * filter. What is behind the verdict is the position the player just won or
- * lost, legible, and that is the whole of the argument: this card freezes the
- * frame instead of painting a sky precisely so the player sees the fight they
- * had, and every bit of softness spends some of that.
- *
- * Two things had to go for it to be sharp, and only one of them was the blur
- * proper. FREEZE_STEPS and FREEZE_LIFT below are the pyramid — halve the still
- * a few times, double it back up, and the linear sampling on the way is the
- * blur — and both are zero, so `freezeFight` runs no passes at all. The second
- * was quieter: the still used to be photographed at one device pixel per CSS
- * pixel and then drawn over a window rendered at two, which is a 2x bilinear
- * stretch and reads as blur whatever the pyramid is set to. See the resolution
- * note in `freezeFight` in main.js.
- *
- * The machinery is left in place rather than deleted, because FREEZE_STEPS is a
- * number that has moved four times. If the word ever stops holding against a
- * sharp board, the knobs are STILL_TINT and SCRIM first — they are what carry
- * the type now — and a halving here third.
- *
- * If a blur is ever wanted back, it is still not a BlurFilter: that is a
- * full-screen shader pass every frame, on the one screen in the creative that
- * runs while the webview is also decoding an end card, and it is the kind of
- * thing that shows up as a dropped frame on exactly the cheap hardware a
- * playable has to survive. The pyramid is the cheap version and it is why it is
- * still here.
- *
- * ## How it ends
- *
- * It does not. This is the last screen of the run on both endings, and there is
- * no card behind it: the store screen it used to advance to is gone, and its
- * PLAY NOW plate — the same painted lockup, see art/brand.js — stands on this
- * card instead, in the slot the rematch uses on the other ending.
- *
- * On a win: the verdict, and PLAY NOW under it. Nothing times out, and a tap on
- * the frozen fight answers nothing, because the only thing left to ask for is
- * the install and it has its own button.
- *
- * On a loss: the verdict, and RETRY. A player who has just been wiped is being
- * sold to on the frame they most want another go, and the tap they are reaching
- * for is the rematch — so that is the only thing on the screen to hit. The
- * pitch still has the banner in the HUD, all the way through the fight.
- *
- * Everything that follows is named `terminal` below, and it is now true of both
- * endings: the hold is not armed, the whole-screen tap answers nothing, and
- * `show` settles as soon as the verdict is up rather than when the player
- * leaves — because they do not.
- */
-
 import { Container, Graphics, Rectangle, Sprite, Text } from "pixi.js";
 import { COPY, FONT, FONT_OUTCOME, T } from "../config.js";
 import {
@@ -116,16 +36,6 @@ import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
 
-/**
- * The wash over the frozen fight — one curve per orientation.
- *
- * It opens over the arena and closes over the board, because the board is what
- * the band and the control stand on. The curve used to do the opposite, and the
- * verdict stood on a wall of gems.
- *
- * Neutral, and the same wash on both endings: the colour of the ending lives on
- * the band and only on the band, which is where the game itself puts it.
- */
 const SCRIM = {
   portrait: [
     [0.0, "rgba(8,8,9,0.88)"],
@@ -151,398 +61,70 @@ function scrimTexture(key) {
   return gradientTexture(`outcome-scrim-${key}`, SCRIM[key]);
 }
 
-/**
- * The still is tinted as well as dimmed, and the dim on its own is not enough.
- *
- * Blurring a board of saturated gems gives back saturated blobs: the shapes go
- * but the colour does not, and five columns of pure red, green and violet under
- * a white headline is a headline sitting in a fruit bowl. A multiply pulls the
- * whole picture towards a neutral grey, which takes the punch out of the gems
- * without touching the arena above them, where the paint is already muted.
- *
- * A tint and not a filter, for the same reason there is no BlurFilter here: it
- * is a vertex colour, it costs nothing, and it works on every device that can
- * draw a sprite at all.
- */
 const STILL_TINT = 0x8a8a92;
 
-/**
- * How many times the still is halved on its way to being the blur.
- *
- * ZERO — the blur is off, and the card's backdrop is the frozen frame at the
- * size it was taken. `freezeFight` runs no pyramid at all at this value: the
- * loop does not execute, the lift below is clamped to nothing, and the texture
- * the card holds is the photograph.
- *
- * It has been 3, then 2, and is now none. The argument that took it down each
- * time is the same one that finally took it off: what is behind the verdict is
- * supposed to be *the fight the player just had* — that is the entire reason
- * this card freezes the frame instead of painting a sky — and every halving
- * spends some of that. At three it was grey soup. At two the arena was a room
- * again but the board was still mush. At none the player sees the position they
- * lost, which is the most that argument can ask for.
- *
- * What it costs is the thing the blur was doing for the type: a sharp board
- * under a white headline competes with it, and the gems are the busiest, most
- * saturated thing this creative owns. STILL_TINT and SCRIM are now carrying
- * that alone — the tint pulls the gems towards neutral and the scrim darkens
- * the frame top and bottom. If the word ever stops holding against the picture,
- * those two are the knobs, and putting a halving back here is the third.
- *
- * The pyramid itself is left intact in main.js rather than deleted, because
- * this is a number that has moved four times. One is a light blur and costs a
- * quarter-size texture; see FREEZE_LIFT for how the way back up is drawn.
- *
- * Exported because main.js is what takes the still — see `freezeFight` there.
- */
 export const FREEZE_STEPS = 0;
 
-/**
- * How many of those halvings are undone again before the card is handed the
- * still.
- *
- * ZERO, because FREEZE_STEPS is: there is nothing to climb back up from, and
- * `freezeFight` clamps this to the number of halvings that actually happened.
- * Everything below is about what this is for when the blur is switched back on
- * — put a halving in above and put a 1 here with it.
- *
- * This is the other half of the backdrop's fix, and it is the half that was not
- * a matter of taste. A small still handed straight to a full screen sprite is
- * one bilinear stretch, and a bilinear stretch is a tent filter as wide as the
- * stretch: blow a picture up eight times in one pass and every source texel
- * arrives as a diamond with a hard crease along its edges, which the eye reads
- * as blocks and not as blur. That is what this card's backdrop was — not too
- * blurred so much as badly *drawn* — and no amount of tuning FREEZE_STEPS fixes
- * it, because the lattice is a property of the last stretch whatever is being
- * stretched. Doubling in steps runs the tent over a picture that has already had
- * one, and tents stacked on tents converge on a gaussian.
- *
- * One and not two, so the texture the card keeps is a quarter of the pixels a
- * full size one would be. The last doubling still happens on screen, and by then
- * it is a 2x on a picture with no half-size detail left in it to break — which
- * is exactly what was not true of the 8x. Lifting the whole way is the honest
- * version and costs a full screen texture held for the life of the card to look
- * the same.
- *
- * Never more than FREEZE_STEPS: there is nothing above the size it was taken at
- * to climb back to. `freezeFight` clamps it.
- */
 export const FREEZE_LIFT = 0;
 
-/**
- * THE FALLBACK BAND'S COLOUR, and that is now all this pair is for.
- *
- * Read off the shipped game's own outcome windows rather than invented: the band
- * behind VICTORY is a green wash with a brighter green hairline top and bottom,
- * and the one behind DEFEAT is the same shape in dark red. `fill` is the wash
- * and `edge` the hairline.
- *
- * These used to be paint on the screen. The card built its verdict out of the
- * game's title plate with three tinted gradient sprites laid inside its
- * hairlines, and this was the one thing the result was allowed to repaint. The
- * banners in art/outcomeui.js are finished art — plate, wash, both hairlines,
- * both chevrons and the word, in one bitmap — so there is nothing left on screen
- * for a tint to reach.
- *
- * What still reads them is the band the card draws for itself when no banner
- * decoded, and drawing that in the ending's colour rather than in plain navy is
- * worth the two lines: a device that cannot read a webp still gets green under
- * VICTORY and red under DEFEAT. See drawBand.
- *
- * Both values are the source hues scaled until their luminance matches — green
- * carries most of its own, so 0x43c750 came out at 162 on the 709 curve against
- * the red's 95, and the two endings landed at visibly different weights.
- */
 const BAND = {
   victory: { fill: 0x1b4a1a, edge: 0x27752f },
   defeat: { fill: 0x6b3030, edge: 0xc74343 },
 };
 
-/**
- * The coloured hairline's thickness, as a share of the band's height.
- *
- * Off the source: 415.8 by 84.23 at a 2.13 border. A share and not a fixed
- * number of points, so it stays a hairline on a tablet and does not vanish on a
- * phone.
- */
 const BAND_EDGE = 2.13 / 84.23;
 const BAND_ALPHA = 0.9;
 
-/**
- * The banner's width, as a share of the safe box — and the ceiling on the
- * height that width implies.
- *
- * Width is the only thing there is left to choose. The banner is 3.068:1 with
- * the word painted inside it, and art/outcomeui.js gives it no licence to be
- * anything else: it takes a width and gives back its own height. See
- * VERDICT_ART and `fitVerdict`.
- *
- * The plate this replaced was 11.24:1 and was pulled into whatever box the card
- * handed it — 1.06 of the stage upright, deliberately wider than the screen, so
- * its fades ran off both edges and left two hairlines crossing the frame. That
- * does not carry over: run a banner past the edge and it loses a chevron and
- * then the word. It is contained instead, and the safe box is what contains it —
- * upright the banner now takes all of it, which is the whole of the safe width
- * and still inside every cutout, with the art's own fades dying on that edge
- * rather than past it.
- *
- * The height is a cap and not a target, and it has to be loose enough not to
- * take that width back: the full safe width of a 430-point phone comes back
- * about 140 points tall, so a cap tuned for the old 0.92 would quietly shrink
- * the banner instead of leaving it alone. Laid on its side the stage is wide and
- * short and the cap is the thing doing the work; past it the width is taken back
- * off the height, so the aspect survives and the band gets smaller rather than
- * squarer.
- */
 const VERDICT_W = { portrait: 1.0, landscape: 0.52 };
 const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
 
-/** Where the band sits down the stage, and where the tap line sits under it. */
 const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
 const FIGURE_H = { portrait: 0.33, landscape: 0.4 };
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 
-/**
- * The same two, for a clip that brings its own stars.
- *
- * Taller, because such a clip is not the figure any more — it is the figure and
- * the flourish above him in one square, and the card hangs no painted stars over
- * it. At the old 0.33 the man ended up about a fifth of the screen with his
- * stars shrunk into the top of it, smaller than the still they replaced. This is
- * the figure's old room plus the room the stars used to be given, which is what
- * the picture now has to hold.
- */
 const FIGURE_STARS_H = { portrait: 0.48, landscape: 0.37 };
 const FIGURE_STARS_W = { portrait: 0.92, landscape: 0.46 };
 
-/**
- * How far past the band's middle such a figure's feet go.
- *
- * FIGURE_SINK is 0.04, which is the right number for a subject that fades out
- * at the bottom of its own frame and the wrong one for these, which are cut at
- * the waist by the edge of the clip. The extra is there to bury that straight
- * edge inside the band's paint rather than in the transparent margin above it.
- *
- * Sideways it goes back to about the old number, and that is not symmetry for
- * its own sake. Upright there is most of a screen between the HUD's lockup and
- * the band and the sink costs nothing; sideways there is around sixty points of
- * it, and a sink measured off a band that is a quarter of the screen tall put
- * the whole figure behind it and left three star tips showing.
- */
 const FIGURE_STARS_SINK = { portrait: 0.3, landscape: 0.04 };
 const FIGURE_SINK = 0.04;
 
-/**
- * How far down its own room the control stands, as a share of it.
- *
- * Per-ending again, and for the win's sake rather than the loss's. The rematch
- * stands where it stood — at the top of its room, under the verdict, because
- * nothing on a losing card competes with it for the gap. The plate does not: on
- * a won run the room below the band is shared with the party at the foot of the
- * screen, and a plate tucked under the verdict sits in the middle of the card
- * with a hand's worth of dead picture under it. Dropped past the middle of its
- * room it stands where the thumb already is.
- *
- * The rematch is at the top of the room rather than above its centre. The room
- * runs from under the band to the top of the hero row and it is deep — 265
- * points on a 393x852 phone — so a share of it is a coarse instrument: at 0.38
- * the button stood 78 points clear of the band with nothing in between, which
- * reads as a control that belongs to the screen rather than to the verdict. The
- * stars used to fill that gap and no longer do; they hang over the figure now,
- * above the band. So that fraction stays small and the clamp below it does the
- * real work.
- *
- * ON THE LOSS THE CLAMP IS NOT A GUARD, IT IS THE PLACEMENT. The control is
- * centred on the point this fraction picks, so a small fraction puts its top
- * through the roof — and the two endings stand plates of different heights,
- * which is exactly the kind of thing a raw offset gets wrong on one ending only.
- * Clamped to half its own box off each end of the room, the rematch stands as
- * close under the verdict as RETRY_AIR allows and 0.12 only decides how much
- * further down than that it sits. The win's own fraction is past the middle and
- * places the plate itself; there the clamp is what it looks like — the floor
- * that keeps a big plate off the party.
- */
 const CONTROL_DROP = {
   win: { portrait: 0.82, landscape: 0.62 },
   loss: { portrait: 0.12, landscape: 0.12 },
 };
 const TAP_Y = { portrait: 0.86, landscape: 0.87 };
 
-/** The hairline over the tap line, as a share of the stage's width. */
 const LINE_W = { portrait: 0.44, landscape: 0.26 };
 
-/**
- * How wide the three stars are drawn, as a share of the safe box, and the air
- * between them and whatever they stand over.
- *
- * A share of the safe box rather than of the band: the band takes the whole safe
- * width upright, so the two measurements are the same one there, and the box is
- * the thing that still means something if the band ever stops doing that.
- *
- * 0.42 puts them at a little under half the verdict's width, which is the
- * proportion that reads as a mark on the card rather than as a second headline
- * over it. The two sets are not the same shape — the gold is 1.90:1 and the
- * obsidian 1.69:1, see STARS_ART — so one width buys 87 points of height on a
- * win and 98 on a loss, and the placement below is written to take whichever it
- * is handed rather than to assume one.
- *
- * ONE NUMBER, BECAUSE THEY ARE UPRIGHT ONLY — and for a different reason than
- * they used to be. They hung under the band once, and sideways the nine points
- * under the band belong to the hero row. They hang over the figure now, and
- * sideways there is no room over the figure either: at 932x430 she stands from
- * 23 to 157 in a 334-tall safe box, so the clear air above her is 23 points and
- * this width alone would ask for 188. Not a placement that was not found — an
- * absence of room, twice over, in two different places.
- *
- * So the sprite is still fitted on every layout — a rotation back has to find it
- * the right size — and `starsUp` is what decides whether it is on screen.
- */
 const STARS_W = 0.42;
 const STARS_AIR = 10;
 
-/**
- * The width below which they are not drawn at all, as a share of the same box.
- *
- * The fit above is an offer and the room can refuse it — see the placement in
- * `resize`, which brings the width down rather than let the sprite cross the
- * chrome. That has to stop somewhere: three stars 60 points wide are not a
- * smaller mark, they are dirt on the picture, and a card with nothing over the
- * band is better than a card with that. Half the offer is the line.
- */
 const STARS_MIN_W = 0.21;
 
-/**
- * The RETRY control — an offer of width and a ceiling on height, and nothing
- * about where it goes. See `terminal`, and the block in `resize`.
- *
- * Where it goes is measured rather than chosen, and that is the whole of what
- * these two are left holding. It was placed on the tap line's own fraction of
- * the stage — 0.86 upright, 0.7 sideways — on the argument that the sentence
- * asking for a tap and the button answering it belong in the same place. The
- * argument is sound and the fraction is not: 0.86 of the box the player can see
- * is *inside the hero row* on every screen in the matrix, because the row is
- * measured off a card's own aspect and lands where it lands. So the party wore
- * the button on a phone, on both iPads and on a desktop, and the one thing on a
- * frozen fight that must not be covered is the six faces the player just lost
- * with.
- *
- * So the control is given the room between the bottom of the verdict and the
- * top of the party, and the numbers that room is made of are the layout's own —
- * `layout.cards.y`, `layout.board`, the band this file just fitted. Nothing
- * about it is a fraction of the screen any more, which is why it comes out
- * right on a 344 point phone and on a 1024 point tablet without either being
- * special-cased.
- *
- * `W` is a share of the safe box's width and `MAX` a ceiling as a share of its
- * height, and the plate takes both as an offer: it is 3.7 to 1 and it comes
- * back with whatever box that aspect allows inside them and inside the room.
- * See fitRetryPlate.
- *
- * MAX is generous — a quarter of the screen and better — because it is not the
- * thing that stops the button growing. The room is, and a ceiling tighter than
- * the room is a ceiling that shrinks a button for no reason on the screens that
- * had space for it. At this aspect neither the ceiling nor the room binds on a
- * phone: the width alone comes back about a fifth as deep as the room allows.
- */
 const RETRY_W = { portrait: 0.68, landscape: 0.34 };
 const RETRY_MAX = { portrait: 0.26, landscape: 0.3 };
 
-/**
- * The same slot, wider, for the PLAY NOW plate on a win.
- *
- * The two controls are not the same kind of thing and are not sized the same
- * way. RETRY answers a lost fight and is read after the verdict; the plate is
- * the one thing on this card that has a job beyond the screen it is on, and on
- * a won run it is what the whole creative was built to be tapped. So it is
- * given more width than the rematch rather than less, and the verdict keeps its
- * scale by standing in the band above instead of by being the only big object.
- */
 const PLAY_W = { portrait: 1, landscape: 0.54 };
 
-/**
- * The margin the plate is held off the edge of the safe box by, in UI points.
- *
- * Its own number rather than RETRY_AIR, which is the air between the control
- * and the things above and below it. Sideways air is a different question: the
- * painted plate carries transparent margin of its own either side of the gems,
- * so its pixels stop short of the box this measures — and at the width the win
- * now asks for, the difference between six points and twelve is the difference
- * between a plate that fills the phone and one that looks like it was aiming to.
- */
 const PLATE_EDGE_AIR = 6;
 
-/**
- * The jerk on the win's plate: how often, how hard, and what shape it moves in.
- *
- * Not a sine. A CTA that swells and sinks evenly reads as breathing and the eye
- * settles into it inside two cycles; what does not settle is a kick — the plate
- * snaps up over `attack` and eases back across the rest of the beat, which is
- * the shape of something being pressed rather than something idling. `rate` is
- * in beats a second and `kick` the share of its own size it takes at the top.
- *
- * On the container and not on the art, so the plate, the label and the hit area
- * all take it together and nothing inside the button drifts out of register.
- */
 const PLAY_BEAT = { rate: 1.15, kick: 0.062, attack: 0.12, decay: 6.5 };
 
-/** Air between the control and whatever bounds it, in UI points. */
 const RETRY_AIR = 12;
 
 const RETRY_LABEL_W = 0.6;
 const RETRY_LABEL_H = 0.4;
 
-/**
- * The drawn pill, for the device that could not decode the plate.
- *
- * The same shape and the same two colours the end card's own fallback uses —
- * the card's backdrop rimmed in the plate's gold — because it is the same
- * button, and a rematch that looks like a different control on a cheap phone is
- * a control the player has to work out twice. See PLAY_RIM.
- */
 const RETRY_PILL = { w: 0.42, h: 0.075 };
 const RETRY_FILL = 0x1a0c2c;
 const RETRY_LABEL = 0x3a2205;
 
-/**
- * The flash.
- *
- * `HOLD` is how long it stays at full before it starts leaving, and it is two
- * frames rather than none: a flash that begins fading on the frame it appears is
- * a flash half the phones in the matrix render as one grey frame. `FADE` is the
- * leaving, and it is long enough to read as light rather than as a glitch.
- */
 const FLASH_HOLD = 0.04;
 const FLASH_FADE = 0.55;
 
-/**
- * A win flashes warm white; a loss flashes hot.
- *
- * The loss's is redder than it was — 0xffcfc4 was a blush, and a blush over a
- * card that is now lit oxblood underneath read as the flash and the room
- * disagreeing about what had happened. Still nearly white at the top of its
- * curve, because this flash's job is to hide the cut and hand back a card that
- * is already standing; a red flash is an effect, and there is one of those on
- * the screen before this. What it does now is leave warm as it goes, so the
- * last thing the fade puts down is the colour the room keeps.
- */
 const FLASH_WIN = 0xfff4d8;
 const FLASH_LOSS = 0xffb5a4;
 
-/**
- * The light behind the word, on a loss.
- *
- * Gold is the win's, and it is the creative's own gold — PLATE_GOLD, the band's
- * own colour, which is why the bloom reads as the band glowing rather than as a
- * lamp behind it. A wipe cannot have that: the one warm light left on this card
- * would be announcing something.
- *
- * So it goes to the ember the rest of the loss is lit by. Not the crimson of the
- * bed below — a saturated red directly behind white type is a halo, and the word
- * has to stay the hardest edge on the screen — but a burnt orange sitting
- * between the band's gold and the floor's red, which is what a gold plate looks
- * like with a fire under it. The same family the end card puts behind its own
- * defeat art, one screen later.
- */
 const BLOOM_LOSS = 0xc9502a;
 
 const UNFURL = {
@@ -554,111 +136,36 @@ const UNFURL = {
 };
 const BLOOM_FLARE = 1.75;
 
-/**
- * How long the card ignores a tap.
- *
- * The gesture that ended the fight can still be in the air — a swipe on the
- * board that landed the killing match, a finger that has not lifted — and a card
- * that took it would flash the word for two frames and cut to the store.
- */
 const ARM_AFTER = 0.5;
 
-/** The tap line's breath, in radians a second. */
 const PULSE = 2.6;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export class OutcomeScreen extends Container {
-  /**
-   * @param {() => (import("pixi.js").Texture|null)} freeze a still of the fight
-   *   as it stands right now. Supplied by main.js, which is the only thing
-   *   holding the renderer and the world container — see `freezeFight` there. A
-   *   function rather than a texture because the still has to be taken at the
-   *   moment the fight ends, and this card is built thirty seconds earlier.
-   *
-   * @param {() => void} [onRetry] play it again. The card's one control, and
-   *   only on a loss — see `terminal` and RETRY_W. Optional: without it the
-   *   loss falls back to the way out it had before, which is the card resolving
-   *   and the store screen behind it.
-   *
-   * There is still no `onContinue`. On a win, leaving is what `show` resolving
-   * means and a tap anywhere is how it is done.
-   */
   constructor(freeze, onRetry, onCta) {
     super();
     this.visible = false;
     this.freeze = freeze || (() => null);
     this.onRetry = onRetry || null;
     this.onCta = onCta || null;
-    /**
-     * Whether this showing of the card is the last screen of the run.
-     *
-     * Set by `show` off the result, read by everything that would otherwise
-     * take the player off the card — the hold in `update`, the whole-screen tap
-     * through `leave`, and `settle`, which arms the hold again after a
-     * rotation. See the header.
-     */
     this.terminal = false;
 
     this.layout = null;
     this.defeat = false;
     this.t = 0;
-    /** Raised while the intro runs, so a rotation can cut it short. */
     this.introducing = false;
-    /** Counts down to the auto-advance. Negative means "not armed". */
     this.hold = -1;
-    /** Counts down to the first tap this card will take. See ARM_AFTER. */
     this.arming = -1;
-    /** Whoever is waiting on `show`. Resolved exactly once — see `leave`. */
     this.leaving = null;
 
-    /* ------------------------------------------------------------ backdrop */
-
-    /**
-     * The still, built on `show` rather than here.
-     *
-     * There is nothing to freeze at construction: the fight has not been played.
-     * The slot is left empty and every method below is written to find it
-     * missing, which is also what a device whose renderer refused to hand over a
-     * texture gets.
-     */
     this.still = null;
-    /**
-     * The window the still was photographed in. See `reframe`.
-     *
-     * Held because a photograph is only square to the screen it was taken from,
-     * and this card outlives the screen: on a loss it is the last thing up, and
-     * a phone rotated or a desktop window dragged while it is standing there
-     * leaves the frozen fight to be fitted into a box it was never shot for.
-     */
     this.stillAt = null;
-    /** Raised when the still no longer matches the screen. See `reframe`. */
     this.stale = false;
 
     this.scrim = new Sprite(scrimTexture("portrait"));
     this.addChild(this.scrim);
 
-    /**
-     * The loss's light, built on both endings and paid for by neither.
-     *
-     * Two cached textures and a sprite at alpha zero is nothing — the gradient
-     * is four pixels wide — and building it here rather than on a loss is what
-     * keeps `show` free of a branch that adds a child mid-flight. A win never
-     * raises its alpha, and a sprite at alpha zero is skipped by the renderer.
-     *
-     * Directly over the scrim and under everything else: the light is in the
-     * room, so it is above the darkness that made the room and below the band,
-     * the word, the tap line and the flash. The still goes in under both with
-     * `addChildAt(_, 0)` on `show`, which cannot disturb this.
-     */
-
-    /**
-     * The light behind the word.
-     *
-     * Additive, gold, pulsing — what is left of the flash once the flash has
-     * gone. It is also the whole of the card on a device that could decode
-     * neither the plate nor the still.
-     */
     this.bloom = new Sprite(glowTexture());
     this.bloom.anchor.set(0.5);
     this.bloom.blendMode = "add";
@@ -677,27 +184,6 @@ export class OutcomeScreen extends Container {
     this.addChild(this.figure);
     this.figureH = 0;
 
-    /**
-     * The three stars, and null on a device that could not decode either set.
-     *
-     * A child of the screen and not of the card, which is the whole difference
-     * between where they were and where they are. They hung off the band's
-     * bottom edge once and rode the stamp the intro puts on it; they stand over
-     * the figure now, a third of a screen above the band, and a sprite that far
-     * from the card's origin cannot be scaled about it — the stamp would throw
-     * them across the screen and back. So they keep a fade of their own, and it
-     * runs a beat behind the word: the verdict lands and the mark arrives on it,
-     * which is the order the two things happen in.
-     *
-     * Added after the figure and before the card, so the stars pass over her and
-     * under the verdict. The first matters — she raises a glass into the air
-     * they hang in — and the second cannot come up, because nothing puts them
-     * within a band's height of it.
-     *
-     * Built on the win face and re-aimed, the way the banner is: a rematch can
-     * show this card twice, and the two endings wear different stars. Gold over
-     * VICTORY, obsidian over DEFEAT. See `aim` and art/outcomeui.js.
-     */
     this.stars = starsSprite(false);
     if (this.stars) {
       this.stars.alpha = 0;
@@ -705,70 +191,23 @@ export class OutcomeScreen extends Container {
       this.addChild(this.stars);
     }
 
-    /* --------------------------------------------------------- the verdict */
-
-    /**
-     * A Container around the band and the word, because the intro stamps the
-     * pair in on `scale`.
-     *
-     * In Pixi a Sprite's width *is* its scale, so a plate fitted by `setSize`
-     * and then scaled has its fit thrown away, and one scaled and then re-fitted
-     * on a rotation snaps to full size mid-flourish. The wrapper separates the
-     * two: `resize` sizes what is inside it, the intro scales the box, and
-     * neither can undo the other.
-     */
     this.card = new Container();
     this.addChild(this.card);
 
-    /** Drawn, and only ever reached when no banner decoded. See drawBand. */
     this.band = new Graphics();
     this.card.addChild(this.band);
 
-    /**
-     * The verdict, whole, in one bitmap.
-     *
-     * Plate, wash, both hairlines, both chevrons and the word — see
-     * art/outcomeui.js. One sprite built on the win and re-aimed on a loss,
-     * because a rematch can show this card twice and swapping a texture is free
-     * where adding and removing a child mid-flight is a thing that can go wrong.
-     *
-     * What it replaced was four pieces held in register: the game's title plate
-     * stretched into a box, three tinted gradient sprites laid inside its
-     * hairlines to make the ending's colour, and the verdict set in type over
-     * the lot — each of them re-solved against the others on every aspect ratio
-     * a phone has. A finished bitmap has no registration problem, and the
-     * arithmetic that used to be `resize` went with it.
-     */
     this.verdict = verdictSprite(false);
     if (this.verdict) this.card.addChild(this.verdict);
 
-    /** Whether the banner is showing the ending it was asked for. See `aim`. */
     this.painted = false;
 
-    /** The same question for the stars, which are two arts and not one. */
     this.starsPainted = false;
 
-    /** Whether the room between the chrome and the figure took them. */
     this.starsFit = false;
 
-    /** Whether this ending's figure decoded and brings its own three. */
     this.figureCarries = false;
 
-    /**
-     * The word, set in type — and normally not on screen at all.
-     *
-     * The banner has the verdict painted into it, in the face the artist set it
-     * in, so this is hidden the moment one decodes. What it is for is the device
-     * that could read none of them: the drawn band needs something to say, and a
-     * card that came up as a coloured stripe with no word on it is worse than no
-     * card at all. `aim` is what raises and lowers it.
-     *
-     * White, and the only text in the creative with a face of its own — see
-     * FONT_OUTCOME, which asks for Elan ITC Pro first and falls through to
-     * Hitzone Med, the cut the build keeps for a name being announced, for as
-     * long as no licensed Elan is on disk. Not gold: the band under it is gold,
-     * and gold on gold is a word that has to be looked for.
-     */
     this.word = new Text({
       text: COPY.outcomeVictory,
       style: {
@@ -789,11 +228,7 @@ export class OutcomeScreen extends Container {
     });
     this.word.anchor.set(0.5);
     this.card.addChild(this.word);
-    // Both of the above exist now, so the card can be told which of the two it
-    // is showing. A layout can arrive before `show` does.
     this.aim();
-
-    /* -------------------------------------------------------- the tap line */
 
     this.tap = new Container();
     this.line = lineSprite();
@@ -814,22 +249,6 @@ export class OutcomeScreen extends Container {
     this.tap.alpha = 0;
     this.addChild(this.tap);
 
-    /* ------------------------------------------------------------- retry */
-
-    /**
-     * RETRY — the one control this card has ever had, and only on a wipe.
-     *
-     * Built here and hidden, like the tap line it stands in for: `show` is the
-     * first moment the result is known. Exactly one of the two is ever on
-     * screen, and the same is true inside this container — the painted plate
-     * when it decoded, the drawn pill when it did not, and the word over
-     * whichever arrived. See RETRY_PILL, and fitRetry, which is where that
-     * choice is made once.
-     *
-     * Its own hit area and its own listener, rather than the card's
-     * whole-screen tap: on this path that tap answers nothing at all, so a
-     * rematch has to be asked for on the button. See `leave`.
-     */
     this.retry = new Container();
     this.retryBg = new Graphics();
     this.retry.addChild(this.retryBg);
@@ -846,7 +265,6 @@ export class OutcomeScreen extends Container {
       },
     });
     this.retryText.anchor.set(0.5);
-    // The RETRY plate carries no word, so the Text is the word on that path.
     this.retryText.visible = true;
     this.retry.addChild(this.retryText);
 
@@ -885,50 +303,23 @@ export class OutcomeScreen extends Container {
     });
     this.addChild(this.retry);
 
-    /* ----------------------------------------------------------- the flash */
-
-    /**
-     * Last of all and over everything, because that is what a flash is.
-     *
-     * A Graphics rather than a Sprite so it is one filled rectangle with no
-     * texture behind it, and `eventMode` none so it cannot eat the tap it is
-     * drawn over during the half second it is visible.
-     */
     this.flash = new Graphics();
     this.flash.eventMode = "none";
     this.flash.alpha = 0;
     this.addChild(this.flash);
 
-    /**
-     * Kept for the frozen fight behind the controls, which answers nothing.
-     *
-     * This used to be a whole-screen tap target that advanced to the store
-     * card. Both endings are terminal now — see `leave`, which returns on one —
-     * so the only things on this screen that do anything are PLAY NOW and RETRY.
-     */
     this.eventMode = "static";
     this.on("pointertap", () => this.leave("tap"));
   }
 
-  /* ---------------------------------------------------------------- layout */
-
-  /**
-   * @param {ReturnType<import("../core/layout.js").computeLayout>} layout
-   */
   resize(layout) {
     this.layout = layout;
     const { w, h, ui, portrait } = layout;
-    // The band and the tap line are fractions of a box from one end of it to
-    // the other, so the box is the stage less the cutouts — see safeStage in
-    // core/layout.js. The still and the scrim under them are not: they are a
-    // photograph of the whole screen and go back where they were taken from.
     const s = layout.safeBox;
     const key = portrait ? "portrait" : "landscape";
 
     this.hitArea = new Rectangle(0, 0, w, h);
 
-    // The still covers the window and not the stage: it is a photograph of the
-    // whole screen, and it goes back exactly where it was taken from.
     if (this.still) this.reframe(w, h);
     this.scrim.texture = scrimTexture(key);
     this.scrim.setSize(w, h);
@@ -938,28 +329,9 @@ export class OutcomeScreen extends Container {
     this.flash.rect(0, 0, w, h);
     this.flash.fill({ color: 0xffffff });
 
-    /* ------------------------------------------------------------- the band */
-
     const cy = s.y + s.h * PLATE_Y[key];
     this.card.position.set(s.cx, cy);
 
-    /**
-     * WIDTH IS THE ONLY THING THIS DECIDES, and that is the whole of the band's
-     * layout now.
-     *
-     * The banner is finished art with the word painted inside it, so it takes a
-     * width and gives back the height its own aspect implies — see VERDICT_ART
-     * and `fitVerdict`. What stood here was the arithmetic of holding four
-     * pieces registered against each other inside a stretched plate: an aspect
-     * to protect the chevron's right angle, a ceiling to keep the chevron on
-     * screen, a horizontal stretch to run the gold further out, and an inset
-     * derived off the plate's own hairline so the colour met the gold and did
-     * not cross it. None of it survives the art being one bitmap, and none of it
-     * is missed.
-     *
-     * The cap is the one thing that can still take the width off its own share.
-     * See VERDICT_H — it is landscape that needs it.
-     */
     const cap = clamp(s.h * VERDICT_H[key], 52 * ui, 176 * ui);
     let pw = s.w * VERDICT_W[key];
     let ph = (pw * VERDICT_ART.h) / VERDICT_ART.w;
@@ -969,16 +341,10 @@ export class OutcomeScreen extends Container {
     }
 
     if (this.painted) {
-      // Taken back off `fitVerdict` rather than trusted: `ph` above and the
-      // height the art module works out are the same division done in two files,
-      // and the bloom below is hung off whichever one actually drew.
       ph = fitVerdict(this.verdict, pw);
       this.verdict.position.set(0, 0);
       this.band.clear();
     } else {
-      // Nothing decoded for this ending. The card draws its own band, and the
-      // word — painted into the art, and hidden whenever there is art — is the
-      // type that goes in it. See drawBand and `aim`.
       this.drawBand(pw, ph);
       fitFont(this.word, pw * 0.62, ph * 0.54);
       this.word.position.set(0, 0);
@@ -987,25 +353,6 @@ export class OutcomeScreen extends Container {
     const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
     const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
 
-    /**
-     * The block stands in the room between the HUD's lockup and the band, and
-     * is cut down to it rather than hung off one end.
-     *
-     * Both of those edges bite, and each bit a different end of the picture. A
-     * clip that carries its own stars puts them at the top of its own square, so
-     * a height taken from the screen alone ran them up over INVOKERS TITAN
-     * LEGACY on a tall phone — the same collision the stars below were given a
-     * ceiling for, arriving again through the figure once the figure became the
-     * thing holding them.
-     *
-     * And it sinks further than FIGURE_SINK. These clips are framed at the
-     * waist, so the sprite's bottom edge is a straight cut through the man
-     * rather than air; `cy + ph * FIGURE_SINK` put that cut a few points above
-     * where the band's art actually starts painting — the plate has transparent
-     * margin of its own — and what showed on the card was a man sliced off above
-     * a gap. It is hung off the band's middle instead, deep enough that the cut
-     * is inside the paint whatever the plate's margin turns out to be.
-     */
     const roomTop = layout.banner.y + layout.banner.h / 2 + STARS_AIR * ui;
     const figureFoot =
       cy + ph * (FIGURE_CARRIES_STARS ? FIGURE_STARS_SINK[key] : FIGURE_SINK);
@@ -1017,37 +364,6 @@ export class OutcomeScreen extends Container {
     this.figure.position.set(s.cx, figureFoot);
     const figureUp = !!this.fitFigure();
 
-    /* ----------------------------------------------------------- the stars */
-
-    /**
-     * Between the highest thing below them and the lowest thing above, in the
-     * screen's own coordinates.
-     *
-     * Below them is the figure on a win — bottom-anchored just under the band's
-     * middle, rising a third of the screen off it — and on a loss she is not
-     * there at all, so it is the band's own top edge. One question asked of the
-     * two answers the endings give it, rather than an ending the placement has
-     * to know about.
-     *
-     * ABOVE THEM IS THE HUD'S OWN LOCKUP, and it is the half of this that was
-     * missing. The stars were clamped to the safe box's top instead, which is
-     * air only until the CTA comes up at T.banner — eleven seconds into a fight
-     * nobody sees the end of in under thirty. So on every won run the three
-     * stars sat across INVOKERS TITAN LEGACY and the plate under it, and a
-     * forced `show()` could never catch it because the banner has not armed
-     * that early. `layout.banner` is reserved whether or not the HUD has filled
-     * it yet, so measuring against it is a number rather than a race.
-     *
-     * Where the room between the two will not take the sprite, the WIDTH comes
-     * down until it does: the alternative is a sprite that crosses one edge or
-     * the other, and which edge it crosses would depend on the phone. Below
-     * STARS_MIN_W it stops coming down and the stars go off instead.
-     *
-     * Solved on every layout and not only when they are up, for the same reason
-     * the control below is: a rotation arrives whenever it likes, and a sprite
-     * fitted only on the frame it was shown is the wrong size for the rest of
-     * the run.
-     */
     if (this.stars) {
       const air = STARS_AIR * ui;
       const stoodOn = figureUp ? this.figure.y - this.figureH : cy - ph / 2;
@@ -1064,20 +380,9 @@ export class OutcomeScreen extends Container {
       this.stars.visible = this.starsUp();
     }
 
-    // Off the word's own extent inside the banner rather than off the whole of
-    // it: the bloom is a lamp behind the verdict, and a banner fades to nothing
-    // at both ends — a glow measured off the full width would be a wash across
-    // the frame instead of a light behind one word.
     this.bloom.position.set(s.cx, cy);
     this.bloom.setSize(Math.max(80, pw * 0.62), Math.max(80, ph * 3.4));
 
-    /* --------------------------------------------------------- the tap line */
-
-    // Straight off the box now. This used to carry half the bottom inset as a
-    // correction of its own, which is the sort of term that appears when the
-    // box a fraction is taken of is the wrong box: TAP_Y is 0.86 of the screen
-    // the player can see, and the box it is measured in already ends where the
-    // home indicator starts.
     const tapY = s.y + s.h * TAP_Y[key];
     this.tap.position.set(s.cx, tapY);
 
@@ -1085,62 +390,21 @@ export class OutcomeScreen extends Container {
     this.tapText.position.set(0, 0);
     if (this.line) {
       fitLine(this.line, s.w * LINE_W[key]);
-      // Above the words rather than under them: the hairline is a lid on the
-      // sentence, which is where the shipped card puts it.
       this.line.position.set(0, -size * 1.6);
     }
 
-    /* ------------------------------------------------------------- retry */
-
-    // Solved on every layout and not only while it is up, for the same reason
-    // the band is: a rotation arrives whenever it likes, and a control fitted
-    // only on the frame it was shown is a control that is the wrong size for
-    // the rest of the run. It costs one fit of a sprite nobody can see.
-    //
-    // On the board's own middle, in both orientations, and the second one is
-    // where that earns its keep. Upright the board is centred in the field, so
-    // this is the middle of the screen and reads as the middle of the screen.
-    // Sideways the board hugs the right edge — for thumb reach, see
-    // landscapeLayout in core/layout.js — and the rematch belongs in the same
-    // reach as the gems the player was just swiping. It is also the only column
-    // of that layout with no party in it: the hero row runs along the foot of
-    // the boss's column, beside the board and not under it.
     const b = layout.board;
     const retryX = b.x + b.size / 2;
 
-    /**
-     * The room the control is placed in: from under the verdict down to
-     * whatever it must not cover.
-     *
-     * The floor is the top of the hero row where the control stands over the
-     * row, and the foot of the safe box where it does not — which is one
-     * geometric question asked of the two numbers that answer it, rather than
-     * an orientation the code has to know about. Upright the row runs the whole
-     * width and the answer is the row; sideways the board is clear of it and the
-     * answer is the screen.
-     */
     const air = RETRY_AIR * ui;
     const rowLeft = layout.cards.x;
     const rowRight = rowLeft + layout.cards.w;
     const overRow = retryX > rowLeft && retryX < rowRight;
     const roof = cy + ph / 2 + air;
     const sill = (overRow ? layout.cards.y : s.bottom) - air;
-    // A floor under the room as well as a ceiling: a window short enough to
-    // leave the band and the row touching gets a small button rather than an
-    // inside-out one, and 44 is the same thumb the hit area is bought for.
     const room = Math.max(44 * ui, sill - roof);
 
-    // The control is centred on the board rather than on the screen, and
-    // sideways the board hugs one edge — so a share of the whole safe box is an
-    // offer the position cannot always take. Held to the room either side of
-    // where it actually stands, a wide plate comes back narrower instead of
-    // crossing the edge of the screen it is standing on.
     const reachAcross = Math.min(retryX - s.x, s.x + s.w - retryX);
-    // The beat is a scale on the container, so the plate is widest at the top of
-    // every kick and that is the width the edge has to be measured against. The
-    // room is divided by it rather than the art being made to fit what it is at
-    // rest: a button sized to its resting width crosses the edge of the screen
-    // once a second, which is the one place a CTA must not be cut.
     const beating = this.defeat ? 1 : 1 + PLAY_BEAT.kick;
     const offered = Math.min(
       s.w * (this.defeat ? RETRY_W[key] : PLAY_W[key]),
@@ -1151,9 +415,6 @@ export class OutcomeScreen extends Container {
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
       ui,
     );
-    // Half its own box off each end of the room: a fraction small enough to put
-    // the rematch under the verdict cannot put its top through the band, and the
-    // win's own fraction cannot stand its plate on the party. See CONTROL_DROP.
     const reach = Math.max(roof + box.h / 2, sill - box.h / 2);
     this.retry.position.set(
       retryX,
@@ -1163,29 +424,12 @@ export class OutcomeScreen extends Container {
         reach,
       ),
     );
-    // A thumb's worth of height whatever the ceiling did to the art — and the
-    // width the art actually came back with, so the box cannot reach out past
-    // the picture into the dark either side of it.
     const hitH = Math.max(box.h, 44);
     this.retry.hitArea = new Rectangle(-box.w / 2, -hitH / 2, box.w, hitH);
 
-    // The card just moved. Anything still flying towards where it used to be has
-    // to be told, or it will spend the next half second putting it back.
     if (this.introducing) this.settle();
   }
 
-  /**
-   * The figure, sized to the room the layout left it, or null.
-   *
-   * Null sideways while the clip carries its own stars, and that is a fit
-   * decision rather than a taste one. Such a clip is square, with the stars
-   * filling the top third of it, so it needs height; upright there is most of a
-   * screen between the HUD's lockup and the band to give it, and sideways there
-   * is about sixty points. Scaled into that the man is gone and three star tips
-   * sit on the band, which reads as a glitch. The card stands sideways the way
-   * it did before any figure existed — verdict and control over the frozen
-   * board — which is a composition rather than a remnant of one.
-   */
   fitFigure() {
     if (FIGURE_CARRIES_STARS && this.layout && !this.layout.portrait) {
       return null;
@@ -1199,33 +443,6 @@ export class OutcomeScreen extends Container {
     return texture;
   }
 
-  /**
-   * The still, fitted to a window that may not be the one it was taken in.
-   *
-   * `setSize(w, h)` was the whole of this, and it is right exactly as long as
-   * the screen never changes shape — which is a thing this card cannot assume,
-   * least of all now. On a loss it is the last screen of the run and it stands
-   * there until the player taps RETRY, so a phone turned over or a desktop
-   * window dragged narrower is a photograph of a landscape fight pulled into a
-   * portrait box: round gems come out as ovals, the health bar reaches a third
-   * of the way across, the party is a smear along the bottom. It is the single
-   * ugliest thing the creative can be made to do, and it takes one gesture.
-   *
-   * Two answers, in order.
-   *
-   * The good one is another photograph. The world under this card is still
-   * there and `relayout` has just re-solved every piece of it for the new
-   * screen — see main.js — so the fight can simply be shot again, correctly
-   * composed, and the card goes on showing the position the player lost from.
-   * That is deferred to the next frame rather than taken here: this runs inside
-   * the relayout itself, with the lava mask further down the same function
-   * still holding the shape of the screen we have just left.
-   *
-   * The one for this frame, and the one a renderer that refuses a second
-   * texture keeps, is to cover the window with the picture we have. Cropped
-   * rather than stretched — a photograph shown at the wrong size is a
-   * photograph, and one shown at the wrong aspect is a funhouse mirror.
-   */
   reframe(w, h) {
     const at = this.stillAt;
     if (!at || (at.w === w && at.h === h)) {
@@ -1242,14 +459,6 @@ export class OutcomeScreen extends Container {
     this.stale = true;
   }
 
-  /**
-   * Photograph the fight again, for the screen it is on now. See `reframe`.
-   *
-   * The old texture is released after the new one is in place and never before:
-   * a renderer that hands back nothing leaves the card wearing the cropped
-   * still, which is a frame off but is a picture, and a card that had freed its
-   * own backdrop first would be a black screen with a word on it.
-   */
   rephotograph() {
     this.stale = false;
     if (!this.still || !this.layout) return;
@@ -1265,26 +474,10 @@ export class OutcomeScreen extends Container {
     if (old && old !== fresh) {
       try {
         old.destroy(true);
-      } catch {
-        /* a texture the renderer already dropped has nothing to free */
-      }
+      } catch {}
     }
   }
 
-  /**
-   * Size the retry control into `w` by `maxH`, and report the box it took.
-   *
-   * The painted plate takes the two as an offer, and fitRetryPlate is what
-   * brings the width back down to meet the ceiling rather than squashing the
-   * bevel into it.
-   *
-   * The drawn pill is not measured against either: it is a flat capsule and its
-   * box is its own two fractions of the stage. Whichever path runs, the other
-   * one's marks are cleared — the pill is drawn empty behind the plate — and
-   * the word is fitted to whichever box came back.
-   *
-   * @returns {{w: number, h: number}}
-   */
   fitRetry(w, maxH, ui) {
     this.retryBg.clear();
     if (!this.defeat && this.playArt) {
@@ -1339,54 +532,10 @@ export class OutcomeScreen extends Container {
     return { w: pw, h: ph };
   }
 
-  /**
-   * Whether the card would be the last screen of the run for this result.
-   *
-   * True on both endings now — there is no card behind this one to advance to.
-   * It is still asked, and still answered here, because the director reads it to
-   * know the run is over on this screen, and because a loss with no `onRetry`
-   * wired has no control at all and must not be treated as finished.
-   *
-   * @param {"victory"|"defeat"} outcome
-   */
   terminalFor(outcome) {
     return outcome === "defeat" ? !!this.onRetry : true;
   }
 
-  /**
-   * Point the banner at the ending, and record whether there was one.
-   *
-   * Called from `show`, once the result is known, and from the constructor so
-   * that a card laid out before it is shown is never a banner waiting to be told
-   * what it is.
-   *
-   * `painted` is what the layout reads. False means nothing decoded for *this*
-   * ending and the card falls back to its own drawn band with its own type — a
-   * per-ending answer and not a per-device one, since a build can ship a victory
-   * banner that decodes and a defeat one that does not. So it is asked again on
-   * every show rather than settled once here.
-   */
-  /**
-   * Whether the stars belong on screen at all: upright, and a decode that
-   * answered for the ending being shown. See STARS_W for why the orientation is
-   * in here.
-   *
-   * Both endings wear them now. Three stars over DEFEAT was argued against once,
-   * as a scoreboard on a card that is not keeping score, and the obsidian set is
-   * the answer to it: unlit stars over a loss are the same mark with the light
-   * out, which is a verdict rather than a tally.
-   *
-   * `starsFit` is the room's own answer and it is the layout's to set, so this
-   * reads it rather than asking again: a screen with no air between the chrome
-   * and the figure has nowhere to put them. See the placement in `resize`.
-   *
-   * Not on either ending any more while the figures bring their own. The win
-   * clip is a man opening a tome with three stars climbing out of it and the
-   * loss clip is the same three going out over him, so the painted set would be
-   * a second three on both cards — see FIGURE_CARRIES_STARS. It comes back the
-   * moment a figure does not decode, because `starsPainted` and this flag are
-   * asked separately and a card with no figure still wants its mark.
-   */
   starsUp() {
     if (this.figureCarries) return false;
     return !!(
@@ -1401,26 +550,11 @@ export class OutcomeScreen extends Container {
     this.painted = this.verdict ? aimVerdict(this.verdict, this.defeat) : false;
     if (this.verdict) this.verdict.visible = this.painted;
     this.word.visible = !this.painted;
-    // Per ending and not per device, the same way `painted` is: a build can ship
-    // one set that decodes and one that does not, and the ending that has its
-    // stars still gets them.
     this.starsPainted = this.stars ? aimStars(this.stars, this.defeat) : false;
-    // Settled here rather than read off `figure.visible`, which is only set once
-    // the intro runs and is still the last ending's answer during the resize
-    // that precedes it.
     this.figureCarries = FIGURE_CARRIES_STARS && !!figureTexture(this.defeat);
     if (this.stars) this.stars.visible = this.starsUp();
   }
 
-  /**
-   * The band, drawn — reached only when no banner decoded.
-   *
-   * The banner reduced to the three things it cannot do without: the plate's
-   * navy, the ending's wash with its own hairline bounding it, and the gold rule
-   * over each edge. No chevron and no serif — a drawn ornament that is not the
-   * painted one is worse than none at all, and the word over this is the card's
-   * own type. See `aim`.
-   */
   drawBand(w, h) {
     const c = BAND[this.defeat ? "defeat" : "victory"];
     const gold = Math.max(1, h * 0.02);
@@ -1440,31 +574,12 @@ export class OutcomeScreen extends Container {
     this.band.fill({ color: PLATE_GOLD, alpha: 0.9 });
   }
 
-  /* ----------------------------------------------------------------- show */
-
-  /**
-   * Put the verdict up, and resolve when the player leaves it.
-   *
-   * @param {"victory"|"defeat"} outcome
-   * @returns {Promise<void>} settles as soon as the verdict and its control are
-   *   up. The card then stays where it is on both endings: there is nothing to
-   *   go on to, and the only things that answer a tap are PLAY NOW on a win and
-   *   RETRY on a loss. See `terminal`.
-   */
   async show(outcome) {
     this.defeat = outcome === "defeat";
     this.terminal = this.terminalFor(outcome);
     this.word.text = this.defeat ? COPY.outcomeDefeat : COPY.outcomeVictory;
     this.aim();
 
-    /**
-     * Which control this showing stands in the slot under the verdict.
-     *
-     * One container, two faces: the painted PLAY NOW plate on a win and the
-     * RETRY lockup on a loss, and whichever is off is hidden rather than
-     * transparent. The tap line is off on both — it asked for a tap that used to
-     * advance to the store card, and there is no card to advance to.
-     */
     this.figure.visible = !!this.fitFigure();
     if (this.figure.visible) startFigure();
 
@@ -1475,34 +590,8 @@ export class OutcomeScreen extends Container {
     if (this.playArt) this.playArt.visible = !this.defeat;
     this.playText.visible = !this.defeat && !this.playArt;
 
-    /**
-     * The room the verdict is read in, and the only place the result is allowed
-     * to change this card's colour.
-     *
-     * The word is white on both endings — it is the one word in the creative
-     * with a face of its own, and a coloured verdict is a verdict competing with
-     * the band it is set in. What used to carry the loss was everything behind
-     * it: the darkness went oxblood, the photograph of the fight went from cool
-     * to burnt, and a red light was added under the whole frame.
-     *
-     * None of that is here any more. The room is the fight, blurred and
-     * darkened, and it is the same room whichever way the fight went — see
-     * SCRIM. The result is told by the band's colour and by the light behind
-     * it, and by nothing else on the card.
-     *
-     * Set here rather than in the constructor because this is the first moment
-     * the result is known, and re-set on every `show` rather than once because
-     * a card can be shown, left, and shown again by a rematch.
-     */
     this.bloom.tint = this.defeat ? BLOOM_LOSS : PLATE_GOLD;
 
-    /**
-     * The still, taken now and only now.
-     *
-     * This is the last frame of the fight, and it has to be captured before this
-     * container is made visible or the photograph would have the card in it.
-     * `show` runs once per run, so it is taken once.
-     */
     if (!this.still) {
       const texture = this.freeze();
       if (texture) {
@@ -1510,21 +599,14 @@ export class OutcomeScreen extends Container {
         this.stillAt = this.layout
           ? { w: this.layout.w, h: this.layout.h }
           : null;
-        // Under the scrim, which is index 0 until this arrives.
         this.addChildAt(this.still, 0);
       }
     }
-    // Outside the block above, so a rematch that comes back to a still taken on
-    // the first run still gets the tint its own result asks for.
     if (this.still) this.still.tint = STILL_TINT;
 
     if (this.layout) this.resize(this.layout);
 
-    /* ----------------------------------------------------------- the intro */
-
     this.visible = true;
-    // No fade on the container: the flash is the transition, and a card that
-    // also dissolves in arrives twice.
     this.alpha = 1;
     this.t = 0;
     this.arming = ARM_AFTER;
@@ -1544,79 +626,19 @@ export class OutcomeScreen extends Container {
     const waiting = new Promise((resolve) => {
       this.leaving = resolve;
     });
-    /**
-     * What this call hands back, which is not the same question as what the
-     * card does next.
-     *
-     * On a win it is `waiting` — the card is a door and `show` settles when the
-     * player goes through it. On a loss there is no door, so the caller is let
-     * go of once the verdict is standing and the card simply stays up behind
-     * it. `waiting` is still armed underneath, and nothing ever resolves it:
-     * `leave` is the only thing that would, and it refuses outright while the
-     * card is terminal.
-     */
     const done = this.terminal ? Promise.resolve() : waiting;
 
-    /**
-     * The ending's own stinger, on the word rather than on the flash.
-     *
-     * This used to be `sfx.endcard`, a title sting fired here while the
-     * director played the real victory horn a second and a half earlier, back
-     * in the fight, under `hud.shout`. Two problems in one: the sound that
-     * means "you won" landed on a callout the player reads in passing, and the
-     * card — the frame they actually stop on — got the generic one.
-     *
-     * So the horn moved here and the title sting went with it. `sfx.endcard`
-     * still exists and is still used, on the store card that comes after this
-     * one; what it is not is the sound of the verdict.
-     *
-     * The offsets are the gap between when each cut is started and when its
-     * weight arrives, against the one moment on this card worth hitting. The
-     * word crosses readable at 0.18 s — the band is half its height by then and
-     * `card` finishes fading at 0.22, with the flash over both until then, so
-     * the curves multiplied out put half the word on screen at 0.18. The win's cut reaches half power 0.176 s
-     * after it is started and the loss's braam at 0.116, both measured in
-     * outcome.mp3 past the head. A win therefore starts here and a loss starts
-     * 0.06 later, and the two endings hit the same frame within four
-     * milliseconds of each other.
-     */
     if (this.defeat) sfx.defeat(0.06);
     else {
       sfx.victory();
       this.fireworks.hero();
     }
 
-    // The flash goes out on its own clock. Everything below arrives inside it,
-    // so the word is already standing by the time there is enough of the frame
-    // back to see it — which is what makes the card look revealed rather than
-    // faded in.
     tween(this.flash, { alpha: 0 }, FLASH_FADE, {
       delay: FLASH_HOLD,
       ease: Ease.cubicOut,
     });
 
-    /**
-     * The verdict unfurls, and it is the only thing on this card that moves.
-     *
-     * It used to arrive over-size and settle, one scale from 1.22 down to 1 on
-     * both axes at once — a stamp, and a stamp is a thing that was already the
-     * size it ends up. This is the other reading of the same beat. The banner
-     * starts as nothing, shoots out sideways into a hairline of lit gold, and
-     * the plate springs open off that line by its height.
-     *
-     * Two tweens because they are two gestures. The width goes first and fast,
-     * on expoOut and with no overshoot, because the plate is already most of the
-     * screen wide and a band that overshoots its width crosses the safe box. The
-     * height follows a beat later over half a second, on backOut, because that
-     * is the one the eye is watching and the overshoot at the end of it is the
-     * difference between a band that sprang open and a band that was scaled.
-     *
-     * Both endings wear it. A wipe unfurls as hard as a win does: the player who
-     * lost knows they lost, and a card that says it quietly only looks
-     * embarrassed about the game it is selling. Which verdict it is stays where
-     * the rest of this card keeps it — in the colour of the band, and in the
-     * colour of the light behind it.
-     */
     this.card.scale.set(UNFURL.slitW, UNFURL.slitH);
     tween(this.card, { alpha: 1 }, 0.16, { delay: 0.06 });
     tween(this.card.scale, { x: 1 }, UNFURL.widen, { ease: Ease.expoOut });
@@ -1625,18 +647,6 @@ export class OutcomeScreen extends Container {
       ease: Ease.backOut,
     });
 
-    /**
-     * The lamp flares with the hairline and settles under the open band.
-     *
-     * The same light the card keeps, with one extra beat in front of it: the
-     * bloom is what sells the sliver as a line of light rather than as a bitmap
-     * squashed flat, so it spikes while the card is that line and comes back
-     * down to its resting value as the plate opens over it.
-     *
-     * Chained rather than delayed. A tween reads its start value at the moment
-     * it is created, not when its delay runs out, so a delayed second tween here
-     * would be a second fade up from zero over the top of the first.
-     */
     const lamp = this.defeat ? 0.3 : 0.42;
     tween(this.bloom, { alpha: lamp * BLOOM_FLARE }, 0.18, {
       ease: Ease.expoOut,
@@ -1647,35 +657,21 @@ export class OutcomeScreen extends Container {
 
     if (this.figure.visible)
       tween(this.figure, { alpha: 1 }, 0.4, { delay: 0.1 });
-    // A beat behind the unfurl: the verdict opens, and the mark arrives on it.
     if (this.starsUp()) tween(this.stars, { alpha: 1 }, 0.3, { delay: 0.5 });
 
     await delay(0.72);
     if (!this.introducing) return done;
 
-    // Whichever prompt this ending has — the sentence, or the button.
     await tween(this.terminal ? this.retry : this.tap, { alpha: 1 }, 0.3);
     if (!this.introducing) return done;
 
     if (!this.defeat) this.fireworks.start();
 
     this.introducing = false;
-    // The clock starts once the line asking for a tap is up, and not at `show`:
-    // a hold measured from the flash is a hold most of which was spent behind it.
-    // A terminal card never arms it: there is nowhere for it to advance to, and
-    // a card that timed out on a loss would take the rematch off the screen.
     this.hold = this.terminal ? -1 : T.outcomeHold;
     return done;
   }
 
-  /**
-   * Cut the intro and put everything where it was going.
-   *
-   * Reached by a rotation, which re-solves the card under a sequence still
-   * animating towards the old one, and by `leave`. Every tween here is an alpha
-   * or a scale, and both are just their own final value once there is nobody
-   * watching them arrive.
-   */
   settle() {
     if (!this.introducing) return;
     this.introducing = false;
@@ -1696,9 +692,6 @@ export class OutcomeScreen extends Container {
     });
     killTweensOf(this.bloom);
     this.bloom.alpha = this.defeat ? 0.3 : 0.42;
-    // The flash is the one thing a rotation must not preserve: it is half a
-    // second of white over the whole screen, and finishing it early is the only
-    // sensible reading of "there is nobody watching this arrive".
     killTweensOf(this.flash);
     this.flash.alpha = 0;
 
@@ -1708,35 +701,17 @@ export class OutcomeScreen extends Container {
     this.hold = this.terminal ? -1 : T.outcomeHold;
   }
 
-  /**
-   * Leave — once.
-   *
-   * Nothing reaches the far side of it any more: both endings are terminal, so
-   * the `terminal` return below is the whole of this method on the shipped
-   * routes. The rest is left standing because a host that wires no `onRetry`
-   * makes a loss non-terminal, and that path still has to settle exactly once.
-   *
-   * @param {"tap"|"hold"} how
-   */
   leave(how) {
     if (!this.leaving) return;
     if (this.arming > 0) return;
-    // Nowhere to go. This card is the end of the run and the tap the player is
-    // making is either one of its own controls — which have their own listener
-    // and stop the event before it reaches the card — or a tap on the frozen
-    // fight, which is not an instruction to do anything. See the header.
     if (this.terminal) return;
 
     const resolve = this.leaving;
     this.leaving = null;
     this.settle();
     this.hold = -1;
-    // Not on the hold: nobody pressed anything, and a click over a card that
-    // moved on by itself is the creative pretending to have been touched.
     if (how !== "hold") sfx.select();
 
-    // Faded, for a host that left this card non-terminal and has something of
-    // its own to put up behind it.
     this.fireworks.stop();
     killTweensOf(this);
     tween(this, { alpha: 0 }, 0.4).then(() => {
@@ -1747,12 +722,8 @@ export class OutcomeScreen extends Container {
     resolve();
   }
 
-  /* ----------------------------------------------------------------- frame */
-
   update(dt) {
     if (!this.visible) return;
-    // Before anything that moves: the screen changed shape a frame ago and the
-    // backdrop is a crop of a picture of the old one. See `reframe`.
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
@@ -1768,9 +739,6 @@ export class OutcomeScreen extends Container {
     this.bloom.alpha =
       (this.defeat ? 0.26 : 0.36) + Math.sin(this.t * 1.8) * 0.08;
 
-    // The win's plate only. A rematch is an offer to try again and does not need
-    // chasing; this one is what the whole creative was built to be tapped, on
-    // the last screen of the run, where nothing else is going to move.
     if (!this.defeat) {
       const phase = (this.t * PLAY_BEAT.rate) % 1;
       const beat =
@@ -1779,8 +747,6 @@ export class OutcomeScreen extends Container {
           : Math.exp(-(phase - PLAY_BEAT.attack) * PLAY_BEAT.decay);
       this.retry.scale.set(1 + PLAY_BEAT.kick * beat);
     }
-    // On the text and not on the container, so the fade-out on the way off owns
-    // an alpha of its own and the two do not fight over the same number.
     this.tapText.alpha = 0.62 + Math.abs(Math.sin(this.t * PULSE)) * 0.38;
 
     if (this.hold > 0) {

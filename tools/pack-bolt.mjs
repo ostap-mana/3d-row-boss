@@ -108,8 +108,6 @@ const ffmpeg = (a) =>
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-/** ffmpeg reports a crop only once it has a few frames to compare, so the still
- *  is looped into three of them and the last report is read back. */
 function contentBox(file) {
   const run = spawnSync(
     "ffmpeg",
@@ -157,13 +155,6 @@ const size = (file = SRC) => {
   return { w: Number(out[0]), h: Number(out[1]) };
 };
 
-/**
- * Where each lance actually sits, read off the sheet.
- *
- * The mean of a line of pixels, not its brightest pixel: a stray spark thrown
- * off one lance reaches into the empty space above the next one and joins the
- * two rows into one if the test is a maximum.
- */
 function rows() {
   const raw = spawnSync(
     "ffmpeg",

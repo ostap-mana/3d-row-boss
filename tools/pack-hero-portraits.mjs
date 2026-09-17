@@ -1,49 +1,3 @@
-/**
- * Cut the six hero portraits out of one sheet and pack them.
- *
- *   node tools/pack-hero-portraits.mjs          # -> src/assets/heroes/portrait-<element>.webp
- *   node tools/pack-hero-portraits.mjs --png    # keep the intermediate PNGs too
- *   node tools/pack-hero-portraits.mjs --proof  # one strip of all six as packed
- *
- * There are two ways in. A hero with a file of their own at
- * `src/source/heroes/portrait-<element>.png` is packed straight from it and the
- * sheet is never consulted for that cell — which is how a portrait gets replaced
- * one at a time, at whatever size it was painted, without a repaint of the other
- * five. Everyone else is cut out of the sheet, and the sheet is only decoded if
- * somebody still needs it.
- *
- * The sheet is `src/source/heroes/portrait-sheet.png`: six portraits in a row,
- * left to right in the roster's own order, each in its own cell — head and
- * shoulders against the backdrop it was painted on, with a dark gap between the
- * cells and a dark margin above and below them.
- *
- * The gaps are the "background" this removes: what lands on disk is six files
- * with one portrait each and none of the sheet's own furniture. The backdrop
- * *inside* a cell is left alone, and that is a decision rather than an omission —
- * it is painted art, blended into hair and shoulder edges, and no threshold
- * separates it from the figure without eating them. Cutting the figures out is a
- * matting job, not a keying job.
- *
- * Finding the gaps is the only real work here. They are not black: the darkest
- * of them averages about 20 of 255 and the brightest about 60, which is also
- * what a shadowed shoulder inside a cell can average. So a column is judged on
- * its *brightest* pixel rather than its average — a gap has no bright pixel
- * anywhere down it, and every cell has a lit face or a gold pauldron somewhere.
- * That finds five of the six gaps outright; the one it misses is missed because
- * the crown in the third cell reaches its edge. So the pitch is measured off the
- * gaps that were found, the missing boundary is predicted from it, and the
- * darkest column within a few pixels of the prediction is taken as the gap. It
- * lands within two pixels of where the eye puts it.
- *
- * They are then packed at the size the sheet actually holds — about 160 by 328 —
- * and not a pixel more. The card cover-fits a portrait into a tile at most 117
- * points tall on a renderer clamped to resolution 2, so 328 is already more rows
- * than the biggest phone ever samples. WebP at 88 rather than lossless: these are
- * paintings with soft gradients, they are six of the largest assets in a build
- * that inlines every byte as base64, and the previous set of busts cost about
- * 120 kB each as PNG.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,36 +7,21 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "src/source/heroes/portrait-sheet.png");
 const OUT_DIR = join(ROOT, "src/assets/heroes");
 
-/** Where a hero's own file lives, if they have one. */
 const single = (name) => join(ROOT, `src/source/heroes/portrait-${name}.png`);
 
-/** Left to right on the sheet, which is the order HEROES is in. */
 const NAMES = ["fire", "water", "nature", "lightning", "arcane", "wind"];
 
-/**
- * A column with no pixel brighter than this is a gap between cells, not a cell.
- *
- * 100 of 255. Every cell has something lit in it somewhere down its height — a
- * cheekbone, a gold rim, a glowing eye — and the gaps top out around 60.
- */
 const GAP_LEVEL = 100;
 
-/** A row with nothing brighter than GAP_LEVEL is the sheet's own margin. */
 const MARGIN_LEVEL = 100;
 
-/** How far either side of a predicted boundary to look for the actual gap. */
 const HUNT = 10;
 
-/** Pixels shaved off each side of a cell, so no gap's dark blend rides along. */
 const TRIM = 2;
 
-/** What each portrait is packed to. */
 const TARGET = { w: 160, h: 328 };
 
-/** WebP quality. Paintings, not line art: lossless would triple the bytes. */
 const QUALITY = "88";
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -134,26 +73,21 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* -------------------------------------------------------------------- pixels */
-
 const at = (w, x, y) => (y * w + x) * 4;
 const lum = (px, i) => (px[i] * 2 + px[i + 1] * 5 + px[i + 2]) / 8;
 
-/** Brightest pixel down one column, between `y0` and `y1`. */
 function columnPeak(px, w, x, y0, y1) {
   let peak = 0;
   for (let y = y0; y <= y1; y++) peak = Math.max(peak, lum(px, at(w, x, y)));
   return peak;
 }
 
-/** Mean brightness down one column — how a gap is picked out of near-gaps. */
 function columnMean(px, w, x, y0, y1) {
   let sum = 0;
   for (let y = y0; y <= y1; y++) sum += lum(px, at(w, x, y));
   return sum / (y1 - y0 + 1);
 }
 
-/** The band of rows that is art rather than the sheet's margin. */
 function artRows(px, w, h) {
   const peak = (y) => {
     let p = 0;
@@ -167,7 +101,6 @@ function artRows(px, w, h) {
   return { y0, y1 };
 }
 
-/** Runs of columns with nothing lit down them: the gaps, and the outer margins. */
 function gaps(px, w, y0, y1) {
   const runs = [];
   let start = -1;
@@ -183,22 +116,6 @@ function gaps(px, w, y0, y1) {
   return runs;
 }
 
-/**
- * The seven boundaries between and around six cells: two margins and five gaps.
- *
- * A gap that was found is used as it was found — its whole run, so the cell on
- * either side is cut at the edge of the gap rather than at the middle of it. Only
- * the ones that are missing are predicted, and one always is: a cell whose art
- * runs bright to its own edge leaves no unlit column to give itself away. The
- * pitch between the two outer margins says where a missing boundary has to be,
- * and the darkest column within HUNT of there is taken as the gap.
- *
- * Darkest by peak first and mean as the tiebreak, in that order and not the other
- * way round. Judged on the mean alone the hunt walks off the gap and onto a
- * neighbouring column of shadowed cloak, which averages lower than a gap that is
- * merely dark grey — and a cut two pixels inside a cell leaves a black band down
- * one edge of the portrait, which is exactly what it did.
- */
 function boundaries(px, w, y0, y1, count) {
   const found = gaps(px, w, y0, y1);
   if (found.length < 2) throw new Error("no outer margins on the sheet");
@@ -244,7 +161,6 @@ function crop(px, w, x0, y0, cw, ch) {
   return out;
 }
 
-/** Area-average down, weighting colour by alpha. Same filter as the other packers. */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -297,18 +213,8 @@ function resample(src, sw, sh, dw, dh) {
 
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/* --------------------------------------------------------------------- main */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
-/**
- * Every hero's art at full size, before any packing: `{px, w, h, note}`.
- *
- * A hero with a file of their own is read from it. Whoever is left is cut out of
- * the sheet — and the sheet is only probed and decoded if somebody is left, so a
- * roster that has been fully repainted one portrait at a time no longer needs it
- * on disk at all.
- */
 const source = {};
 
 for (const name of NAMES) {
@@ -328,7 +234,6 @@ for (const name of NAMES) {
 
 if (NAMES.some((name) => !source[name])) cutSheet();
 
-/** Fill in everyone who did not bring their own file. */
 function cutSheet() {
   const info = probe(SOURCE);
   const sheet = decode(SOURCE);
@@ -370,12 +275,6 @@ const packed = [];
 NAMES.forEach((name) => {
   const art = source[name];
 
-  // Cropped to the target's aspect before the resample, not squashed into it.
-  // The sheet's cells run from 154 to 174 wide over the same 324 rows, and the
-  // single files come in at whatever they were painted at, so scaling each one
-  // straight into a single box would draw one face 9% narrower than another in
-  // the same row. Taken off the middle, because that is where a portrait's
-  // subject is.
   const cw = Math.min(art.w, Math.round((art.h * TARGET.w) / TARGET.h));
   const ch = Math.min(art.h, Math.round((cw * TARGET.h) / TARGET.w));
   const cx = Math.round((art.w - cw) / 2);

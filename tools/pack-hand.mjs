@@ -1,32 +1,3 @@
-/**
- * Pack the hint hand — the gauntlet that points at the swap the player is
- * being nagged to make.
- *
- *   node tools/cut-bg.mjs src/source/hand/hand.png --trim   # first: give it alpha
- *   node tools/pack-hand.mjs                           # -> src/assets/board/hint-hand.webp
- *   node tools/pack-hand.mjs --png                     # keep the intermediate PNG
- *   node tools/pack-hand.mjs --guides                  # mark the fingertip
- *
- * Two steps because the source arrives as a 1254x1254 render with no alpha
- * channel at all — its transparency is a *picture* of transparency, the
- * editor's checkerboard welded into the pixels. Cutting that is a job of its
- * own and tools/cut-bg.mjs already does it; this reads what that leaves behind.
- *
- * What is left for this tool is size and registration.
- *
- * Size, because the hand is drawn about 60 to 140 points wide on a renderer
- * clamped to resolution 2 — under 290 device pixels at the very worst — and the
- * cut is 721 across. Shipping that would be three times the pixels anybody sees,
- * base64'd into the one file the whole creative has to fit in.
- *
- * Registration, because a hand is not a picture, it is a pointer, and where it
- * points is one pixel in it: the tip of the index finger. The game anchors the
- * sprite there so the fingertip lands on the cell rather than the middle of a
- * leather cuff landing on it. That point cannot be guessed off a bounding box —
- * the thumb sticks out left, the sleeve hangs down right, and the tip is neither
- * — so it is measured here and printed as the fractions art/hinthand.js holds.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,34 +7,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "src/source/hand/hand-nobg.png");
 const OUT = join(ROOT, "src/assets/board/hint-hand");
 
-/** Alpha at or under this is backdrop, not art. */
 const EMPTY = 12;
 
-/** Alpha over this is the finger itself rather than its antialiased edge. */
 const SOLID = 128;
 
-/**
- * Width to pack at.
- *
- * The hand is sized off the board's cell — `cell * 1.15`, capped at 110 points,
- * and 1.3 times that once the hint turns insistent. 143 points at resolution 2
- * is 286 device pixels, so 320 covers the worst case with a little to spare and
- * nothing to waste. Past it every extra pixel is base64 nobody sees.
- */
 const WIDTH = 320;
 
-/**
- * Band at the top of the art the fingertip is found in, as a fraction of the
- * height.
- *
- * The tip is the highest thing in the picture — the finger is what the whole
- * pose is for — so the topmost rows are all fingertip and nothing else. Taking a
- * band rather than the single topmost pixel is what keeps a stray antialiased
- * speck from deciding where the hand points.
- */
 const TIP_BAND = 0.03;
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -115,9 +65,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* --------------------------------------------------------------------- trim */
-
-/** Tightest box that holds every pixel the eye can see. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -135,7 +82,6 @@ function inkBox(px, w, h) {
   return { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/** The trimmed art, copied out into its own buffer. */
 function crop(px, w, box) {
   const out = Buffer.alloc(box.w * box.h * 4);
   for (let y = 0; y < box.h; y++) {
@@ -145,16 +91,6 @@ function crop(px, w, box) {
   return out;
 }
 
-/* ----------------------------------------------------------------- resample */
-
-/**
- * Area-average down to `dw` by `dh`, weighting colour by alpha.
- *
- * Premultiplied, and this is the reduction that needs it most in the build: the
- * cut leaves transparent *black* around the figure, and a straight average over
- * a 2.25:1 box would draw that black into every edge — a dark line around a hand
- * that spends its whole life over a lit board.
- */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -207,16 +143,6 @@ function resample(src, sw, sh, dw, dh) {
 
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/* ------------------------------------------------------------------ measure */
-
-/**
- * The point the hand points at, in the packed art's own pixels.
- *
- * The alpha-weighted centre of the fingertip band: the nail is rounded, so its
- * topmost row is a couple of pixels wide and its middle is what the eye reads as
- * the point. Weighting by alpha rather than counting lit pixels keeps the soft
- * edge of the outline from pulling the answer sideways.
- */
 function fingertip(px, w, h) {
   let top = -1;
   for (let y = 0; y < h && top < 0; y++) {
@@ -244,8 +170,6 @@ function fingertip(px, w, h) {
   }
   return wsum > 0 ? { x: sx / wsum, y: sy / wsum } : { x: w / 2, y: top };
 }
-
-/* --------------------------------------------------------------------- main */
 
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
@@ -293,9 +217,6 @@ if (flags.has("--png")) {
   console.log(`\nout  ${rel(OUT)}.png`);
 }
 
-// `-quality` carries the alpha channel too, and the alpha here is a cutout with
-// a painted outline right up against it — this is the knob to turn if the hand
-// ever picks up a fringe over the board.
 encode(art, dw, dh, `${OUT}.webp`, [
   "-c:v",
   "libwebp",
@@ -314,7 +235,6 @@ console.log(
     ` of base64 in dist/km3.html)`,
 );
 
-/** The measurement, drawn back over the art: a crosshair on the fingertip. */
 if (flags.has("--guides")) {
   const test = Buffer.from(art);
   const dot = (x, y) => {

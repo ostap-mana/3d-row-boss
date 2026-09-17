@@ -2,7 +2,7 @@ import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import finaleUrl from "../assets/outcome/fireworks.webp";
 
-const SHEET = { cols: 8, cellW: 224, cellH: 196, pad: 2, count: 62 };
+const SHEET = { cols: 8, cellW: 139, cellH: 123, pad: 1, count: 62 };
 
 export const FINALE_ASPECT = SHEET.cellW / SHEET.cellH;
 

@@ -1,74 +1,18 @@
-/**
- * Pack the end card's brand art — the key art, the wordmark and the PLAY NOW
- * plate — into something a playable ad can actually carry.
- *
- *   node tools/pack-endcard.mjs           # -> src/assets/brand/*.webp
- *   node tools/pack-endcard.mjs --png     # keep intermediate PNGs too
- *
- * The sources are the exports out of the marketing key art, dropped into
- * src/source/endcard as they came off the design file: names with spaces in
- * them,
- * transparent margin all round, and — in the plate's case — 170 kB of PNG for a
- * button drawn about 300 points wide. Every byte of this build is inlined as
- * base64 into one index.html, so that lands as 230 kB of text.
- *
- * So each one is trimmed to its own ink and re-encoded as WebP, under names the
- * code can `import` without quoting a space. The plate goes lossy: it is a
- * painted gem with gradients across it and q88 is indistinguishable from the
- * source at the size it is drawn. The wordmark goes lossless — it is flat
- * colour and small type, which is exactly what lossy smears, and lossless WebP
- * still beats its PNG.
- *
- * Trimming is the reason this runs at all rather than the files being imported
- * where they lie: the layout centres each of these in a box, and a bitmap with
- * uneven empty margin baked into it centres its margin, not its art.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-/**
- * Sources in, packed art out — two directories now, where this used to write
- * its results back beside the exports it read. The build imports one of these
- * and not the other, and a folder that holds both is a folder where a 12 MB
- * design export is one careless import away from the bundle.
- */
 const IN_DIR = join(ROOT, "src/source/endcard");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 
-/** Alpha at or under this is backdrop, not art. */
 const EMPTY = 12;
 
-/**
- * What to pack.
- *
- * `width` is the width to resample to, or 0 to keep the ink at its own size.
- * Only the plate and the key art are worth reducing: the plate is drawn at most
- * `w * 0.8` points wide on a renderer clamped to 2x, so 640 device pixels covers
- * a 320 point button with nothing to spare. The badges are drawn near their own
- * size already and the wordmark is 10 kB either way.
- *
- * `trim: false` for anything full-bleed. The key art is a painting with no
- * transparency in it and nothing to trim to — running the ink box over it would
- * find the whole file, and if a corner ever did fade out, cropping it would move
- * the composition the layout is aimed at.
- */
 const JOBS = [
   {
     src: "33a517b4079a7f2088e5dd776a49d0878b17c4a9 (1).png",
     out: "key-art",
-    /**
-     * The end card cover-fits this over the whole screen, and the tightest
-     * crop it has to survive is a phone held upright: a 1.2:1 painting on a
-     * 0.46:1 screen is scaled to the screen's height, so the height is the
-     * dimension that has to carry it. 1500 wide is 1246 tall, against the 1334
-     * device pixels a 667 point screen asks for at 2x — a hair of upscale on
-     * the tallest phone and a downscale on every other, for a quarter of the
-     * bytes 2x would cost on a picture that spends most of its area in smoke.
-     */
     width: 1500,
     mode: "photo",
     quality: 80,
@@ -90,8 +34,6 @@ const JOBS = [
     what: "wordmark",
   },
 ];
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -143,11 +85,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/**
- * WebP settings per kind of art. `-quality` carries the alpha channel too, and
- * every one of these is a cutout — this is the knob to turn if an edge ever
- * picks up a fringe.
- */
 const WEBP = {
   photo: (q) => [
     "-c:v",
@@ -164,9 +101,6 @@ const WEBP = {
   flat: () => ["-c:v", "libwebp", "-lossless", "1", "-compression_level", "6"],
 };
 
-/* --------------------------------------------------------------------- trim */
-
-/** Tightest box that holds every pixel the eye can see. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -184,7 +118,6 @@ function inkBox(px, w, h) {
   return { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/** The trimmed art, copied out into its own buffer. */
 function crop(px, w, box) {
   const out = Buffer.alloc(box.w * box.h * 4);
   for (let y = 0; y < box.h; y++) {
@@ -194,15 +127,6 @@ function crop(px, w, box) {
   return out;
 }
 
-/* ----------------------------------------------------------------- resample */
-
-/**
- * Area-average down to `dw` by `dh`, weighting colour by alpha.
- *
- * The same filter pack-cta-banner.mjs uses, and for the same reason: straight
- * RGBA is what the files hold and their transparent pixels are black, so
- * averaging as-is would pull a dark fringe around every lit edge.
- */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -255,8 +179,6 @@ function resample(src, sw, sh, dw, dh) {
 
 const px8 = (v) => v / 255;
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
-
-/* --------------------------------------------------------------------- main */
 
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 const kb = (file) => (statSync(file).size / 1024).toFixed(1);

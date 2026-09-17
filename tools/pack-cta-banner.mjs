@@ -1,31 +1,3 @@
-/**
- * Cut the CTA banner out of `src/source/ui/cta-banner.png` and pack it into
- * something a playable ad can actually carry.
- *
- *   node tools/pack-cta-banner.mjs            # -> src/assets/ui/cta-banner.webp
- *   node tools/pack-cta-banner.mjs --png      # keep an intermediate PNG too
- *   node tools/pack-cta-banner.mjs --guides   # write a proof of the safe box
- *
- * The source is a 2172x724 render: a gem bar in a gold frame, a diamond finial
- * off each end, and a star above and below the middle. Two things are wrong
- * with it as shipped. It is a megabyte, and every byte of this build is inlined
- * as base64 into one index.html — so it would land as 1.4 MB of text for a
- * button drawn about 120 points wide. And a third of its height is empty.
- *
- * So this trims it to its own ink, resamples it down to something near the
- * largest size it is ever asked for, and re-encodes it as WebP.
- *
- * The resample is area-averaged in premultiplied alpha. Straight RGBA is what
- * the file holds and the transparent pixels in it are black, so averaging it
- * as-is would pull a dark fringe around every gold edge in the ornament — the
- * one part of this art that has to stay clean at 120 points.
- *
- * It also measures the thing, because the numbers the game needs cannot be
- * guessed off the file: which band of the art is the bar rather than the stars
- * that poke out over it, and how much of the gem field is flat enough to put a
- * word on. Those print at the end, as the fractions art/ctabanner.js holds.
- */
-
 import { execFileSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,29 +6,15 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "src/source/ui/cta-banner.png");
 const OUT = join(ROOT, "src/assets/ui/cta-banner");
 
-/** Alpha at or under this is backdrop, not art. */
 const EMPTY = 12;
 
-/**
- * Width to pack at.
- *
- * The banner is drawn at most `BANNER.w * ui` points wide — 240 at the ui cap
- * of 2.0 — on a renderer whose resolution is clamped to 2, so 480 device pixels
- * is the worst case it ever has to fill. 512 covers that with nothing to spare,
- * which is the point: past it every extra pixel is base64 nobody sees.
- */
 const WIDTH = 512;
 
-/** Max channel at or under this is the dark rim between the gold and the gem. */
 const RIM = 60;
 
-/** Consecutive dark pixels that count as the rim rather than a shadow in the cut. */
 const RIM_RUN = 3;
 
-/** Fraction of the gem field's height the label is allowed to use. */
 const LABEL_BAND = 0.72;
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 function probe(file) {
   const out = execFileSync(
@@ -108,9 +66,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* --------------------------------------------------------------------- trim */
-
-/** Tightest box that holds every pixel the eye can see. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -128,7 +83,6 @@ function inkBox(px, w, h) {
   return { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/** The trimmed art, copied out into its own buffer. */
 function crop(px, w, box) {
   const out = Buffer.alloc(box.w * box.h * 4);
   for (let y = 0; y < box.h; y++) {
@@ -138,16 +92,6 @@ function crop(px, w, box) {
   return out;
 }
 
-/* ----------------------------------------------------------------- resample */
-
-/**
- * Area-average down to `dw` by `dh`, weighting colour by alpha.
- *
- * Every destination pixel covers a fractional rectangle of the source, and each
- * source pixel in it contributes its own overlap. That is the right filter for
- * a reduction this large — over four to one, where a bilinear tap would simply
- * miss most of the pixels it is meant to be averaging.
- */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -179,8 +123,6 @@ function resample(src, sw, sh, dw, dh) {
           if (wx <= 0) continue;
           const i = (y * sw + x) * 4;
           const cover = wx * wy;
-          // Premultiplied: a transparent black pixel must contribute nothing to
-          // the colour, only to the alpha.
           const av = px8(src[i + 3]) * cover;
           r += src[i] * av;
           g += src[i + 1] * av;
@@ -203,16 +145,6 @@ function resample(src, sw, sh, dw, dh) {
 const px8 = (v) => v / 255;
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/* ------------------------------------------------------------------ measure */
-
-/**
- * The band of rows that is the bar itself.
- *
- * The stars over and under the middle are part of the silhouette but not part
- * of the plate, and a hit area or a label placed against the full height would
- * be measured against a decoration two hundred pixels wide. Rows that reach
- * most of the way across are the bar; the stars never do.
- */
 function barBand(px, w, h) {
   const cover = [];
   let max = 0;
@@ -232,10 +164,6 @@ function barBand(px, w, h) {
   return { y0, y1 };
 }
 
-/**
- * Walk out from `(cx, cy)` along one axis until the dark rim, and return the
- * last pixel before it. Everything inside that on both sides is the gem.
- */
 function innerEdge(px, w, h, cx, cy, dx, dy) {
   let dark = 0;
   let x = cx;
@@ -256,14 +184,6 @@ function innerEdge(px, w, h, cx, cy, dx, dy) {
   return last;
 }
 
-/**
- * The flat gem field a word can sit on, as a box centred on the art.
- *
- * The field is a stretched hexagon, so its width depends on how tall a box is
- * asked of it: taken at full height it would be the width of the two points,
- * which is nothing. So the height is fixed at a fraction of the field first,
- * and the width is then the narrowest the field gets anywhere in that band.
- */
 function labelBox(px, w, h, band) {
   const cx = Math.round(w / 2);
   const cy = Math.round((band.y0 + band.y1) / 2);
@@ -280,8 +200,6 @@ function labelBox(px, w, h, band) {
   }
   return { x0: left, y0: cy - half, x1: right, y1: cy + half };
 }
-
-/* --------------------------------------------------------------------- main */
 
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
@@ -303,10 +221,6 @@ console.log(
     `  (1:${(box.w / WIDTH).toFixed(2)}, aspect ${(WIDTH / dh).toFixed(4)})`,
 );
 
-// Measured on the trimmed source, not on the pack. The rim the walk looks for
-// is fifteen pixels of near-black up there and three after the reduction, and
-// three pixels of it survive the resample as a smear the walk reads straight
-// through. The scale is uniform, so the fractions are the same either way.
 const band = barBand(trimmed, box.w, box.h);
 const label = labelBox(trimmed, box.w, box.h, band);
 const f = (v, of) => (v / of).toFixed(4);
@@ -332,8 +246,6 @@ if (flags.has("--png")) {
   console.log(`\nout  ${rel(OUT)}.png`);
 }
 
-// `-quality` carries the alpha channel too, and the alpha here is a cutout with
-// filigree in it — this is the knob to turn if the gold ever picks up a fringe.
 encode(art, WIDTH, dh, `${OUT}.webp`, [
   "-c:v",
   "libwebp",
@@ -348,10 +260,6 @@ encode(art, WIDTH, dh, `${OUT}.webp`, [
 ]);
 console.log(`out  ${rel(OUT)}.webp`);
 
-/**
- * The measurement, drawn back over the art: the bar band in green, the label
- * box in cyan. If the box is not sitting flat on the gem, it is visible here.
- */
 if (flags.has("--guides")) {
   const test = Buffer.from(art);
   const k = WIDTH / box.w;

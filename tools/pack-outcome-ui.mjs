@@ -1,81 +1,3 @@
-/**
- * Pack the chrome the outcome screen is built from.
- *
- *   node tools/pack-outcome-ui.mjs           # -> src/assets/outcome/*.webp
- *   node tools/pack-outcome-ui.mjs --png     # keep the intermediate PNGs too
- *   node tools/pack-outcome-ui.mjs --proof   # all of them over the game's navy
- *
- * Three things, and they arrived from two different places:
- *
- *   victory-band.png    816x266   the finished VICTORY banner
- *   defeat-band.png     816x266   the finished DEFEAT banner
- *   S_TitleOrnamentLine  438x29   -> ornament-line.png
- *
- * The line is the game's own UI, pulled out of the Invokers Titan Legacy Unity
- * bundles with UnityPy rather than redrawn: one gold hairline with a diamond
- * notch in the middle, which is the lid the shipped card puts over "tap to
- * continue".
- *
- * The two bands are finished art, supplied whole. Each is the plate, the wash,
- * both hairlines, the chevron at either end AND the word, in one bitmap: a green
- * plate under VICTORY and an oxblood one under DEFEAT, both fading to nothing at
- * each end.
- *
- * ## What that replaced, and why the plate is no longer packed here
- *
- * The card used to *build* this shape out of four pieces at run time —
- * S_ScreenTitleBackground stretched into a box, three tinted gradient sprites
- * laid inside its hairlines, and the verdict set in type over the lot — and the
- * bulk of both this tool and ui/outcome.js was the arithmetic of holding those
- * four things registered against each other on every aspect ratio a phone has.
- * A finished bitmap has no registration problem: the word is where the artist
- * put it, and the only thing left to decide is how wide to draw it.
- *
- * So `title-plate` is gone from this file and its webp with it. It was only ever
- * the frame under a composition that no longer exists, and it cannot serve as
- * the fallback for these two either — anything that fails to decode one webp
- * fails to decode all three. What is behind them when the decode fails is the
- * card's own drawn band, which needs no art at all. See OutcomeScreen.drawBand.
- *
- * ## The one thing these two may not be
- *
- * Stretched. The plate could be: everything between its hairlines was a flat
- * vertical gradient, so pulling it taller distorted nothing, and the card pulled
- * it taller on every device it ran on. These have a word in the middle of them,
- * so they are fitted at their own 3.068:1 and take back the height that implies.
- * See VERDICT_ART and `fitVerdict` in art/outcomeui.js.
- *
- * ## What the encode may not be
- *
- * Lossy webp is 4:2:0 and no flag changes that — libwebp has no lossy 4:4:4
- * mode. Chroma at half resolution is survivable for the plate, whose gold is a
- * broad shape, and it is not survivable for the hairline in `ornament-line`,
- * which is a gold thread a pixel wide on nothing: subsampled, it comes back
- * grey-green. That one is packed lossless, and it costs 1.1 kB.
- *
- * Do not reach for `-preset drawing` to make a lossless encode smaller. It looks
- * like it works — 132 kB becomes 35 kB — because ffmpeg applies the preset over
- * the config and silently turns `lossless` back off. `pix_fmt` on the output is
- * how to tell: `argb` is lossless, `yuva420p` is not.
- *
- * Nothing is trimmed HERE. The plate's fade to nothing at each end is the art,
- * and a trim to the ink would cut it off; the line's own ends do the same thing.
- * The two star sets are the exception and both were trimmed before they arrived:
- * each came off a canvas a little over 1432x1098 with the three stars sitting in
- * the middle of it, and a sprite whose box is half empty air cannot be
- * positioned against anything. They are tight to their ink, so each box IS its
- * picture — and the two boxes are not the same shape, which is the whole reason
- * STARS_ART has a face per ending where VERDICT_ART has one for both.
- * `stars-victory` is
- * `node tools/cut-bg.mjs src/source/outcome/stars-victory-raw.png <out> --trim`,
- * which keys the checkerboard off the gold delivery and trims in one pass;
- * `stars-defeat` arrived with a real alpha channel already, so a crop to that
- * channel's bounds was the whole of its preparation.
- *
- * ffmpeg is the only dependency, and only to decode and encode, as everywhere
- * else in this folder.
- */
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -85,42 +7,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC_DIR = join(ROOT, "src/source/outcome");
 const OUT_DIR = join(ROOT, "src/assets/outcome");
 
-/**
- * The cuts.
- *
- * `width` is where each is resampled to and `height` where it is held; all three
- * are packed at their source's own size, so the resampler is a no-op on every
- * one of them and nothing here is softened before it is encoded.
- *
- * 816 across is one-to-one on a phone and a little short of it above that: the
- * band is drawn about as wide as the safe box, which is around 1170 device
- * pixels on a 390-point phone at 3x. The art is what it is — there is no larger
- * master — so the choice is between shipping it at its own size and shipping a
- * pre-blurred upscale of it, and an upscale done by the GPU at draw time costs
- * nothing and looks the same.
- *
- * Quality 92 on the two bands. The table is this tool's own output measured
- * against the source: mean absolute error over everything not transparent, out
- * of 255.
- *
- *     q82        36.7 kB   1.90
- *     q88        39.9 kB   1.56
- *     q92        43.5 kB   1.49   <- here
- *     q96        49.4 kB   1.40
- *     lossless  124.4 kB   0.00
- *
- * The knee is at 88 and 92 is a step past it — three and a half kB for the last
- * of the difference an eye has any chance with, and then 75 kB more for the
- * rest, which it has not. What the step is spent on is the cream serif in the
- * middle: it is the one hard edge in either bitmap, it is the thing the player
- * actually looks at, and low down the table its stems pick up the faint ringing
- * lossy webp puts around high-contrast type.
- *
- * `ornament-line` stays lossless, and that is not the same call. Chroma at half
- * resolution is survivable on the bands, whose gold sits on a broad coloured
- * plate; it is not survivable on a gold thread a pixel wide on nothing, which
- * comes back grey-green. It costs 1.1 kB.
- */
 const CUTS = [
   { key: "victory-band", src: "victory-band.png", width: 0, quality: 92 },
   { key: "defeat-band", src: "defeat-band.png", width: 0, quality: 92 },
@@ -129,20 +15,10 @@ const CUTS = [
   { key: "stars-defeat", src: "stars-defeat.png", width: 0, quality: 92 },
 ];
 
-/* ------------------------------------------------------------------- ffmpeg */
-
 const rel = (p) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
 const kb = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`);
 const clamp8 = (v) => Math.max(0, Math.min(255, Math.round(v)));
 
-/**
- * Size and pixel format.
- *
- * `pix_fmt` is here for the encode and not for the decode: it is the only way to
- * find out what libwebp actually did, and a lossless encode that quietly came
- * back lossy reports `yuva420p` where it should report `argb`. Printed on every
- * line this tool writes, so the answer is in the log rather than in a hunch.
- */
 function probe(file) {
   const out = execFileSync(
     "ffprobe",
@@ -196,9 +72,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* ------------------------------------------------------------------- pixels */
-
-/** The share of the buffer that is fully clear, fully solid, and in between. */
 function alphaProfile(px) {
   let clear = 0;
   let solid = 0;
@@ -213,15 +86,6 @@ function alphaProfile(px) {
   return `clear ${pc(clear)}  soft ${pc(soft)}  solid ${pc(solid)}`;
 }
 
-/**
- * Box-average down to `dw` by `dh`, weighting colour by alpha.
- *
- * The same resampler the rest of this folder uses, and the alpha weighting is
- * the whole reason it is written out rather than handed to ffmpeg's scaler:
- * both of these are ornament on nothing, so every pixel that is not fully clear
- * is an edge, and an unweighted average drags the transparent black around a
- * gold hairline into the hairline itself.
- */
 function resample(src, sw, sh, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = sw / dw;
@@ -272,8 +136,6 @@ function resample(src, sw, sh, dw, dh) {
   return out;
 }
 
-/* ---------------------------------------------------------------------- run */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 const packed = [];
 
@@ -315,12 +177,6 @@ for (const cut of CUTS) {
 
 console.log("     for art/outcomeui.js:");
 
-/**
- * One constant covers both bands, so the defeat cut has nothing of its own to
- * print — and a defeat band that is not the size of the victory one is worth
- * shouting about here rather than finding out about as a squashed word on a
- * phone. VERDICT_ART is a single aspect and cannot describe two.
- */
 const NAMES = {
   "victory-band": "VERDICT_ART",
   "ornament-line": "LINE_ART",
@@ -341,14 +197,6 @@ packed.forEach((p) => {
   console.log(`       ${NAMES[p.key]} { w: ${p.w}, h: ${p.h} }`);
 });
 
-/**
- * Both over the navy the game itself puts them on.
- *
- * Worth looking at because the one thing this tool can get wrong is invisible on
- * a checkerboard: these are two hairlines and a chevron, and a resample that
- * loses half a pixel of the line turns a bright gold edge into a dull one. On
- * the ground they are drawn against, that is obvious in a second.
- */
 if (flags.has("--proof")) {
   const W = 1100;
   const pad = 40;

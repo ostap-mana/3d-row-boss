@@ -1,71 +1,3 @@
-/**
- * Trim and pack the RETRY lockup for the end card.
- *
- *   node tools/pack-retry-boss.mjs           # -> src/assets/brand/retry-boss.webp
- *   node tools/pack-retry-boss.mjs --png     # keep the intermediate PNG too
- *   node tools/pack-retry-boss.mjs --proof   # composite it over the end card
- *
- * The source is `src/source/endcard/retry-boss.png`: the beast roaring out of
- * the frame over a banner with RETRY across it, a claw hooked round each end of
- * it and the little shaman riding its shoulders, wrapped in a magenta bloom. It
- * is the defeat card's way out drawn as a piece of the game rather than as a
- * piece of furniture — which is the one thing the two dividers before it could
- * not be.
- *
- * ## What it replaces, and the argument it loses
- *
- * A gold hairline with the word set in a break in the middle — see
- * tools/pack-retry-line.mjs, which still makes it. That rule was chosen so the
- * card would carry exactly one lit lockup, the CTA, and say "or" underneath it
- * without asking for the tap. This is a lit lockup, and stacking it under PLAY
- * NOW is the card making two offers again.
- *
- * It is sized so the CTA still wins on width — see RETRY_BOSS_W in
- * ui/endcard.js, which holds this to about three quarters of the plate above it
- * — but it wins on nothing else, and that is a real cost, taken deliberately.
- * The rule is still on disk and its packer still runs; nothing imports it.
- *
- * ## Not a keyer
- *
- * The same rule as every other packer in this folder: the matte is already on
- * the source, and this tool trims, resamples and encodes.
- *
- * The matte is on the source because a cutter put it there, and which cutter
- * has been a different answer for each of the three deliveries this lockup has
- * had. The first arrived on a sheet of white with the plate's bloom fading into
- * it over forty pixels, and was keyed by `tools/cut-bg.mjs --glow`. The second
- * arrived with an alpha channel drawn by hand and needed nothing. The third —
- * the current one — arrived as 1344x896 of flat dark teal with no alpha at all,
- * and is cut by `tools/cut-dark-bg.mjs`: a bloom over a dark fill is an additive
- * glow, so the alpha is `max(pixel - backdrop)` for everything the border can
- * flood to and solid for the painting the flood cannot reach. Every source is
- * still on disk beside the current one — `retry-boss-v1-*.png`,
- * `retry-boss-v2.png`, `retry-boss-v3-teal.png` — rather than being it.
- *
- * What this file is handed is 1344x896 already carrying that matte: 48.3%
- * clear, 45.4% solid and 6.3% in between. The soft band is wide because most of
- * what surrounds this lockup is bloom rather than edge, which is the one number
- * on the line above worth reading — a cut of this art with a *thin* soft band
- * would be a cut with the glow sawn off. Nothing below keys, thresholds or
- * reconstructs anything, and nothing here may start.
- *
- * ## The width, and why it is not the ornament's
- *
- * 640, and not the divider's 1024. The rule was 85 px deep at 1024 and spent
- * every pixel it had on an edge; this is a painting at about 7:6 drawn some 235
- * points across on a phone — 470 device pixels at a renderer clamped to
- * resolution 2 — so 640 is a third more than it is ever asked for. It is also
- * the width the PLAY NOW plate is packed at, which is the piece of art directly
- * above it on the card.
- *
- * The file is inlined as base64 into a single-file deliverable that is already
- * near four megabytes, so a width nobody can see costs about a third of its own
- * size again in the bundle. See vite.config.js.
- *
- * ffmpeg is the only dependency, and only to decode and encode, as everywhere
- * else in this folder.
- */
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -76,41 +8,15 @@ const SRC = join(ROOT, "src/source/endcard/retry-boss.png");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 const OUT = join(OUT_DIR, "retry-boss");
 
-/**
- * Alpha at or under this is not art, and is what the trim measures against.
- *
- * Six, which is under a fortieth of an alpha. On the keyed v1 cut this was what
- * made the trim possible at all: the bloom there did not end, it thinned until
- * the encoder's own noise in the white sheet was the larger number, and a box
- * measured against a bare `alpha > 0` came back as very nearly the whole frame.
- * The matte on this source stops properly, so the floor now costs a pixel or
- * two of margin rather than saving several hundred. It stays because the next
- * delivery may not be as clean, and because a stray pixel at alpha 3 in a
- * corner is invisible and still moves the packed box.
- */
 const ALPHA_FLOOR = 6;
 
-/** Alpha at or over this is body and is snapped shut. */
 const SOLID = 248;
 
-/** The packed width, in pixels. See the note above. */
 const WIDTH = 640;
 
-/**
- * libwebp quality.
- *
- * 82, against the ornament's 92. That one was a hairline where a lost pixel is
- * the whole subject; this is a painting with a soft bloom around it and large
- * even fields of obsidian and gold, which is the shape libwebp is good at. 92
- * costs about half as much again in the bundle for a difference nobody can see
- * at 250 points across.
- */
 const QUALITY = 82;
 
-/** What --proof composites onto: the end card's own backdrop at its darkest. */
 const PROOF_BG = [11, 6, 24];
-
-/* ------------------------------------------------------------------- ffmpeg */
 
 const rel = (p) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
 const kb = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`);
@@ -169,9 +75,6 @@ function encode(buf, w, h, file, args) {
   );
 }
 
-/* ------------------------------------------------------------------- pixels */
-
-/** The share of the buffer that is fully clear, fully solid, and in between. */
 function alphaProfile(px) {
   let clear = 0;
   let solid = 0;
@@ -186,7 +89,6 @@ function alphaProfile(px) {
   return `clear ${pc(clear)}  soft ${pc(soft)}  solid ${pc(solid)}`;
 }
 
-/** Snap the near-solid band to fully opaque. Returns how many pixels moved. */
 function solidify(px) {
   let hit = 0;
   for (let i = 3; i < px.length; i += 4) {
@@ -198,7 +100,6 @@ function solidify(px) {
   return hit;
 }
 
-/** Drop the haze under the floor to nothing, so the trim has an edge to find. */
 function floorAlpha(px) {
   let hit = 0;
   for (let i = 3; i < px.length; i += 4) {
@@ -210,7 +111,6 @@ function floorAlpha(px) {
   return hit;
 }
 
-/** The box the art actually occupies, ignoring anything at the alpha floor. */
 function inkBox(px, w, h) {
   let x0 = w;
   let y0 = h;
@@ -228,13 +128,6 @@ function inkBox(px, w, h) {
   return { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
-/**
- * Box-average `box` down to `dw` by `dh`, weighting colour by alpha.
- *
- * The same resampler the rest of this folder uses. The alpha weighting is what
- * keeps the bloom clean here: most of this file's area is a partial pixel, and
- * an unweighted average drags the transparent black beyond the glow into it.
- */
 function resample(src, sw, sh, box, dw, dh) {
   const out = Buffer.alloc(dw * dh * 4);
   const kx = box.w / dw;
@@ -285,8 +178,6 @@ function resample(src, sw, sh, box, dw, dh) {
   return out;
 }
 
-/* ---------------------------------------------------------------------- run */
-
 const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SRC);
@@ -333,14 +224,6 @@ console.log(
     `   aspect ${(outW / outH).toFixed(3)}`,
 );
 
-/**
- * The lockup over the end card's own backdrop, at about the size it is drawn.
- *
- * The failure this pipeline can have is invisible on a checkerboard and obvious
- * on black: the cut it is fed is mostly bloom, and a bloom whose coverage came
- * out a few percent high reads as a pale rectangle of fog around the plate on a
- * card that is nearly black.
- */
 if (flags.has("--proof")) {
   const pw = 500;
   const ph = Math.round((outH * pw) / outW);
