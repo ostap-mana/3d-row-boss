@@ -22,11 +22,11 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { RAKE_ASPECT, rakeFrameAt, rakeFrames } from "../art/rake.js";
-import { TORRENT_ASPECT, torrentFrames } from "../art/torrent.js";
+import { streamArt } from "../art/streams.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
-import { FIRE, WATER, ULT_CALL, ULT_FX } from "../config.js";
+import { FIRE, ULT_CALL, ULT_FX } from "../config.js";
 
 /** Live sprites allowed in the effects field at once. */
 const MAX_PARTICLES = 180;
@@ -357,23 +357,25 @@ export class Vfx extends Container {
     muzzle.destroy();
   }
 
-  async torrent(from, to, color, opts) {
-    const frames = torrentFrames();
-    if (!frames) return false;
+  async stream(element, from, to, color, opts) {
+    const art = streamArt(element);
+    if (!art) return false;
+    const frames = art.frames;
 
     const o = opts || {};
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const dist = Math.hypot(dx, dy);
     const thickness = o.thickness || 120;
-    const reach = dist * (o.reach || ULT_FX.torrentReach);
-    const muzzle = thickness * TORRENT_ASPECT * 0.22;
-    const rush = o.rush || ULT_FX.torrentRush;
-    const hold = o.hold || ULT_FX.torrentHold;
-    const fps = o.fps || ULT_FX.torrentFps;
+    const reach = dist * (o.reach || ULT_FX.streamReach);
+    const muzzle = thickness * art.aspect * 0.22;
+    const rush = o.rush || ULT_FX.streamRush;
+    const hold = o.hold || ULT_FX.streamHold;
+    const fps = o.fps || ULT_FX.streamFps;
     const span = rush + hold;
 
     const jet = new Sprite(frames[0]);
+    jet.blendMode = art.blend;
     jet.anchor.set(0, 0.5);
     jet.x = from.x;
     jet.y = from.y;
@@ -503,11 +505,10 @@ export class Vfx extends Container {
     this.ultMuzzle(from, to, color, size);
 
     if (
-      element === WATER &&
-      (await this.torrent(from, to, color, {
-        thickness: size * ULT_FX.torrentThick,
-        ...(o.torrent || {}),
-      }))
+      await this.stream(element, from, to, color, {
+        thickness: size * ULT_FX.streamThick,
+        ...(o.stream || {}),
+      })
     ) {
       this.ultShock(to, from, color, light, size);
       return;

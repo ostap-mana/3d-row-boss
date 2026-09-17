@@ -112,7 +112,9 @@ for (const path in FOUND) {
   // filter: it is what keeps the sheet out if that pattern is ever widened.
   // `torrent` is the same story one file over — sixteen frames of a stream on
   // a cell three and a third times as wide as it is tall, played by stretching
-  // rather than by throwing. See art/torrent.js.
+  // rather than by throwing. It is Arissa's, and Ricklow has one beside it on
+  // the same grid; that one is `fire-lance.webp`, which this pattern does not
+  // reach because it is not named as a sheet. See art/streams.js.
   if (id === "fire" || id === "torrent") continue;
   urls[id] = FOUND[path];
 }
