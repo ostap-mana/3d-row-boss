@@ -314,6 +314,22 @@ const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
  */
 const FIGURE_STARS_H = { portrait: 0.48, landscape: 0.37 };
 const FIGURE_STARS_W = { portrait: 0.92, landscape: 0.46 };
+
+/**
+ * How far past the band's middle such a figure's feet go.
+ *
+ * FIGURE_SINK is 0.04, which is the right number for a subject that fades out
+ * at the bottom of its own frame and the wrong one for these, which are cut at
+ * the waist by the edge of the clip. The extra is there to bury that straight
+ * edge inside the band's paint rather than in the transparent margin above it.
+ *
+ * Sideways it goes back to about the old number, and that is not symmetry for
+ * its own sake. Upright there is most of a screen between the HUD's lockup and
+ * the band and the sink costs nothing; sideways there is around sixty points of
+ * it, and a sink measured off a band that is a quarter of the screen tall put
+ * the whole figure behind it and left three star tips showing.
+ */
+const FIGURE_STARS_SINK = { portrait: 0.3, landscape: 0.04 };
 const FIGURE_SINK = 0.04;
 
 /**
@@ -917,15 +933,6 @@ export class OutcomeScreen extends Container {
       pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
-    const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
-    const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
-    this.figureH = Math.min(
-      s.h * figureDown[key],
-      (s.w * figureAcross[key]) / FIGURE_ASPECT,
-    );
-    this.figure.position.set(s.cx, cy + ph * FIGURE_SINK);
-    const figureUp = !!this.fitFigure();
-
     if (this.painted) {
       // Taken back off `fitVerdict` rather than trusted: `ph` above and the
       // height the art module works out are the same division done in two files,
@@ -941,6 +948,39 @@ export class OutcomeScreen extends Container {
       fitFont(this.word, pw * 0.62, ph * 0.54);
       this.word.position.set(0, 0);
     }
+
+    const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
+    const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
+
+    /**
+     * The block stands in the room between the HUD's lockup and the band, and
+     * is cut down to it rather than hung off one end.
+     *
+     * Both of those edges bite, and each bit a different end of the picture. A
+     * clip that carries its own stars puts them at the top of its own square, so
+     * a height taken from the screen alone ran them up over INVOKERS TITAN
+     * LEGACY on a tall phone — the same collision the stars below were given a
+     * ceiling for, arriving again through the figure once the figure became the
+     * thing holding them.
+     *
+     * And it sinks further than FIGURE_SINK. These clips are framed at the
+     * waist, so the sprite's bottom edge is a straight cut through the man
+     * rather than air; `cy + ph * FIGURE_SINK` put that cut a few points above
+     * where the band's art actually starts painting — the plate has transparent
+     * margin of its own — and what showed on the card was a man sliced off above
+     * a gap. It is hung off the band's middle instead, deep enough that the cut
+     * is inside the paint whatever the plate's margin turns out to be.
+     */
+    const roomTop = layout.banner.y + layout.banner.h / 2 + STARS_AIR * ui;
+    const figureFoot =
+      cy + ph * (FIGURE_CARRIES_STARS ? FIGURE_STARS_SINK[key] : FIGURE_SINK);
+    this.figureH = Math.min(
+      s.h * figureDown[key],
+      (s.w * figureAcross[key]) / FIGURE_ASPECT,
+      Math.max(0, figureFoot - roomTop),
+    );
+    this.figure.position.set(s.cx, figureFoot);
+    const figureUp = !!this.fitFigure();
 
     /* ----------------------------------------------------------- the stars */
 
@@ -1079,7 +1119,22 @@ export class OutcomeScreen extends Container {
     if (this.introducing) this.settle();
   }
 
+  /**
+   * The figure, sized to the room the layout left it, or null.
+   *
+   * Null sideways while the clip carries its own stars, and that is a fit
+   * decision rather than a taste one. Such a clip is square, with the stars
+   * filling the top third of it, so it needs height; upright there is most of a
+   * screen between the HUD's lockup and the band to give it, and sideways there
+   * is about sixty points. Scaled into that the man is gone and three star tips
+   * sit on the band, which reads as a glitch. The card stands sideways the way
+   * it did before any figure existed — verdict and control over the frozen
+   * board — which is a composition rather than a remnant of one.
+   */
   fitFigure() {
+    if (FIGURE_CARRIES_STARS && this.layout && !this.layout.portrait) {
+      return null;
+    }
     const texture = figureTexture(this.defeat);
     if (!texture) return null;
     if (this.figure.texture !== texture) this.figure.texture = texture;
