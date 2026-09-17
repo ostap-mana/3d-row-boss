@@ -70,6 +70,7 @@ export class Director {
     this.doomCount = 0;
     this.healsUsed = 0;
     this.mendsUsed = 0;
+    this.mendGiven = 0;
 
     this.idleToken = 0;
     this.openingToken = 0;
@@ -647,9 +648,10 @@ export class Director {
       width: 18,
     });
     vfx.shock(impact.x, impact.y, 0xffd35a, {
-      size: layout.stage.w * 1.4,
-      width: 10,
-      duration: 0.45,
+      size: layout.stage.w * 0.5,
+      width: 8,
+      duration: 0.38,
+      painted: false,
     });
     vfx.flash(0xff2a06, 0.85, 0.7);
     shake(30, 0.9);
@@ -870,6 +872,7 @@ export class Director {
   async resolveMove() {
     const { board, boss, hud, vfx, shake, hitStop } = this.s;
     const before = this.bossHp;
+    const mended = this.mendGiven;
 
     await board.resolve((step, cells) => {
       if (this.ended || this.outcome === "defeat") return;
@@ -922,7 +925,7 @@ export class Director {
 
     hud.setHp(this.bossHp, 0.35);
 
-    const paid = before - this.bossHp;
+    const paid = before - this.bossHp + (this.mendGiven - mended);
     if (paid > 0.0001) {
       this.movesPlayed++;
       this.damageDealt += paid;
@@ -1401,9 +1404,10 @@ export class Director {
       width: 14,
     });
     vfx.shock(impact.x, impact.y, 0xffd35a, {
-      size: layout.stage.w * 0.9,
-      width: 8,
-      duration: 0.4,
+      size: layout.stage.w * 0.34,
+      width: 6,
+      duration: 0.3,
+      painted: false,
     });
     vfx.bossSwing("smash", impact, {
       size: layout.stage.w * 1.15,
@@ -1450,9 +1454,16 @@ export class Director {
       return;
     }
 
-    this.bossHp = Math.min(1, to);
+    const held = this.bossHp;
+    if (held <= 0) {
+      await casting;
+      return;
+    }
+
+    this.bossHp = Math.min(1, held + (to - before));
+    this.mendGiven += this.bossHp - held;
     hud.setHp(this.bossHp, 0.62);
-    hud.damage((this.bossHp - before) * BOSS_MAX_HP, at.x, at.y - 24, 1, {
+    hud.damage((this.bossHp - held) * BOSS_MAX_HP, at.x, at.y - 24, 1, {
       sign: "+",
       fill: MEND_FX.light,
     });

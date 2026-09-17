@@ -1,5 +1,10 @@
 import { Container, Graphics, Sprite } from "pixi.js";
-import { beamTexture, glowTexture, sparkTexture } from "../art/textures.js";
+import {
+  beamTexture,
+  glowTexture,
+  shockTexture,
+  sparkTexture,
+} from "../art/textures.js";
 import { tween, tweenValue, delay, Ease } from "../core/tween.js";
 import { rndRange } from "../core/rng.js";
 import {
@@ -21,7 +26,14 @@ import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
-import { FIRE, MEND_FX, ULT_CALL, ULT_FX } from "../config.js";
+import {
+  BLAST,
+  FIRE,
+  IMPACT_FX,
+  MEND_FX,
+  ULT_CALL,
+  ULT_FX,
+} from "../config.js";
 
 const MAX_PARTICLES = 180;
 
@@ -184,18 +196,101 @@ export class Vfx extends Container {
     return true;
   }
 
-  ring(x, y, color, size, width) {
-    const g = new Graphics();
-    g.circle(0, 0, 50);
-    g.stroke({ width: width || 8, color, alpha: 1 });
-    g.x = x;
-    g.y = y;
-    g.blendMode = "add";
-    const target = (size || 200) / 100;
-    g.scale.set(0.2);
-    this.field.addChild(g);
-    tween(g.scale, { x: target, y: target }, 0.45, { ease: Ease.quadOut });
-    tween(g, { alpha: 0 }, 0.45).then(() => g.destroy());
+  ring(x, y, color, size, width, opts) {
+    const o = opts || {};
+    const wide = size || 200;
+    const heft = Math.max(0.35, Math.min(1.6, (width || 8) / 8));
+    const dur = o.duration || 0.45;
+    const flat = o.flat === undefined ? 1 : o.flat;
+    const spin =
+      o.rotation === undefined ? rndRange(0, Math.PI * 2) : o.rotation;
+
+    return this.shockRing(x, y, color, {
+      from: wide * 0.18,
+      to: wide,
+      duration: dur,
+      flat,
+      rotation: spin,
+      halo: 0.55 * heft,
+      core: Math.min(1, 0.85 * heft),
+      hold: o.hold === undefined ? 0.25 : o.hold,
+    });
+  }
+
+  blastWave(x, y, wide, o) {
+    const frames = spellFrames("shock");
+    if (!frames || o.painted === false) return false;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = o.tint || BLAST.tint;
+    s.x = x;
+    s.y = y + wide * BLAST.drop;
+    s.alpha = 0;
+    this.field.addChild(s);
+
+    const from = wide * BLAST.from;
+    const dur = o.duration || 0.5;
+    const n = frames.length;
+
+    tweenValue(0, 1, dur, (p) => {
+      if (s.destroyed) return;
+      s.texture = frames[Math.min(n - 1, (p * n) | 0)];
+      const w = from + (wide - from) * Ease.quadOut(p);
+      s.setSize(w, w);
+      const fade =
+        p < BLAST.rise
+          ? p / BLAST.rise
+          : 1 - (p - BLAST.rise) / (1 - BLAST.rise);
+      s.alpha = BLAST.alpha * Math.max(0, fade);
+    }).then(() => !s.destroyed && s.destroy());
+
+    return true;
+  }
+
+  shockRing(x, y, color, o) {
+    const from = o.from || 40;
+    const to = o.to || 300;
+    const dur = o.duration || 0.45;
+    const flat = o.flat === undefined ? 1 : o.flat;
+    const hold = o.hold === undefined ? 0.25 : o.hold;
+
+    const layers = [
+      { tint: color, gain: o.halo === undefined ? 0.55 : o.halo, fat: 1.16 },
+      {
+        tint: o.light || 0xffffff,
+        gain: o.core === undefined ? 0.8 : o.core,
+        fat: 1,
+      },
+    ]
+      .filter((l) => l.gain > 0.01)
+      .map(({ tint, gain, fat }) => {
+        const s = new Sprite(shockTexture());
+        s.anchor.set(0.5);
+        s.blendMode = "add";
+        s.tint = tint;
+        s.x = x;
+        s.y = y;
+        s.rotation = o.rotation || 0;
+        s.setSize(from * fat, from * fat * flat);
+        s.alpha = 0;
+        this.field.addChild(s);
+        return { s, gain, fat };
+      });
+
+    if (!layers.length) return Promise.resolve();
+
+    return tweenValue(0, 1, dur, (p) => {
+      const e = Ease.quadOut(p);
+      const w = from + (to - from) * e;
+      const fade = p < hold ? p / hold : 1 - (p - hold) / (1 - hold);
+      layers.forEach(({ s, gain, fat }) => {
+        if (s.destroyed) return;
+        s.setSize(w * fat, w * fat * flat);
+        s.alpha = gain * Math.max(0, fade);
+      });
+    }).then(() => layers.forEach(({ s }) => !s.destroyed && s.destroy()));
   }
 
   ember(x, y, size, color) {
@@ -848,29 +943,36 @@ export class Vfx extends Container {
 
   mendCinch(at, size, color, seconds) {
     for (let i = 0; i < MEND_FX.rings; i++) {
-      const g = new Graphics();
-      g.circle(0, 0, 50);
-      g.stroke({ width: MEND_FX.ringWidth - i * 1.2, color, alpha: 1 });
-      g.x = at.x;
-      g.y = at.y;
-      g.blendMode = "add";
-      g.scale.set((size * MEND_FX.reach * (1 - i * 0.22)) / 100);
-      g.alpha = 0;
-      this.field.addChild(g);
+      const s = new Sprite(shockTexture());
+      s.anchor.set(0.5);
+      s.blendMode = "add";
+      s.tint = color;
+      s.x = at.x;
+      s.y = at.y;
+      s.rotation = rndRange(0, Math.PI * 2);
+      s.alpha = 0;
+      this.field.addChild(s);
 
+      const wide = size * MEND_FX.reach * (1 - i * 0.22);
       const lead = i * seconds * 0.16;
       const life = seconds * MEND_FX.peak - lead;
-      tween(g, { alpha: MEND_FX.ringAlpha }, Math.min(0.24, life * 0.5), {
-        delay: lead,
-      });
-      tween(g.scale, { x: 0.12, y: 0.12 }, life, {
-        delay: lead,
-        ease: Ease.quadIn,
-      });
-      tween(g, { alpha: 0 }, life * 0.42, {
-        delay: lead + life * 0.58,
-      }).then(() => {
-        if (!g.destroyed) g.destroy();
+
+      tweenValue(
+        0,
+        1,
+        life,
+        (p) => {
+          if (s.destroyed) return;
+          const e = Ease.quadIn(p);
+          const w = wide * (1 - e * 0.88);
+          s.setSize(w, w * MEND_FX.ringFlat);
+          s.rotation += 0.004;
+          s.alpha =
+            MEND_FX.ringAlpha * (p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8);
+        },
+        { delay: lead },
+      ).then(() => {
+        if (!s.destroyed) s.destroy();
       });
     }
   }
@@ -941,8 +1043,70 @@ export class Vfx extends Container {
     tween(flash.scale, { x: flash.scale.x * 2.2, y: flash.scale.y * 2.2 }, 0.3);
     tween(flash, { alpha: 0 }, 0.3).then(() => flash.destroy());
 
-    this.ring(at.x, at.y, color, 260 * p, 10 * p);
+    const spin = rndRange(0, Math.PI * 2);
+    this.shockRing(at.x, at.y, color, {
+      from: 46 * p,
+      to: 300 * p,
+      duration: 0.34,
+      flat: IMPACT_FX.flat,
+      rotation: spin,
+      halo: 0.62,
+      core: 0.34,
+      light: 0xffd7b0,
+      hold: 0.16,
+    });
+    this.shockRing(at.x, at.y, color, {
+      from: 28 * p,
+      to: 160 * p,
+      duration: 0.24,
+      flat: IMPACT_FX.flat,
+      rotation: spin + 1.1,
+      halo: 0,
+      core: 0.9,
+      light: 0xfff0d6,
+      hold: 0.1,
+    });
+
+    this.lick(at, color, p, spin);
     this.burst(at.x, at.y, color, Math.round(10 * p), 1.4 * p);
+  }
+
+  lick(at, color, p, spin) {
+    const room = MAX_PARTICLES - this.field.children.length;
+    const n = Math.min(IMPACT_FX.streaks, Math.max(0, room));
+
+    for (let i = 0; i < n; i++) {
+      const s = new Sprite(beamTexture());
+      s.anchor.set(0, 0.5);
+      s.blendMode = "add";
+      s.tint = i % 3 === 0 ? 0xffd7b0 : color;
+      const a = spin + (i / n) * Math.PI * 2 + rndRange(-0.2, 0.2);
+      const len = 78 * p * rndRange(0.62, 1.25);
+      s.rotation = a;
+      s.setSize(len, 8 * p * rndRange(0.7, 1.2));
+      s.x = at.x;
+      s.y = at.y;
+      s.alpha = 0.9;
+      this.field.addChild(s);
+
+      const reach = 118 * p * rndRange(0.7, 1.15);
+      const life = 0.3 * rndRange(0.75, 1.2);
+      tween(
+        s,
+        {
+          x: at.x + Math.cos(a) * reach,
+          y: at.y + Math.sin(a) * reach * IMPACT_FX.flat,
+        },
+        life,
+        { ease: Ease.quadOut },
+      );
+      tween(s.scale, { x: s.scale.x * 0.3, y: s.scale.y * 0.2 }, life, {
+        ease: Ease.quadOut,
+      });
+      tween(s, { alpha: 0 }, life).then(() => {
+        if (!s.destroyed) s.destroy();
+      });
+    }
   }
 
   async flash(color, alpha, dur) {
@@ -1197,21 +1361,21 @@ export class Vfx extends Container {
 
   shock(x, y, color, opts) {
     const o = opts || {};
-    const g = new Graphics();
-    g.circle(0, 0, 50);
-    g.stroke({ width: o.width || 12, color, alpha: 1 });
-    g.x = x;
-    g.y = y;
-    g.blendMode = "add";
-    g.scale.set(0.15, 0.05);
-    this.field.addChild(g);
+    const wide = o.size || 420;
+    const heft = Math.max(0.35, Math.min(1.6, (o.width || 12) / 10));
 
-    const target = (o.size || 420) / 100;
-    const dur = o.duration || 0.5;
-    tween(g.scale, { x: target, y: target * (o.flat || 0.3) }, dur, {
-      ease: Ease.quadOut,
+    if (this.blastWave(x, y, wide * BLAST.scale, o)) return Promise.resolve();
+
+    return this.shockRing(x, y, color, {
+      from: wide * 0.14,
+      to: wide,
+      duration: o.duration || 0.5,
+      flat: o.flat || 0.3,
+      rotation: 0,
+      halo: 0.3 * heft,
+      core: Math.min(0.6, 0.34 * heft),
+      hold: 0.14,
     });
-    tween(g, { alpha: 0 }, dur).then(() => g.destroy());
   }
 
   claw(x, y, color, opts) {

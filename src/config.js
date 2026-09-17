@@ -398,8 +398,22 @@ export const MEND_FX = {
   reach: 0.95,
   stagger: 0.42,
   rings: 2,
-  ringWidth: 4.5,
-  ringAlpha: 0.42,
+  ringAlpha: 0.5,
+  ringFlat: 0.9,
+};
+
+export const BLAST = {
+  tint: 0xffc08a,
+  alpha: 0.62,
+  scale: 0.64,
+  from: 0.2,
+  rise: 0.18,
+  drop: 0.04,
+};
+
+export const IMPACT_FX = {
+  flat: 0.62,
+  streaks: 7,
 };
 
 export const ULT_PACE = {

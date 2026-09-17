@@ -7,6 +7,8 @@
     "start": "npm run dev",
     "build": "npm run lint && vite build",
     "lint": "eslint .",
+    "comments": "node tools/strip-comments.mjs --check",
+    "decomment": "node tools/strip-comments.mjs",
     "dev": "vite"
   },
   "dependencies": {

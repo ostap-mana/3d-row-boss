@@ -37,6 +37,48 @@ export function glowTexture() {
   return glowTex;
 }
 
+let shockTex = null;
+export function shockTexture() {
+  if (shockTex) return shockTex;
+  const size = 256;
+  const c = makeCanvas(size, size);
+  const ctx = c.getContext("2d");
+  const mid = size / 2;
+
+  const g = ctx.createRadialGradient(mid, mid, 0, mid, mid, mid);
+  g.addColorStop(0, "rgba(255,255,255,0)");
+  g.addColorStop(0.7, "rgba(255,255,255,0)");
+  g.addColorStop(0.8, "rgba(255,255,255,0.22)");
+  g.addColorStop(0.89, "rgba(255,255,255,1)");
+  g.addColorStop(0.95, "rgba(255,255,255,0.3)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.globalCompositeOperation = "destination-out";
+  const steps = 168;
+  const span = (Math.PI * 2) / steps;
+  for (let i = 0; i < steps; i++) {
+    const a = i * span;
+    const n =
+      Math.sin(a * 3 + 0.7) * 0.5 +
+      Math.sin(a * 7 + 1.9) * 0.3 +
+      Math.sin(a * 15 + 3.4) * 0.2;
+    const bite = Math.max(0, n) * 0.6;
+    if (bite <= 0.01) continue;
+    ctx.beginPath();
+    ctx.moveTo(mid, mid);
+    ctx.arc(mid, mid, mid, a, a + span * 1.4);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0,0,0," + bite.toFixed(3) + ")";
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  shockTex = canvasTexture(c);
+  return shockTex;
+}
+
 let sparkTex = null;
 export function sparkTexture() {
   if (sparkTex) return sparkTex;
