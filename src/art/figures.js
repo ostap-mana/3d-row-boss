@@ -1,7 +1,9 @@
-import { Rectangle, Texture } from "pixi.js";
+import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
+import { loadAlphaClip } from "./alphavideo.js";
 import victoryUrl from "../assets/outcome/victory-figure.webp";
 import defeatUrl from "../assets/outcome/defeat-figure.webp";
+import victoryClipUrl from "../assets/outcome/victory-figure.mp4";
 
 const SHEETS = {
   victory: {
@@ -24,11 +26,14 @@ const SHEETS = {
   },
 };
 
+const CLIPS = { victory: victoryClipUrl };
+
 export const FIGURE_ASPECT = SHEETS.victory.cellW / SHEETS.victory.cellH;
 
 export const FIGURE_CARRIES_STARS = true;
 
 const frames = { victory: null, defeat: null };
+const clips = { victory: null, defeat: null };
 let loaded = false;
 let clock = -1;
 
@@ -69,6 +74,12 @@ export async function loadOutcomeFigures() {
     } catch {
       frames[key] = null;
     }
+    if (!CLIPS[key]) continue;
+    try {
+      clips[key] = await loadAlphaClip(CLIPS[key]);
+    } catch {
+      clips[key] = null;
+    }
   }
   return frames;
 }
@@ -92,4 +103,80 @@ export function startFigure() {
 
 export function stopFigure() {
   clock = -1;
+}
+
+export class FigureView extends Container {
+  constructor() {
+    super();
+    this.eventMode = "none";
+    this.sheet = new Sprite();
+    this.sheet.anchor.set(0.5, 1);
+    this.sheet.eventMode = "none";
+    this.sheet.visible = false;
+    this.addChild(this.sheet);
+    this.clip = null;
+    this.span = 0;
+  }
+
+  adopt() {
+    for (const key of ["victory", "defeat"]) {
+      const clip = clips[key];
+      if (!clip || clip.parent) continue;
+      clip.visible = false;
+      this.addChild(clip);
+    }
+  }
+
+  pick(defeat) {
+    this.adopt();
+    return clips[defeat ? "defeat" : "victory"] || null;
+  }
+
+  has(defeat) {
+    return !!this.pick(defeat) || !!figureTexture(defeat);
+  }
+
+  fit(defeat, span) {
+    this.span = span;
+    const clip = this.pick(defeat);
+    const texture = clip ? null : figureTexture(defeat);
+
+    if (this.clip && this.clip !== clip) {
+      this.clip.stop();
+      this.clip.visible = false;
+      this.clip = null;
+    }
+
+    this.sheet.visible = !clip && !!texture;
+    if (texture) {
+      if (this.sheet.texture !== texture) this.sheet.texture = texture;
+      if (span > 0) this.sheet.setSize(span * FIGURE_ASPECT, span);
+    }
+
+    if (clip) {
+      this.clip = clip;
+      clip.visible = true;
+      if (span > 0) clip.fit(span);
+    }
+
+    return !!clip || !!texture;
+  }
+
+  start(defeat) {
+    startFigure();
+    const clip = this.pick(defeat);
+    if (clip) clip.play();
+  }
+
+  step(dt, defeat) {
+    if (this.clip) return;
+    stepFigure(dt);
+    const frame = figureTexture(defeat);
+    if (frame && this.sheet.texture !== frame) this.sheet.texture = frame;
+  }
+
+  reset() {
+    stopFigure();
+    if (this.clip) this.clip.rewind();
+  }
 }

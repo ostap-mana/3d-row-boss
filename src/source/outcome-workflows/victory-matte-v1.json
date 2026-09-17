@@ -1,0 +1,21 @@
+{
+  "1": { "class_type": "LoadVideo", "inputs": { "file": "victory-figure-768.mp4" } },
+  "2": { "class_type": "GetVideoComponents", "inputs": { "video": ["1", 0] } },
+  "3": { "class_type": "LoadImage", "inputs": { "image": "victory-figure-mask.png" } },
+  "4": {
+    "class_type": "MatAnyone",
+    "inputs": {
+      "src_video": ["2", 0],
+      "mask_frame": 84,
+      "n_warmup": 10,
+      "foreground_mask": ["3", 0],
+      "max_internal_size": -1,
+      "max_mem_frames": 5,
+      "use_long_term": false
+    }
+  },
+  "5": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["4", 0], "filename_prefix": "victory-matte/vm" }
+  }
+}

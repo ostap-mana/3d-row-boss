@@ -25,9 +25,7 @@ import {
 } from "../art/brand.js";
 import { glowTexture, gradientTexture } from "../art/textures.js";
 import {
-  figureTexture,
-  startFigure,
-  stepFigure,
+  FigureView,
   FIGURE_ASPECT,
   FIGURE_CARRIES_STARS,
 } from "../art/figures.js";
@@ -176,9 +174,7 @@ export class OutcomeScreen extends Container {
     this.fireworks = new Fireworks();
     this.addChild(this.fireworks);
 
-    this.figure = new Sprite();
-    this.figure.anchor.set(0.5, 1);
-    this.figure.eventMode = "none";
+    this.figure = new FigureView();
     this.figure.visible = false;
     this.figure.alpha = 0;
     this.addChild(this.figure);
@@ -362,7 +358,7 @@ export class OutcomeScreen extends Container {
       Math.max(0, figureFoot - roomTop),
     );
     this.figure.position.set(s.cx, figureFoot);
-    const figureUp = !!this.fitFigure();
+    const figureUp = this.fitFigure();
 
     if (this.stars) {
       const air = STARS_AIR * ui;
@@ -431,13 +427,7 @@ export class OutcomeScreen extends Container {
   }
 
   fitFigure() {
-    const texture = figureTexture(this.defeat);
-    if (!texture) return null;
-    if (this.figure.texture !== texture) this.figure.texture = texture;
-    if (this.figureH > 0) {
-      this.figure.setSize(this.figureH * FIGURE_ASPECT, this.figureH);
-    }
-    return texture;
+    return this.figure.fit(this.defeat, this.figureH);
   }
 
   reframe(w, h) {
@@ -548,7 +538,7 @@ export class OutcomeScreen extends Container {
     if (this.verdict) this.verdict.visible = this.painted;
     this.word.visible = !this.painted;
     this.starsPainted = this.stars ? aimStars(this.stars, this.defeat) : false;
-    this.figureCarries = FIGURE_CARRIES_STARS && !!figureTexture(this.defeat);
+    this.figureCarries = FIGURE_CARRIES_STARS && this.figure.has(this.defeat);
     if (this.stars) this.stars.visible = this.starsUp();
   }
 
@@ -577,8 +567,8 @@ export class OutcomeScreen extends Container {
     this.word.text = this.defeat ? COPY.outcomeDefeat : COPY.outcomeVictory;
     this.aim();
 
-    this.figure.visible = !!this.fitFigure();
-    if (this.figure.visible) startFigure();
+    this.figure.visible = this.fitFigure();
+    if (this.figure.visible) this.figure.start(this.defeat);
 
     this.retry.visible = this.terminal;
     this.tap.visible = false;
@@ -713,6 +703,7 @@ export class OutcomeScreen extends Container {
     killTweensOf(this);
     tween(this, { alpha: 0 }, 0.4).then(() => {
       this.visible = false;
+      this.figure.reset();
       this.fireworks.clear();
     });
 
@@ -724,11 +715,7 @@ export class OutcomeScreen extends Container {
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
-    if (this.figure.visible) {
-      stepFigure(dt);
-      const frame = figureTexture(this.defeat);
-      if (frame && this.figure.texture !== frame) this.figure.texture = frame;
-    }
+    if (this.figure.visible) this.figure.step(dt, this.defeat);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;
