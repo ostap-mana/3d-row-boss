@@ -1,0 +1,44 @@
+[
+  {
+    "lang": "en",
+    "model": "seedance-1.0-i2v",
+    "prompt": "The character from the reference image stands centred and full-length against a flat, evenly lit chroma-key green screen, his head in the upper third of the frame and a clear, empty stretch of green left above him for the stars to fill. He holds a thick leather-bound tome closed in both hands, then swings it open in front of his chest; the pages riffle once and warm golden light floods up out of the spread onto his face and throat. Exactly three golden five-pointed stars rise out of the open pages, and only three: one leaves first, the second follows it, then the third, each about a fifth of a second behind the one before. Each star is a solid, chunky, faceted five-pointed star in bevelled gold, bright yellow on the lit facets and deep warm orange in the shadowed ones, with a clean hard silhouette — the kind of star a mobile game awards at the end of a level, never a sparkle, never a glint, never a particle. The three climb together in a slow helix, spiralling around one another as they pass his shoulders, and every one of them is also spinning on its own axis the whole way up, tumbling over and catching the light as it turns. At the top of the climb the helix opens out and the three settle into an even, shallow arc above his head and hold there: the middle star highest and clearly the largest, the two outer stars smaller, lower, level with each other and evenly spaced either side of it. Once in place they keep turning slowly and steadily on the spot, faces to camera, hanging in the air. Beneath them he lifts his chin into a triumphant victory pose, shoulders back, cape and hair pushed back by the light out of the book. There are three stars in the whole shot and never any more at any moment: no fourth star, no extra stars, no small stars, no distant stars, no star field, no shower of stars, no swarm, no confetti, no glitter, no sparkle cloud, no floating particles, no dust trail, no streaks. The only things in the air are those three stars. One continuous locked-off shot, no cuts, no shot changes, and no camera movement of any kind: no push in, no pull back, no zoom, no pan, no tilt, no orbit, no shake, no parallax. Flat seamless saturated green studio backdrop, evenly lit, the same green from edge to edge, and nothing else in frame: no floor, no horizon, no room, no set, no props, no smoke, no haze. The green is never lit by the book or by the stars — it does not brighten, glow, flicker or shift colour anywhere, not even directly behind a star — and no green spills onto his skin, his cape or the stars. Clean high-contrast green-screen plate for chroma keying, crisp edges, high detail, no text, no letters, no numbers, no watermark, no logo, no UI.",
+    "negative_prompt": "fourth star, four stars, five stars, six stars, many stars, extra stars, small stars, distant stars, star field, star shower, swarm of stars, cloud of stars, confetti, glitter, sparkle cloud, floating particles, dust cloud, light streaks, background change, non-green background, green backdrop lit by the effect, glow on the backdrop, shadow on the backdrop, green spill on skin, scene cut, shot change, camera movement, push in, pull back, zoom, pan, tilt, orbit, camera shake, blurry, motion blur smear, text, watermark, logo, UI, extra limbs, deformed face, face morphing, colour shift, low detail",
+    "beats": [
+      "0.0-0.8s: he holds the closed tome in both hands, still, a thin seam of gold along the edges of the pages",
+      "0.8-1.5s: he swings the book open across his chest, the pages riffle once, gold light floods up onto his face",
+      "1.5-2.6s: the three stars leave the spread one after another and climb in a slow helix past his shoulders, each spinning on its own axis",
+      "2.6-3.6s: the helix opens out and the three settle into a shallow arc above his head, middle one highest and largest, the outer two lower and level",
+      "3.6-5.0s: he holds the victory pose beneath them while the three stars turn slowly on the spot"
+    ],
+    "params": {
+      "duration": 5,
+      "resolution": "1080p",
+      "fps": 24,
+      "aspect_ratio": "9:16",
+      "camera_fixed": true,
+      "seed": -1
+    }
+  },
+  {
+    "lang": "zh",
+    "model": "seedance-1.0-i2v",
+    "prompt": "参考图中的角色全身居中站立，背景是平整、打光均匀的纯色抠像绿幕，他的头部位于画面上三分之一处，头顶上方留出一片干净空旷的绿色，供星星填充。他双手握着一本合上的厚重皮质古书，随后在胸前猛然翻开；书页翻动一次，温暖的金色光芒从书页之间涌出，照亮他的脸和脖颈。恰好三颗金色五角星从翻开的书页中升起，只有三颗：第一颗先飞出，第二颗跟上，然后是第三颗，每一颗都比前一颗晚约五分之一秒。每一颗都是厚实、有体积、带切面的立体五角星，倒角金色，受光面是明亮的黄色，背光面是深暖的橙色，轮廓干净利落——就是手游通关时奖励的那种星星，绝不是闪光、不是反光点、不是粒子。三颗星一起沿缓慢的螺旋线上升，彼此盘旋着掠过他的肩膀，并且每一颗在整个上升过程中都在绕自身轴心旋转，翻滚着，转动时不断反射光泽。升到顶点时螺旋散开，三颗星在他头顶排成一道均匀的浅弧并停在那里：中间那颗最高、明显最大，两侧两颗更小、更低、彼此齐平、左右间距均匀。就位之后它们继续在原地缓慢匀速旋转，正面朝向镜头，悬在空中。他在星星下方昂首挺胸摆出胜利姿态，肩膀后展，披风与头发被书中涌出的光掀起。整段画面里始终只有三颗星，任何时刻都不会更多：没有第四颗星，没有多余的星，没有小星星，没有远处的星，没有星空，没有星雨，没有星群，没有彩带，没有金粉，没有闪光云，没有漂浮粒子，没有尘尾，没有光条。空中只有那三颗星。单镜头一镜到底，无剪辑、无场景切换，并且没有任何镜头运动：不推近、不拉远、不变焦、不横摇、不俯仰、不环绕、不抖动、无视差。平整无缝的饱和绿色影棚背景，打光均匀，从边缘到边缘都是同一种绿色，画面里没有别的东西：没有地面、没有地平线、没有房间、没有布景、没有道具、没有烟雾、没有雾气。绿幕绝不被书或星星照亮——任何位置都不会变亮、发光、闪烁或偏色，即使正对着星星的背后也不会——绿光也绝不溢到他的皮肤、披风或星星上。干净的高对比绿幕抠像素材，边缘锐利，高细节，无文字、无字母、无数字、无水印、无标志、无 UI。",
+    "negative_prompt": "第四颗星，四颗星，五颗星，六颗星，很多星星，多余的星星，小星星，远处的星星，星空，星雨，星群，星云，彩带，金粉，闪光云，漂浮粒子，尘云，光条，背景变化，非绿色背景，绿幕被特效照亮，背景发光，背景有阴影，皮肤绿色溢光，剪辑跳切，场景切换，镜头运动，推近，拉远，变焦，横摇，俯仰，环绕，镜头抖动，模糊，拖影，文字，水印，logo，UI，多余肢体，面部变形，面部漂移，偏色，低细节",
+    "beats": [
+      "0.0-0.8秒：双手持合上的书，静止，书页边缘透出一线金光",
+      "0.8-1.5秒：在胸前猛然翻开书本，书页翻动一次，金光涌上照亮面部",
+      "1.5-2.6秒：三颗星依次飞出书页，沿缓慢螺旋线掠过肩膀上升，各自绕轴旋转",
+      "2.6-3.6秒：螺旋散开，三颗星在头顶排成浅弧，中间最高最大，两侧更低且齐平",
+      "3.6-5.0秒：他在星下保持胜利姿态，三颗星在原地缓慢旋转"
+    ],
+    "params": {
+      "duration": 5,
+      "resolution": "1080p",
+      "fps": 24,
+      "aspect_ratio": "9:16",
+      "camera_fixed": true,
+      "seed": -1
+    }
+  }
+]
