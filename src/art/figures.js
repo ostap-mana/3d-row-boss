@@ -1,9 +1,12 @@
-import { Texture, VideoSource } from "pixi.js";
-import victoryUrl from "../assets/outcome/victory-figure.mp4";
+import { Rectangle, Texture } from "pixi.js";
+import { canvasTexture } from "./textures.js";
+import figureUrl from "../assets/outcome/victory-figure.webp";
 
-const CLIP = { url: victoryUrl, w: 960, h: 960 };
+const SHEET = { cols: 7, cellW: 300, cellH: 300, pad: 2, count: 28 };
 
-export const FIGURE_ASPECT = CLIP.w / CLIP.h;
+export const FIGURE_ASPECT = SHEET.cellW / SHEET.cellH;
+
+const FIGURE_FPS = 9.5;
 
 /**
  * Whether the clip brings its own three stars.
@@ -21,78 +24,60 @@ export const FIGURE_ASPECT = CLIP.w / CLIP.h;
  */
 export const FIGURE_CARRIES_STARS = true;
 
-export const FIGURE_KEY = {
-  cut: 50 / 255,
-  ramp: 26 / 255,
-  spill: 1,
-  lift: 4 / 255,
-};
-
-let clip = null;
+let frames = null;
 let loaded = false;
-
-function playableUrl(src) {
-  const comma = src.indexOf(",");
-  if (!src.startsWith("data:") || comma === -1) return src;
-  const binary = atob(src.slice(comma + 1));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes], { type: "video/mp4" }));
-}
-
-async function mount(url) {
-  const video = document.createElement("video");
-  video.muted = true;
-  video.defaultMuted = true;
-  video.volume = 0;
-  video.autoplay = false;
-  video.loop = false;
-  video.playsInline = true;
-  video.setAttribute("playsinline", "");
-  video.setAttribute("webkit-playsinline", "");
-  video.setAttribute("muted", "");
-  video.preload = "auto";
-  video.style.cssText =
-    "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1";
-  video.src = playableUrl(url);
-  document.body.appendChild(video);
-
-  const source = new VideoSource({
-    resource: video,
-    autoLoad: false,
-    autoPlay: false,
-    updateFPS: 0,
-  });
-  await source.load();
-  return { video, texture: new Texture({ source }) };
-}
+let clock = -1;
 
 export async function loadOutcomeFigures() {
-  if (loaded) return;
+  if (loaded) return frames;
   loaded = true;
   try {
-    clip = await mount(CLIP.url);
+    const img = new Image();
+    img.src = figureUrl;
+    await img.decode();
+
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    c.getContext("2d").drawImage(img, 0, 0);
+    const sheet = canvasTexture(c);
+
+    const out = [];
+    for (let i = 0; i < SHEET.count; i++) {
+      out.push(
+        new Texture({
+          source: sheet.source,
+          frame: new Rectangle(
+            SHEET.pad + (i % SHEET.cols) * (SHEET.cellW + SHEET.pad),
+            SHEET.pad + Math.floor(i / SHEET.cols) * (SHEET.cellH + SHEET.pad),
+            SHEET.cellW,
+            SHEET.cellH,
+          ),
+        }),
+      );
+    }
+    frames = out;
   } catch {
-    clip = null;
+    frames = null;
   }
+  return frames;
 }
 
 export function figureTexture() {
-  return clip ? clip.texture : null;
+  if (!frames) return null;
+  if (clock < 0) return frames[0];
+  const i = Math.floor(clock * FIGURE_FPS);
+  return frames[i < frames.length ? i : frames.length - 1];
+}
+
+export function stepFigure(dt) {
+  if (clock >= 0) clock += dt;
 }
 
 export function startFigure() {
-  if (!clip) return;
-  try {
-    clip.video.currentTime = 0;
-    const started = clip.video.play();
-    if (started && started.catch) started.catch(() => {});
-  } catch {}
+  clock = 0;
 }
 
 export function stopFigure() {
-  if (!clip) return;
-  try {
-    clip.video.pause();
-  } catch {}
+  clock = -1;
 }

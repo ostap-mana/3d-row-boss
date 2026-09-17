@@ -107,11 +107,10 @@ import { glowTexture, gradientTexture } from "../art/textures.js";
 import {
   figureTexture,
   startFigure,
+  stepFigure,
   FIGURE_ASPECT,
   FIGURE_CARRIES_STARS,
-  FIGURE_KEY,
 } from "../art/figures.js";
-import { chromaKeyFilter } from "../fx/chromakey.js";
 import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -624,7 +623,6 @@ export class OutcomeScreen extends Container {
     this.figure.eventMode = "none";
     this.figure.visible = false;
     this.figure.alpha = 0;
-    this.figure.filters = [chromaKeyFilter(FIGURE_KEY)];
     this.addChild(this.figure);
     this.figureH = 0;
 
@@ -1639,6 +1637,11 @@ export class OutcomeScreen extends Container {
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
+    if (this.figure.visible) {
+      stepFigure(dt);
+      const frame = figureTexture();
+      if (frame && this.figure.texture !== frame) this.figure.texture = frame;
+    }
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;
