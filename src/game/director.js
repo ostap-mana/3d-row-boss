@@ -37,7 +37,7 @@ const rollKillMatch = () => {
   return rolled && rolled.length ? pick(rolled) : Infinity;
 };
 
-const OBSIDIAN_SLACK = 7;
+const OBSIDIAN_SLACK = 2;
 
 const OPTIONS_IN_PLAY = 2;
 
@@ -1245,17 +1245,25 @@ export class Director {
         scored.push({
           r,
           c,
-          score: (before - left) * 8 + water * 5 + central * 2,
+          denied: before - left,
+          score: water * 5 + central * 2,
         });
       }
     }
     if (scored.length === 0) return null;
 
-    let top = scored[0].score;
+    let bite = 0;
     scored.forEach((s) => {
+      if (s.denied > bite) bite = s.denied;
+    });
+    if (!bury && bite === 0) return null;
+    const biting = scored.filter((s) => s.denied === bite);
+
+    let top = biting[0].score;
+    biting.forEach((s) => {
       if (s.score > top) top = s.score;
     });
-    const shortlist = scored.filter((s) => s.score >= top - OBSIDIAN_SLACK);
+    const shortlist = biting.filter((s) => s.score >= top - OBSIDIAN_SLACK);
     return shortlist[rndInt(shortlist.length)];
   }
 
