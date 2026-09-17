@@ -6,13 +6,15 @@
  * two headers for how the art is made; this file is only the other end of the
  * contract, and there are three clauses to it.
  *
- * **The grid never varies.** Ten frames, five to a row, every cell the same
- * square, for every id. The packer enforces it so that this module can hardcode
- * it, the same way art/fire.js hardcodes the grid of the one sheet that was cut
- * off a still. That is also why `fire` is skipped below: its cell is 399x258 and
- * nothing about it matches these. Ricklow still throws a sheet from here — it is
- * called `flame` and it is one of the build's flipbooks, on this grid like the
- * rest — and `fire` stays what it always was, his fallback.
+ * **The shape never varies, the resolution may.** Ten frames, five to a row,
+ * every cell square, for every id — that much the packers enforce and this
+ * module relies on. What a cell is worth in pixels is read off each image as it
+ * decodes, so a sheet that deserves more of them can carry more without moving
+ * the other eight: five across means the width divides to the pitch. That is
+ * also why `fire` is skipped below — its cells are 399x258, not square, so it
+ * has its own module and its own grid. Ricklow still throws a sheet from here —
+ * it is called `flame` and it is one of the build's flipbooks, five across like
+ * the rest — and `fire` stays what it always was, his fallback.
  *
  * **No alpha, so every frame is drawn with the `add` blend.** The clips are
  * generated on black and the packer clamps what is left of that black to zero,
@@ -38,7 +40,9 @@ import { canvasTexture } from "./textures.js";
 import { paced } from "../core/idle.js";
 import { FIRE, WATER, NATURE, LIGHTNING, ARCANE, WIND } from "../config.js";
 
-/** The grid, exactly as tools/pack-spells.mjs packs it. */
+/** The grid, exactly as tools/pack-spells.mjs packs it. `cut` measures the
+ * pitch off each sheet, so `cell` is what the eight packed at 1140 wide come
+ * out as rather than a number anything is held to. */
 const SHEET = { cols: 5, cell: 228, count: 10 };
 
 /** Where the bolt stops travelling and the blast begins. */
@@ -114,6 +118,19 @@ let loaded = false;
  *
  * Every frame is a window onto one texture rather than a texture of its own, so
  * swapping frames costs nothing at render time — the batch never breaks.
+ *
+ * The pitch is measured off the image rather than taken from `SHEET.cell`. The
+ * column count and the frame count are the contract and they still are; the
+ * number of pixels behind a cell is not, and hardcoding it meant every sheet had
+ * to be the resolution of the smallest one. A sheet is packed five across, so
+ * its own width divides to its own pitch — 1140 still gives 228 for the eight
+ * that were cut at it, and a sheet packed larger is simply cut larger.
+ *
+ * The resolution matters most where an effect is drawn biggest. A mage blast
+ * goes on at `size * ULT_FX.blastScale`, which on a phone is most of the screen
+ * off a cell that used to be 224 pixels square — about eight times up, and at
+ * that ratio the webp's own blocking in the dark of a fading frame arrives as
+ * squares of light, because the add blend has nothing to hide them behind.
  */
 async function cut(url) {
   const img = new Image();
@@ -124,6 +141,7 @@ async function cut(url) {
   c.height = img.height;
   c.getContext("2d").drawImage(img, 0, 0);
   const sheet = canvasTexture(c);
+  const pitch = Math.round(img.width / SHEET.cols);
 
   const out = [];
   for (let i = 0; i < SHEET.count; i++) {
@@ -131,10 +149,10 @@ async function cut(url) {
       new Texture({
         source: sheet.source,
         frame: new Rectangle(
-          (i % SHEET.cols) * SHEET.cell,
-          Math.floor(i / SHEET.cols) * SHEET.cell,
-          SHEET.cell,
-          SHEET.cell,
+          (i % SHEET.cols) * pitch,
+          Math.floor(i / SHEET.cols) * pitch,
+          pitch,
+          pitch,
         ),
       }),
     );
