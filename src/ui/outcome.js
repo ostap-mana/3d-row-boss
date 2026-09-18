@@ -617,6 +617,8 @@ export class OutcomeScreen extends Container {
     });
 
     this.card.scale.set(UNFURL.slitW, UNFURL.slitH);
+    sfx.cardSnap(0.06);
+    sfx.cardShine(0.16);
     tween(this.card, { alpha: 1 }, 0.16, { delay: 0.06 });
     tween(this.card.scale, { x: 1 }, UNFURL.widen, { ease: Ease.expoOut });
     tween(this.card.scale, { y: 1 }, UNFURL.open, {

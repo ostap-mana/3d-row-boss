@@ -146,6 +146,10 @@ export function audioReady() {
   return !!ctx && ctx.state === "running";
 }
 
+export function audioParked() {
+  return parked;
+}
+
 export function onAudioOpen(fn) {
   openCbs.push(fn);
   if (audioReady()) fn();
@@ -452,7 +456,7 @@ function noiseBuffer(c) {
 
 export function tone(o) {
   const c = context();
-  if (!c || muted || !spare(c)) return;
+  if (!c || muted || parked || !spare(c)) return;
   const t0 = c.currentTime + (o.delay || 0);
   const dur = o.dur === undefined ? 0.2 : o.dur;
 
@@ -498,7 +502,7 @@ export function tone(o) {
 
 export function noise(o) {
   const c = context();
-  if (!c || muted || !spare(c)) return;
+  if (!c || muted || parked || !spare(c)) return;
   const t0 = c.currentTime + (o.delay || 0);
   const dur = o.dur === undefined ? 0.18 : o.dur;
 

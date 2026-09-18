@@ -280,18 +280,21 @@ function pump() {
 
 const synth = {
   start() {
-    if (!AUDIO.music || nodes) return;
+    if (!AUDIO.music) return;
     const c = audioContext();
     const out = audioBus();
     if (!c || !out) return;
-    nodes = build(c, out);
+    if (nodes && playing) return;
+    if (!nodes) nodes = build(c, out);
     step = 0;
     at = c.currentTime + 0.12;
+    tension = -1;
+    nodes.master.gain.cancelScheduledValues(c.currentTime);
     nodes.master.gain.setTargetAtTime(AUDIO.musicLevel, c.currentTime, 1.4);
     nodes.padGain.gain.setTargetAtTime(0.5, c.currentTime, 1.4);
     playing = true;
     pump();
-    timer = setInterval(pump, PUMP_MS);
+    if (!timer) timer = setInterval(pump, PUMP_MS);
   },
 
   setTension(v) {
@@ -320,6 +323,7 @@ const synth = {
     timer = null;
     const c = audioContext();
     if (!c) return;
+    nodes.master.gain.cancelScheduledValues(c.currentTime);
     nodes.master.gain.setTargetAtTime(MIN, c.currentTime, 0.6);
   },
 };

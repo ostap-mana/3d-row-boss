@@ -1,5 +1,11 @@
 import { AUDIO } from "../config.js";
-import { audioBus, audioContext, onAudioOpen, onAudioReset } from "./engine.js";
+import {
+  audioBus,
+  audioContext,
+  audioParked,
+  onAudioOpen,
+  onAudioReset,
+} from "./engine.js";
 import { loadAudio } from "./decode.js";
 import spriteUrl from "../assets/audio/sfx.mp3";
 import outcomeUrl from "../assets/audio/outcome.mp3";
@@ -105,7 +111,7 @@ export const samples = {
 
   play(name, o) {
     const s = SLICES[name];
-    if (!AUDIO.sfxSamples || !s) return false;
+    if (!AUDIO.sfxSamples || !s || audioParked()) return false;
     const bank = s.bank === "outcome" ? outcome : sprite;
     if (!bank) return false;
     const c = audioContext();
@@ -149,11 +155,16 @@ export const samples = {
 
   room: {
     start() {
-      if (!AUDIO.bed || !AUDIO.sfxSamples || roomNodes || !roomAudio)
-        return false;
+      if (!AUDIO.bed || !AUDIO.sfxSamples || !roomAudio) return false;
       const c = audioContext();
       const out = audioBus();
       if (!c || !out) return false;
+      if (roomNodes) {
+        roomNodes.gain.gain.cancelScheduledValues(c.currentTime);
+        roomNodes.gain.gain.setTargetAtTime(AUDIO.bedLevel, c.currentTime, 1.2);
+        roomTension = -1;
+        return true;
+      }
 
       const gain = c.createGain();
       gain.gain.value = MIN;
@@ -185,10 +196,6 @@ export const samples = {
       return true;
     },
 
-    playing() {
-      return !!roomNodes;
-    },
-
     setTension(v) {
       if (!roomNodes) return;
       const t = Math.max(0, Math.min(1, v || 0));
@@ -210,6 +217,7 @@ export const samples = {
       if (!roomNodes) return;
       const c = audioContext();
       if (!c) return;
+      roomNodes.gain.gain.cancelScheduledValues(c.currentTime);
       roomNodes.gain.gain.setTargetAtTime(MIN, c.currentTime, 0.5);
     },
   },

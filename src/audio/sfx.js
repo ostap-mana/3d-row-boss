@@ -22,6 +22,22 @@ const LADDER = [523.3, 587.3, 659.3, 784.0, 880.0, 1046.5, 1174.7];
 
 const voice = (element) => ELEMENT[element] || ELEMENT[0];
 
+const BURST_GAP = 0.26;
+const BURST_KEEP = 3;
+
+const bursts = new Map();
+
+function burst(key, gap) {
+  const t = Date.now() / 1000;
+  const prev = bursts.get(key);
+  const n =
+    prev && t - prev.at < (gap === undefined ? BURST_GAP : gap)
+      ? prev.n + 1
+      : 1;
+  bursts.set(key, { at: t, n });
+  return n;
+}
+
 export function select() {
   if (samples.play("select")) return;
   tone({ freq: 680, to: 1020, dur: 0.08, gain: 0.1, type: "triangle" });
@@ -141,6 +157,7 @@ export function obsidianForm(count) {
 }
 
 export function obsidianChip(count) {
+  if (samples.play("obsBreak", { rate: 1.45, gain: 0.38 })) return;
   const n = Math.max(1, count || 1);
   noise({ type: "bandpass", freq: 1800, to: 900, dur: 0.14, gain: 0.12 });
   tone({
@@ -218,10 +235,14 @@ export function ultCall(element, gain) {
 }
 
 export function heroStrike(element, lead) {
+  const n = burst("strike", 0.16);
+  if (!lead && n > BURST_KEEP) return;
+  const fade = lead ? 1 : 1 / n;
+  const skew = lead ? 1 : 1 + (n - 1) * 0.06;
   if (
     samples.play("strike", {
-      rate: samples.elementRate(element),
-      gain: lead ? 1.25 : 0.8,
+      rate: samples.elementRate(element) * skew,
+      gain: (lead ? 1.25 : 0.8) * fade,
     })
   ) {
     return;
@@ -232,7 +253,7 @@ export function heroStrike(element, lead) {
     to: v.note * (lead ? 1.5 : 2),
     dur: lead ? 0.22 : 0.14,
     bend: lead ? 0.16 : 0.1,
-    gain: lead ? 0.16 : 0.07,
+    gain: (lead ? 0.16 : 0.07) * fade,
     type: v.type,
     cut: v.cut,
     cutTo: v.cut * 0.4,
@@ -241,22 +262,32 @@ export function heroStrike(element, lead) {
     freq: 2600,
     to: 900,
     dur: lead ? 0.16 : 0.1,
-    gain: lead ? 0.07 : 0.03,
+    gain: (lead ? 0.07 : 0.03) * fade,
     q: 1.4,
   });
 }
 
 export function heroHurt() {
-  if (samples.play("hurt")) return;
+  const n = burst("hurt");
+  if (n > BURST_KEEP) return;
+  const fade = 1 / n;
+  if (samples.play("hurt", { gain: fade, rate: 1 + (n - 1) * 0.08 })) return;
   tone({
-    freq: 280,
+    freq: 280 * (1 + (n - 1) * 0.08),
     to: 110,
     dur: 0.2,
-    gain: 0.14,
+    gain: 0.14 * fade,
     type: "sawtooth",
     cut: 1200,
   });
-  noise({ type: "bandpass", freq: 700, to: 300, dur: 0.16, gain: 0.1, q: 0.8 });
+  noise({
+    type: "bandpass",
+    freq: 700,
+    to: 300,
+    dur: 0.16,
+    gain: 0.1 * fade,
+    q: 0.8,
+  });
 }
 
 export function heroDown() {
@@ -445,14 +476,22 @@ export function bossSmash() {
 
 export function bossHit(power) {
   const p = Math.max(0.3, Math.min(power || 1, 3));
-  if (samples.play("hit", { gain: 0.55 + p * 0.3, rate: 1.06 - p * 0.04 })) {
+  const n = burst("hit", 0.16);
+  if (n > BURST_KEEP) return;
+  const fade = 1 / n;
+  if (
+    samples.play("hit", {
+      gain: (0.55 + p * 0.3) * fade,
+      rate: (1.06 - p * 0.04) * (1 + (n - 1) * 0.07),
+    })
+  ) {
     return;
   }
   tone({
-    freq: 190 + p * 30,
+    freq: (190 + p * 30) * (1 + (n - 1) * 0.07),
     to: 70,
     dur: 0.16 + p * 0.05,
-    gain: 0.09 + p * 0.05,
+    gain: (0.09 + p * 0.05) * fade,
     type: "square",
     cut: 1600,
     cutTo: 500,
@@ -462,7 +501,7 @@ export function bossHit(power) {
     freq: 2600,
     to: 500,
     dur: 0.18 + p * 0.05,
-    gain: 0.07 + p * 0.04,
+    gain: (0.07 + p * 0.04) * fade,
   });
 }
 
@@ -677,7 +716,7 @@ export function banner() {
 }
 
 export function endcard(defeated) {
-  if (samples.play("endcard")) return;
+  if (samples.play("endcard", { rate: defeated ? 0.84 : 1 })) return;
   if (defeated) {
     tone({
       freq: 196,
@@ -699,6 +738,69 @@ export function endcard(defeated) {
   noise({ type: "highpass", freq: 2000, to: 7000, dur: 0.6, gain: 0.05 });
 }
 
+const TICKS = ["cardA", "cardB", "cardC", "cardD"];
+
+export function cardTick(index, at = 0) {
+  const i = Math.max(0, Math.min(TICKS.length - 1, index | 0));
+  if (samples.play(TICKS[i], { delay: at })) return;
+  tone({
+    freq: 620 + i * 90,
+    to: 900 + i * 120,
+    dur: 0.07,
+    gain: 0.08,
+    type: "triangle",
+    delay: at,
+  });
+}
+
+export function cardSnap(at = 0) {
+  if (samples.play("cardPlate", { delay: at })) return;
+  tone({
+    freq: 260,
+    to: 120,
+    dur: 0.18,
+    gain: 0.13,
+    type: "triangle",
+    cut: 1400,
+    delay: at,
+  });
+  noise({
+    type: "lowpass",
+    freq: 1600,
+    to: 400,
+    dur: 0.16,
+    gain: 0.08,
+    delay: at,
+  });
+}
+
+export function cardShine(at = 0) {
+  if (samples.play("cardShine", { delay: at })) return;
+  noise({
+    type: "bandpass",
+    freq: 1400,
+    to: 6000,
+    dur: 0.22,
+    gain: 0.07,
+    q: 0.8,
+    attack: 0.08,
+    delay: at,
+  });
+}
+
+export function cardBack(at = 0) {
+  if (samples.play("cardBack", { delay: at })) return;
+  tone({
+    freq: 340,
+    to: 220,
+    dur: 0.06,
+    gain: 0.09,
+    type: "square",
+    cut: 1800,
+    delay: at,
+  });
+}
+
 export function cta() {
   if (samples.play("cta")) return;
   tone({ freq: 740, to: 1180, dur: 0.1, gain: 0.24, type: "triangle" });
@@ -711,6 +813,7 @@ let bedTension = -1;
 onAudioReset(() => {
   bedNodes = null;
   bedTension = -1;
+  bursts.clear();
 });
 
 function buildBed(c, out) {
@@ -764,7 +867,7 @@ function buildBed(c, out) {
 
 export const bed = {
   start() {
-    if (samples.room.playing() || samples.room.start()) return;
+    if (samples.room.start()) return;
     if (!AUDIO.bed) return;
     const c = audioContext();
     const out = audioBus();

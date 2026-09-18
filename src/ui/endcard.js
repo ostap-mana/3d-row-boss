@@ -632,6 +632,7 @@ export class EndCard extends Container {
     if (this.banner.visible) {
       this.bannerScale = 1;
       this.banner.scale.set(1.16);
+      sfx.cardTick(0);
       tween(this.banner, { alpha: 1 }, 0.2);
       tween(this.banner.scale, { x: 1, y: 1 }, 0.5, { ease: Ease.backOut });
       await delay(0.14);
@@ -641,6 +642,7 @@ export class EndCard extends Container {
     if (this.outcome.visible) {
       const oy = this.outcome.y;
       this.outcome.y = oy - 18;
+      sfx.cardTick(1);
       tween(this.outcome, { alpha: 1 }, 0.24);
       tween(this.outcome, { y: oy }, 0.36, { ease: Ease.backOut });
     }
@@ -649,12 +651,14 @@ export class EndCard extends Container {
     if (!this.introducing) return;
     const ly = this.brand.y;
     this.brand.y = ly - 26;
+    sfx.cardTick(2);
     tween(this.brand, { alpha: 1 }, 0.28);
     tween(this.brand, { y: ly }, 0.42, { ease: Ease.backOut });
 
     await delay(0.12);
     if (!this.introducing) return;
     if (this.sub.visible) {
+      sfx.cardTick(3);
       tween(this.sub, { alpha: 1 }, 0.28);
     }
 
@@ -663,7 +667,7 @@ export class EndCard extends Container {
     const by = this.button.y;
     this.button.y = by + 30;
     tween(this.button, { alpha: 1 }, 0.25);
-    sfx.endcard(this.defeat);
+    sfx.cardSnap();
     await tween(this.button, { y: by }, 0.4, { ease: Ease.backOut });
     if (!this.introducing) return;
 
@@ -671,7 +675,7 @@ export class EndCard extends Container {
       const ry = this.retry.y;
       this.retry.y = ry + 8;
       tween(this.retry, { alpha: 1 }, 0.3);
-      sfx.endcard(this.defeat);
+      sfx.cardBack();
       await tween(this.retry, { y: ry }, 0.34, { ease: Ease.cubicOut });
     }
     this.introducing = false;

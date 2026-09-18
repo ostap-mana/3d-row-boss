@@ -113,6 +113,10 @@ export const tracks = {
       if (fallback) fallback();
     };
     if (!this.enabled() || !TRACKS[name]) return give();
+    if (live && live.name === name) {
+      wanted = name;
+      return;
+    }
     wanted = name;
     const t = TRACKS[name];
     if (t.buffer) {
