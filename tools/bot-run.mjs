@@ -240,6 +240,7 @@ await evaluate(`window.__bot = async (gap, useUlts) => {
   while (!d.settled() && Date.now() - waitFrom < 12000) await sleep(200);
   return {
     outcome: d.outcome || d.verdict() || "none", killOn: d.killOn, ults, stalled,
+    mends: d.mendsUsed, mendGiven: +d.mendGiven.toFixed(4),
     moves: d.movesPlayed, hp: +d.bossHp.toFixed(4), alive: s.heroRow.aliveCount(),
     low: party().low, party: party().sum, secs: +(d.elapsed() - t0).toFixed(2), log,
   };
@@ -267,7 +268,7 @@ for (let i = 0; i < runs; i++) {
     `run ${i}  ${String(v.outcome).padEnd(8)} ${String(v.moves).padStart(2)}/${v.killOn} moves  ` +
       `${String(v.secs).padStart(6)}s  boss ${v.hp.toFixed(3)}  heroes ${v.alive}/6  ` +
       `party ${v.party.toFixed(2)} weakest ${v.low.toFixed(2)}  ` +
-      `ults ${v.ults}  stalls ${v.stalled}\n`,
+      `ults ${v.ults}  mends ${v.mends} (+${v.mendGiven.toFixed(3)})  stalls ${v.stalled}\n`,
   );
 }
 

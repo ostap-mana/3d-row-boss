@@ -192,13 +192,16 @@ export const DIFFICULTY = {
   mend: {
     enabled: true,
     at: 0.44,
+    atStep: 0.08,
     floor: 0.17,
+    floorStep: 0.09,
     gain: 0.15,
     least: 0.055,
     decay: 0.05,
-    uses: 1,
+    uses: 2,
+    gap: 2,
     ceiling: 0.94,
-    deadline: 24,
+    deadline: 30,
     cast: 1.15,
   },
 
@@ -412,15 +415,23 @@ export const BLAST = {
 };
 
 export const JET = {
-  tint: 0xffe0b0,
-  alpha: 0.78,
+  tint: 0xffffff,
+  core: 0xffc063,
+  smoke: 0x351709,
+  throat: 0xffd08a,
+  alpha: 0.95,
+  bed: 0.8,
+  coreLift: 0.4,
   reach: 1.12,
   spread: 0.92,
   root: 0.04,
   lip: 0.42,
-  open: 0.16,
+  open: 0.14,
   rate: 1.6,
-  tail: 0.3,
+  tail: 0.34,
+  wash: 0.42,
+  splash: 0.86,
+  embers: 7,
 };
 
 export const SPARK = {

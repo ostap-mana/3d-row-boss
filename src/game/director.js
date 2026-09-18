@@ -71,6 +71,7 @@ export class Director {
     this.healsUsed = 0;
     this.mendsUsed = 0;
     this.mendGiven = 0;
+    this.lastMend = 0;
 
     this.idleToken = 0;
     this.openingToken = 0;
@@ -406,8 +407,12 @@ export class Director {
     const cfg = DIFFICULTY.mend;
     if (!cfg || !cfg.enabled || this.settled()) return false;
     if (this.mendsUsed >= (cfg.uses || 0)) return false;
-    if (this.bossHp > cfg.at || this.bossHp < cfg.floor) return false;
+    const gate = cfg.at - this.mendsUsed * (cfg.atStep || 0);
+    const floor = cfg.floor - this.mendsUsed * (cfg.floorStep || 0);
+    if (this.bossHp > gate || this.bossHp < floor) return false;
     if (this.doomFiring || this.doomDue()) return false;
+    if (this.lastMend && toReal(now() - this.lastMend) < (cfg.gap || 0))
+      return false;
     return toReal(now() - this.fightStart) < cfg.deadline;
   }
 
@@ -1447,6 +1452,7 @@ export class Director {
     if (to <= before + 0.001) return;
 
     this.mendsUsed++;
+    this.lastMend = now();
     track(EV.bossMend, { hp: Math.round(before * 100), gain: to - before });
     hud.shout(COPY.mend, 0.5, { fill: MEND_FX.light, from: 1.5 });
 
