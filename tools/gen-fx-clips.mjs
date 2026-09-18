@@ -132,6 +132,20 @@ const TAKES = [
       "the frame ending completely black",
   },
   {
+    id: "shatter-v1",
+    shot: "centre",
+    positive:
+      "a slab of black volcanic rock bursts apart in the centre of the frame, " +
+      "splitting along glowing molten seams that flare white-hot an instant " +
+      "before it goes, " +
+      "jagged dark shards thrown outward in every direction with orange lava " +
+      "light burning along their broken edges, " +
+      "a short puff of dark grit and sparks behind them, " +
+      "the shards tumble outward and fall away, the molten glow cools from " +
+      "white through orange to nothing, " +
+      "the frame ending completely black",
+  },
+  {
     id: "ultburst-v1",
     shot: "centre",
     positive:

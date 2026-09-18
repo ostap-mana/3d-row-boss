@@ -35,6 +35,7 @@ import {
   JET,
   IMPACT_FX,
   MEND_FX,
+  SHARD,
   SPARK,
   ULT_CALL,
   ULT_FX,
@@ -306,6 +307,38 @@ export class Vfx extends Container {
         s.alpha = gain * Math.max(0, fade);
       });
     }).then(() => layers.forEach(({ s }) => !s.destroyed && s.destroy()));
+  }
+
+  shatter(x, y, size, color) {
+    const frames = spellFrames("shatter");
+    if (!frames) return false;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color || 0xffffff;
+    s.x = x;
+    s.y = y;
+    s.rotation = rndRange(0, Math.PI * 2);
+    s.alpha = 0;
+    this.field.addChild(s);
+
+    const wide = (size || 150) * SHARD.scale;
+    const n = frames.length;
+
+    tweenValue(0, 1, SHARD.seconds, (p) => {
+      if (s.destroyed) return;
+      s.texture = frames[Math.min(n - 1, (p * n) | 0)];
+      const w = wide * (SHARD.from + Ease.quadOut(p) * (1 - SHARD.from));
+      s.setSize(w, w);
+      s.alpha =
+        SHARD.alpha *
+        (p < SHARD.rise
+          ? p / SHARD.rise
+          : 1 - (p - SHARD.rise) / (1 - SHARD.rise));
+    }).then(() => !s.destroyed && s.destroy());
+
+    return true;
   }
 
   ember(x, y, size, color) {

@@ -126,7 +126,9 @@ export class Director {
     };
     board.onShatter = (x, y) => {
       vfx.burst(x, y, OBSIDIAN.seam, 10, 1.4);
-      vfx.ring(x, y, OBSIDIAN.seamHot, 150, 6);
+      if (!vfx.shatter(x, y, board.cell * 1.3, OBSIDIAN.seamHot)) {
+        vfx.ring(x, y, OBSIDIAN.seamHot, 150, 6);
+      }
       scene.shake(7, 0.22);
     };
     board.onShuffle = () => {

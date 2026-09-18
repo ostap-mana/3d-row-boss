@@ -85,7 +85,7 @@ export const DIFFICULTY = {
     steps: [
       {
         p: 0.0,
-        attack: 0.15,
+        attack: 0.515,
         resist: 1.0,
         ult: 1,
         obsidian: 1.9,
@@ -94,7 +94,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.35,
-        attack: 0.18,
+        attack: 0.619,
         resist: 1.0,
         ult: 1,
         obsidian: 3.2,
@@ -103,7 +103,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.5,
-        attack: 0.22,
+        attack: 0.756,
         resist: 1.0,
         ult: 1,
         obsidian: 3.8,
@@ -113,7 +113,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.6,
-        attack: 0.24,
+        attack: 0.825,
         resist: 0.88,
         ult: 1,
         obsidian: 4.5,
@@ -122,7 +122,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.75,
-        attack: 0.27,
+        attack: 0.929,
         resist: 0.88,
         ult: 1,
         obsidian: 4.5,
@@ -132,7 +132,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.88,
-        attack: 0.32,
+        attack: 1.1,
         resist: 0.8,
         ult: 1,
         obsidian: 5.7,
@@ -141,7 +141,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.9,
-        attack: 0.29,
+        attack: 0.996,
         resist: 0.72,
         ult: 1,
         obsidian: 5.7,
@@ -150,7 +150,7 @@ export const DIFFICULTY = {
       },
       {
         p: 1.0,
-        attack: 0.24,
+        attack: 0.825,
         resist: 0.72,
         ult: 1,
         obsidian: 5.7,
@@ -453,6 +453,14 @@ export const HITP = {
   size: 260,
   from: 0.35,
   rise: 0.22,
+};
+
+export const SHARD = {
+  alpha: 0.85,
+  seconds: 0.4,
+  scale: 1.9,
+  from: 0.4,
+  rise: 0.2,
 };
 
 export const IMPACT_FX = {
