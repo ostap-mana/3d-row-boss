@@ -168,7 +168,7 @@ export function computeLayout(w, h, safe, opts) {
 
 const BOSS_OVERLAP = 0.07;
 
-const BOSS_MIN = 0.25;
+const BOSS_MIN = 0.12;
 
 const BOSS_LIFT = 3;
 

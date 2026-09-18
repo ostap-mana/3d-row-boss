@@ -119,11 +119,28 @@ class AlphaClip extends Mesh {
   }
 
   play() {
+    const video = this.video;
+    const roll = () => {
+      try {
+        const started = video.play();
+        if (started) started.catch(() => {});
+      } catch {}
+    };
+
     try {
-      if (this.video.currentTime > 0.01) this.video.currentTime = 0;
-      const started = this.video.play();
-      if (started) started.catch(() => {});
-    } catch {}
+      if (video.currentTime <= 0.01) {
+        roll();
+        return;
+      }
+      const seeked = () => {
+        video.removeEventListener("seeked", seeked);
+        roll();
+      };
+      video.addEventListener("seeked", seeked);
+      video.currentTime = 0;
+    } catch {
+      roll();
+    }
   }
 
   stop() {

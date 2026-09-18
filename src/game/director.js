@@ -11,6 +11,7 @@ import {
   HEALER,
   MEND_FX,
   OBSIDIAN,
+  RAKE_FX,
   ROWS,
   SCRIPTED_HINT,
   SNAP,
@@ -22,6 +23,7 @@ import {
   ULT_PACE,
   WATER,
 } from "../config.js";
+import { RAKE_ASPECT } from "../art/rake.js";
 import { MIN_SWAPS } from "./board.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
@@ -1348,8 +1350,14 @@ export class Director {
     hitStop(0.6, 0.1);
     vfx.claw(at.x, clawY, 0xff3a5a, {
       dir,
-      len: layout.stage.w * 1.34,
       gap: layout.stage.h * 0.032,
+      ...(layout.portrait
+        ? {
+            len: layout.stage.h * RAKE_FX.tall * RAKE_ASPECT,
+            dim: RAKE_FX.dim,
+            ink: RAKE_FX.ink,
+          }
+        : { len: layout.stage.w * RAKE_FX.long }),
     });
     vfx.flash(0xff2a3a, 0.16, 0.3);
 

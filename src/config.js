@@ -430,6 +430,14 @@ export const JET = {
   wash: 0.42,
   splash: 0.86,
   embers: 7,
+  native: 0.66,
+};
+
+export const RAKE_FX = {
+  long: 1.34,
+  tall: 0.72,
+  dim: 1,
+  ink: 1,
 };
 
 export const SPARK = {

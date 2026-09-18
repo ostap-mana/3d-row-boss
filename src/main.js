@@ -48,7 +48,7 @@ import { loadStreamArt } from "./art/streams.js";
 import { loadBoltArt } from "./art/bolts.js";
 import { loadGemPopArt } from "./art/gempop.js";
 import { loadGemChargeArt } from "./art/gemcharge.js";
-import { loadOutcomeFigures } from "./art/figures.js";
+import { loadOutcomeFigures, rewindFigures } from "./art/figures.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -637,6 +637,7 @@ async function boot() {
   function restart() {
     track(EV.retry);
     say("retry");
+    rewindFigures();
     told = null;
     clearStop();
     shakeLeft = 0;

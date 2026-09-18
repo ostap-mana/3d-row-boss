@@ -54,6 +54,13 @@ function figureTexture(defeat) {
   return stills[defeat ? "defeat" : "victory"];
 }
 
+export function rewindFigures() {
+  for (const key of SIDES) {
+    const clip = clips[key];
+    if (clip) clip.rewind();
+  }
+}
+
 export class FigureView extends Container {
   constructor() {
     super();
@@ -70,7 +77,7 @@ export class FigureView extends Container {
   adopt() {
     for (const key of SIDES) {
       const clip = clips[key];
-      if (!clip || clip.parent) continue;
+      if (!clip || clip.parent === this) continue;
       clip.visible = false;
       this.addChild(clip);
     }

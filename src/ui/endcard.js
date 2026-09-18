@@ -604,7 +604,7 @@ export class EndCard extends Container {
     }
     this.banner.visible = !!this.bannerArt;
     this.glow.tint = this.defeat ? 0xff4a2a : GEM_COLORS[HEALER];
-    this.retry.visible = this.defeat && !!this.onRetry;
+    this.retry.visible = !!this.onRetry;
     if (this.layout) this.resize(this.layout);
 
     this.visible = true;
