@@ -412,10 +412,10 @@ export const BLAST = {
 };
 
 export const JET = {
-  tint: 0xffffff,
-  alpha: 0.95,
+  tint: 0xffe0b0,
+  alpha: 0.78,
   reach: 1.12,
-  spread: 1.15,
+  spread: 0.92,
   root: 0.04,
   lip: 0.42,
   open: 0.16,
