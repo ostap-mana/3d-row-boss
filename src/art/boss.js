@@ -25,16 +25,16 @@ const DEATH = {
   white: 0xfff4e2,
   land: 0.26,
   fade: 0.34,
-  shards: 20,
-  dust: 18,
-  motes: 20,
+  shards: 34,
+  dust: 30,
+  motes: 30,
 };
 
 const LAND = {
   wob: 0.95,
   hold: 0.06,
-  dust: 16,
-  shards: 6,
+  dust: 30,
+  shards: 12,
   spread: 1.5,
   dip: 0.22,
   give: 0.1,
@@ -915,8 +915,9 @@ export class Boss extends Container {
     );
     this.pose.wob = 0.65;
     this.pose.wobT = 0;
-    this.blast(this.mouth, 14, 300, 0.55);
-    this.spawnShards(4, 0.7);
+    this.blast(this.mouth, 18, 300, 0.55);
+    this.dust(10, 0.8);
+    this.spawnShards(6, 0.7);
     await delay(0.34);
     await tween(
       this.pose,

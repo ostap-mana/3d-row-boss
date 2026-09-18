@@ -40,7 +40,7 @@ import {
   ULT_FX,
 } from "../config.js";
 
-const MAX_PARTICLES = 180;
+const MAX_PARTICLES = 320;
 
 const CONE_STEPS = 16;
 
