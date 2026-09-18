@@ -16,7 +16,15 @@ clip-perf — measure what the outcome clip costs while it plays.
   samples requestAnimationFrame while the clip runs, so the number is the one
   the player actually sees.
 
-  --side <which>  victory or defeat. Default victory.
+  --side <which>  victory or defeat. Default victory. Neither is forced onto
+                  the screen: victory is played out with the board's own
+                  findBestSwap, defeat is what you get by letting the doom
+                  clock run down, so the card is measured with the fight
+                  already over, the way a player meets it. Forcing
+                  outcome.show() mid-fight leaves the whole fight running
+                  underneath and charges its cost to the clip — it read as
+                  51 janks where the real card has 5. Allow 20-40s of play
+                  before sampling starts.
   --ms <n>        how long to sample once the clip is playing. Default 2500.
   --file <path>   the creative to measure. Default dist/km3.html.
 `;
@@ -164,12 +172,37 @@ const report = await evaluate(`(async () => {
     }
     return null;
   };
-  for (let i = 0; i < 100; i++) {
-    if (scene.outcome.figure && scene.outcome.figure.fits && scene.outcome.figure.fits(false)) break;
-    await new Promise((r) => setTimeout(r, 100));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const d = scene.director;
+  const b = scene.board;
+  if (${JSON.stringify(side)} === "victory") {
+    let guard = 0;
+    let stalled = 0;
+    while (!d.settled() && guard++ < 200) {
+      await b.whenQuiet();
+      if (d.settled()) break;
+      let fired = false;
+      for (let i = 0; i < 6; i++) {
+        if (d.canUlt && d.canUlt(i)) { d.onCardTap(i); fired = true; break; }
+      }
+      if (!fired) {
+        const best = b.findBestSwap();
+        if (!best) { stalled++; await sleep(300); if (stalled > 8) break; continue; }
+        b.autoPlay(best);
+      }
+      await sleep(80);
+      await b.whenQuiet();
+      await sleep(340);
+    }
   }
-  scene.outcome.show(${JSON.stringify(side)});
-  await new Promise((r) => setTimeout(r, 600));
+  let arrived = false;
+  for (let i = 0; i < 400; i++) {
+    if (scene.outcome.visible) { arrived = true; break; }
+    await sleep(250);
+  }
+  if (!arrived) return { arrived: false };
+  await sleep(600);
+  const reached = scene.outcome.defeat ? "defeat" : "victory";
   const live = hunt(scene.outcome, 0);
   const diag = {
     figureVisible: !!(scene.outcome.figure && scene.outcome.figure.visible),
@@ -195,6 +228,8 @@ const report = await evaluate(`(async () => {
   const mean = frames.reduce((a, b) => a + b, 0) / frames.length;
   const q = live && live.getVideoPlaybackQuality ? live.getVideoPlaybackQuality() : null;
   return {
+    arrived: true,
+    reached,
     frames: frames.length,
     fps: +(1000 / mean).toFixed(1),
     meanMs: +mean.toFixed(2),
@@ -210,8 +245,24 @@ const report = await evaluate(`(async () => {
   };
 })()`);
 
+if (!report.arrived) {
+  process.stderr.write(`the ${side} card never came up
+`);
+  ws.close();
+  chrome.kill();
+  server.close();
+  process.exit(1);
+}
+
+if (report.reached !== side) {
+  process.stdout.write(
+    `asked for ${side}, the run ended in ${report.reached} — measuring that instead
+`,
+  );
+}
+
 process.stdout.write(
-  `${side}  ${report.videoW}x${report.videoH}\n` +
+  `${report.reached}  ${report.videoW}x${report.videoH}\n` +
     `  ${report.fps} fps over ${report.frames} frames  mean ${report.meanMs}ms\n` +
     `  p50 ${report.p50}ms  p95 ${report.p95}ms  worst ${report.worst}ms\n` +
     `  janks over 24ms: ${report.janks}\n` +
