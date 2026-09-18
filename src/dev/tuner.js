@@ -54,7 +54,6 @@ function asked() {
     const url = window.location.href.toLowerCase();
     if (/[?&#]tune\b/.test(url)) return true;
   } catch {}
-  if (store(KEY) === "on") return true;
   try {
     return !!import.meta.env.DEV;
   } catch {

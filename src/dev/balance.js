@@ -34,7 +34,6 @@ function asked() {
   try {
     if (/[?&#]balance\b/.test(window.location.href.toLowerCase())) return true;
   } catch {}
-  if (store(OPEN) === "on") return true;
   try {
     return !!import.meta.env.DEV;
   } catch {
