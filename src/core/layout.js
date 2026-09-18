@@ -168,7 +168,11 @@ export function computeLayout(w, h, safe, opts) {
 
 const BOSS_OVERLAP = 0.07;
 
+const BOSS_DEEP = 0.34;
+
 const BOSS_MIN = 0.12;
+
+const BOSS_TALL = 0.2;
 
 const BOSS_LIFT = 3;
 
@@ -199,7 +203,12 @@ function portraitLayout(w, h, ui, safe, keepout) {
   const boardY = row.y - pad * 0.8 - size;
   const boardX = safe.left + (fieldW - size) / 2;
 
-  const bossFloor = boardY + size * BOSS_OVERLAP;
+  const sink = clamp(
+    (bossTop + h * BOSS_TALL - boardY) / size,
+    BOSS_OVERLAP,
+    BOSS_DEEP,
+  );
+  const bossFloor = boardY + size * sink;
   const bossH = bossFloor - bossTop;
   const bossScale = Math.min((fieldW * 0.92) / BOSS_ART.w, bossH / BOSS_ART.h);
 

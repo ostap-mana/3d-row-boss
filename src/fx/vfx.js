@@ -1619,7 +1619,7 @@ export class Vfx extends Container {
     const len = o.len || 460;
     const gap = o.gap || 62;
 
-    const painted = o.painted === false ? null : rakeFrames();
+    const painted = rakeFrames();
     if (painted) {
       const swipe = new Container();
       swipe.x = x;
@@ -1629,9 +1629,6 @@ export class Vfx extends Container {
 
       const wide = len;
       const tall = wide / RAKE_ASPECT;
-
-      const dim = o.dim === undefined ? 0.62 : o.dim;
-      const ink = o.ink === undefined ? 1 : o.ink;
 
       const bed = new Sprite(glowTexture());
       bed.anchor.set(0.5);
@@ -1643,7 +1640,6 @@ export class Vfx extends Container {
 
       const tear = new Sprite(painted[0]);
       tear.anchor.set(0.5);
-      if (o.tint != null) tear.tint = o.tint;
       swipe.addChild(tear);
 
       const heat = new Sprite(painted[0]);
@@ -1663,9 +1659,9 @@ export class Vfx extends Container {
 
         const out = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
         const spark = p < 0.3 ? p / 0.3 : Math.max(0, 1 - (p - 0.3) / 0.28);
-        tear.alpha = out * ink;
+        tear.alpha = out;
         heat.alpha = out * spark * 0.34;
-        bed.alpha = Math.min(1, p / 0.07) * out * dim;
+        bed.alpha = Math.min(1, p / 0.07) * out * 0.62;
       }).then(() => swipe.destroy({ children: true }));
     }
 
