@@ -2,45 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script src="mraid.js"></script>
-    <script>
-      (function () {
-        var latch = { ready: false, waiting: [] };
-        window.__siegeMraid = latch;
-
-        function fire() {
-          if (latch.ready) return;
-          latch.ready = true;
-          var queue = latch.waiting;
-          latch.waiting = [];
-          for (var i = 0; i < queue.length; i++) {
-            try {
-              queue[i]();
-            } catch (e) {}
-          }
-        }
-
-        var m = null;
-        try {
-          m = window.mraid;
-        } catch (e) {}
-        if (!m || typeof m.addEventListener !== "function") {
-          fire();
-          return;
-        }
-
-        try {
-          m.addEventListener("ready", fire);
-        } catch (e) {}
-        try {
-          if (typeof m.getState === "function" && m.getState() !== "loading") {
-            fire();
-          }
-        } catch (e) {
-          fire();
-        }
-      })();
-    </script>
+    <script>window.__BUILD={"buildId":"dev","commit":"dev","tuneHash":"dev","at":"1970-01-01T00:00:00Z"};</script>
+    <script>window.__CREATIVE={"id":"elemental-siege","title":"Elemental Siege","orientation":"portrait","emits":["displayed"],"hooks":{"start":"sdk|auto"},"cta":{"ios":"","android":""}};</script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
@@ -48,17 +11,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
-    <meta name="applovin:click" content="{{APPLOVIN_CLICK_URL}}" />
-    <meta name="applovin:click-tracker" content="{{APPLOVIN_CLICK_TRACKER}}" />
-    <meta name="applovin:impression" content="{{APPLOVIN_IMPRESSION_URL}}" />
-    <meta name="applovin:start" content="{{APPLOVIN_START_URL}}" />
-    <meta name="applovin:viewable" content="{{APPLOVIN_VIEWABLE_URL}}" />
-    <meta name="applovin:engagement" content="{{APPLOVIN_ENGAGEMENT_URL}}" />
-    <meta name="applovin:interaction" content="{{APPLOVIN_INTERACTION_URL}}" />
-    <meta name="applovin:ultimate" content="{{APPLOVIN_ULTIMATE_URL}}" />
-    <meta name="applovin:complete" content="{{APPLOVIN_COMPLETE_URL}}" />
-    <meta name="applovin:endcard" content="{{APPLOVIN_ENDCARD_URL}}" />
-    <meta name="applovin:replay" content="{{APPLOVIN_REPLAY_URL}}" />
     <title>Elemental Siege</title>
     <style>
       * {

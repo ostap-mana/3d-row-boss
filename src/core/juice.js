@@ -1,4 +1,7 @@
 import { WORLD_RATE } from "../config.js";
+import { stream } from "./rng.js";
+
+const rand = stream("juice");
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -68,7 +71,7 @@ export function rumble(t, seed, freq) {
   const f = freq === undefined ? 1 : freq;
   const a = Math.sin(t * 58.3 * f + seed * 2.7);
   const b = Math.sin(t * 27.1 * f + seed * 5.1 + 1.3);
-  const grit = (Math.random() - 0.5) * 0.56 * Math.min(1, f);
+  const grit = (rand() - 0.5) * 0.56 * Math.min(1, f);
   return (a * 0.6 + b * 0.4) * 0.72 + grit;
 }
 

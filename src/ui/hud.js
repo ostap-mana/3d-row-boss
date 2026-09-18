@@ -23,6 +23,9 @@ import {
 } from "../art/brand.js";
 import { fitFont } from "./text.js";
 import * as sfx from "../audio/sfx.js";
+import { stream } from "../core/rng.js";
+
+const rand = stream("hud");
 
 const BAR_EDGE = 0x0a0510;
 const BAR_TRACK = 0x5c3346;
@@ -741,10 +744,10 @@ export class Hud extends Container {
       label.x = Math.min(Math.max(x, box.x + half), box.right - half);
     }
     label.scale.set(tier === 2 ? 1.62 : 1.4, tier === 2 ? 0.46 : 0.58);
-    label.rotation = (Math.random() - 0.5) * (tier === 2 ? 0.2 : 0.13);
+    label.rotation = (rand() - 0.5) * (tier === 2 ? 0.2 : 0.13);
     this.numbers.addChild(label);
 
-    const rise = 70 + Math.random() * 30;
+    const rise = 70 + rand() * 30;
     let from = y;
     let top = y - rise;
     if (this.callout.alpha > 0.05) {

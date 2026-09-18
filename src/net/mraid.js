@@ -11,26 +11,10 @@ export function inContainer() {
   return host() !== null;
 }
 
-function latch() {
-  try {
-    const l = globalThis.__siegeMraid;
-    return l && typeof l === "object" && Array.isArray(l.waiting) ? l : null;
-  } catch {
-    return null;
-  }
-}
-
 function whenReady(fn) {
   const m = host();
   if (!m) {
     fn();
-    return;
-  }
-
-  const armed = latch();
-  if (armed) {
-    if (armed.ready) fn();
-    else armed.waiting.push(fn);
     return;
   }
 

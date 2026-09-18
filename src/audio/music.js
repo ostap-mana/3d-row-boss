@@ -1,6 +1,9 @@
 import { AUDIO } from "../config.js";
 import { audioBus, audioContext, onAudioPark, onAudioReset } from "./engine.js";
 import { tracks } from "./tracks.js";
+import { stream } from "../core/rng.js";
+
+const rand = stream("music");
 
 const MIN = 0.0001;
 
@@ -89,7 +92,7 @@ function noiseSource(c, dest) {
   const len = Math.floor(c.sampleRate * 2);
   const buf = c.createBuffer(1, len, c.sampleRate);
   const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  for (let i = 0; i < len; i++) data[i] = rand() * 2 - 1;
   src.buffer = buf;
   src.loop = true;
   src.connect(dest);

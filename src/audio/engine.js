@@ -1,5 +1,8 @@
 import { AUDIO } from "../config.js";
 import { promoteSession, sessionSleep } from "./session.js";
+import { stream } from "../core/rng.js";
+
+const rand = stream("audio-engine");
 
 const MIN = 0.0001;
 
@@ -446,7 +449,7 @@ function noiseBuffer(c) {
   const len = Math.floor(c.sampleRate * NOISE_SECONDS);
   noiseBuf = c.createBuffer(1, len, c.sampleRate);
   const data = noiseBuf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  for (let i = 0; i < len; i++) data[i] = rand() * 2 - 1;
   return noiseBuf;
 }
 
@@ -525,7 +528,7 @@ export function noise(o) {
   f.connect(g);
   g.connect(o.dest || bus);
   track(src, t0 + dur + 0.05);
-  src.start(t0, Math.max(0, Math.random() * (NOISE_SECONDS - dur - 0.1)));
+  src.start(t0, Math.max(0, rand() * (NOISE_SECONDS - dur - 0.1)));
   src.stop(t0 + dur + 0.05);
 }
 

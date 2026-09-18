@@ -2,6 +2,9 @@ import { Container, Sprite, Texture, ImageSource } from "pixi.js";
 import { glowTexture, gradientTexture } from "./textures.js";
 import { BOSS_ART } from "../core/layout.js";
 import arenaUrl from "../assets/arena/sky.webp";
+import { stream } from "../core/rng.js";
+
+const rand = stream("bg");
 
 const HORIZON = 0.38;
 
@@ -102,7 +105,7 @@ export class Background extends Container {
       s.tint = 0xff9a4a;
       this.motes.push(s);
       this.addChild(s);
-      s.life = Math.random();
+      s.life = rand();
     }
 
     this.pool = new Sprite(glowTexture());
@@ -164,11 +167,11 @@ export class Background extends Container {
     });
 
     this.motes.forEach((s) => {
-      const size = 6 + Math.random() * 10;
+      const size = 6 + rand() * 10;
       s.setSize(size * 2.4, size * 2.4);
-      s.baseX = Math.random() * w;
-      s.speed = 0.035 + Math.random() * 0.06;
-      s.sway = 8 + Math.random() * 22;
+      s.baseX = rand() * w;
+      s.speed = 0.035 + rand() * 0.06;
+      s.sway = 8 + rand() * 22;
       s.deckY = deckY;
     });
   }
@@ -201,7 +204,7 @@ export class Background extends Container {
       s.life += dt * s.speed;
       if (s.life > 1) {
         s.life -= 1;
-        s.baseX = Math.random() * w;
+        s.baseX = rand() * w;
       }
       const travel = h * 0.55;
       s.x = s.baseX + Math.sin(s.life * 9 + i) * s.sway;

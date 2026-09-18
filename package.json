@@ -11,7 +11,8 @@
     "comments": "node tools/strip-comments.mjs --check",
     "decomment": "node tools/strip-comments.mjs",
     "dev": "vite",
-    "geometry": "node tools/check-sheet-geometry.mjs"
+    "geometry": "node tools/check-sheet-geometry.mjs",
+    "contract": "node tools/contract-check.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.8.1"

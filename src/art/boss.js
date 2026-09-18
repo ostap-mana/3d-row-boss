@@ -6,6 +6,9 @@ import { lerpColor } from "../core/color.js";
 import { BOSS_ART } from "../core/layout.js";
 import * as sfx from "../audio/sfx.js";
 import stillUrl from "../assets/boss/magmaroth.webp";
+import { stream } from "../core/rng.js";
+
+const rand = stream("boss");
 
 const ENRAGED_TINT = 0xffa58c;
 const ENRAGED_PAINTED = 0xffa2cd;
@@ -855,22 +858,22 @@ export class Boss extends Container {
     const tex = sparkTexture();
     while (this.emberDebt >= 1) {
       this.emberDebt -= 1;
-      const up = Math.random() < 0.5;
+      const up = rand() < 0.5;
       const from = up ? this.core : this.mouth;
       const spread = up ? 150 : 70;
       this.bits.spawn(tex, {
-        x: this.rig.x + from.x + (Math.random() - 0.5) * spread,
-        y: this.rig.y + from.y + (Math.random() - 0.5) * spread * 0.7,
-        vx: (Math.random() - 0.5) * 46,
-        vy: -30 - Math.random() * 70 - pose.charge * 90,
+        x: this.rig.x + from.x + (rand() - 0.5) * spread,
+        y: this.rig.y + from.y + (rand() - 0.5) * spread * 0.7,
+        vx: (rand() - 0.5) * 46,
+        vy: -30 - rand() * 70 - pose.charge * 90,
         g: -18,
         drag: 0.9,
-        life: 0.6 + Math.random() * 0.7,
-        size: 8 + Math.random() * 16,
+        life: 0.6 + rand() * 0.7,
+        size: 8 + rand() * 16,
         grow: 0.2,
-        tint: Math.random() < 0.35 ? this.ember : this.enragedTint,
+        tint: rand() < 0.35 ? this.ember : this.enragedTint,
         blend: "add",
-        alpha: 0.5 + Math.random() * 0.4,
+        alpha: 0.5 + rand() * 0.4,
       });
     }
   }
@@ -1013,7 +1016,7 @@ export class Boss extends Container {
 
   async rake(side) {
     const dir =
-      side === undefined ? (Math.random() < 0.5 ? -1 : 1) : side < 0 ? -1 : 1;
+      side === undefined ? (rand() < 0.5 ? -1 : 1) : side < 0 ? -1 : 1;
 
     sfx.bossRoar();
     await tween(
@@ -1129,7 +1132,7 @@ export class Boss extends Container {
       tween(this.flash, { alpha: 0 }, 0.3, { ease: Ease.quadOut });
     }
 
-    const dir = Math.random() < 0.5 ? -1 : 1;
+    const dir = rand() < 0.5 ? -1 : 1;
     this.hold = Math.min(0.07, 0.028 * p);
     this.pose.shove = dir * 16 * p;
     this.pose.headX = -dir * 12 * p;
@@ -1144,18 +1147,18 @@ export class Boss extends Container {
     const tex = shardTexture();
     const n = Math.round(count);
     for (let i = 0; i < n; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const v = (200 + Math.random() * 320) * spread;
+      const ang = rand() * Math.PI * 2;
+      const v = (200 + rand() * 320) * spread;
       this.bits.spawn(tex, {
-        x: this.rig.x + (Math.random() - 0.5) * 220,
-        y: this.rig.y + this.core.y + (Math.random() - 0.5) * 180,
+        x: this.rig.x + (rand() - 0.5) * 220,
+        y: this.rig.y + this.core.y + (rand() - 0.5) * 180,
         vx: Math.cos(ang) * v,
         vy: Math.sin(ang) * v - 90,
         g: 1400,
         drag: 0.5,
-        spin: (Math.random() - 0.5) * 16,
-        life: 0.55 + Math.random() * 0.4,
-        size: 14 + Math.random() * 26,
+        spin: (rand() - 0.5) * 16,
+        life: 0.55 + rand() * 0.4,
+        size: 14 + rand() * 26,
         tint: i % 3 === 0 ? LAVA : ROCK_EDGE,
       });
     }
@@ -1166,20 +1169,20 @@ export class Boss extends Container {
     for (let i = 0; i < count; i++) {
       const a =
         dir === undefined
-          ? Math.random() * Math.PI * 2
-          : (dir > 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.5;
-      const v = speed * (0.45 + Math.random() * 0.75);
+          ? rand() * Math.PI * 2
+          : (dir > 0 ? 0 : Math.PI) + (rand() - 0.5) * 1.5;
+      const v = speed * (0.45 + rand() * 0.75);
       this.bits.spawn(tex, {
-        x: this.rig.x + from.x + (Math.random() - 0.5) * 60,
-        y: this.rig.y + from.y + (Math.random() - 0.5) * 60,
+        x: this.rig.x + from.x + (rand() - 0.5) * 60,
+        y: this.rig.y + from.y + (rand() - 0.5) * 60,
         vx: Math.cos(a) * v,
         vy: Math.sin(a) * v - 40,
         g: 120,
         drag: 1.6,
-        life: life * (0.7 + Math.random() * 0.6),
-        size: 12 + Math.random() * 22,
+        life: life * (0.7 + rand() * 0.6),
+        size: 12 + rand() * 22,
         grow: 0.3,
-        tint: Math.random() < 0.4 ? this.ember : this.enragedTint,
+        tint: rand() < 0.4 ? this.ember : this.enragedTint,
         blend: "add",
         alpha: 0.85,
       });
@@ -1189,21 +1192,21 @@ export class Boss extends Container {
   dust(count, spread) {
     const tex = glowTexture();
     for (let i = 0; i < count; i++) {
-      const dir = Math.random() < 0.5 ? -1 : 1;
-      const v = (120 + Math.random() * 260) * spread;
+      const dir = rand() < 0.5 ? -1 : 1;
+      const v = (120 + rand() * 260) * spread;
       this.bits.spawn(tex, {
-        x: this.rig.x + (Math.random() - 0.5) * 180,
+        x: this.rig.x + (rand() - 0.5) * 180,
         y: this.rig.y + this.feetY - 6,
         vx: dir * v,
-        vy: -20 - Math.random() * 60,
+        vy: -20 - rand() * 60,
         g: 60,
         drag: 2.2,
-        life: 0.5 + Math.random() * 0.5,
-        size: 60 + Math.random() * 110,
+        life: 0.5 + rand() * 0.5,
+        size: 60 + rand() * 110,
         flat: 0.42,
         grow: 2.1,
         tint: SHADOW_TINT,
-        alpha: 0.3 + Math.random() * 0.2,
+        alpha: 0.3 + rand() * 0.2,
       });
     }
   }
@@ -1227,7 +1230,7 @@ export class Boss extends Container {
     this.alive = false;
     sfx.bossDie();
     killTweensOf(this.pose);
-    const dir = Math.random() < 0.5 ? -1 : 1;
+    const dir = rand() < 0.5 ? -1 : 1;
 
     this.spawnShards(26, 1.6);
     this.blast(this.core, 34, 520, 0.8);

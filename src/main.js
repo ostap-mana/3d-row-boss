@@ -1,3 +1,10 @@
+import {
+  busReport,
+  say,
+  sayOnce,
+  started as busStarted,
+  wireBus,
+} from "./net/bus.js";
 import { Application, Container, Graphics, Rectangle, Sprite } from "pixi.js";
 
 import { computeLayout } from "./core/layout.js";
@@ -17,7 +24,7 @@ import {
   shakeDecay,
   warpDt,
 } from "./core/juice.js";
-import { reseed } from "./core/rng.js";
+import { reseed, runIndex, seed } from "./core/rng.js";
 import { initGemTextures, loadGemArt } from "./art/gems.js";
 import { Background, loadArena } from "./art/background.js";
 import { loadCardPlates } from "./art/plates.js";
@@ -56,10 +63,10 @@ import { Vfx } from "./fx/vfx.js";
 import { UltRim } from "./fx/ultrim.js";
 import { UltSurge } from "./fx/ultsurge.js";
 import { loadFonts } from "./ui/fonts.js";
-import { ctaClick, signalReady } from "./net/cta.js";
+import { ctaClick } from "./net/cta.js";
 import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
 import { EV, eventLog, track, trackOnce } from "./net/analytics.js";
-import { tagReport } from "./net/tags.js";
+import { replayReport, stepDoor, tellState } from "./net/replay.js";
 import {
   audioHeartbeat,
   audioSleep,
@@ -566,9 +573,29 @@ async function boot() {
     );
   }
 
+  let told = null;
+  let toldProgress = -1;
+
+  function reportFunnel() {
+    if (!director || !busStarted()) return;
+    const step = Math.floor(director.wounds() * 20) / 20;
+    if (step > 0 && step > toldProgress) {
+      toldProgress = step;
+      say("progress", { value: step });
+    }
+    const outcome = director.outcome;
+    if (outcome && outcome !== told) {
+      told = outcome;
+      say(outcome === "victory" ? "solved" : "failed");
+    }
+    if (director.ended) sayOnce("endcard");
+  }
+
   app.ticker.add((ticker) => {
     audioHeartbeat();
-    const real = Math.min(ticker.deltaMS / 1000, 0.05);
+    const stepped = stepDoor(Math.min(ticker.deltaMS / 1000, 0.05));
+    if (stepped == null) return;
+    const real = stepped;
     const dt = warpDt(real);
     updateTweens(dt);
     if (director) director.update(real);
@@ -583,10 +610,13 @@ async function boot() {
     scene.endcard.update(dt);
     scene.prompt.update(dt);
     updateShake(real);
+    reportFunnel();
   });
 
   function restart() {
     track(EV.retry);
+    say("retry");
+    told = null;
     clearStop();
     shakeLeft = 0;
     shakeTotal = 0;
@@ -625,8 +655,87 @@ async function boot() {
   scene.timing = timing;
   scene.mraid = mraidReport;
   scene.events = eventLog;
-  scene.tags = tagReport;
+  scene.bus = busReport;
+  scene.replay = replayReport;
   scene.restart = () => restart();
+  function onScreen(node) {
+    let n = node;
+    while (n) {
+      if (!n.visible || n.alpha <= 0.01) return false;
+      n = n.parent;
+    }
+    return true;
+  }
+
+  function rectOf(name, node) {
+    if (!node || !onScreen(node)) return null;
+    try {
+      const bounds = node.getBounds();
+      const r = bounds.rectangle || bounds;
+      if (!(r.width > 0) || !(r.height > 0)) return null;
+      return { name, x: r.x, y: r.y, w: r.width, h: r.height };
+    } catch {
+      return null;
+    }
+  }
+
+  function ctaRects() {
+    const out = [];
+    const add = (r) => {
+      if (r) out.push(r);
+    };
+    add(rectOf("store", scene.hud && scene.hud.banner));
+    if (scene.outcome && !scene.outcome.defeat) {
+      add(rectOf("store-outcome", scene.outcome.retry));
+    }
+    add(rectOf("store-endcard", scene.endcard && scene.endcard.button));
+    return out;
+  }
+
+  wireBus({
+    start() {
+      app.ticker.start();
+      audioSleep(false);
+    },
+    pause() {
+      app.ticker.stop();
+      audioSleep(true);
+    },
+    resume() {
+      app.ticker.start();
+      audioSleep(false);
+    },
+    audio(on) {
+      setMuted(!on);
+    },
+    rects: ctaRects,
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "KeyR") {
+      restart();
+      return;
+    }
+    if (!director || director.settled()) return;
+    if (e.code === "KeyV") director.claim("victory");
+    else if (e.code === "KeyD") director.claim("defeat");
+    else return;
+    director.finish();
+  });
+
+  tellState(() => ({
+    seed: seed(),
+    run: runIndex(),
+    t: director ? director.elapsed() : 0,
+    mode: director
+      ? director.outcome || (director.ended ? "ended" : "fight")
+      : "boot",
+    bossHp: director ? director.bossHp : 1,
+    moves: director ? director.movesPlayed : 0,
+    heroes: scene.heroRow ? scene.heroRow.aliveCount() : 0,
+    swaps: scene.board ? scene.board.countSwaps() : 0,
+  }));
+
   window.__SIEGE__ = scene;
 
   director.armIntro();
@@ -662,7 +771,6 @@ async function boot() {
 
   loadRest();
 
-  signalReady();
   firstTouch().then(() => {
     trackOnce(EV.start);
     scene.prompt.dismiss();

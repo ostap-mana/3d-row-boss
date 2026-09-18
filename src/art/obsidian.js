@@ -3,6 +3,9 @@ import { OBSIDIAN } from "../config.js";
 import { glowTexture } from "./textures.js";
 import { getRenderer } from "../core/context.js";
 import { tween, Ease } from "../core/tween.js";
+import { stream } from "../core/rng.js";
+
+const rand = stream("obsidian");
 
 const ART = 100;
 const PAD = 6;
@@ -87,7 +90,7 @@ export class ObsidianView extends Container {
     this.addChild(this.slab);
 
     this.armor = 0;
-    this.t = Math.random() * 6;
+    this.t = rand() * 6;
   }
 
   setArmor(layers) {
@@ -108,7 +111,7 @@ export class ObsidianView extends Container {
   async form() {
     this.scale.set(0.2);
     this.alpha = 0;
-    this.slab.rotation = (Math.random() - 0.5) * 2 * TILT;
+    this.slab.rotation = (rand() - 0.5) * 2 * TILT;
     await Promise.all([
       tween(this, { alpha: 1 }, 0.14),
       tween(this.scale, { x: 1, y: 1 }, 0.34, { ease: Ease.backOut }),

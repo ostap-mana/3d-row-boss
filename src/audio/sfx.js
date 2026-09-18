@@ -8,6 +8,9 @@ import {
   tone,
 } from "./engine.js";
 import { samples } from "./samples.js";
+import { stream } from "../core/rng.js";
+
+const rand = stream("sfx");
 
 const ELEMENT = [
   { note: 196.0, type: "sawtooth", cut: 2000 },
@@ -189,7 +192,7 @@ export function obsidianBreak(count) {
   tone({ freq: 320, to: 120, dur: 0.18, gain: 0.1, type: "square", cut: 2200 });
   for (let i = 1; i < Math.min(n, 5); i++) {
     tone({
-      freq: 900 + Math.random() * 900,
+      freq: 900 + rand() * 900,
       dur: 0.1,
       gain: 0.06,
       type: "triangle",
@@ -469,7 +472,7 @@ export function bossSmash() {
       freq: 2400,
       dur: 0.09,
       gain: 0.05,
-      delay: 0.12 + i * 0.07 + Math.random() * 0.05,
+      delay: 0.12 + i * 0.07 + rand() * 0.05,
     });
   }
 }
@@ -840,7 +843,7 @@ function buildBed(c, out) {
   const len = Math.floor(c.sampleRate * 2);
   const buf = c.createBuffer(1, len, c.sampleRate);
   const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  for (let i = 0; i < len; i++) data[i] = rand() * 2 - 1;
   hiss.buffer = buf;
   hiss.loop = true;
   const hissCut = c.createBiquadFilter();
