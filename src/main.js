@@ -1,5 +1,6 @@
 import {
   busReport,
+  hosted,
   say,
   sayOnce,
   started as busStarted,
@@ -64,7 +65,6 @@ import { UltRim } from "./fx/ultrim.js";
 import { UltSurge } from "./fx/ultsurge.js";
 import { loadFonts } from "./ui/fonts.js";
 import { ctaClick } from "./net/cta.js";
-import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
 import { EV, eventLog, track, trackOnce } from "./net/analytics.js";
 import { replayReport, stepDoor, tellState } from "./net/replay.js";
 import {
@@ -219,7 +219,7 @@ async function boot() {
   function ownsScreen() {
     try {
       if (window.top !== window) return false;
-      if (window.mraid || window.dapi) return false;
+      if (hosted()) return false;
       return !!(document.fullscreenElement || document.webkitFullscreenElement);
     } catch {
       return false;
@@ -311,9 +311,7 @@ async function boot() {
 
   relayout();
 
-  const viewport = watchViewport(host, relayout);
-
-  watchSize(() => viewport.refresh());
+  watchViewport(host, relayout);
 
   ["fullscreenchange", "webkitfullscreenchange"].forEach((type) =>
     document.addEventListener(type, () => relayout(), { passive: true }),
@@ -328,13 +326,36 @@ async function boot() {
   );
   window.addEventListener("pagehide", () => audioSleep(true));
   window.addEventListener("pageshow", () => audioSleep(document.hidden));
-  watchViewable((seen, live) => {
-    track(seen ? EV.view : EV.hide, { live });
-    audioSleep(!seen);
-    if (!live) return;
-    if (seen) app.ticker.start();
-    else app.ticker.stop();
-  });
+
+  const TEXT_NUDGE = 0.001;
+
+  function repaintText(node) {
+    if (typeof node.text === "string" && node.style) {
+      node.style.padding = (node.style.padding || 0) + TEXT_NUDGE;
+    }
+    const kids = node.children;
+    if (!kids) return;
+    for (let i = 0; i < kids.length; i++) repaintText(kids[i]);
+  }
+
+  app.canvas.addEventListener(
+    "webglcontextlost",
+    () => {
+      app.ticker.stop();
+      audioSleep(true);
+    },
+    false,
+  );
+  app.canvas.addEventListener(
+    "webglcontextrestored",
+    () => {
+      repaintText(app.stage);
+      relayout();
+      audioSleep(false);
+      app.ticker.start();
+    },
+    false,
+  );
 
   function freezeFight() {
     const made = [];
@@ -653,7 +674,6 @@ async function boot() {
     return { ...layout.safe, shown: guides.visible };
   };
   scene.timing = timing;
-  scene.mraid = mraidReport;
   scene.events = eventLog;
   scene.bus = busReport;
   scene.replay = replayReport;
@@ -694,14 +714,17 @@ async function boot() {
 
   wireBus({
     start() {
+      track(EV.view, { live: true });
       app.ticker.start();
       audioSleep(false);
     },
     pause() {
+      track(EV.hide, { live: true });
       app.ticker.stop();
       audioSleep(true);
     },
     resume() {
+      track(EV.view, { live: true });
       app.ticker.start();
       audioSleep(false);
     },

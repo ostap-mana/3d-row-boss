@@ -1,4 +1,4 @@
-import { inContainer } from "./mraid.js";
+import { hosted } from "./bus.js";
 
 export const EV = Object.freeze({
   load: "ad_load",
@@ -30,7 +30,7 @@ export function track(name, props) {
     event: name,
     seq: ++seq,
     ms: Date.now() - started,
-    container: inContainer(),
+    hosted: hosted(),
   };
   if (props && typeof props === "object") payload.props = props;
 

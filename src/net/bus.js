@@ -1,5 +1,3 @@
-import { fallbackStore } from "./store.js";
-
 const SELF_START = 1500;
 
 const listeners = [];
@@ -12,6 +10,10 @@ const hooks = {
 };
 const sent = [];
 let running = false;
+
+export function hosted() {
+  return listeners.length > 0;
+}
 
 function emit(name, data) {
   sent.push(name);
@@ -58,9 +60,7 @@ window.__PLAYABLE = {
     run(hooks.audio, !!on);
   },
 
-  openStore() {
-    fallbackStore();
-  },
+  openStore() {},
 
   ctaRects() {
     if (!hooks.rects) return [];
@@ -73,13 +73,11 @@ window.__PLAYABLE = {
 
   emit,
 
-  hosted() {
-    return listeners.length > 0;
-  },
+  hosted,
 };
 
 setTimeout(() => {
-  if (listeners.length === 0) window.__PLAYABLE.start();
+  if (!hosted()) window.__PLAYABLE.start();
 }, SELF_START);
 
 export function wireBus(impl) {

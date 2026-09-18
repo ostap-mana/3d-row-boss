@@ -1,6 +1,6 @@
 import * as sfx from "../audio/sfx.js";
 import { EV, track } from "./analytics.js";
-import { say } from "./bus.js";
+import { sayOnce } from "./bus.js";
 
 const COOLDOWN = 1200;
 
@@ -11,7 +11,7 @@ export function ctaClick(source) {
   fired = true;
   track(EV.cta, { source });
   sfx.cta();
-  say("cta", { source });
+  sayOnce("cta", { source });
 
   try {
     window.__PLAYABLE.openStore();
