@@ -4,11 +4,11 @@ import rakeUrl from "../assets/fx/claw-rake.webp";
 
 const SHEET = {
   cols: 4,
-  cellW: 371,
-  cellH: 219,
-  pad: 1,
+  cellW: 640,
+  cellH: 377,
+  pad: 2,
   count: 12,
-  block: 660,
+  block: 1139,
 };
 
 const FRAME_HOLD = [1, 1, 1, 1, 1, 1, 2.6, 2.6, 2.6, 2.6, 4, 4];
@@ -37,35 +37,48 @@ export async function loadRakeArt() {
     img.src = rakeUrl;
     await img.decode();
 
-    const w = img.width;
-    const h = SHEET.block;
-    const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
-    const ctx = c.getContext("2d", { willReadFrequently: true });
+    const { cellW, cellH, pad, block, cols, count } = SHEET;
 
-    ctx.drawImage(img, 0, 0, w, h, 0, 0, w, h);
-    const paint = ctx.getImageData(0, 0, w, h);
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(img, 0, h, w, h, 0, 0, w, h);
-    const matte = ctx.getImageData(0, 0, w, h);
+    const sheet = document.createElement("canvas");
+    sheet.width = img.width;
+    sheet.height = block;
+    const paper = sheet.getContext("2d");
 
-    const lit = paint.data;
-    const cover = matte.data;
-    for (let i = 0; i < lit.length; i += 4) lit[i + 3] = cover[i];
-    ctx.putImageData(paint, 0, 0);
-    const sheet = canvasTexture(c);
+    const cell = document.createElement("canvas");
+    cell.width = cellW;
+    cell.height = cellH;
+    const knife = cell.getContext("2d", { willReadFrequently: true });
+
+    for (let i = 0; i < count; i++) {
+      const x = pad + (i % cols) * (cellW + pad);
+      const y = pad + Math.floor(i / cols) * (cellH + pad);
+
+      knife.clearRect(0, 0, cellW, cellH);
+      knife.drawImage(img, x, y, cellW, cellH, 0, 0, cellW, cellH);
+      const paint = knife.getImageData(0, 0, cellW, cellH);
+
+      knife.clearRect(0, 0, cellW, cellH);
+      knife.drawImage(img, x, y + block, cellW, cellH, 0, 0, cellW, cellH);
+      const matte = knife.getImageData(0, 0, cellW, cellH);
+
+      const lit = paint.data;
+      const cover = matte.data;
+      for (let n = 0; n < lit.length; n += 4) lit[n + 3] = cover[n];
+      paper.putImageData(paint, x, y);
+    }
+
+    const source = canvasTexture(sheet).source;
 
     const out = [];
-    for (let i = 0; i < SHEET.count; i++) {
+    for (let i = 0; i < count; i++) {
       out.push(
         new Texture({
-          source: sheet.source,
+          source,
           frame: new Rectangle(
-            SHEET.pad + (i % SHEET.cols) * (SHEET.cellW + SHEET.pad),
-            SHEET.pad + Math.floor(i / SHEET.cols) * (SHEET.cellH + SHEET.pad),
-            SHEET.cellW,
-            SHEET.cellH,
+            pad + (i % cols) * (cellW + pad),
+            pad + Math.floor(i / cols) * (cellH + pad),
+            cellW,
+            cellH,
           ),
         }),
       );
