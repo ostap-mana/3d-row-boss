@@ -57,6 +57,22 @@ const HP_LOW = 0xff3b2f;
 const HURT_FLASH = 0xff4a3a;
 const DOWN_TINT = 0x6a6270;
 
+const FALL = {
+  slump: 0.26,
+  drop: 14,
+  shrink: 0.9,
+  settle: 0.62,
+  alpha: 0.5,
+  lurch: 0.12,
+};
+
+const RISE = {
+  over: 1.16,
+  up: 0.18,
+  back: 0.34,
+  flash: 0xd9ffe6,
+};
+
 const HEAD_BIAS = 0.34;
 
 const FOOT_SCRIM = [
@@ -1108,13 +1124,15 @@ export class HeroCard extends Container {
     if (wait) await delay(wait);
     sfx.heroHurt();
 
+    const bite = Math.max(0.55, Math.min(1.8, amount / 0.12));
+
     killTweensOf(this.pivot);
-    this.pivot.set(kick * 8, -9);
+    this.pivot.set(kick * 8 * bite, -9 * bite);
     tween(this.pivot, { x: 0, y: 0 }, 0.45, { ease: Ease.elasticOut });
 
-    if (!this.pulsing) punch(this, 0.12, 0.46, { axis: "x" });
+    if (!this.pulsing) punch(this, 0.12 * bite, 0.46, { axis: "x" });
 
-    this.burn.alpha = 0.85;
+    this.burn.alpha = Math.min(1, 0.85 * bite);
     tween(this.burn, { alpha: 0 }, 0.4);
     tweenValue(0, 1, 0.34, (v) => {
       if (this.destroyed) return;
@@ -1146,17 +1164,48 @@ export class HeroCard extends Container {
     this.pulsing = false;
     this.setReady(false);
     this.hpGauge.alpha = 1;
-    tween(this, { alpha: 0.55, rotation: 0.14 }, 0.3);
-    tweenValue(0, 1, 0.3, (v) => {
+
+    const lean = this.index % 2 ? 1 : -1;
+    killTweensOf(this.pivot);
+    killTweensOf(this.scale);
+
+    this.burn.alpha = 0.6;
+    tween(this.burn, { alpha: 0 }, FALL.settle);
+
+    this.pivot.set(0, -FALL.lurch * FALL.drop);
+    tween(this.pivot, { x: lean * 3, y: FALL.drop }, FALL.settle, {
+      ease: Ease.quadIn,
+    });
+    tween(
+      this,
+      { alpha: FALL.alpha, rotation: lean * FALL.slump },
+      FALL.settle,
+    );
+    tween(this.scale, { x: FALL.shrink, y: FALL.shrink * 0.94 }, FALL.settle, {
+      ease: Ease.quadOut,
+    });
+    tweenValue(0, 1, FALL.settle, (v) => {
       if (this.destroyed) return;
-      this.tint = lerpColor(0xffffff, DOWN_TINT, v);
+      this.tint = lerpColor(HURT_FLASH, DOWN_TINT, Ease.quadOut(v));
     });
   }
 
   revive() {
     if (!this.downed) return;
     this.downed = false;
-    tween(this, { alpha: 1, rotation: 0 }, 0.3);
+
+    killTweensOf(this.pivot);
+    killTweensOf(this.scale);
+
+    tween(this, { alpha: 1, rotation: 0 }, RISE.back, { ease: Ease.backOut });
+    tween(this.pivot, { x: 0, y: 0 }, RISE.back, { ease: Ease.backOut });
+    tween(this.scale, { x: RISE.over, y: RISE.over }, RISE.up).then(() =>
+      tween(this.scale, { x: 1, y: 1 }, RISE.back, { ease: Ease.backOut }),
+    );
+    tweenValue(0, 1, RISE.back + RISE.up, (v) => {
+      if (this.destroyed) return;
+      this.tint = lerpColor(RISE.flash, this.restTint(), Ease.quadOut(v));
+    });
   }
 
   update(dt) {

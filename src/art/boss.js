@@ -20,6 +20,16 @@ const RUNE_HOT = 0xff8ae8;
 
 const SHADOW_TINT = 0x33304a;
 
+const DEATH = {
+  sear: 0.3,
+  white: 0xfff4e2,
+  land: 0.26,
+  fade: 0.34,
+  shards: 34,
+  dust: 30,
+  motes: 30,
+};
+
 const MEND_TINT = 0x3fd16a;
 const MEND_SKIN = 0xa8f5c4;
 
@@ -726,11 +736,13 @@ export class Boss extends Container {
     const blinkT = (this.t * 0.31) % 1;
     const blink = blinkT > 0.94 ? 1 - Math.sin((blinkT - 0.94) * 62) * 0.8 : 1;
     this.eyes.alpha = flicker * blink * (1 + pose.charge * 1.9);
-    this.aura.alpha =
-      ((this.enraged ? 0.75 : 0.45) +
-        Math.sin(this.t * 2.2) * 0.12 +
-        pose.charge * 0.35) *
-      this.glowGain;
+    if (this.alive) {
+      this.aura.alpha =
+        ((this.enraged ? 0.75 : 0.45) +
+          Math.sin(this.t * 2.2) * 0.12 +
+          pose.charge * 0.35) *
+        this.glowGain;
+    }
 
     const pulse = Math.sin(this.t * (this.enraged ? 7 : 3.6));
     const coreBase = this.enraged ? 1.22 : 1;
@@ -1209,6 +1221,18 @@ export class Boss extends Container {
 
     this.spawnShards(30, 2.2);
     this.dust(26, 1.6);
+
+    tweenValue(0, 1, DEATH.sear, (v) => {
+      this.tint = lerpColor(DEATH.white, this.enragedTint, Ease.quadIn(v));
+    });
+
+    delay(DEATH.land).then(() => {
+      if (this.destroyed) return;
+      this.spawnShards(DEATH.shards, 2.6);
+      this.dust(DEATH.dust, 2.1);
+      this.blast(this.core, DEATH.motes, 620, 0.9);
+    });
+
     await Promise.all([
       tween(
         this.pose,
@@ -1216,7 +1240,7 @@ export class Boss extends Container {
         0.42,
         { ease: Ease.quadIn },
       ),
-      tween(this.rig, { alpha: 0 }, 0.4, { delay: 0.14 }),
+      tween(this.rig, { alpha: 0 }, DEATH.fade, { delay: DEATH.land }),
       tween(this.aura, { alpha: 0 }, 0.5),
       tween(this.shadow, { alpha: 0 }, 0.44, { delay: 0.1 }),
     ]);
