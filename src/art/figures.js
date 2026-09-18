@@ -1,125 +1,74 @@
-import { Container, Rectangle, Sprite, Texture } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import { loadAlphaClip } from "./alphavideo.js";
-import victoryUrl from "../assets/outcome/victory-figure.webp";
-import defeatUrl from "../assets/outcome/defeat-figure.webp";
+import victoryStillUrl from "../assets/outcome/victory-figure.webp";
+import defeatStillUrl from "../assets/outcome/defeat-figure.webp";
 import victoryClipUrl from "../assets/outcome/victory-figure.mp4";
+import defeatClipUrl from "../assets/outcome/defeat-figure.mp4";
 
-const SHEETS = {
-  victory: {
-    url: victoryUrl,
-    cols: 7,
-    cellW: 300,
-    cellH: 300,
-    pad: 2,
-    count: 28,
-    fps: 7.5,
-  },
-  defeat: {
-    url: defeatUrl,
-    cols: 6,
-    cellW: 300,
-    cellH: 300,
-    pad: 2,
-    count: 24,
-    fps: 7.4,
-  },
+const ART = {
+  victory: { still: victoryStillUrl, clip: victoryClipUrl },
+  defeat: { still: defeatStillUrl, clip: defeatClipUrl },
 };
 
-const CLIPS = { victory: victoryClipUrl };
+const SIDES = ["victory", "defeat"];
 
-export const FIGURE_ASPECT = SHEETS.victory.cellW / SHEETS.victory.cellH;
+export const FIGURE_ASPECT = 1;
 
 export const FIGURE_CARRIES_STARS = true;
 
-const frames = { victory: null, defeat: null };
+const stills = { victory: null, defeat: null };
 const clips = { victory: null, defeat: null };
 let loaded = false;
-let clock = -1;
 
-async function cut(sheet) {
+async function decode(url) {
   const img = new Image();
-  img.src = sheet.url;
+  img.src = url;
   await img.decode();
-
   const c = document.createElement("canvas");
   c.width = img.width;
   c.height = img.height;
   c.getContext("2d").drawImage(img, 0, 0);
-  const source = canvasTexture(c).source;
-
-  const out = [];
-  for (let i = 0; i < sheet.count; i++) {
-    out.push(
-      new Texture({
-        source,
-        frame: new Rectangle(
-          sheet.pad + (i % sheet.cols) * (sheet.cellW + sheet.pad),
-          sheet.pad + Math.floor(i / sheet.cols) * (sheet.cellH + sheet.pad),
-          sheet.cellW,
-          sheet.cellH,
-        ),
-      }),
-    );
-  }
-  return out;
+  return canvasTexture(c);
 }
 
 export async function loadOutcomeFigures() {
-  if (loaded) return frames;
+  if (loaded) return stills;
   loaded = true;
-  for (const key of ["victory", "defeat"]) {
+  for (const key of SIDES) {
     try {
-      frames[key] = await cut(SHEETS[key]);
+      stills[key] = await decode(ART[key].still);
     } catch {
-      frames[key] = null;
+      stills[key] = null;
     }
-    if (!CLIPS[key]) continue;
     try {
-      clips[key] = await loadAlphaClip(CLIPS[key]);
+      clips[key] = await loadAlphaClip(ART[key].clip);
     } catch {
       clips[key] = null;
     }
   }
-  return frames;
+  return stills;
 }
 
 export function figureTexture(defeat) {
-  const key = defeat ? "defeat" : "victory";
-  const set = frames[key];
-  if (!set) return null;
-  if (clock < 0) return set[0];
-  const i = Math.floor(clock * SHEETS[key].fps);
-  return set[i < set.length ? i : set.length - 1];
-}
-
-export function stepFigure(dt) {
-  if (clock >= 0) clock += dt;
-}
-
-export function startFigure() {
-  clock = 0;
-}
-
-export function stopFigure() {
-  clock = -1;
+  return stills[defeat ? "defeat" : "victory"];
 }
 
 export class FigureView extends Container {
   constructor() {
     super();
     this.eventMode = "none";
-    this.sheet = new Sprite();
-    this.sheet.anchor.set(0.5, 1);
-    this.sheet.eventMode = "none";
-    this.sheet.visible = false;
-    this.addChild(this.sheet);
+    this.still = new Sprite();
+    this.still.anchor.set(0.5, 1);
+    this.still.eventMode = "none";
+    this.still.visible = false;
+    this.addChild(this.still);
     this.clip = null;
     this.span = 0;
   }
 
   adopt() {
-    for (const key of ["victory", "defeat"]) {
+    for (const key of SIDES) {
       const clip = clips[key];
       if (!clip || clip.parent) continue;
       clip.visible = false;
@@ -147,10 +96,10 @@ export class FigureView extends Container {
       this.clip = null;
     }
 
-    this.sheet.visible = !clip && !!texture;
+    this.still.visible = !clip && !!texture;
     if (texture) {
-      if (this.sheet.texture !== texture) this.sheet.texture = texture;
-      if (span > 0) this.sheet.setSize(span * FIGURE_ASPECT, span);
+      if (this.still.texture !== texture) this.still.texture = texture;
+      if (span > 0) this.still.setSize(span * FIGURE_ASPECT, span);
     }
 
     if (clip) {
@@ -163,20 +112,11 @@ export class FigureView extends Container {
   }
 
   start(defeat) {
-    startFigure();
     const clip = this.pick(defeat);
     if (clip) clip.play();
   }
 
-  step(dt, defeat) {
-    if (this.clip) return;
-    stepFigure(dt);
-    const frame = figureTexture(defeat);
-    if (frame && this.sheet.texture !== frame) this.sheet.texture = frame;
-  }
-
   reset() {
-    stopFigure();
     if (this.clip) this.clip.rewind();
   }
 }

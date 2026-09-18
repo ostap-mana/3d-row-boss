@@ -715,7 +715,6 @@ export class OutcomeScreen extends Container {
     if (this.stale) this.rephotograph();
     this.t += dt;
     this.fireworks.update(dt);
-    if (this.figure.visible) this.figure.step(dt, this.defeat);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;

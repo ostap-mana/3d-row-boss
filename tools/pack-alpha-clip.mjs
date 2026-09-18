@@ -53,6 +53,12 @@ pack-alpha-clip — a clip and its matte into one mp4 that carries alpha.
                   pixel. Default 8; raise it if something genuinely green goes
                   grey.
   --fps <n>       override the source rate. Default: the source's own.
+  --still <file>  also write the last frame as a webp with straight alpha —
+                  what the card shows on a webview that will not play the
+                  clip. A still rather than the old sheet: the sheet cost
+                  half a megabyte to animate worse than the clip does.
+  --still-width <px>  width of that still. Default: --cell.
+  --still-quality <n>  its webp quality. Default 82.
   --out <file>    default: src/assets/outcome/<name>.mp4
 
   node tools/pack-alpha-clip.mjs src/source/outcome/victory-figure.mp4 \\
@@ -195,9 +201,12 @@ if (frames === 0) {
 }
 
 const ramp = Math.max(1e-4, drop - keep);
+const stillPath = flag("still", null);
+const still = stillPath ? Buffer.alloc(px * 4) : null;
 for (let f = 0; f < frames; f++) {
   const off = f * px * 4;
   const moff = f * px;
+  const keeping = still && f === frames - 1;
   for (let i = 0; i < px; i++) {
     const j = off + i * 4;
     const r = colour[j];
@@ -217,6 +226,13 @@ for (let f = 0; f < frames; f++) {
 
     const keptGreen =
       over > 0 && spill > 0 ? g + (Math.min(g, rest + lift) - g) * spill : g;
+
+    if (keeping) {
+      still[i * 4] = r;
+      still[i * 4 + 1] = keptGreen;
+      still[i * 4 + 2] = b;
+      still[i * 4 + 3] = a * 255;
+    }
 
     colour[j] = r * a;
     colour[j + 1] = keptGreen * a;
@@ -278,9 +294,48 @@ if (done.status !== 0) {
   process.exit(1);
 }
 
+let stillNote = "";
+if (still) {
+  const stillOut = resolve(stillPath);
+  const stillW = Math.round(Number(flag("still-width", cell)));
+  const shot = spawnSync(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-f",
+      "rawvideo",
+      "-pix_fmt",
+      "rgba",
+      "-s",
+      `${side}x${side}`,
+      "-i",
+      "-",
+      "-vf",
+      `scale=${stillW}:${stillW}:flags=lanczos`,
+      "-frames:v",
+      "1",
+      "-c:v",
+      "libwebp",
+      "-quality",
+      String(flag("still-quality", 82)),
+      stillOut,
+    ],
+    { input: still },
+  );
+  if (shot.status !== 0) {
+    process.stderr.write(shot.stderr?.toString() || "still failed\n");
+    process.exit(1);
+  }
+  stillNote = `still ${stillW}px  ${(statSync(stillOut).size / 1024).toFixed(1)} kB\n${stillOut}\n`;
+}
+
 process.stdout.write(
   `${basename(input)}  ${srcW}x${srcH}  +  ${sheet.length} matte  ->  ` +
     `${cell}x${cell * 2} ${frames}f @${fps} crf ${crf}  ` +
-    `${(statSync(out).size / 1024).toFixed(1)} kB\n${out}\n\n` +
-    `{ w: ${cell}, h: ${cell}, fps: ${fps}, frames: ${frames} }\n`,
+    `${(statSync(out).size / 1024).toFixed(1)} kB\n${out}\n` +
+    stillNote +
+    `\n{ w: ${cell}, h: ${cell}, fps: ${fps}, frames: ${frames} }\n`,
 );
