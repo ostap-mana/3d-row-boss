@@ -2,7 +2,7 @@ import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import { FIRE, WATER, NATURE, LIGHTNING, ARCANE, WIND } from "../config.js";
 
-export const CROWN_CELL = { w: 112, h: 128, cols: 4, aspect: 112 / 128 };
+export const CROWN_CELL = { w: 84, h: 96, cols: 4, aspect: 84 / 96 };
 
 const ID_BY_ELEMENT = {
   [FIRE]: "fire",

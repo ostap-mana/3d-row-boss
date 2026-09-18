@@ -2,7 +2,7 @@ import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import sheetUrl from "../assets/fx/fire-sheet.webp";
 
-const SHEET = { cols: 5, cell: { w: 399, h: 258 }, count: 10 };
+const SHEET = { cols: 5, cell: { w: 288, h: 186 }, count: 10 };
 
 export const FIRE_TRAVEL_LAST = 4;
 
