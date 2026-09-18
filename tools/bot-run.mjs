@@ -197,6 +197,10 @@ await evaluate(`window.__bot = async (gap, useUlts) => {
   const d = s.director;
   const b = s.board;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const party = () => {
+    const hp = s.heroRow.cards.map((c) => (c.downed ? 0 : Math.max(0, c.hp)));
+    return { low: +Math.min(...hp).toFixed(3), sum: +(hp.reduce((a, b) => a + b, 0) / hp.length).toFixed(3) };
+  };
   const locked = () => {
     let n = 0;
     for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (b.isLocked(r, c)) n++;
@@ -227,7 +231,8 @@ await evaluate(`window.__bot = async (gap, useUlts) => {
     log.push({
       t: +(d.elapsed() - t0).toFixed(2), hp: +d.bossHp.toFixed(4),
       moves: d.movesPlayed, alive: s.heroRow.aliveCount(), swaps: b.countSwaps(),
-      locks: locked(), pace: +d.pace().toFixed(3), armor: +d.armor().toFixed(3), kind,
+      locks: locked(), pace: +d.pace().toFixed(3), armor: +d.armor().toFixed(3),
+      low: party().low, party: party().sum, kind,
     });
     await sleep(gap);
   }
@@ -236,7 +241,7 @@ await evaluate(`window.__bot = async (gap, useUlts) => {
   return {
     outcome: d.outcome || d.verdict() || "none", killOn: d.killOn, ults, stalled,
     moves: d.movesPlayed, hp: +d.bossHp.toFixed(4), alive: s.heroRow.aliveCount(),
-    secs: +(d.elapsed() - t0).toFixed(2), log,
+    low: party().low, party: party().sum, secs: +(d.elapsed() - t0).toFixed(2), log,
   };
 }; true`);
 
@@ -261,6 +266,7 @@ for (let i = 0; i < runs; i++) {
   process.stdout.write(
     `run ${i}  ${String(v.outcome).padEnd(8)} ${String(v.moves).padStart(2)}/${v.killOn} moves  ` +
       `${String(v.secs).padStart(6)}s  boss ${v.hp.toFixed(3)}  heroes ${v.alive}/6  ` +
+      `party ${v.party.toFixed(2)} weakest ${v.low.toFixed(2)}  ` +
       `ults ${v.ults}  stalls ${v.stalled}\n`,
   );
 }
@@ -279,7 +285,9 @@ if (played.length) {
       `mean ${mean((r) => r.moves).toFixed(1)} moves  ` +
       `${mean((r) => r.secs).toFixed(1)}s  ` +
       `${mean((r) => r.ults).toFixed(1)} ults  ` +
-      `${mean((r) => r.alive).toFixed(1)} heroes standing\n`,
+      `${mean((r) => r.alive).toFixed(1)} heroes standing\n` +
+      `party ends at ${mean((r) => r.party).toFixed(2)}, ` +
+      `weakest hero at ${mean((r) => r.low).toFixed(2)}\n`,
   );
 }
 
