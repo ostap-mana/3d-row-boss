@@ -169,7 +169,7 @@ function rnd(i) {
   return s - Math.floor(s);
 }
 
-const BRUSH_DIR = "src/source/fx/invokers";
+const BRUSH_DIR = "masters/fx/invokers";
 
 const BRUSH_PX = 96;
 

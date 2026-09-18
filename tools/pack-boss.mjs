@@ -3,7 +3,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/boss/animation.png");
+const SOURCE = join(ROOT, "masters/boss/animation.png");
 const OUT = join(ROOT, "src/assets/boss/magmaroth-sheet");
 
 const EMPTY = 40;
@@ -180,7 +180,7 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SOURCE);
 const px = decode(SOURCE);
-console.log(`in   src/source/boss/animation.png  ${info.w}x${info.h}`);
+console.log(`in   masters/boss/animation.png  ${info.w}x${info.h}`);
 
 const bands = split(px, info.w, info.h);
 bands.forEach((b, i) =>

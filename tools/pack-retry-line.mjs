@@ -4,7 +4,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "src/source/endcard/retry-line-gold.png");
+const SRC = join(ROOT, "masters/endcard/retry-line-gold.png");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 const OUT = join(OUT_DIR, "retry-line");
 

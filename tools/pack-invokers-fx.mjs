@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, statSync, readdirSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC_DIR = "src/source/fx/invokers";
+const SRC_DIR = "masters/fx/invokers";
 
 const COLS = 5;
 const COUNT = 10;

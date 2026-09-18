@@ -35,7 +35,7 @@ pack-clip — a green-screen clip into one mp4 the GPU keys at runtime.
                   comes back about the same size and softer.
   --out <file>    default: src/assets/outcome/<name>.mp4
 
-  node tools/pack-clip.mjs src/source/outcome/retry-raw.mp4 \
+  node tools/pack-clip.mjs masters/outcome/retry-raw.mp4 \
     --crop 736:720:248:0 --out src/assets/outcome/spurn.mp4
 `;
 

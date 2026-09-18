@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, statSync, existsSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC_DIR = "src/source/fx/invokers";
+const SRC_DIR = "masters/fx/invokers";
 const OUT = "src/assets/fx/gem-charge.webp";
 
 const HALO_SRC = "T_FX_Circle_11_1.webp";

@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT_DIR = join(ROOT, "src/source/sprites");
+const OUT_DIR = join(ROOT, "masters/sprites");
 
 const ENDPOINT = (id) =>
   `https://api.pixellab.ai/mcp/characters/${id}/spritesheet`;

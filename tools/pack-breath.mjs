@@ -9,7 +9,7 @@ pack-breath — a generated fire mass onto the grid art/spells.js already cuts.
   node tools/pack-breath.mjs [options]
 
   --take <id>     which take to pack. Default breath-v5. The frames are looked
-                  for in src/source/fx/frames/<take> first and in the local
+                  for in masters/fx/frames/<take> first and in the local
                   ComfyUI's output/fxclip/<take> only if that misses, so the
                   sheet can be re-packed at any setting from a clean checkout.
                   A take kept only in the ComfyUI output cannot be re-packed
@@ -125,7 +125,7 @@ const rel = (p) =>
     .split(sep)
     .join("/");
 
-const kept = join(ROOT, "src/source/fx/frames", take);
+const kept = join(ROOT, "masters/fx/frames", take);
 const generated = join(COMFY, "output", "fxclip", take);
 const dir = existsSync(kept) ? kept : generated;
 if (!existsSync(dir)) {

@@ -7,7 +7,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const JOBS = [
   {
-    src: "src/source/arena/islands.webp",
+    src: "masters/arena/islands.webp",
     out: "src/assets/arena/sky.webp",
     floor: 0.76,
     horizon: 0.38,

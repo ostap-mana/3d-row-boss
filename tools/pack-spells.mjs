@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CLIPS = join(ROOT, "src/source/fx/clips");
+const CLIPS = join(ROOT, "masters/fx/clips");
 const OUT_DIR = join(ROOT, "src/assets/fx");
 
 export const COLS = 5;

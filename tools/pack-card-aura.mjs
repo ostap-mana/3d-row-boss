@@ -4,7 +4,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC_DIR = join(ROOT, "src/source/cards");
+const SRC_DIR = join(ROOT, "masters/cards");
 const OUT_DIR = join(ROOT, "src/assets/cards");
 
 const ASSETS = [

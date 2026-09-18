@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const IN_DIR = join(ROOT, "src/source/endcard");
+const IN_DIR = join(ROOT, "masters/endcard");
 const OUT_DIR = join(ROOT, "src/assets/brand");
 
 const EMPTY = 12;

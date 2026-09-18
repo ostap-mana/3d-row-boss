@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { ELEMENTS } from "./gen-card-auras.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const AURA_SHEET = join(ROOT, "src/source/cards/aura-sheet.png");
+const AURA_SHEET = join(ROOT, "masters/cards/aura-sheet.png");
 const TMP = join(ROOT, "src/animation/.tmp");
 
 const CLIPS = join(

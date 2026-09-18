@@ -11,7 +11,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC_DIR = join(ROOT, "src/source/audio");
+const SRC_DIR = join(ROOT, "masters/audio");
 const OUT_DIR = join(ROOT, "src/assets/audio");
 const OUT = join(OUT_DIR, "outcome.mp3");
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync, statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/hand/hand-nobg.png");
+const SOURCE = join(ROOT, "masters/hand/hand-nobg.png");
 const OUT = join(ROOT, "src/assets/board/hint-hand");
 
 const EMPTY = 12;
@@ -176,7 +176,7 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 if (!existsSync(SOURCE)) {
   console.error(
     `missing ${rel(SOURCE)}\n` +
-      `run  node tools/cut-bg.mjs src/source/hand/hand.png --trim  first:` +
+      `run  node tools/cut-bg.mjs masters/hand/hand.png --trim  first:` +
       ` the render it comes from has a painted checkerboard, not an alpha channel.`,
   );
   process.exit(1);

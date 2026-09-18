@@ -43,7 +43,7 @@ retime-clip — a generated clip with its stutter taken out, at screen rate.
   --search <n>    motion search radius for the interpolation. Default 32.
   --out <file>    default: <name>-smooth.mp4 beside the source.
 
-  node tools/retime-clip.mjs src/source/ui/star.mp4 --range 30:114
+  node tools/retime-clip.mjs masters/ui/star.mp4 --range 30:114
 `;
 
 const args = process.argv.slice(2);

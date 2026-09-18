@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync, mkdirSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT_DIR = join(ROOT, "src/source/heroes");
+const OUT_DIR = join(ROOT, "masters/heroes");
 
 const TARGET = { w: 160, h: 328 };
 const HEAD = 160;
@@ -182,6 +182,6 @@ MAP.forEach(([rel, name]) => {
   const dest = join(OUT_DIR, `portrait-${name}.png`);
   encode(out, TARGET.w, TARGET.h, dest);
   console.log(
-    `${rel}  ${info.w}x${info.h}  ->  src/source/heroes/portrait-${name}.png  ${TARGET.w}x${TARGET.h}`,
+    `${rel}  ${info.w}x${info.h}  ->  masters/heroes/portrait-${name}.png  ${TARGET.w}x${TARGET.h}`,
   );
 });

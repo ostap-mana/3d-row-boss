@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "src/source/board/bars/sheet.png");
+const SRC = join(ROOT, "masters/board/bars/sheet.png");
 
-const OUT_DIR = join(ROOT, "src/source/board/bars");
+const OUT_DIR = join(ROOT, "masters/board/bars");
 
 const BARS = ["green", "blue"];
 

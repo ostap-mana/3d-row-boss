@@ -3,7 +3,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const WORKFLOWS = join(ROOT, "src/source/fx/clip-workflows");
+const WORKFLOWS = join(ROOT, "masters/fx/clip-workflows");
 
 const HOST = process.env.COMFYUI_URL || "http://127.0.0.1:8188";
 

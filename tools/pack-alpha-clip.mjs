@@ -72,7 +72,7 @@ pack-alpha-clip — a clip and its matte into one mp4 that carries alpha.
   --still-quality <n>  its webp quality. Default 82.
   --out <file>    default: src/assets/outcome/<name>.mp4
 
-  node tools/pack-alpha-clip.mjs src/source/outcome/victory-figure.mp4 \\
+  node tools/pack-alpha-clip.mjs masters/outcome/victory-figure.mp4 \\
     --matte .comfy/victory-matte --cell 512
 `;
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "src/source/fx/invokers");
+const SRC = join(ROOT, "masters/fx/invokers");
 const OUT = join(ROOT, "src/assets/fx");
 
 const CELL = { w: 112, h: 128 };

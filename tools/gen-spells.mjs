@@ -3,7 +3,7 @@ import { resolve, dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT_DIR = join(ROOT, "src/source/fx/clips");
+const OUT_DIR = join(ROOT, "masters/fx/clips");
 
 const MODEL = "bytedance/seedance-1-lite";
 const SETTINGS = {

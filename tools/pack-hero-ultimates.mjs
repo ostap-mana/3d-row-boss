@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE_DIR = join(ROOT, "src/source/sprites");
+const SOURCE_DIR = join(ROOT, "masters/sprites");
 const OUT_DIR = join(ROOT, "src/assets/sprites");
 
 const NAMES = ["fire", "water", "nature", "lightning", "arcane", "wind"];

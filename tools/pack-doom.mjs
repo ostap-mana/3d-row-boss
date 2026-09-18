@@ -7,13 +7,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const JOBS = [
   {
-    src: "src/source/doom/track.webp",
+    src: "masters/doom/track.webp",
     out: "src/assets/doom/doom-track.webp",
     slab: true,
     what: "doom track",
   },
   {
-    src: "src/source/doom/fill.webp",
+    src: "masters/doom/fill.webp",
     out: "src/assets/doom/doom-fill.webp",
     slab: false,
     maxWidth: 96,

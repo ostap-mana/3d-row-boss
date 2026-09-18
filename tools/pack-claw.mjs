@@ -47,7 +47,7 @@ pack-claw — the boss's claw rake clip onto its own flipbook grid.
   --contact       also write a PNG of the sheet over the arena's own ground,
                   which is the only way to see what the matte actually did.
 
-  Reads src/source/fx/clips/claw.mp4, writes src/assets/fx/claw-rake.webp on
+  Reads masters/fx/clips/claw.mp4, writes src/assets/fx/claw-rake.webp on
   the grid src/art/rake.js cuts, and prints that grid so it can be pasted back.
 
   The clip is paint on a white page: three gashes whose bodies are near-black
@@ -88,7 +88,7 @@ const flag = (name, fallback) => {
 };
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "src/source/fx/clips/claw.mp4");
+const SRC = join(ROOT, "masters/fx/clips/claw.mp4");
 const OUT_DIR = join(ROOT, "src/assets/fx");
 const OUT = join(OUT_DIR, "claw-rake.webp");
 

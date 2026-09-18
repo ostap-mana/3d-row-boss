@@ -5,9 +5,9 @@ import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = {
-  trough: join(ROOT, "src/source/board/bars/progress-2-blue.png"),
-  green: join(ROOT, "src/source/board/bars/green.webp"),
-  blue: join(ROOT, "src/source/board/bars/blue.webp"),
+  trough: join(ROOT, "masters/board/bars/progress-2-blue.png"),
+  green: join(ROOT, "masters/board/bars/green.webp"),
+  blue: join(ROOT, "masters/board/bars/blue.webp"),
 };
 const OUT = join(ROOT, "src/assets/board/bar");
 

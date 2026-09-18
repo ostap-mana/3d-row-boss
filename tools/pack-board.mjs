@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/board/frame-nobg.png");
+const SOURCE = join(ROOT, "masters/board/frame-nobg.png");
 const OUT = join(ROOT, "src/assets/board/frame");
 
 const EMPTY = 12;

@@ -8,7 +8,7 @@ pack-bolt — a painted lance, cut off a still and pointed the way beams fly.
 
   node tools/pack-bolt.mjs <id> [options]
 
-  --src <file>      default src/source/fx/<id>-arrow.png
+  --src <file>      default masters/fx/<id>-arrow.png
   --row <i>         take the i-th lance out of a sheet of them stacked one per
                     element, counting from the top. The rows are found by
                     reading the source's own brightness rather than by dividing
@@ -37,14 +37,14 @@ pack-bolt — a painted lance, cut off a still and pointed the way beams fly.
   **Mirrored by default**, which is the one thing here that is not a setting for
   taste. Vfx.beam anchors a lance at the hero's card and grows it toward the
   boss, so the texture's +x end is the end that arrives. Art generated off the
-  prompts in src/source/fx/bolt-prompts.md is drawn head-left, tail streaming
+  prompts in masters/fx/bolt-prompts.md is drawn head-left, tail streaming
   right — the way a bolt is drawn when it is flying at the reader — and dropped
   in unmirrored it fires the arrowhead back into the hero's own face.
 
   **A row is cut before the content box is measured**, not after, so each lance
   is measured on its own and not against the whole sheet. Equal bands were the
   first try at this and they are kept as --band, but they are wrong on real art:
-  on the six-lance sheet in src/source/fx/lances.webp the water and nature rows
+  on the six-lance sheet in masters/fx/lances.webp the water and nature rows
   each overhang their sixth of the image, so every band arrived with a slice of
   its neighbour in it and the content box then measured the pair. --row reads
   the brightness of each line of pixels instead and cuts where the sheet is
@@ -80,7 +80,7 @@ const opt = (name, fallback) => {
 };
 const num = (name, fallback) => Number(opt(name, fallback));
 
-const SRC = resolve(ROOT, opt("src", `src/source/fx/${id}-arrow.png`));
+const SRC = resolve(ROOT, opt("src", `masters/fx/${id}-arrow.png`));
 const BAND = opt("band", null);
 const ROW = opt("row", null);
 const GAP = num("gap", 8);

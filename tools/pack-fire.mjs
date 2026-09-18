@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/fx/fire.png");
+const SOURCE = join(ROOT, "masters/fx/fire.png");
 const OUT = join(ROOT, "src/assets/fx/fire-sheet");
 
 const rel = (p) =>

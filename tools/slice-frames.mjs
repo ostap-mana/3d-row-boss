@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/cards/frames-sheet.webp");
-const OUT_DIR = join(ROOT, "src/source/cards/frames");
+const SOURCE = join(ROOT, "masters/cards/frames-sheet.webp");
+const OUT_DIR = join(ROOT, "masters/cards/frames");
 
 const EMPTY = 8;
 
