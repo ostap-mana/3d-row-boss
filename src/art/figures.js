@@ -50,8 +50,10 @@ export async function loadOutcomeFigures() {
   return stills;
 }
 
+const side = (defeat) => (defeat ? "defeat" : "victory");
+
 function figureTexture(defeat) {
-  return stills[defeat ? "defeat" : "victory"];
+  return stills[side(defeat)];
 }
 
 export function rewindFigures() {
@@ -60,6 +62,8 @@ export function rewindFigures() {
     if (clip) clip.rewind();
   }
 }
+
+const ROLL_GRACE = 600;
 
 export class FigureView extends Container {
   constructor() {
@@ -72,6 +76,8 @@ export class FigureView extends Container {
     this.addChild(this.still);
     this.clip = null;
     this.span = 0;
+    this.grounded = { victory: false, defeat: false };
+    this.watch = 0;
   }
 
   adopt() {
@@ -85,7 +91,7 @@ export class FigureView extends Container {
 
   pick(defeat) {
     this.adopt();
-    return clips[defeat ? "defeat" : "victory"] || null;
+    return clips[side(defeat)] || null;
   }
 
   has(defeat) {
@@ -94,7 +100,7 @@ export class FigureView extends Container {
 
   fit(defeat, span) {
     this.span = span;
-    const clip = this.pick(defeat);
+    const clip = this.grounded[side(defeat)] ? null : this.pick(defeat);
     const texture = clip ? null : figureTexture(defeat);
 
     if (this.clip && this.clip !== clip) {
@@ -119,11 +125,34 @@ export class FigureView extends Container {
   }
 
   start(defeat) {
-    const clip = this.pick(defeat);
-    if (clip) clip.play();
+    const clip = this.clip;
+    if (!clip) return;
+    clip.play();
+
+    const video = clip.video;
+    const from = video.currentTime;
+    clearTimeout(this.watch);
+    this.watch = setTimeout(() => {
+      if (this.clip !== clip) return;
+      if (!video.paused && video.currentTime > from + 0.02) return;
+      this.ground(defeat);
+    }, ROLL_GRACE);
+  }
+
+  ground(defeat) {
+    if (!figureTexture(defeat)) return;
+    this.grounded[side(defeat)] = true;
+    if (this.clip) {
+      this.clip.stop();
+      this.clip.visible = false;
+      this.clip = null;
+    }
+    this.fit(defeat, this.span);
   }
 
   reset() {
+    clearTimeout(this.watch);
+    this.watch = 0;
     if (this.clip) this.clip.rewind();
   }
 }

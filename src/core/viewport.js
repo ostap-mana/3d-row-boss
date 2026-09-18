@@ -3,7 +3,7 @@ const SETTLE_FRAMES = 3;
 
 const PIXEL_BUDGET = 2.6e6;
 const MIN_DPR = 1;
-const MAX_DPR = 2;
+const MAX_DPR = 3;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
