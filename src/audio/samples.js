@@ -30,7 +30,7 @@ const SLICES = {
   hurt: { at: 6.69, dur: 0.3, gain: 0.12 },
   down: { at: 7.11, dur: 0.85, gain: 0.14 },
   heal: { at: 8.08, dur: 1.1, gain: 0.1 },
-  mend: { bank: "mend", at: 0, dur: 1.382, gain: 0.26 },
+  mend: { bank: "mend", at: 0, dur: 1.391, gain: 0.26 },
   cutin: { at: 9.3, dur: 1, gain: 0.18 },
   ult: { at: 10.42, dur: 1.6, gain: 0.3 },
   rise: { at: 12.14, dur: 1.1, gain: 0.24 },

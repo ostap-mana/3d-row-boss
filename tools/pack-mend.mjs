@@ -3,26 +3,28 @@ import { resolve, dirname, join } from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 
 const USAGE = `
-pack-mend — the boss mend sting, cut from one Invokers magic swell.
+pack-mend — the boss mend sting: the heal sound Invokers itself plays.
 
-  node tools/pack-mend.mjs [--out <file>] [--layered] [--keep-wav]
+  node tools/pack-mend.mjs [--take 1|2|3] [--out <file>] [--keep-wav]
 
-  MGC_27 is the sound as the build plays it: nothing is layered onto it and
-  nothing is pitched, only a trim, two fades and a normalise. It was picked
-  because its own gesture is already the one the moment needs — it climbs for
-  0.65 s, crests, crests again a quarter second later, and falls 26 dB on its
-  own — and because 67% of its energy sits below 120 Hz, which puts it in the
-  boss's register rather than the heroes'.
+  TTM_HEAL_1..3 are the three takes the game randomises between for its
+  healing totems (OGR049_Healing_Totem1/2, DEM550_Inv_Heal1, NEC004). Take 3
+  is the default: it is the darkest of the three (centroid 1483 Hz against
+  1866 and 2518), 78% of its energy sits in 120-300 Hz, and its crest is the
+  latest at 0.55 s, which leaves the longest audible ramp into the moment the
+  HP bar moves.
 
-  sfx.bossMend plays it at its native rate and delays the start instead, so the
-  crest lands on the frame the HP bar moves on. MEND_ACCENT below is what that
-  delay is computed from: seconds from the first audible sample to the crest.
-  Feed it back into src/audio/sfx.js whenever the trim changes.
+  Nothing is layered onto it, nothing is pitched and nothing is stretched.
+  The sound is normalised, fenced with two short fades so the slice cannot
+  click, and high-passed at 75 Hz — below that is headroom a phone will not
+  reproduce and bits a 32 kbps encode should not spend.
 
-  --layered       build the three-layer version instead (MGC_67 opens, MGC_34
-                  carries the body, MGC_27 lays a recorded decay under the
-                  tail). Denser and better synced, but it is an assembly rather
-                  than a sound the game itself plays.
+  sfx.bossMend plays it at its native rate and delays the start, so the crest
+  lands on the frame the HP bar moves on. MEND_ACCENT below is what that delay
+  is computed from: seconds from the first audible sample to the crest. Feed it
+  back into src/audio/sfx.js whenever the take changes.
+
+  --take <n>      which heal take to ship, 1..3. Default 3.
   --out <file>    default: src/assets/audio/mend.mp3
   --keep-wav      also leave the 48 kHz master next to the mp3 output
 `;
@@ -42,51 +44,35 @@ const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), "..");
 const SRC_DIR = join(ROOT, "masters/audio");
 const out = resolve(ROOT, flag("out", "src/assets/audio/mend.mp3"));
 const master = out.replace(/\.mp3$/, ".master.wav");
-const layered = args.includes("--layered");
+
+const take = Number(flag("take", 3));
+if (![1, 2, 3].includes(take)) {
+  process.stderr.write("--take must be 1, 2 or 3\n");
+  process.exit(1);
+}
 
 const RATE_HZ = 32000;
 const BITRATE = "32k";
+const LEVEL = { 1: 1.82, 2: 2.45, 3: 2.37 }[take];
 
-const STRAIGHT = {
-  layers: ["MGC_27"],
-  graph:
-    "[0:a]atrim=0.03:1.43,asetpts=PTS-STARTPTS," +
-    "highpass=f=75,afade=t=in:st=0:d=0.018,afade=t=out:st=1.35:d=0.05," +
-    "volume=1.78[mix]",
-};
-
-const LAYERED = {
-  layers: ["MGC_67", "MGC_34", "MGC_27"],
-  graph: [
-    "[0:a]atrim=0.10:1.20,asetpts=PTS-STARTPTS,volume=0.70,afade=t=in:st=0:d=0.06[open]",
-    "[1:a]atrim=0:0.975,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.50:curve=cub,adelay=125[body]",
-    "[2:a]atrim=0.95:1.45,asetpts=PTS-STARTPTS,volume=2.0,afade=t=in:st=0:d=0.05,adelay=720[settle]",
-    "[open][body][settle]amix=inputs=3:normalize=0:dropout_transition=0," +
-      "highpass=f=75,equalizer=f=760:t=o:w=1.5:g=4," +
-      "atrim=0:1.1,asetpts=PTS-STARTPTS," +
-      "volume='exp(-max(0\\,t-0.8)*9.5)':eval=frame," +
-      "afade=t=in:st=0:d=0.012,afade=t=out:st=1.07:d=0.03,volume=1.41[mix]",
-  ].join(";"),
-};
-
-const recipe = layered ? LAYERED : STRAIGHT;
-
-for (const name of recipe.layers) {
-  const p = join(SRC_DIR, `${name}.wav`);
-  if (!existsSync(p)) {
-    process.stderr.write(`missing ${p}\n`);
-    process.exit(1);
-  }
+const source = join(SRC_DIR, `TTM_HEAL_${take}.wav`);
+if (!existsSync(source)) {
+  process.stderr.write(`missing ${source}\n`);
+  process.exit(1);
 }
 
 const ff = (list) => execFileSync("ffmpeg", ["-v", "error", "-y", ...list]);
 
 ff([
-  ...recipe.layers.flatMap((name) => ["-i", join(SRC_DIR, `${name}.wav`)]),
-  "-filter_complex",
-  recipe.graph,
-  "-map",
-  "[mix]",
+  "-i",
+  source,
+  "-af",
+  [
+    "highpass=f=75",
+    "afade=t=in:st=0:d=0.012",
+    "areverse,afade=t=in:st=0:d=0.04,areverse",
+    `volume=${LEVEL}`,
+  ].join(","),
   "-ar",
   "48000",
   "-ac",
@@ -124,11 +110,11 @@ function pcm(file) {
     }
     at += 8 + size + (size & 1);
   }
-  const pcmOut = new Float32Array(data.length / 2);
-  for (let i = 0; i < pcmOut.length; i++) {
-    pcmOut[i] = data.readInt16LE(i * 2) / 32768;
+  const samples = new Float32Array(data.length / 2);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = data.readInt16LE(i * 2) / 32768;
   }
-  return pcmOut;
+  return samples;
 }
 
 const x = pcm(probe);
@@ -172,7 +158,7 @@ const hp = cast * tuned("MEND_FX", "peak");
 process.stdout.write(
   [
     `mend sting -> ${out.replace(`${ROOT}\\`, "").replace(`${ROOT}/`, "")}`,
-    `  ${recipe.layers.join(" + ")}${layered ? "" : " straight, trim and fades only"}`,
+    `  TTM_HEAL_${take} as the game plays it, normalised and fenced only`,
     `  ${(statSync(out).size / 1024).toFixed(1)} kB · ${RATE_HZ} Hz mono · ${BITRATE}`,
     `  decoded ${tail.toFixed(3)}s · head ${head.toFixed(3)}s · peak ${peak.toFixed(3)}`,
     "",

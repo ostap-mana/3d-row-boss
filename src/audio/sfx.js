@@ -28,7 +28,7 @@ const voice = (element) => ELEMENT[element] || ELEMENT[0];
 const BURST_GAP = 0.26;
 const BURST_KEEP = 3;
 
-const MEND_ACCENT = 0.332;
+const MEND_ACCENT = 0.503;
 
 const bursts = new Map();
 
