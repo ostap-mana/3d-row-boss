@@ -132,6 +132,19 @@ const TAKES = [
       "the frame ending completely black",
   },
   {
+    id: "comet-v1",
+    shot: "jet",
+    positive:
+      "a burning meteor falls straight down the frame trailing fire, " +
+      "a dense white-hot head at the leading edge with a long ragged tail of " +
+      "orange flame and black smoke streaming up behind it, " +
+      "burning fragments peeling off the tail and falling away, " +
+      "the trail is thick and turbulent near the head and thins as it goes up, " +
+      "it falls at full speed the whole way, the tail guttering and breaking " +
+      "into embers that fade, " +
+      "the frame ending completely black",
+  },
+  {
     id: "shatter-v1",
     shot: "centre",
     positive:

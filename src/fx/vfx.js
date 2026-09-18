@@ -1328,7 +1328,7 @@ export class Vfx extends Container {
     const n = frames.length;
     const life = hold + JET.tail;
 
-    return tweenValue(0, 1, life, (p) => {
+    tweenValue(0, 1, life, (p) => {
       if (s.destroyed) return;
       s.texture = frames[Math.min(n - 1, ((p * n * JET.rate) % n) | 0)];
       const open = p < JET.open ? Ease.quadOut(p / JET.open) : 1;
@@ -1341,6 +1341,8 @@ export class Vfx extends Container {
             : 1;
       s.alpha = JET.alpha * heat * fade;
     }).then(() => !s.destroyed && s.destroy());
+
+    return delay(hold);
   }
 
   async cone(from, to, color, opts) {
