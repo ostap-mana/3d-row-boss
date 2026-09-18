@@ -9,6 +9,7 @@ import {
 import { loadAudio } from "./decode.js";
 import spriteUrl from "../assets/audio/sfx.mp3";
 import outcomeUrl from "../assets/audio/outcome.mp3";
+import mendUrl from "../assets/audio/mend.mp3";
 import roomUrl from "../assets/audio/room.mp3";
 
 const MIN = 0.0001;
@@ -29,6 +30,7 @@ const SLICES = {
   hurt: { at: 6.69, dur: 0.3, gain: 0.12 },
   down: { at: 7.11, dur: 0.85, gain: 0.14 },
   heal: { at: 8.08, dur: 1.1, gain: 0.1 },
+  mend: { bank: "mend", at: 0, dur: 1.052, gain: 0.26 },
   cutin: { at: 9.3, dur: 1, gain: 0.18 },
   ult: { at: 10.42, dur: 1.6, gain: 0.3 },
   rise: { at: 12.14, dur: 1.1, gain: 0.24 },
@@ -62,8 +64,13 @@ const RATE = [1.0, 1.12, 1.26, 1.5, 1.68, 2.0, 2.24];
 
 const ELEMENT_RATE = [0.86, 1.06, 0.94, 1.18, 1.0, 1.3];
 
-let sprite = null;
-let outcome = null;
+const BANK_URL = {
+  sfx: spriteUrl,
+  outcome: outcomeUrl,
+  mend: mendUrl,
+};
+
+const banks = { sfx: null, outcome: null, mend: null };
 let roomAudio = null;
 const live = [];
 
@@ -71,12 +78,11 @@ let roomNodes = null;
 let roomTension = -1;
 
 if (AUDIO.sfxSamples) {
-  loadAudio(spriteUrl).then((got) => {
-    sprite = got;
-  });
-  loadAudio(outcomeUrl).then((got) => {
-    outcome = got;
-  });
+  for (const name of Object.keys(BANK_URL)) {
+    loadAudio(BANK_URL[name]).then((got) => {
+      banks[name] = got;
+    });
+  }
   if (AUDIO.bed) {
     loadAudio(roomUrl).then((got) => {
       roomAudio = got;
@@ -106,13 +112,13 @@ export const samples = {
   },
 
   ready() {
-    return !!sprite;
+    return !!banks.sfx;
   },
 
   play(name, o) {
     const s = SLICES[name];
     if (!AUDIO.sfxSamples || !s || audioParked()) return false;
-    const bank = s.bank === "outcome" ? outcome : sprite;
+    const bank = banks[s.bank || "sfx"];
     if (!bank) return false;
     const c = audioContext();
     const out = audioBus();
