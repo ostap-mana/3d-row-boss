@@ -66,9 +66,13 @@ function bannerBox(ui, stacked) {
 const STAGE = {
   short: 375,
   maxScale: 3.2,
-  portrait: { min: 0.42, max: 0.72 },
+  portrait: { min: 0.42, max: 0.58 },
   landscape: { min: 1.05, max: 2.4 },
 };
+
+const BOARD_BLEED = 0.1;
+
+const COLUMN_SHARE = 1.05;
 
 const CLOSE_KEEPOUT = 52;
 
@@ -164,7 +168,7 @@ export function computeLayout(w, h, safe, opts) {
 
 const BOSS_OVERLAP = 0.07;
 
-const BOSS_MIN = 0.215;
+const BOSS_MIN = 0.25;
 
 const BOSS_LIFT = 3;
 
@@ -236,21 +240,24 @@ function landscapeLayout(w, h, ui, safe, keepout) {
   const hudY = safe.top + pad * 0.8 + nameH;
   const chromeBottom = hudY + barH + 3 * ui + Math.max(3, barH * 0.32);
 
-  const rightEdge = w - safe.right - pad * 1.4;
-
   const plate = bannerBox(ui, false);
   const bannerY = Math.max(chromeBottom + 3 * ui, keepout) + plate.h / 2;
   const bandBottom = bannerY + plate.h / 2 + pad * 0.6;
 
-  const size = Math.min(h - safe.bottom - bandBottom - pad * 1.4, w * 0.5);
-  const cell = (size * GRID_RATIO) / 5;
-  const boardX = rightEdge - size;
-  const boardY = bandBottom + (h - safe.bottom - bandBottom - size) / 2;
-
   const leftEdge = safe.left + gut;
-  const leftW = boardX - pad - leftEdge;
+  const inner = w - safe.right - gut - leftEdge;
+  const room = h - safe.bottom - bandBottom - pad * 1.4;
+  const size = Math.min(room / (1 + BOARD_BLEED), inner * 0.47);
+  const cell = (size * GRID_RATIO) / 5;
 
-  const band = cardBand(leftEdge, leftW, 6, h * CARD.tall.landscape);
+  const split = pad * 2;
+  const leftW = Math.min(inner - size - split, size * COLUMN_SHARE);
+  const bandX = leftEdge + (inner - (leftW + split + size)) / 2;
+  const boardX = bandX + leftW + split;
+  const boardY = bandBottom + (h - safe.bottom - bandBottom - size) / 2;
+  const rightEdge = boardX + size;
+
+  const band = cardBand(bandX, leftW, 6, h * CARD.tall.landscape);
   const row = { y: h - safe.bottom - band.h * (1 + CARD.foot) };
 
   const bossTop = chromeBottom;
@@ -265,7 +272,7 @@ function landscapeLayout(w, h, ui, safe, keepout) {
     safe,
     board: { x: boardX, y: boardY, size, cell },
     boss: {
-      x: leftEdge + leftW / 2,
+      x: bandX + leftW / 2,
       y: bossTop + bossH * 0.55 - BOSS_LIFT * ui,
       scale: bossScale,
       floor: bossTop + bossH,
@@ -277,7 +284,7 @@ function landscapeLayout(w, h, ui, safe, keepout) {
       y: bannerY,
     },
     hud: {
-      x: leftEdge,
+      x: bandX,
       y: hudY,
       w: leftW,
       h: barH,
