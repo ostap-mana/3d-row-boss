@@ -67,12 +67,12 @@ export const DIFFICULTY = {
 
   randomOpeningHero: true,
 
-  partyChargePerGem: 0.16,
+  partyChargePerGem: 0.10,
   partyChargeStart: 0.06,
   ultDamage: 0.24,
   ultGemMultiplier: 0.9,
   ultGemFloor: 4,
-  ultHideBite: 2.2,
+  ultHideBite: 0.5,
   ultCostsTime: true,
 
   ultTimeRate: 0.5,
@@ -182,7 +182,7 @@ export const DIFFICULTY = {
     seconds: 27,
     bite: 3,
     floor: 0.12,
-    ultFloor: 0.3,
+    ultFloor: 0.6,
     matches: [6, 7],
     matchBend: 0.6,
   },
