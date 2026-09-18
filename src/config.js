@@ -404,8 +404,8 @@ export const MEND_FX = {
 
 export const BLAST = {
   tint: 0xffc08a,
-  alpha: 0.62,
-  scale: 0.64,
+  alpha: 0.5,
+  scale: 0.6,
   from: 0.2,
   rise: 0.18,
   drop: 0.04,
@@ -431,11 +431,11 @@ export const SPARK = {
 };
 
 export const FRONT = {
-  alpha: 0.65,
-  lip: 1.5,
-  lead: 0.28,
+  alpha: 0.3,
+  lip: 0.9,
+  lead: 0.3,
   spin: 0.012,
-  embers: 9,
+  embers: 7,
 };
 
 export const IMPACT_FX = {

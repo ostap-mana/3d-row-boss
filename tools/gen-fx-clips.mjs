@@ -7,10 +7,10 @@ const WORKFLOWS = join(ROOT, "src/source/fx/clip-workflows");
 
 const HOST = process.env.COMFYUI_URL || "http://127.0.0.1:8188";
 
-const W = 512;
-const H = 512;
-const LENGTH = 25;
-const STEPS = 26;
+const W = Number(process.env.FX_W || 384);
+const H = Number(process.env.FX_H || 384);
+const LENGTH = Number(process.env.FX_LEN || 21);
+const STEPS = Number(process.env.FX_STEPS || 24);
 const CFG = 6.5;
 
 const LATENTS = "shock-lat";
