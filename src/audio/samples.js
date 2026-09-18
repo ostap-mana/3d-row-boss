@@ -53,9 +53,9 @@ const SLICES = {
   cardPlate: { bank: "outcome", at: 9.21, dur: 0.26, gain: 0.27 },
   cardShine: { bank: "outcome", at: 9.57, dur: 0.23, gain: 0.36 },
   cardBack: { bank: "outcome", at: 9.9, dur: 0.07, gain: 0.27 },
-  banner: { at: 31.55, dur: 0.32, gain: 0.1 },
-  endcard: { at: 31.99, dur: 1.6, gain: 0.16 },
-  cta: { at: 33.71, dur: 0.12, gain: 0.18 },
+  banner: { at: 27.734, dur: 0.32, gain: 0.1 },
+  endcard: { at: 28.174, dur: 1.6, gain: 0.16 },
+  cta: { at: 29.894, dur: 0.12, gain: 0.18 },
 };
 
 const RATE = [1.0, 1.12, 1.26, 1.5, 1.68, 2.0, 2.24];
