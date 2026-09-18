@@ -28,7 +28,7 @@ const voice = (element) => ELEMENT[element] || ELEMENT[0];
 const BURST_GAP = 0.26;
 const BURST_KEEP = 3;
 
-const MEND_ACCENT = 0.702;
+const MEND_ACCENT = 0.332;
 
 const bursts = new Map();
 
@@ -528,8 +528,8 @@ export function bossEnrage() {
 
 export function bossMend(hold) {
   const dur = Math.max(0.6, hold === undefined ? MEND_FX.seconds : hold);
-  if (samples.play("mend", { rate: MEND_ACCENT / (dur * MEND_FX.peak) }))
-    return;
+  const onto = dur * MEND_FX.peak - MEND_ACCENT;
+  if (samples.play("mend", { delay: Math.max(0, onto) })) return;
 
   noise({
     type: "bandpass",
