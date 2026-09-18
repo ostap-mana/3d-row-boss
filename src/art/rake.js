@@ -4,11 +4,11 @@ import rakeUrl from "../assets/fx/claw-rake.webp";
 
 const SHEET = {
   cols: 4,
-  cellW: 832,
-  cellH: 490,
-  pad: 2,
+  cellW: 371,
+  cellH: 219,
+  pad: 1,
   count: 12,
-  block: 1478,
+  block: 660,
 };
 
 const FRAME_HOLD = [1, 1, 1, 1, 1, 1, 2.6, 2.6, 2.6, 2.6, 4, 4];
