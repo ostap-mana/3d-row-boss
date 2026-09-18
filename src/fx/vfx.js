@@ -1312,37 +1312,113 @@ export class Vfx extends Container {
     const o = opts || {};
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const reach = Math.sqrt(dx * dx + dy * dy) * JET.reach;
+    const span = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const reach = span * JET.reach;
     const wide = (o.spread || 240) * JET.spread;
     const hold = o.hold === undefined ? 0.5 : o.hold;
     const heat = o.heat === undefined ? 1 : o.heat;
+    const angle = Math.atan2(dy, dx);
 
-    const s = new Sprite(frames[0]);
-    s.anchor.set(0.5, JET.root);
-    s.blendMode = "add";
-    s.tint = o.tint || JET.tint;
-    s.x = from.x;
-    s.y = from.y;
-    s.rotation = Math.atan2(dy, dx) - Math.PI / 2;
-    s.alpha = 0;
-    this.field.addChild(s);
+    const blast = new Container();
+    blast.x = from.x;
+    blast.y = from.y;
+    blast.rotation = angle - Math.PI / 2;
+    this.field.addChild(blast);
+
+    const bed = new Sprite(glowTexture());
+    bed.anchor.set(0.5, JET.root);
+    bed.blendMode = "multiply";
+    bed.tint = JET.smoke;
+    bed.alpha = 0;
+    blast.addChild(bed);
+
+    const body = new Sprite(frames[0]);
+    body.anchor.set(0.5, JET.root);
+    body.blendMode = "add";
+    body.tint = o.tint || JET.tint;
+    body.alpha = 0;
+    blast.addChild(body);
+
+    const core = new Sprite(frames[0]);
+    core.anchor.set(0.5, JET.root);
+    core.blendMode = "add";
+    core.tint = JET.core;
+    core.alpha = 0;
+    blast.addChild(core);
+
+    const throat = new Sprite(glowTexture());
+    throat.anchor.set(0.5);
+    throat.blendMode = "add";
+    throat.tint = JET.throat;
+    throat.alpha = 0;
+    blast.addChild(throat);
+
+    const splash = new Sprite(glowTexture());
+    splash.anchor.set(0.5);
+    splash.blendMode = "add";
+    splash.tint = JET.core;
+    splash.alpha = 0;
+    splash.x = to.x;
+    splash.y = to.y;
+    this.field.addChild(splash);
 
     const n = frames.length;
     const life = hold + JET.tail;
+    const mouth = o.mouth || wide * 0.14;
+
+    (async () => {
+      const steps = Math.max(1, Math.round(hold / 0.1));
+      for (let i = 0; i < steps; i++) {
+        if (blast.destroyed) return;
+        this.burst(
+          to.x + rndRange(-wide * 0.4, wide * 0.4),
+          to.y + rndRange(-wide * 0.1, wide * 0.12),
+          SPARK.hot,
+          JET.embers,
+          1.15 * heat,
+        );
+        await delay(0.1);
+      }
+    })();
 
     tweenValue(0, 1, life, (p) => {
-      if (s.destroyed) return;
-      s.texture = frames[Math.min(n - 1, ((p * n * JET.rate) % n) | 0)];
+      if (blast.destroyed) return;
+      body.texture = core.texture =
+        frames[Math.min(n - 1, ((p * n * JET.rate) % n) | 0)];
+
       const open = p < JET.open ? Ease.quadOut(p / JET.open) : 1;
-      s.setSize(wide * (JET.lip + open * (1 - JET.lip)), reach * open);
+      const grown = JET.lip + open * (1 - JET.lip);
+      const w = wide * grown;
+      const h = reach * open;
+
+      body.setSize(w, h);
+      core.setSize(w * 0.56, h * 0.94);
+      bed.setSize(w * 1.18, h * 1.06);
+
       const fade =
         p < JET.open
           ? p / JET.open
           : p > hold / life
             ? Math.max(0, 1 - (p - hold / life) / (1 - hold / life))
             : 1;
-      s.alpha = JET.alpha * heat * fade;
-    }).then(() => !s.destroyed && s.destroy());
+
+      const roar = 1 - JET.wash * 0.5 + JET.wash * 0.5 * Math.sin(p * 46);
+
+      body.alpha = JET.alpha * heat * fade * roar;
+      core.alpha = JET.coreLift * heat * fade * roar;
+      bed.alpha = JET.bed * fade * open;
+
+      const pulse = mouth * (2.1 + 0.5 * Math.sin(p * 61));
+      throat.setSize(pulse, pulse);
+      throat.alpha = 0.85 * heat * fade;
+
+      const lick = wide * (1.1 + 0.16 * Math.sin(p * 37));
+      splash.setSize(lick, lick * 0.46);
+      splash.alpha = JET.splash * heat * fade * open * roar;
+    }).then(() => {
+      blast.destroy({ children: true });
+      if (!splash.destroyed) splash.destroy();
+    });
 
     return delay(hold);
   }
