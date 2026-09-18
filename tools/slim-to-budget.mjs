@@ -15,8 +15,20 @@ slim-to-budget — re-encode the shipped assets down to a bundle budget.
   node tools/slim-to-budget.mjs --from <pristine-assets-dir> [--profile <name>]
 
   Every asset inlines as base64, so a raw byte costs 4/3 of a byte in the
-  deliverable. The profiles below name what each family may give up; run with
-  --dry to see the plan without touching src/assets.
+  deliverable. Run with --dry to see the plan without touching src/assets.
+
+  Resizing is the dangerous half. Most sheets are sliced with absolute pixel
+  coordinates that live in a module next to the art, so a plain rescale moves
+  every cell out from under its own slice and the effect renders as confetti.
+  PINNED below lists each of those and the module that owns its numbers;
+  those files are only ever re-encoded at their original size. To make one
+  smaller, repack it with tools/shrink-sheet.mjs, which rebuilds the grid cell
+  by cell and prints the new geometry, then paste that geometry into the
+  module named here.
+
+  The rest is safe because the slice is derived from the image itself:
+  spells.js reads its pitch as img.width / cols, bolts.js as img.width /
+  cells. Those only need the width to stay an exact multiple.
 `;
 
 const args = process.argv.slice(2);
@@ -38,31 +50,32 @@ if (!existsSync(FROM)) {
   process.exit(1);
 }
 
+const PINNED = [
+  [/^fx.claw-rake\.webp$/, "art/rake.js"],
+  [/^fx.torrent-sheet\.webp$/, "art/streams.js"],
+  [/^fx.fire-lance\.webp$/, "art/streams.js"],
+  [/^fx.fire-sheet\.webp$/, "art/fire.js"],
+  [/^fx.gem-charge\.webp$/, "art/gemcharge.js"],
+  [/^fx.gem-pop\.webp$/, "art/gempop.js"],
+  [/^fx.ready-/, "art/readyfx.js"],
+  [/^cards.ult-/, "art/ultborder.js"],
+];
+
+const DERIVED = [
+  [/^fx.[a-z]+-sheet\.webp$/, 5],
+  [/^fx.water-lance\.webp$/, 8],
+];
+
+const KEEP = [
+  /^fx.claw-rake\.webp$/,
+  /^fx.torrent-sheet\.webp$/,
+  /^fx.fire-lance\.webp$/,
+];
+
 const PROFILES = {
-  light: {
-    sheet: [0.94, 74],
-    flat: [1, 80],
-    card: [1, 80],
-    claw: [0.9, 70],
-    clipCrf: 26,
-    audioBitrate: null,
-  },
-  medium: {
-    sheet: [0.88, 70],
-    flat: [0.92, 76],
-    card: [0.94, 76],
-    claw: [0.9, 70],
-    clipCrf: 28,
-    audioBitrate: "28k",
-  },
-  hard: {
-    sheet: [0.82, 66],
-    flat: [0.86, 72],
-    card: [0.88, 72],
-    claw: [0.74, 62],
-    clipCrf: 30,
-    audioBitrate: "24k",
-  },
+  light: { derived: [0.94, 76], flat: [1, 82], pinnedQ: 80, clipCrf: 26 },
+  medium: { derived: [0.88, 72], flat: [0.9, 76], pinnedQ: 72, clipCrf: 28 },
+  hard: { derived: [0.82, 68], flat: [0.86, 74], pinnedQ: 66, clipCrf: 30 },
 };
 const profile = PROFILES[flag("profile", "medium")];
 if (!profile) {
@@ -71,7 +84,7 @@ if (!profile) {
 }
 
 const GLYPHS =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;!?'\"-+/%()[]{}*&#@x\u00d7\u2013\u2014\u2026";
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;!?'\"-+/%()[]{}*&#@x×–—…";
 
 function probe(file) {
   const [w, h, pix] = execFileSync("ffprobe", [
@@ -91,10 +104,7 @@ function probe(file) {
   return { w: Number(w), h: Number(h), alpha: pix.includes("a") };
 }
 
-function webp(src, dst, scale, quality) {
-  const m = probe(src);
-  const w = Math.max(2, Math.round((m.w * scale) / 2) * 2);
-  const h = Math.max(2, Math.round((m.h * scale) / 2) * 2);
+function encode(src, dst, w, h, quality, alpha) {
   execFileSync("ffmpeg", [
     "-v",
     "error",
@@ -112,7 +122,7 @@ function webp(src, dst, scale, quality) {
     "-compression_level",
     "6",
     "-pix_fmt",
-    m.alpha ? "yuva420p" : "yuv420p",
+    alpha ? "yuva420p" : "yuv420p",
     dst,
   ]);
 }
@@ -137,25 +147,6 @@ function clip(src, dst, crf) {
     "-an",
     "-movflags",
     "+faststart",
-    dst,
-  ]);
-}
-
-function mp3(src, dst, bitrate) {
-  execFileSync("ffmpeg", [
-    "-v",
-    "error",
-    "-y",
-    "-i",
-    src,
-    "-c:a",
-    "libmp3lame",
-    "-b:a",
-    bitrate,
-    "-ac",
-    "1",
-    "-ar",
-    "32000",
     dst,
   ]);
 }
@@ -198,18 +189,46 @@ function font(src, dst) {
   ]);
 }
 
-function plan(rel) {
-  const parts = rel.split(sep);
-  const [dir, name] = [parts[0], parts[parts.length - 1]];
-  if (name === "claw-rake.webp") return { kind: "webp", args: profile.claw };
-  if (/\.mp4$/.test(name)) return { kind: "clip" };
-  if (/\.mp3$/.test(name)) return profile.audioBitrate ? { kind: "mp3" } : null;
-  if (/\.woff2$/.test(name)) return { kind: "font" };
+function plan(rel, m) {
+  const key = rel.split(sep).join("/");
+  const name = key.split("/").pop();
+  if (/\.mp4$/.test(name))
+    return { kind: "clip", note: "crf " + profile.clipCrf };
+  if (/\.mp3$/.test(name)) return null;
+  if (/\.woff2$/.test(name)) return { kind: "font", note: "subset" };
   if (!/\.webp$/.test(name)) return null;
-  if (dir === "cards") return { kind: "webp", args: profile.card };
-  if (/-sheet\.webp$|-lance\.webp$|-bolt\.webp$|-rake\.webp$/.test(name))
-    return { kind: "webp", args: profile.sheet };
-  return { kind: "webp", args: profile.flat };
+  if (KEEP.some((re) => re.test(key))) return null;
+
+  const pin = PINNED.find(([re]) => re.test(key));
+  if (pin) {
+    return {
+      kind: "webp",
+      w: m.w,
+      h: m.h,
+      q: profile.pinnedQ,
+      note: `pinned by ${pin[1]}`,
+    };
+  }
+
+  const derived = DERIVED.find(([re]) => re.test(key));
+  if (derived) {
+    const [scale, q] = profile.derived;
+    const cols = derived[1];
+    const pitch = Math.max(2, Math.round((m.w / cols) * scale));
+    const w = pitch * cols;
+    const rows = Math.max(1, Math.round(m.h / (m.w / cols)));
+    const h = Math.max(rows * pitch, Math.round((m.h * w) / m.w / 2) * 2);
+    return { kind: "webp", w, h, q, note: `derived, pitch ${pitch}` };
+  }
+
+  const [scale, q] = profile.flat;
+  return {
+    kind: "webp",
+    w: Math.max(2, Math.round((m.w * scale) / 2) * 2),
+    h: Math.max(2, Math.round((m.h * scale) / 2) * 2),
+    q,
+    note: "flat",
+  };
 }
 
 const files = [];
@@ -226,7 +245,8 @@ for (const src of files) {
   const rel = relative(FROM, src);
   const dst = join(DEST, rel);
   const a = statSync(src).size;
-  const job = plan(rel);
+  const m = /\.(webp|mp4)$/.test(src) ? probe(src) : null;
+  const job = plan(rel, m);
   if (!job) {
     if (!dry && src !== dst) {
       mkdirSync(dirname(dst), { recursive: true });
@@ -237,15 +257,12 @@ for (const src of files) {
     continue;
   }
   if (dry) {
-    console.log(
-      `  ${rel.padEnd(34)} ${job.kind} ${JSON.stringify(job.args ?? "")}`,
-    );
+    console.log(`  ${rel.padEnd(34)} ${job.note}`);
     continue;
   }
   mkdirSync(dirname(dst), { recursive: true });
-  if (job.kind === "webp") webp(src, dst, job.args[0], job.args[1]);
+  if (job.kind === "webp") encode(src, dst, job.w, job.h, job.q, m.alpha);
   else if (job.kind === "clip") clip(src, dst, profile.clipCrf);
-  else if (job.kind === "mp3") mp3(src, dst, profile.audioBitrate);
   else if (job.kind === "font") font(src, dst);
   if (statSync(dst).size >= a) copyFileSync(src, dst);
   const b = statSync(dst).size;
@@ -253,7 +270,7 @@ for (const src of files) {
   now += b;
   const pct = (100 - (b / a) * 100).toFixed(0);
   console.log(
-    `  ${rel.padEnd(34)} ${String(Math.round(a / 1024)).padStart(5)} -> ${String(Math.round(b / 1024)).padStart(5)} kB  -${pct}%`,
+    `  ${rel.padEnd(34)} ${String(Math.round(a / 1024)).padStart(5)} -> ${String(Math.round(b / 1024)).padStart(5)} kB  -${pct}%  ${job.note}`,
   );
 }
 

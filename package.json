@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "npm run dev",
-    "build": "npm run lint && vite build",
+    "build": "npm run lint && npm run geometry && vite build",
     "lint": "eslint .",
     "balance": "node tools/apply-balance.mjs",
     "comments": "node tools/strip-comments.mjs --check",
     "decomment": "node tools/strip-comments.mjs",
-    "dev": "vite"
+    "dev": "vite",
+    "geometry": "node tools/check-sheet-geometry.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.8.1"
