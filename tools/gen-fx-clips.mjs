@@ -63,6 +63,16 @@ const SHOT_JET =
   "locked-off static camera, no camera movement, no zoom, no pan, no parallax, " +
   "no text, no letters, no numbers, no watermark, no logo";
 
+const SHOT_MASS =
+  "the fire fills the whole frame edge to edge and is the only thing in it, " +
+  "pure black behind it and between its tongues, " +
+  "nothing lit except the fire itself, " +
+  "no room, no stage, no scenery, no objects, no surface, nothing burning, " +
+  "the frame is completely black on the first frame and completely black again " +
+  "on the last frame, " +
+  "locked-off static camera, no camera movement, no zoom, no pan, no parallax, " +
+  "no text, no letters, no numbers, no watermark, no logo";
+
 const NEGATIVE =
   "text, letters, numbers, watermark, logo, signature, " +
   "person, face, character, creature, monster, hands, animal, " +
@@ -213,6 +223,29 @@ const TAKES = [
       "the column holds at full power, then weakens, splits into falling " +
       "streaks of fire, and fades to a completely black frame",
   },
+  {
+    id: "breath-v4",
+    shot: "mass",
+    positive:
+      "a churning mass of molten fire, dense braided tongues of flame rolling " +
+      "and folding over each other, " +
+      "a searing white-gold heart at its thickest with deep orange and ember " +
+      "red thinning away at its edges, " +
+      "burning droplets and bright sparks torn off it and thrown clear, " +
+      "it swells to full brightness, roars there, then thins, tears apart and " +
+      "gutters out into drifting embers, leaving the frame completely black",
+  },
+  {
+    id: "breath-v5",
+    shot: "mass",
+    positive:
+      "a roaring body of dragonfire, thick liquid flame like poured molten rock, " +
+      "rolling tongues curling over one another with a blinding gold-white core " +
+      "burning through the middle and dark ember red smoke at the outer skin, " +
+      "chunks of burning material and sparks flung off it, " +
+      "it surges once at full force, holds, then loses pressure, breaks into " +
+      "falling streaks of fire and fades to a completely black frame",
+  },
 ];
 
 export function sampleGraph({ id, positive, seed }) {
@@ -309,11 +342,13 @@ export function plan(only) {
     id: t.id,
     seed: seedOf(t.id),
     positive: `${t.positive}, ${STYLE}, ${COLOUR}, ${
-      t.shot === "jet"
-        ? SHOT_JET
-        : t.shot === "centre"
-          ? SHOT_CENTRE
-          : SHOT_GROUND
+      t.shot === "mass"
+        ? SHOT_MASS
+        : t.shot === "jet"
+          ? SHOT_JET
+          : t.shot === "centre"
+            ? SHOT_CENTRE
+            : SHOT_GROUND
     }`,
   }));
 }

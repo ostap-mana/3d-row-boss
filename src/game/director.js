@@ -1381,7 +1381,7 @@ export class Director {
     const shape = {
       hold: 0.5,
       spread: row.w * 0.9,
-      heat: layout.portrait ? 0.48 : 1,
+      heat: layout.portrait ? 0.9 : 1,
       mouth: 44 * layout.ui,
     };
     const flame =
