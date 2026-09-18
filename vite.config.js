@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
-const DELIVERABLE = "km3.html";
+const DELIVERABLE = "km4.html";
 
 function scrubVendorUrls() {
   return {
@@ -29,8 +29,23 @@ function scrubVendorUrls() {
   };
 }
 
+const PIXI_LIB = resolve(import.meta.dirname, "node_modules/pixi.js/lib");
+
 export default defineConfig({
   plugins: [viteSingleFile(), scrubVendorUrls()],
+  resolve: {
+    alias: [
+      { find: /^pixi-lib\/(.*)$/, replacement: `${PIXI_LIB}/$1` },
+      {
+        find: /^pixi\.js$/,
+        replacement: resolve(import.meta.dirname, "src/core/pixi-lite.js"),
+      },
+      {
+        find: /^\.\.\/rendering\/renderers\/autoDetectRenderer\.mjs$/,
+        replacement: resolve(import.meta.dirname, "src/core/webgl-only.js"),
+      },
+    ],
+  },
   server: {
     port: 8080,
     host: true,

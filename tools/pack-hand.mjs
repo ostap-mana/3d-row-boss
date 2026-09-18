@@ -232,7 +232,7 @@ encode(art, dw, dh, `${OUT}.webp`, [
 console.log(
   `out  ${rel(OUT)}.webp  ${(statSync(`${OUT}.webp`).size / 1024).toFixed(1)} kB` +
     `  (about ${((statSync(`${OUT}.webp`).size * 4) / 3 / 1024).toFixed(0)} kB` +
-    ` of base64 in dist/km3.html)`,
+    ` of base64 in dist/km4.html)`,
 );
 
 if (flags.has("--guides")) {

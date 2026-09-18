@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve, dirname, join } from "node:path";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), "..");
-const file = resolve(join(ROOT, "dist/km3.html"));
+const file = resolve(join(ROOT, "dist/km4.html"));
 if (!existsSync(file)) {
   process.stderr.write("run npm run build first\n");
   process.exit(1);

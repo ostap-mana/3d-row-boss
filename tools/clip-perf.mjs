@@ -26,7 +26,7 @@ clip-perf — measure what the outcome clip costs while it plays.
                   51 janks where the real card has 5. Allow 20-40s of play
                   before sampling starts.
   --ms <n>        how long to sample once the clip is playing. Default 2500.
-  --file <path>   the creative to measure. Default dist/km3.html.
+  --file <path>   the creative to measure. Default dist/km4.html.
 `;
 
 const args = process.argv.slice(2);
@@ -40,7 +40,7 @@ const flag = (n, d) => {
 };
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), "..");
-const file = resolve(flag("file", join(ROOT, "dist/km3.html")));
+const file = resolve(flag("file", join(ROOT, "dist/km4.html")));
 const side = flag("side", "victory");
 const sampleMs = Number(flag("ms", 2500));
 if (!existsSync(file)) {
