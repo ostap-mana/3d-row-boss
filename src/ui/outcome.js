@@ -82,8 +82,21 @@ const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 const FIGURE_STARS_H = { portrait: 0.48, landscape: 0.37 };
 const FIGURE_STARS_W = { portrait: 0.92, landscape: 0.46 };
 
-const FIGURE_STARS_SINK = { portrait: 0.3, landscape: 0.34 };
+const FIGURE_STARS_SINK = {
+  win: { portrait: 0.3, landscape: 0.34 },
+  loss: { portrait: -0.15, landscape: 0.34 },
+};
 const FIGURE_SINK = 0.04;
+
+const FIGURE_RISE = {
+  win: { portrait: 0.035, landscape: 0.03 },
+  loss: { portrait: 0, landscape: 0 },
+};
+
+const FIGURE_GROW = {
+  win: { portrait: 0, landscape: 0 },
+  loss: { portrait: 0.045, landscape: 0.04 },
+};
 
 const CONTROL_DROP = {
   win: { portrait: 0.82, landscape: 0.62 },
@@ -344,9 +357,15 @@ export class OutcomeScreen extends Container {
     const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
     const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
 
-    const roomTop = layout.banner.y + layout.banner.h / 2 + STARS_AIR * ui;
-    const figureFoot =
-      cy + ph * (FIGURE_CARRIES_STARS ? FIGURE_STARS_SINK[key] : FIGURE_SINK);
+    const side = this.defeat ? "loss" : "win";
+    const rise = s.h * FIGURE_RISE[side][key];
+    const grow = s.h * FIGURE_GROW[side][key];
+    const roomTop =
+      layout.banner.y + layout.banner.h / 2 + STARS_AIR * ui - rise - grow;
+    const sink = FIGURE_CARRIES_STARS
+      ? FIGURE_STARS_SINK[side][key]
+      : FIGURE_SINK;
+    const figureFoot = cy + ph * sink - rise;
     this.figureH = Math.min(
       s.h * figureDown[key],
       (s.w * figureAcross[key]) / FIGURE_ASPECT,
