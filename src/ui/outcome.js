@@ -616,10 +616,7 @@ export class OutcomeScreen extends Container {
     const done = this.terminal ? Promise.resolve() : waiting;
 
     if (this.defeat) sfx.defeat(0.06);
-    else {
-      sfx.victory();
-      this.fireworks.hero();
-    }
+    else sfx.victory();
 
     tween(this.flash, { alpha: 0 }, FLASH_FADE, {
       delay: FLASH_HOLD,
@@ -652,8 +649,6 @@ export class OutcomeScreen extends Container {
     await tween(this.terminal ? this.retry : this.tap, { alpha: 1 }, 0.3);
     if (!this.introducing) return done;
 
-    if (!this.defeat) this.fireworks.start();
-
     this.introducing = false;
     this.hold = this.terminal ? -1 : T.outcomeHold;
     return done;
@@ -681,8 +676,6 @@ export class OutcomeScreen extends Container {
     this.bloom.alpha = this.defeat ? 0.3 : 0.42;
     killTweensOf(this.flash);
     this.flash.alpha = 0;
-
-    if (!this.defeat) this.fireworks.start();
 
     if (this.layout) this.resize(this.layout);
     this.hold = this.terminal ? -1 : T.outcomeHold;
