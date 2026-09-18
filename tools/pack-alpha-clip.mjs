@@ -53,6 +53,9 @@ pack-alpha-clip — a clip and its matte into one mp4 that carries alpha.
                   pixel. Default 8; raise it if something genuinely green goes
                   grey.
   --fps <n>       override the source rate. Default: the source's own.
+  --frames <n>    stop after n frames. The end of a generated clip is often
+                  where the subject walks out of its own frame; cutting there
+                  is cheaper than pretending the missing pixels exist.
   --still <file>  also write the last frame as a webp with straight alpha —
                   what the card shows on a webview that will not play the
                   clip. A still rather than the old sheet: the sheet cost
@@ -194,6 +197,7 @@ const px = side * side;
 const frames = Math.min(
   Math.floor(colour.length / (px * 4)),
   Math.floor(alpha.length / px),
+  Number(flag("frames", Infinity)),
 );
 if (frames === 0) {
   process.stderr.write("nothing decoded\n");
