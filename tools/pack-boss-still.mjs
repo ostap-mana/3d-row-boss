@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/boss/still.png");
+const SOURCE = join(ROOT, "src/source/boss/still.webp");
 const OUT = join(ROOT, "src/assets/boss/magmaroth");
 
 const rel = (p) =>

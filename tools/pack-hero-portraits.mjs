@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync, existsSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/heroes/portrait-sheet.png");
+const SOURCE = join(ROOT, "src/source/heroes/portrait-sheet.webp");
 const OUT_DIR = join(ROOT, "src/assets/heroes");
 
 const single = (name) => join(ROOT, `src/source/heroes/portrait-${name}.png`);

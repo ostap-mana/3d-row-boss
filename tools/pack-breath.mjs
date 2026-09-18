@@ -135,9 +135,11 @@ if (!existsSync(dir)) {
   process.exit(1);
 }
 
-const frames = readdirSync(dir)
-  .filter((f) => f.endsWith(".png"))
-  .sort();
+const present = readdirSync(dir).sort();
+const asWebp = present.filter((f) => f.endsWith(".webp"));
+const frames = asWebp.length
+  ? asWebp
+  : present.filter((f) => f.endsWith(".png"));
 const window = frames.slice(from - 1, to);
 if (window.length < count) {
   process.stderr.write(

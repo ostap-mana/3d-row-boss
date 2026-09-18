@@ -44,7 +44,7 @@ pack-bolt — a painted lance, cut off a still and pointed the way beams fly.
   **A row is cut before the content box is measured**, not after, so each lance
   is measured on its own and not against the whole sheet. Equal bands were the
   first try at this and they are kept as --band, but they are wrong on real art:
-  on the six-lance sheet in src/source/fx/lances.png the water and nature rows
+  on the six-lance sheet in src/source/fx/lances.webp the water and nature rows
   each overhang their sixth of the image, so every band arrived with a slice of
   its neighbour in it and the content box then measured the pair. --row reads
   the brightness of each line of pixels instead and cuts where the sheet is

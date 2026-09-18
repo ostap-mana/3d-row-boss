@@ -8,11 +8,11 @@ const SRC_DIR = join(ROOT, "src/source/outcome");
 const OUT_DIR = join(ROOT, "src/assets/outcome");
 
 const CUTS = [
-  { key: "victory-band", src: "victory-band.png", width: 0, quality: 92 },
-  { key: "defeat-band", src: "defeat-band.png", width: 0, quality: 92 },
-  { key: "ornament-line", src: "ornament-line.png", width: 0, lossless: true },
-  { key: "stars-victory", src: "stars-victory.png", width: 0, quality: 92 },
-  { key: "stars-defeat", src: "stars-defeat.png", width: 0, quality: 92 },
+  { key: "victory-band", src: "victory-band.webp", width: 0, quality: 92 },
+  { key: "defeat-band", src: "defeat-band.webp", width: 0, quality: 92 },
+  { key: "ornament-line", src: "ornament-line.webp", width: 0, lossless: true },
+  { key: "stars-victory", src: "stars-victory.webp", width: 0, quality: 92 },
+  { key: "stars-defeat", src: "stars-defeat.webp", width: 0, quality: 92 },
 ];
 
 const rel = (p) => p.slice(ROOT.length + 1).replace(/\\/g, "/");

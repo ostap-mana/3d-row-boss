@@ -20,14 +20,14 @@ const JOBS = [
     what: "key art",
   },
   {
-    src: "Button_05.png",
+    src: "Button_05.webp",
     out: "play-now",
     width: 640,
     mode: "photo",
     what: "PLAY NOW plate",
   },
   {
-    src: "Layer_2.png",
+    src: "Layer_2.webp",
     out: "logo-invokers",
     width: 0,
     mode: "flat",

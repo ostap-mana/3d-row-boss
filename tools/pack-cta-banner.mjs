@@ -3,7 +3,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/ui/cta-banner.png");
+const SOURCE = join(ROOT, "src/source/ui/cta-banner.webp");
 const OUT = join(ROOT, "src/assets/ui/cta-banner");
 
 const EMPTY = 12;
@@ -205,7 +205,7 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 
 const info = probe(SOURCE);
 const raw = decode(SOURCE);
-console.log(`in   src/source/ui/cta-banner.png  ${info.w}x${info.h}`);
+console.log(`in   src/source/ui/cta-banner.webp  ${info.w}x${info.h}`);
 
 const box = inkBox(raw, info.w, info.h);
 console.log(

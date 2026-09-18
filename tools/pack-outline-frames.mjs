@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/cards/outline-sheet.png");
+const SOURCE = join(ROOT, "src/source/cards/outline-sheet.webp");
 const OUT_DIR = join(ROOT, "src/assets/cards");
 const OUT = join(OUT_DIR, "outline");
 

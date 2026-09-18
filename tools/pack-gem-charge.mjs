@@ -7,8 +7,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC_DIR = "src/source/fx/invokers";
 const OUT = "src/assets/fx/gem-charge.webp";
 
-const HALO_SRC = "T_FX_Circle_11_1.png";
-const CORONA_SRC = "T_FX_Circle_19_1.png";
+const HALO_SRC = "T_FX_Circle_11_1.webp";
+const CORONA_SRC = "T_FX_Circle_19_1.webp";
 
 const COLS = 5;
 const COUNT = 10;

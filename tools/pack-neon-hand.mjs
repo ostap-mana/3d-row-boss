@@ -4,7 +4,7 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src/source/hand/image.png");
+const SOURCE = join(ROOT, "src/source/hand/image.webp");
 const OUT_DIR = join(ROOT, "src/assets/hint");
 
 const SHEET = { w: 1536, h: 1024 };

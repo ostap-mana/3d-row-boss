@@ -112,8 +112,8 @@ function load(name) {
   return { px: out, ...cut };
 }
 
-const frame = load("boss-crest-frame.png");
-const face = load("boss-crest-face.png");
+const frame = load("boss-crest-frame.webp");
+const face = load("boss-crest-face.webp");
 
 const plate = Buffer.alloc(frame.w * frame.h * 4);
 let filled = 0;

@@ -16,12 +16,12 @@ const BORDER_LEVEL = 10;
 const BORDER_HUNT = 6;
 
 const MAP = [
-  ["tools/image-5.png", "fire"],
-  ["tools/image-3.png", "water"],
-  ["tools/image-1.png", "nature"],
-  ["tools/image-4.png", "wind"],
-  ["tools/image-2.png", "arcane"],
-  ["tools/image.png", "lightning"],
+  ["tools/image-5.webp", "fire"],
+  ["tools/image-3.webp", "water"],
+  ["tools/image-1.webp", "nature"],
+  ["tools/image-4.webp", "wind"],
+  ["tools/image-2.webp", "arcane"],
+  ["tools/image.webp", "lightning"],
 ];
 
 function probe(file) {
