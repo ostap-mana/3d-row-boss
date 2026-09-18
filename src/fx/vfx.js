@@ -29,8 +29,11 @@ import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
 import {
   BLAST,
   FIRE,
+  FRONT,
+  JET,
   IMPACT_FX,
   MEND_FX,
+  SPARK,
   ULT_CALL,
   ULT_FX,
 } from "../config.js";
@@ -135,15 +138,25 @@ export class Vfx extends Container {
 
       const ang = rndRange(0, Math.PI * 2);
       const dist = rndRange(20, 70) * p;
-      tween(
-        s,
-        { x: x + Math.cos(ang) * dist, y: y + Math.sin(ang) * dist },
-        0.42,
-        { ease: Ease.quadOut },
-      );
-      tween(s.scale, { x: 0, y: 0 }, 0.42, { ease: Ease.quadIn }).then(() =>
-        s.destroy(),
-      );
+      const life = 0.42 * rndRange(0.72, 1.35);
+      const fall = size * SPARK.fall * rndRange(0.4, 1.4);
+      if (i % 4 === 0) s.tint = SPARK.hot;
+      s.rotation = ang;
+      s.setSize(size * SPARK.streak, size);
+
+      const ex = x + Math.cos(ang) * dist;
+      const ey = y + Math.sin(ang) * dist;
+      tweenValue(0, 1, life, (t) => {
+        if (s.destroyed) return;
+        const e = Ease.quadOut(t);
+        s.x = x + (ex - x) * e;
+        s.y = y + (ey - y) * e + fall * t * t;
+        const k = 1 - Ease.quadIn(t);
+        s.setSize(size * SPARK.streak * k, size * k);
+        s.alpha = t > SPARK.hold ? 1 - (t - SPARK.hold) / (1 - SPARK.hold) : 1;
+      }).then(() => {
+        if (!s.destroyed) s.destroy();
+      });
     }
   }
 
@@ -658,19 +671,18 @@ export class Vfx extends Container {
   }
 
   ultShock(at, from, color, light, size) {
-    const ring = new Graphics();
-    ring.circle(0, 0, 50);
-    ring.stroke({ width: ULT_FX.shockWidth, color: light, alpha: 1 });
-    ring.x = at.x;
-    ring.y = at.y;
-    ring.blendMode = "add";
-    ring.scale.set(0.15);
-    this.field.addChild(ring);
-    const reach = (size * ULT_FX.shockReach) / 100;
-    tween(ring.scale, { x: reach, y: reach * 0.72 }, ULT_FX.shockLife, {
-      ease: Ease.expoOut,
+    const reach = size * ULT_FX.shockReach;
+    this.shockRing(at.x, at.y, color, {
+      from: reach * 0.14,
+      to: reach,
+      duration: ULT_FX.shockLife,
+      flat: 0.72,
+      rotation: rndRange(0, Math.PI * 2),
+      halo: 0.5,
+      core: 0.85,
+      light,
+      hold: 0.16,
     });
-    tween(ring, { alpha: 0 }, ULT_FX.shockLife).then(() => ring.destroy());
 
     const incoming = Math.atan2(at.y - from.y, at.x - from.x);
     const room = MAX_PARTICLES - this.field.children.length;
@@ -1188,6 +1200,46 @@ export class Vfx extends Container {
     core.destroy();
   }
 
+  jet(from, to, opts) {
+    const frames = bossSpellFrames("jet");
+    if (!frames) return null;
+
+    const o = opts || {};
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const reach = Math.sqrt(dx * dx + dy * dy) * JET.reach;
+    const wide = (o.spread || 240) * JET.spread;
+    const hold = o.hold === undefined ? 0.5 : o.hold;
+    const heat = o.heat === undefined ? 1 : o.heat;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5, JET.root);
+    s.blendMode = "add";
+    s.tint = o.tint || JET.tint;
+    s.x = from.x;
+    s.y = from.y;
+    s.rotation = Math.atan2(dy, dx) - Math.PI / 2;
+    s.alpha = 0;
+    this.field.addChild(s);
+
+    const n = frames.length;
+    const life = hold + JET.tail;
+
+    return tweenValue(0, 1, life, (p) => {
+      if (s.destroyed) return;
+      s.texture = frames[Math.min(n - 1, ((p * n * JET.rate) % n) | 0)];
+      const open = p < JET.open ? Ease.quadOut(p / JET.open) : 1;
+      s.setSize(wide * (JET.lip + open * (1 - JET.lip)), reach * open);
+      const fade =
+        p < JET.open
+          ? p / JET.open
+          : p > hold / life
+            ? Math.max(0, 1 - (p - hold / life) / (1 - hold / life))
+            : 1;
+      s.alpha = JET.alpha * heat * fade;
+    }).then(() => !s.destroyed && s.destroy());
+  }
+
   async cone(from, to, color, opts) {
     const o = opts || {};
     const hold = o.hold === undefined ? 0.5 : o.hold;
@@ -1483,27 +1535,52 @@ export class Vfx extends Container {
     if (!this.layout) return;
     const o = opts || {};
 
+    const stage = this.layout.stage;
+    const thick = o.thickness || 130;
+    const dur = o.duration || 0.24;
+
     const band = new Sprite(glowTexture());
     band.anchor.set(0.5);
     band.blendMode = "add";
     band.tint = color;
-    const stage = this.layout.stage;
-    band.setSize(stage.w * 1.4, o.thickness || 130);
+    band.setSize(stage.w * 1.4, thick);
     band.x = stage.cx;
     band.y = fromY;
     band.alpha = 0.95;
     this.field.addChild(band);
 
-    await tween(band, { y: toY }, o.duration || 0.24, { ease: Ease.quadIn });
+    const front = new Sprite(shockTexture());
+    front.anchor.set(0.5);
+    front.blendMode = "add";
+    front.tint = 0xffffff;
+    front.setSize(stage.w * 1.5, thick * FRONT.lip);
+    front.x = stage.cx;
+    front.y = fromY;
+    front.alpha = FRONT.alpha;
+    this.field.addChild(front);
+
+    tweenValue(0, 1, dur, (t) => {
+      if (front.destroyed) return;
+      front.y = fromY + (toY - fromY) * Ease.quadIn(t) - thick * FRONT.lead;
+      front.rotation += FRONT.spin;
+    });
+
+    this.burst(stage.cx, (fromY + toY) / 2, color, FRONT.embers, 1.3);
+
+    await tween(band, { y: toY }, dur, { ease: Ease.quadIn });
+    tween(front, { alpha: 0 }, 0.16).then(() => {
+      if (!front.destroyed) front.destroy();
+    });
     tween(band, { alpha: 0 }, 0.2).then(() => band.destroy());
   }
 
   async sweep(color) {
     if (!this.layout) return;
     const { w, h } = this.layout;
-    const band = new Graphics();
-    band.rect(0, 0, w * 0.22, h * 1.4);
-    band.fill({ color });
+    const band = new Sprite(glowTexture());
+    band.anchor.set(0, 0);
+    band.setSize(w * 0.34, h * 1.4);
+    band.tint = color;
     band.blendMode = "add";
     band.alpha = 0.85;
     band.x = -w * 0.3;

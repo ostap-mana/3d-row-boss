@@ -411,6 +411,33 @@ export const BLAST = {
   drop: 0.04,
 };
 
+export const JET = {
+  tint: 0xffffff,
+  alpha: 0.95,
+  reach: 1.12,
+  spread: 1.15,
+  root: 0.04,
+  lip: 0.42,
+  open: 0.16,
+  rate: 1.6,
+  tail: 0.3,
+};
+
+export const SPARK = {
+  hot: 0xfff0d0,
+  streak: 2.4,
+  fall: 1.9,
+  hold: 0.45,
+};
+
+export const FRONT = {
+  alpha: 0.65,
+  lip: 1.5,
+  lead: 0.28,
+  spin: 0.012,
+  embers: 9,
+};
+
 export const IMPACT_FX = {
   flat: 0.62,
   streaks: 7,

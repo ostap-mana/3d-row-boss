@@ -891,10 +891,15 @@ export class Director {
       this.partyVolley(step, lead);
 
       vfx
-        .beam(origin, target, color, {
-          thickness: 18 + step * 6,
-          impact: power,
-          travel: 0.14,
+        .spell(lead >= 0 ? lead : WATER, origin, target, color, {
+          size: 150 + step * 34,
+          travel: 0.16,
+          blast: 0.4,
+          beam: { thickness: 18 + step * 6, impact: power },
+        })
+        .then(() => {
+          if (!this.ended) vfx.impact(target, color, power);
+          return undefined;
         })
         .then(() => {
           if (this.ended) return;
@@ -1366,12 +1371,14 @@ export class Director {
     const row = layout.cards;
     const mouth = boss.mouthPoint();
     const onto = { x: row.x + row.w / 2, y: row.y + row.h * 0.45 };
-    const flame = vfx.cone(mouth, onto, 0xff6a10, {
+    const shape = {
       hold: 0.5,
       spread: row.w * 0.9,
       heat: layout.portrait ? 0.48 : 1,
       mouth: 44 * layout.ui,
-    });
+    };
+    const flame =
+      vfx.jet(mouth, onto, shape) || vfx.cone(mouth, onto, 0xff6a10, shape);
     vfx.bossSwing(
       "breath",
       { x: (mouth.x + onto.x) / 2, y: (mouth.y + onto.y) / 2 },

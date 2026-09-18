@@ -23,6 +23,7 @@ export const BOSS_SPELLS = {
   smash: "slam",
   rake: "claw",
   mend: ["mend", "nature"],
+  jet: ["breathjet", "breath"],
 };
 
 const FOUND = import.meta.glob(
