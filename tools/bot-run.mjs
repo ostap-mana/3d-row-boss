@@ -275,6 +275,35 @@ if (played.length) {
   const mean = (pick) =>
     played.reduce((a, r) => a + pick(r), 0) / played.length;
   const wins = played.filter((r) => r.outcome === "victory").length;
+  const tally = () => {
+    const bag = { swap: [], ult: [] };
+    played.forEach((r) => {
+      let prev = 1;
+      let seen = 0;
+      let owner = null;
+      r.log.forEach((e) => {
+        if (e.kind === "ult") owner = "ult";
+        else if (e.moves > seen) owner = "swap";
+        seen = e.moves;
+        const drop = prev - e.hp;
+        prev = e.hp;
+        if (owner && drop > 0) {
+          const list = bag[owner];
+          if (
+            e.kind === "ult" ||
+            (owner === "swap" && e.kind === "swap" && drop > 0)
+          )
+            list.push(drop);
+          else if (list.length) list[list.length - 1] += drop;
+        }
+      });
+    });
+    const avg = (l) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : 0);
+    return { swap: avg(bag.swap), ult: avg(bag.ult), ults: bag.ult.length };
+  };
+  const took = tally();
+  const swapBite = took.swap;
+  const ultBite = took.ult;
   const hurt = played.filter((r) => r.alive < 6).length;
   const floored = played.filter((r) =>
     r.log.some((e) => e.pace <= 0.13),
@@ -287,7 +316,10 @@ if (played.length) {
       `${mean((r) => r.ults).toFixed(1)} ults  ` +
       `${mean((r) => r.alive).toFixed(1)} heroes standing\n` +
       `party ends at ${mean((r) => r.party).toFixed(2)}, ` +
-      `weakest hero at ${mean((r) => r.low).toFixed(2)}\n`,
+      `weakest hero at ${mean((r) => r.low).toFixed(2)}\n` +
+      `a match takes ${(swapBite * 100).toFixed(1)}% off the boss, ` +
+      `an ultimate ${(ultBite * 100).toFixed(1)}%` +
+      `${swapBite > 0 ? ` — ${(ultBite / swapBite).toFixed(2)}x a match` : ""}\n`,
   );
 }
 
