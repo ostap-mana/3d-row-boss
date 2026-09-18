@@ -8,18 +8,14 @@ import retryPlateUrl from "../assets/brand/retry-plate.webp";
 export const LOGO_ART = { w: 558, h: 131 };
 export const PLAY_ART = { w: 640, h: 164 };
 
-export const KEY_ART = { w: 1500, h: 1246 };
+const KEY_ART = { w: 1500, h: 1246 };
 
-export const RETRY_BOSS_ART = { w: 640, h: 551 };
-
-export const RETRY_PLATE_ART = { w: 472, h: 128 };
-
-export const RETRY_LINE_ART = { w: 1024, h: 85 };
+const RETRY_PLATE_ART = { w: 472, h: 128 };
 
 export const VICTORY_ART = { w: 1024, h: 513 };
 export const DEFEAT_ART = { w: 1024, h: 390 };
 
-export const KEY_ART_FOCUS = { x: 0.6, y: 0.49 };
+const KEY_ART_FOCUS = { x: 0.6, y: 0.49 };
 
 export const PLAY_FILL = 0xc31839;
 export const PLAY_RIM = 0xf0a33c;
@@ -106,7 +102,7 @@ function sprite(texture) {
   return s;
 }
 
-export function logoHeight(w) {
+function logoHeight(w) {
   return (w * LOGO_ART.h) / LOGO_ART.w;
 }
 
@@ -126,7 +122,7 @@ export function fitPlayPlate(s, w) {
   return h;
 }
 
-export function retryPlateHeight(w) {
+function retryPlateHeight(w) {
   return (w * RETRY_PLATE_ART.h) / RETRY_PLATE_ART.w;
 }
 

@@ -18,7 +18,7 @@ export const SPELL_BY_ELEMENT = {
   [WIND]: "wind",
 };
 
-export const BOSS_SPELLS = {
+const BOSS_SPELLS = {
   breath: "breath",
   smash: "slam",
   mend: ["mend", "nature"],

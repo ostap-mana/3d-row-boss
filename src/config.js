@@ -210,8 +210,6 @@ export const DIFFICULTY = {
   randomOpening: true,
 };
 
-export const RUN_SEED = 0x2f6e2b1;
-
 export const DOOM = {
   bury: { at: 0.22, every: 1.26, perTick: 5 },
 

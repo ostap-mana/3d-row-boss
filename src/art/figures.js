@@ -50,7 +50,7 @@ export async function loadOutcomeFigures() {
   return stills;
 }
 
-export function figureTexture(defeat) {
+function figureTexture(defeat) {
   return stills[defeat ? "defeat" : "victory"];
 }
 

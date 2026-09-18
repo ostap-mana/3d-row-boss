@@ -130,9 +130,9 @@ export const TOGGLES = [
   { key: "auto", label: "Грати замість мене", path: "T.autoPlay" },
 ];
 
-export const round = (v) => Number(Number(v).toFixed(4));
+const round = (v) => Number(Number(v).toFixed(4));
 
-export function expand(path, read) {
+function expand(path, read) {
   if (!path.includes("*")) return read(path) === undefined ? [] : [path];
   const out = [];
   for (let i = 0; i < 64; i++) {

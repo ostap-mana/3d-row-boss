@@ -1,6 +1,6 @@
 import { audioContext, onAudioNeedsRoom, onAudioOpen } from "./engine.js";
 
-export function bytes(url) {
+function bytes(url) {
   if (url.slice(0, 5) === "data:") {
     const raw = atob(url.slice(url.indexOf(",") + 1));
     const out = new Uint8Array(raw.length);
@@ -28,7 +28,7 @@ function evict() {
   } catch (e) {}
 }
 
-export function decoder() {
+function decoder() {
   const live = audioContext();
   if (live) {
     release();
@@ -50,7 +50,7 @@ onAudioOpen(release);
 
 onAudioNeedsRoom(evict);
 
-export function decode(c, buf) {
+function decode(c, buf) {
   return new Promise((resolve, reject) => {
     let settled = false;
     const ok = (b) => {
@@ -74,7 +74,7 @@ export function decode(c, buf) {
   });
 }
 
-export function findHead(buffer) {
+function findHead(buffer) {
   const d = buffer.getChannelData(0);
   let peak = 0;
   for (let i = 0; i < d.length; i++) {

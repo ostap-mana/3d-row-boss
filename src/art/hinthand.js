@@ -18,7 +18,7 @@ const HAND_URLS = {
 
 const NEUTRAL = WIND;
 
-export const HAND_ART = { w: 330, h: 454 };
+const HAND_ART = { w: 330, h: 454 };
 
 export const HAND_ASPECT = HAND_ART.h / HAND_ART.w;
 

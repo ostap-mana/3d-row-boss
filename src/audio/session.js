@@ -107,7 +107,3 @@ export function sessionSleep(asleep) {
     else if (wanted) keep();
   } catch (e) {}
 }
-
-export function sessionKeeper() {
-  return keeper;
-}

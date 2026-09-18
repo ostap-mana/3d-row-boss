@@ -99,7 +99,7 @@ async function detached(src) {
   }
 }
 
-export class AlphaClip extends Mesh {
+class AlphaClip extends Mesh {
   constructor(texture, video) {
     super({ geometry: footQuad(), shader: stackedShader(texture), texture });
     this.video = video;

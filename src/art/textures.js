@@ -175,17 +175,3 @@ export function gradientTexture(key, stops) {
   gradientCache[key] = canvasTexture(c);
   return gradientCache[key];
 }
-
-const rampCache = {};
-export function rampTexture(key, stops) {
-  if (rampCache[key]) return rampCache[key];
-  const w = 256;
-  const c = makeCanvas(w, 4);
-  const ctx = c.getContext("2d");
-  const g = ctx.createLinearGradient(0, 0, w, 0);
-  stops.forEach((s) => g.addColorStop(s[0], s[1]));
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, 4);
-  rampCache[key] = canvasTexture(c);
-  return rampCache[key];
-}

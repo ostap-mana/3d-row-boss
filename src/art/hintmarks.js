@@ -32,7 +32,7 @@ const ARROW_ART = {
   [WIND]: arrowWindUrl,
 };
 
-export const FRAME_SLICE = 0.27;
+const FRAME_SLICE = 0.27;
 
 const frames = {};
 const arrows = {};

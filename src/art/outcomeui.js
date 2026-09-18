@@ -8,9 +8,9 @@ import starsDefeatUrl from "../assets/outcome/stars-defeat.webp";
 
 export const VERDICT_ART = { w: 816, h: 266 };
 
-export const LINE_ART = { w: 438, h: 29 };
+const LINE_ART = { w: 438, h: 29 };
 
-export const STARS_ART = {
+const STARS_ART = {
   victory: { w: 1230, h: 647 },
   defeat: { w: 1309, h: 775 },
 };

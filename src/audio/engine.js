@@ -142,7 +142,7 @@ export function audioBus() {
   return bus;
 }
 
-export function audioReady() {
+function audioReady() {
   return !!ctx && ctx.state === "running";
 }
 
@@ -196,7 +196,7 @@ function rebuild() {
   return context();
 }
 
-export function unlockAudio() {
+function unlockAudio() {
   if (!activated()) return false;
   gestured = true;
   promoteSession(host());
@@ -406,10 +406,6 @@ function staleRefusal() {
 export function setMuted(on) {
   muted = !!on;
   if (master) fadeMaster(parked ? 0 : level(), 0.05);
-}
-
-export function isMuted() {
-  return muted;
 }
 
 function reap(c) {

@@ -429,7 +429,7 @@ const READY_GLOW = {
   type: { stroke: 0.13, blur: 0.55, pad: 1.05 },
 };
 
-export class HeroCard extends Container {
+class HeroCard extends Container {
   constructor(hero, index, opening = false) {
     super();
     this.hero = hero;
@@ -1344,7 +1344,7 @@ export class HeroCard extends Container {
   }
 }
 
-export function rollOpeningHero() {
+function rollOpeningHero() {
   return DIFFICULTY.randomOpeningHero ? rndInt(HEROES.length) : HEALER;
 }
 

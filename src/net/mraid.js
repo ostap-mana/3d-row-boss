@@ -20,7 +20,7 @@ function latch() {
   }
 }
 
-export function whenReady(fn) {
+function whenReady(fn) {
   const m = host();
   if (!m) {
     fn();

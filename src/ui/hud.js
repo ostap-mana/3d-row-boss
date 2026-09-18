@@ -59,7 +59,7 @@ const HIT_FLASH = { alpha: 0.42, dur: 0.13 };
 
 const MEND_FLASH = { alpha: 0.5, dur: 0.4, tint: 0x9fffc4 };
 
-export function comma(n) {
+function comma(n) {
   const s = String(Math.max(0, Math.round(n)));
   let out = "";
   for (let i = 0; i < s.length; i++) {

@@ -61,14 +61,6 @@ export function worldRate() {
   return base;
 }
 
-export function timeScale() {
-  return scale * base;
-}
-
-export function stopped() {
-  return stopLeft > 0;
-}
-
 export function clearStop() {
   stopLeft = 0;
   stopTotal = 0;
