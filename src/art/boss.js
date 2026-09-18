@@ -25,9 +25,20 @@ const DEATH = {
   white: 0xfff4e2,
   land: 0.26,
   fade: 0.34,
-  shards: 34,
-  dust: 30,
-  motes: 30,
+  shards: 20,
+  dust: 18,
+  motes: 20,
+};
+
+const LAND = {
+  wob: 0.95,
+  hold: 0.06,
+  dust: 16,
+  shards: 6,
+  spread: 1.5,
+  dip: 0.22,
+  give: 0.1,
+  rebound: 0.6,
 };
 
 const MEND_TINT = 0x3fd16a;
@@ -876,9 +887,16 @@ export class Boss extends Container {
       ease: Ease.cubicOut,
     });
     await tween(this, { y: this.homeY }, d, { ease: Ease.cubicOut });
-    this.pose.wob = 0.5;
+    this.pose.wob = LAND.wob;
     this.pose.wobT = 0;
-    this.dust(16, 0.7);
+    this.hold = LAND.hold;
+    this.dust(LAND.dust, LAND.spread);
+    this.spawnShards(LAND.shards, LAND.spread);
+    tween(this.pose, { crouch: LAND.dip }, LAND.give, {
+      ease: Ease.quadOut,
+    }).then(() =>
+      tween(this.pose, { crouch: 0 }, LAND.rebound, { ease: Ease.elasticOut }),
+    );
   }
 
   async roar() {
@@ -897,7 +915,8 @@ export class Boss extends Container {
     );
     this.pose.wob = 0.65;
     this.pose.wobT = 0;
-    this.blast(this.mouth, 12, 260, 0.5);
+    this.blast(this.mouth, 14, 300, 0.55);
+    this.spawnShards(4, 0.7);
     await delay(0.34);
     await tween(
       this.pose,
