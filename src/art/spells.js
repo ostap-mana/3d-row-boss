@@ -21,7 +21,6 @@ export const SPELL_BY_ELEMENT = {
 export const BOSS_SPELLS = {
   breath: "breath",
   smash: "slam",
-  rake: "claw",
   mend: ["mend", "nature"],
   jet: ["breathjet", "breath"],
 };

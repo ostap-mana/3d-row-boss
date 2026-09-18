@@ -29,7 +29,6 @@ import {
   FIGURE_ASPECT,
   FIGURE_CARRIES_STARS,
 } from "../art/figures.js";
-import { Fireworks } from "../fx/fireworks.js";
 import { Ease, delay, killTweensOf, tween } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
 import { fitFont } from "./text.js";
@@ -170,9 +169,6 @@ export class OutcomeScreen extends Container {
     this.bloom.tint = PLATE_GOLD;
     this.bloom.alpha = 0;
     this.addChild(this.bloom);
-
-    this.fireworks = new Fireworks();
-    this.addChild(this.fireworks);
 
     this.figure = new FigureView();
     this.figure.visible = false;
@@ -319,7 +315,6 @@ export class OutcomeScreen extends Container {
     if (this.still) this.reframe(w, h);
     this.scrim.texture = scrimTexture(key);
     this.scrim.setSize(w, h);
-    this.fireworks.resize(layout);
 
     this.flash.clear();
     this.flash.rect(0, 0, w, h);
@@ -608,8 +603,6 @@ export class OutcomeScreen extends Container {
     this.flash.alpha = 1;
     this.flash.tint = this.defeat ? FLASH_LOSS : FLASH_WIN;
 
-    this.fireworks.clear();
-
     const waiting = new Promise((resolve) => {
       this.leaving = resolve;
     });
@@ -692,12 +685,10 @@ export class OutcomeScreen extends Container {
     this.hold = -1;
     if (how !== "hold") sfx.select();
 
-    this.fireworks.stop();
     killTweensOf(this);
     tween(this, { alpha: 0 }, 0.4).then(() => {
       this.visible = false;
       this.figure.reset();
-      this.fireworks.clear();
     });
 
     resolve();
@@ -707,7 +698,6 @@ export class OutcomeScreen extends Container {
     if (!this.visible) return;
     if (this.stale) this.rephotograph();
     this.t += dt;
-    this.fireworks.update(dt);
 
     if (this.arming > 0) this.arming -= dt;
     if (this.introducing) return;

@@ -67,7 +67,7 @@ export const DIFFICULTY = {
 
   randomOpeningHero: true,
 
-  partyChargePerGem: 0.10,
+  partyChargePerGem: 0.1,
   partyChargeStart: 0.06,
   ultDamage: 0.24,
   ultGemMultiplier: 0.9,
