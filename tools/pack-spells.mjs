@@ -29,6 +29,9 @@ const WINDOWS = {
   breath: { start: 0.7, span: 1.8 },
   slam: { start: 0.5, span: 1.5 },
   claw: { start: 0.5, span: 1.5 },
+  erupt: { start: 0.5, span: 1.6 },
+  doom: { start: 0.4, span: 1.5 },
+  roar: { start: 0.4, span: 1.5 },
   heal: { start: 0, span: 2.1 },
   mend: { start: 0, span: 2.1 },
 };

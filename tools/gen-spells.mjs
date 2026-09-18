@@ -20,6 +20,12 @@ const STYLE =
   "a bright white-hot core with saturated colour thrown off it, " +
   "no flat cartoon shading";
 
+const BOSS_STYLE =
+  "painted 3D mobile-RPG game VFX in the boss KOLTMOS's own colours, " +
+  "semi-realistic, high contrast, a white-hot core with violet and magenta " +
+  "light thrown off it, torn gold-bright edges and crimson embers, " +
+  "no flat cartoon shading";
+
 const TECHNICAL =
   "The effect is isolated on a pure black background, nothing else in frame, " +
   "no floor, no room, no landscape, no character, no hands. " +
@@ -77,21 +83,32 @@ const SPELLS = [
   },
   {
     id: "breath",
-    what: "MAGMAROTH - LAVA BREATH - boss attack",
+    what: "KOLTMOS - LAVA BREATH - boss attack",
+    style: BOSS_STYLE,
     prompt:
-      "A jet of molten orange lava fire pours straight toward the camera from " +
-      "the far side of frame, opening out into a wide roaring cone of flame " +
-      "that fills the frame, embers streaming forward through it, then " +
-      "guttering out.",
+      "A jet of violet fire with a white-hot throat pours straight toward the " +
+      "camera from the far side of frame and opens out into one wide roaring " +
+      "cone that fills the frame, magenta embers and gold flecks streaming " +
+      "forward through it, the flame torn and ragged along its edges. It " +
+      "reaches its widest and brightest early, holds for a moment, then guts " +
+      "out from the throat forward, the last embers riding away from the " +
+      "camera until the frame is completely black again. One single breath on " +
+      "one beat: no second jet, no pulsing, no repeat, and it is finished " +
+      "well before the clip ends.",
   },
   {
     id: "slam",
-    what: "MAGMAROTH - MAGMA SLAM - boss attack",
+    what: "KOLTMOS - MAGMA SLAM - boss attack",
+    style: BOSS_STYLE,
     prompt:
-      "A hammer blow lands in the centre of frame and a shockwave of molten " +
-      "orange rock and white hot sparks bursts outward from it in a low wide " +
-      "ring, cracks of lava light racing out underneath, the ring thinning " +
-      "and dimming as it goes.",
+      "An unseen fist lands dead centre of frame and on that one impact a low " +
+      "wide shockwave bursts outward from the point it struck: a hard ring of " +
+      "white-hot light with violet fire dragging behind it, cracks of magenta " +
+      "light racing outward underneath, splinters of black stone and gold " +
+      "sparks thrown up along the ring as it goes. The ring is brightest the " +
+      "instant it is born, then it widens, thins and dims until the frame is " +
+      "completely black again. Exactly one blow and one ring: no second " +
+      "impact, no repeat, and it is finished well before the clip ends.",
   },
   {
     id: "claw",
@@ -122,6 +139,67 @@ const SPELLS = [
       "second strike, no repeat, no further set of slashes after it, " +
       "and it is finished well before the clip ends.",
   },
+  {
+    id: "erupt",
+    what: "KOLTMOS - ERUPTION - boss attack, the whole party",
+    style: BOSS_STYLE,
+    prompt:
+      "The ground across the full width of frame splits open along one " +
+      "jagged crack and columns of violet fire erupt straight upward through " +
+      "it, all of them rising together on one beat, the middle column the " +
+      "tallest and the ones to either side shorter, so the row reads as one " +
+      "ridge of fire and not as separate flames taking turns. Slabs of black " +
+      "obsidian and white-hot sparks are thrown up with the columns, magenta " +
+      "light burning in the crack underneath them. The eruption reaches its " +
+      "full height and its brightest early, holds for a moment, then falls " +
+      "back and burns out from the top down until the frame is completely " +
+      "black again. Exactly one eruption: no second wave, no rolling line of " +
+      "further bursts, and it is finished well before the clip ends.",
+  },
+  {
+    id: "doom",
+    what: "KOLTMOS - CATACLYSM - boss ultimate",
+    style: BOSS_STYLE,
+    prompt:
+      "A single point of white light in the centre of frame swells for an " +
+      "instant and detonates into one enormous nova of violet and magenta " +
+      "fire that floods the entire frame, a hard thin ring of white-hot light " +
+      "racing outward ahead of it, torn crimson flame and gold cinders " +
+      "dragging behind, the centre burning out to near white at the peak. " +
+      "Then the whole thing collapses inward and burns down, the ring thinning " +
+      "away past the edges, the last cinders going dark, until the frame is " +
+      "completely black again. Exactly one detonation on one beat: no second " +
+      "blast, no aftershock, no repeat, and it is finished well before the " +
+      "clip ends.",
+  },
+  {
+    id: "mend",
+    what: "KOLTMOS - MENDS - boss heal",
+    prompt:
+      "A ring of emerald green light draws itself low in the centre of frame " +
+      "and rises as one slow column of green and pale gold motes, thin " +
+      "ribbons of light winding upward around it, its core brightening to " +
+      "white as it goes. The column reaches its brightest, holds, then thins " +
+      "and drifts apart, the motes going out one by one as they rise, until " +
+      "the frame is completely black again. It is a calm rising mend and not " +
+      "an attack: no burst, no explosion, no shockwave, no debris, one single " +
+      "rise, and it is finished well before the clip ends.",
+  },
+  {
+    id: "roar",
+    what: "KOLTMOS - ENRAGE ROAR - the beat before CATACLYSM",
+    style: BOSS_STYLE,
+    prompt:
+      "Two or three rings of violet shockwave light blow outward from the " +
+      "centre of frame one after another, each one a thin torn hoop of " +
+      "white-hot light with magenta fire smeared behind it, growing fast and " +
+      "thinning as it goes, dust of gold cinders shaken loose and blown " +
+      "outward with them. The rings are brightest as they leave and are gone " +
+      "past the edges of frame, and the light at the centre sinks away to " +
+      "nothing until the frame is completely black again. No fireball, no " +
+      "explosion at the centre, no debris left behind, and it is finished " +
+      "well before the clip ends.",
+  },
 ];
 
 const rel = (p) =>
@@ -149,7 +227,8 @@ async function generate(spell) {
       body: JSON.stringify({
         input: {
           ...SETTINGS,
-          prompt: STYLE + ". " + spell.prompt + " " + TECHNICAL,
+          prompt:
+            (spell.style || STYLE) + ". " + spell.prompt + " " + TECHNICAL,
         },
       }),
     },
@@ -182,6 +261,31 @@ const named = args.filter((a) => !a.startsWith("--"));
 
 if (flags.has("--list")) {
   for (const s of SPELLS) console.log("  " + s.id.padEnd(10) + s.what);
+  process.exit(0);
+}
+
+const compose = (spell) =>
+  (spell.style || STYLE) + ". " + spell.prompt + " " + TECHNICAL;
+
+if (flags.has("--print")) {
+  const wanted = named.length
+    ? SPELLS.filter((s) => named.includes(s.id))
+    : SPELLS;
+  console.log(
+    "settings  " +
+      SETTINGS.resolution +
+      "  " +
+      SETTINGS.aspect_ratio +
+      "  " +
+      SETTINGS.duration +
+      "s  " +
+      SETTINGS.fps +
+      "fps  fixed camera\n",
+  );
+  for (const spell of wanted) {
+    console.log("--- " + spell.id + "  " + spell.what + "\n");
+    console.log(compose(spell) + "\n");
+  }
   process.exit(0);
 }
 
