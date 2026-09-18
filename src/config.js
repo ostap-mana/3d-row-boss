@@ -435,6 +435,8 @@ export const JET = {
 
 export const RAKE_FX = {
   long: 1.34,
+  wide: 1.05,
+  mid: 0.5,
 };
 
 export const SPARK = {
