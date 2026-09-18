@@ -21,6 +21,8 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { RAKE_ASPECT, rakeFrameAt, rakeFrames } from "../art/rake.js";
+
+const RAKE_EMBER = 0xff8a4e;
 import { streamArt } from "../art/streams.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
@@ -1567,6 +1569,7 @@ export class Vfx extends Container {
       const heat = new Sprite(painted[0]);
       heat.anchor.set(0.5);
       heat.blendMode = "add";
+      heat.tint = RAKE_EMBER;
       swipe.addChild(heat);
 
       return tweenValue(0, 1, o.duration || 1.15, (p) => {
@@ -1574,14 +1577,15 @@ export class Vfx extends Container {
         tear.texture = frame;
         heat.texture = frame;
 
-        const grow = 0.93 + p * 0.15;
+        const grow = 0.97 + p * 0.06;
         tear.setSize(wide * grow, tall * grow);
-        heat.setSize(wide * grow * 1.05, tall * grow * 1.05);
+        heat.setSize(wide * grow, tall * grow);
 
         const out = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
+        const spark = p < 0.3 ? p / 0.3 : Math.max(0, 1 - (p - 0.3) / 0.28);
         tear.alpha = out;
-        heat.alpha = out * 0.62;
-        bed.alpha = Math.min(1, p / 0.07) * out * 0.55;
+        heat.alpha = out * spark * 0.34;
+        bed.alpha = Math.min(1, p / 0.07) * out * 0.62;
       }).then(() => swipe.destroy({ children: true }));
     }
 

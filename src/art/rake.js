@@ -13,6 +13,26 @@ const SHEET = {
 
 const FRAME_HOLD = [1, 1, 1, 1, 1, 1, 2.6, 2.6, 2.6, 2.6, 4, 4];
 
+const WHITE_PULL = 0.52;
+const BLACK_LIFT = 0.07;
+const GAIN = 1.22;
+
+function temper(lit) {
+  const span = 255 * (1 - BLACK_LIFT);
+  const low = 255 * BLACK_LIFT;
+  for (let n = 0; n < lit.length; n += 4) {
+    if (lit[n + 3] === 0) continue;
+    const r = lit[n];
+    const g = lit[n + 1];
+    const b = lit[n + 2];
+    const cut = Math.min(r, g, b) * WHITE_PULL;
+    for (let k = 0; k < 3; k++) {
+      const v = ((lit[n + k] - cut - low) / span) * GAIN * 255;
+      lit[n + k] = v < 0 ? 0 : v > 255 ? 255 : v;
+    }
+  }
+}
+
 export const RAKE_ASPECT = SHEET.cellW / SHEET.cellH;
 
 const FRAME_ENDS = (() => {
@@ -64,6 +84,7 @@ export async function loadRakeArt() {
       const lit = paint.data;
       const cover = matte.data;
       for (let n = 0; n < lit.length; n += 4) lit[n + 3] = cover[n];
+      temper(lit);
       paper.putImageData(paint, x, y);
     }
 
