@@ -61,6 +61,7 @@ import { mraidReport, watchSize, watchViewable } from "./net/mraid.js";
 import { EV, eventLog, track, trackOnce } from "./net/analytics.js";
 import { tagReport } from "./net/tags.js";
 import { mountTuner } from "./dev/tuner.js";
+import { mountBalance } from "./dev/balance.js";
 import {
   audioHeartbeat,
   audioSleep,
@@ -73,9 +74,9 @@ import { music } from "./audio/music.js";
 
 const timing = { essential: 0, ready: 0, deferred: 0 };
 
-const onTuner = (e) => {
+const onDevPanel = (e) => {
   const el = e && e.target;
-  return !!(el && el.closest && el.closest("#siege-tuner"));
+  return !!(el && el.closest && el.closest("#siege-tuner, #siege-balance"));
 };
 
 async function boot() {
@@ -523,7 +524,7 @@ async function boot() {
 
       const route = (e) => {
         if (e.isTrusted === false) return;
-        if (onTuner(e)) return;
+        if (onDevPanel(e)) return;
         if (DOWN.includes(e.type)) {
           if (!from) from = { ...at(e), finger: byFinger(e) };
           return;
@@ -560,7 +561,7 @@ async function boot() {
     const armed = performance.now();
     const press = (e) => {
       if (e.isTrusted === false) return;
-      if (onTuner(e)) return;
+      if (onDevPanel(e)) return;
       if (performance.now() - armed < EXIT_GRACE) return;
       dropLessonExit();
       if (director) director.spendOpeningHint();
@@ -635,6 +636,7 @@ async function boot() {
   scene.events = eventLog;
   scene.tags = tagReport;
   scene.restart = () => restart();
+  scene.balance = mountBalance(scene);
   scene.tuner = mountTuner(scene);
   window.__SIEGE__ = scene;
 

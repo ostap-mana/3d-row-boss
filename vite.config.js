@@ -29,8 +29,44 @@ function scrubVendorUrls() {
   };
 }
 
+function balanceBridge() {
+  return {
+    name: "balance-bridge",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/__balance", (req, res) => {
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end("{}");
+          return;
+        }
+        let body = "";
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", async () => {
+          res.setHeader("content-type", "application/json");
+          try {
+            const { applyBalance } = await import("./tools/apply-balance.mjs");
+            const done = applyBalance(JSON.parse(body || "{}"));
+            done.changed.forEach((edit) =>
+              server.config.logger.info(
+                `balance  ${edit.path}: ${edit.from} -> ${edit.to}`,
+              ),
+            );
+            res.end(JSON.stringify(done));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(
+              JSON.stringify({ error: String((err && err.message) || err) }),
+            );
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [viteSingleFile(), scrubVendorUrls()],
+  plugins: [viteSingleFile(), scrubVendorUrls(), balanceBridge()],
   server: {
     port: 8080,
     host: true,
