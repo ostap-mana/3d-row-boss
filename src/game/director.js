@@ -1347,13 +1347,14 @@ export class Director {
     const clawY = layout.board.y + layout.board.size * 0.75;
     const rake = layout.portrait
       ? {
+          x: layout.board.x + layout.board.size / 2,
           y: layout.board.y + layout.board.size * RAKE_FX.mid,
           len: layout.board.size * RAKE_FX.wide,
         }
-      : { y: clawY, len: layout.stage.w * RAKE_FX.long };
+      : { x: at.x, y: clawY, len: layout.stage.w * RAKE_FX.long };
     shake(16, 0.4, { axis: { x: dir, y: 0.3 }, freq: 1.15 });
     hitStop(0.6, 0.1);
-    vfx.claw(at.x, rake.y, 0xff3a5a, {
+    vfx.claw(rake.x, rake.y, 0xff3a5a, {
       dir,
       gap: layout.stage.h * 0.032,
       len: rake.len,
