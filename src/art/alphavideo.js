@@ -11,6 +11,7 @@ import {
 } from "pixi.js";
 
 const READY_MS = 5000;
+const CLIP_FPS = 30;
 
 const stackedAlphaBitGl = {
   name: "stacked-alpha-bit",
@@ -138,7 +139,7 @@ export async function loadAlphaClip(src) {
     resource: video,
     autoPlay: false,
     autoLoad: true,
-    updateFPS: 0,
+    updateFPS: CLIP_FPS,
   });
 
   let timer = null;
