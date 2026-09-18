@@ -47,14 +47,10 @@ function stopFactor(dt) {
 }
 
 let scale = 1;
-let base = WORLD_RATE;
+const base = WORLD_RATE;
 
 export function setTimeScale(v) {
   scale = v > 0 ? v : 1;
-}
-
-export function setWorldRate(v) {
-  base = v > 0 ? v : 1;
 }
 
 export function worldRate() {
