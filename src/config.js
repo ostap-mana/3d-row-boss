@@ -85,7 +85,7 @@ export const DIFFICULTY = {
     steps: [
       {
         p: 0.0,
-        attack: 0.515,
+        attack: 0.412,
         resist: 1.0,
         ult: 1,
         obsidian: 1.9,
@@ -94,7 +94,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.35,
-        attack: 0.619,
+        attack: 0.495,
         resist: 1.0,
         ult: 1,
         obsidian: 3.2,
@@ -103,7 +103,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.5,
-        attack: 0.756,
+        attack: 0.605,
         resist: 1.0,
         ult: 1,
         obsidian: 3.8,
@@ -113,7 +113,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.6,
-        attack: 0.825,
+        attack: 0.66,
         resist: 0.88,
         ult: 1,
         obsidian: 4.5,
@@ -122,7 +122,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.75,
-        attack: 0.929,
+        attack: 0.743,
         resist: 0.88,
         ult: 1,
         obsidian: 4.5,
@@ -132,7 +132,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.88,
-        attack: 1.1,
+        attack: 0.88,
         resist: 0.8,
         ult: 1,
         obsidian: 5.7,
@@ -141,7 +141,7 @@ export const DIFFICULTY = {
       },
       {
         p: 0.9,
-        attack: 0.996,
+        attack: 0.797,
         resist: 0.72,
         ult: 1,
         obsidian: 5.7,
@@ -150,7 +150,7 @@ export const DIFFICULTY = {
       },
       {
         p: 1.0,
-        attack: 0.825,
+        attack: 0.66,
         resist: 0.72,
         ult: 1,
         obsidian: 5.7,
@@ -440,9 +440,9 @@ export const FRONT = {
 
 export const BOOM = {
   tint: 0xffd9a8,
-  alpha: 0.55,
-  seconds: 0.52,
-  scale: 1.35,
+  alpha: 0.5,
+  seconds: 0.5,
+  scale: 0.92,
   from: 0.3,
   rise: 0.2,
 };

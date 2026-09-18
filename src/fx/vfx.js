@@ -606,7 +606,7 @@ export class Vfx extends Container {
       bolt.alpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
     }).then(() => bolt.destroy());
 
-    this.boom(to, size);
+    this.boom(to, size, { tint: light });
     this.ultShock(to, from, color, light, size);
   }
 
