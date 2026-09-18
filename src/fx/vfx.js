@@ -28,8 +28,10 @@ import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
 import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
 import {
   BLAST,
+  BOOM,
   FIRE,
   FRONT,
+  HITP,
   JET,
   IMPACT_FX,
   MEND_FX,
@@ -571,7 +573,39 @@ export class Vfx extends Container {
       bolt.alpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
     }).then(() => bolt.destroy());
 
+    this.boom(to, size);
     this.ultShock(to, from, color, light, size);
+  }
+
+  boom(at, size, opts) {
+    const frames = spellFrames("ultburst");
+    if (!frames) return false;
+
+    const o = opts || {};
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = o.tint || BOOM.tint;
+    s.x = at.x;
+    s.y = at.y;
+    s.rotation = rndRange(0, Math.PI * 2);
+    s.alpha = 0;
+    this.field.addChild(s);
+
+    const wide = size * BOOM.scale;
+    const n = frames.length;
+
+    tweenValue(0, 1, o.duration || BOOM.seconds, (p) => {
+      if (s.destroyed) return;
+      s.texture = frames[Math.min(n - 1, (p * n) | 0)];
+      const w = wide * (BOOM.from + Ease.quadOut(p) * (1 - BOOM.from));
+      s.setSize(w, w);
+      s.alpha =
+        BOOM.alpha *
+        (p < BOOM.rise ? p / BOOM.rise : 1 - (p - BOOM.rise) / (1 - BOOM.rise));
+    }).then(() => !s.destroyed && s.destroy());
+
+    return true;
   }
 
   async ultGather(at, color, light, size) {
@@ -1056,6 +1090,12 @@ export class Vfx extends Container {
     tween(flash, { alpha: 0 }, 0.3).then(() => flash.destroy());
 
     const spin = rndRange(0, Math.PI * 2);
+
+    if (this.hitPlate(at, color, p, spin)) {
+      this.burst(at.x, at.y, color, Math.round(10 * p), 1.4 * p);
+      return;
+    }
+
     this.shockRing(at.x, at.y, color, {
       from: 46 * p,
       to: 300 * p,
@@ -1081,6 +1121,36 @@ export class Vfx extends Container {
 
     this.lick(at, color, p, spin);
     this.burst(at.x, at.y, color, Math.round(10 * p), 1.4 * p);
+  }
+
+  hitPlate(at, color, p, spin) {
+    const frames = spellFrames("hitburst");
+    if (!frames) return false;
+
+    const s = new Sprite(frames[0]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = color;
+    s.x = at.x;
+    s.y = at.y;
+    s.rotation = spin;
+    s.alpha = 0;
+    this.field.addChild(s);
+
+    const wide = HITP.size * p;
+    const n = frames.length;
+
+    tweenValue(0, 1, HITP.seconds, (t) => {
+      if (s.destroyed) return;
+      s.texture = frames[Math.min(n - 1, (t * n) | 0)];
+      const w = wide * (HITP.from + Ease.quadOut(t) * (1 - HITP.from));
+      s.setSize(w, w);
+      s.alpha =
+        HITP.alpha *
+        (t < HITP.rise ? t / HITP.rise : 1 - (t - HITP.rise) / (1 - HITP.rise));
+    }).then(() => !s.destroyed && s.destroy());
+
+    return true;
   }
 
   lick(at, color, p, spin) {

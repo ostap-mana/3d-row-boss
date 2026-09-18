@@ -438,6 +438,23 @@ export const FRONT = {
   embers: 7,
 };
 
+export const BOOM = {
+  tint: 0xffd9a8,
+  alpha: 0.55,
+  seconds: 0.52,
+  scale: 1.35,
+  from: 0.3,
+  rise: 0.2,
+};
+
+export const HITP = {
+  alpha: 0.72,
+  seconds: 0.36,
+  size: 260,
+  from: 0.35,
+  rise: 0.22,
+};
+
 export const IMPACT_FX = {
   flat: 0.62,
   streaks: 7,

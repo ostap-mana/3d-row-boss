@@ -40,6 +40,17 @@ const SHOT_GROUND =
   "locked-off static camera, no camera movement, no zoom, no pan, no parallax, " +
   "no text, no letters, no numbers, no watermark, no logo";
 
+const SHOT_CENTRE =
+  "centred in the frame, filling the middle two thirds at its widest, " +
+  "never touching the edges, " +
+  "pure black background, nothing else in the shot, " +
+  "nothing lit except the effect itself, " +
+  "the frame is completely black on the first frame and completely black again " +
+  "on the last frame, " +
+  "one single beat: it bursts once and clears once, no second flash, no repeat, " +
+  "locked-off static camera, no camera movement, no zoom, no pan, no parallax, " +
+  "no text, no letters, no numbers, no watermark, no logo";
+
 const SHOT_JET =
   "the jet enters at the very top edge of the frame and blasts straight down " +
   "to the bottom edge, filling the height of the frame, " +
@@ -104,6 +115,34 @@ const TAKES = [
       "the expanding edge, sparks and glowing shards flung ahead of it, " +
       "the crown stretches thinner as it grows, breaks into separate tongues, " +
       "collapses into scattered embers and goes out, " +
+      "the frame ending completely black",
+  },
+  {
+    id: "hit-v1",
+    shot: "centre",
+    positive:
+      "a single hard impact detonates in the centre of the frame, " +
+      "a compact white-hot core flashing open and throwing a short ragged " +
+      "crown of orange fire outward in every direction, " +
+      "torn spikes of flame and bright sparks flung out on the first frames, " +
+      "the crown is uneven, some tongues longer than others, never a smooth " +
+      "circle, " +
+      "it snaps outward fast, then the tongues thin, curl back and break into " +
+      "sparks that wink out one by one, the core going last, " +
+      "the frame ending completely black",
+  },
+  {
+    id: "ultburst-v1",
+    shot: "centre",
+    positive:
+      "a huge magical detonation blooms in the centre of the frame, " +
+      "a blinding white core opening into a dense radial burst of energy with " +
+      "long tapered spears of light firing outward in every direction, " +
+      "layered petals of fire and arcane light behind the spears, glowing " +
+      "shards and motes thrown out ahead of them, " +
+      "it explodes to full width, holds for an instant at its brightest, then " +
+      "the spears retract and dissolve, the petals thin and tear apart, the " +
+      "motes drift out and fade, " +
       "the frame ending completely black",
   },
   {
@@ -242,7 +281,13 @@ export function plan(only) {
   return TAKES.filter((t) => !only || t.id === only).map((t) => ({
     id: t.id,
     seed: seedOf(t.id),
-    positive: `${t.positive}, ${STYLE}, ${COLOUR}, ${t.shot === "jet" ? SHOT_JET : SHOT_GROUND}`,
+    positive: `${t.positive}, ${STYLE}, ${COLOUR}, ${
+      t.shot === "jet"
+        ? SHOT_JET
+        : t.shot === "centre"
+          ? SHOT_CENTRE
+          : SHOT_GROUND
+    }`,
   }));
 }
 
