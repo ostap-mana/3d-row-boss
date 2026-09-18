@@ -8,7 +8,13 @@ pack-breath — a generated fire mass onto the grid art/spells.js already cuts.
 
   node tools/pack-breath.mjs [options]
 
-  --take <id>     which fxclip take to pack. Default breath-v5.
+  --take <id>     which take to pack. Default breath-v5. The frames are looked
+                  for in src/source/fx/frames/<take> first and in the local
+                  ComfyUI's output/fxclip/<take> only if that misses, so the
+                  sheet can be re-packed at any setting from a clean checkout.
+                  A take kept only in the ComfyUI output cannot be re-packed
+                  once that directory is cleared — it can only be regenerated,
+                  and a regeneration is a new seed and a different flame.
   --from <n>      first source frame to sample. Default 1.
   --to <n>        last source frame to sample. Default 15. The tail of a Wan
                   clip drifts into grey haze as the model runs out of prompt,
@@ -119,9 +125,13 @@ const rel = (p) =>
     .split(sep)
     .join("/");
 
-const dir = join(COMFY, "output", "fxclip", take);
+const kept = join(ROOT, "src/source/fx/frames", take);
+const generated = join(COMFY, "output", "fxclip", take);
+const dir = existsSync(kept) ? kept : generated;
 if (!existsSync(dir)) {
-  process.stderr.write(`no frames for ${take} at ${dir}\n`);
+  process.stderr.write(
+    `no frames for ${take}, looked in:\n  ${kept}\n  ${generated}\n`,
+  );
   process.exit(1);
 }
 
@@ -259,5 +269,6 @@ if (args.includes("--contact")) {
 const kb = (statSync(out).size / 1024).toFixed(1);
 process.stdout.write(
   `${rel(out)}  ${sheetW}x${sheetH}  ${cols}x${rows} of ${cell}px  ${kb} kB\n` +
-    `frames ${picked[0]} .. ${picked[picked.length - 1]} of ${take}\n`,
+    `frames ${picked[0]} .. ${picked[picked.length - 1]} of ${take}\n` +
+    `source ${dir === kept ? rel(dir) : dir}\n`,
 );
