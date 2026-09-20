@@ -52,6 +52,7 @@ import { loadOutcomeFigures, rewindFigures } from "./art/figures.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
+import { stateEngine } from "./game/states.js";
 import { Hud } from "./ui/hud.js";
 import { Hand } from "./ui/hand.js";
 import { Coach } from "./ui/coach.js";
@@ -658,6 +659,7 @@ async function boot() {
 
     director = new Director(scene);
     scene.director = director;
+    scene.states.attach();
     director.armIntro();
     armLessonExit();
     director.run();
@@ -665,6 +667,8 @@ async function boot() {
 
   director = new Director(scene);
   scene.director = director;
+  scene.states = stateEngine(scene);
+  scene.states.attach();
 
   scene.mute = setMuted;
   scene.begin = () => begin();
