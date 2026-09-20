@@ -10,6 +10,7 @@ import { loadAudio } from "./decode.js";
 import spriteUrl from "../assets/audio/sfx.mp3";
 import outcomeUrl from "../assets/audio/outcome.mp3";
 import mendUrl from "../assets/audio/mend.mp3";
+import healUrl from "../assets/audio/heal.mp3";
 import roomUrl from "../assets/audio/room.mp3";
 
 const MIN = 0.0001;
@@ -29,7 +30,7 @@ const SLICES = {
   strike: { at: 6.29, dur: 0.28, gain: 0.1 },
   hurt: { at: 6.69, dur: 0.3, gain: 0.12 },
   down: { at: 7.11, dur: 0.85, gain: 0.14 },
-  heal: { at: 8.08, dur: 1.1, gain: 0.1 },
+  heal: { bank: "heal", at: 0, dur: 1.366, gain: 0.059 },
   mend: { bank: "mend", at: 0, dur: 1.391, gain: 0.26 },
   cutin: { at: 9.3, dur: 1, gain: 0.18 },
   ult: { at: 10.42, dur: 1.6, gain: 0.3 },
@@ -68,9 +69,10 @@ const BANK_URL = {
   sfx: spriteUrl,
   outcome: outcomeUrl,
   mend: mendUrl,
+  heal: healUrl,
 };
 
-const banks = { sfx: null, outcome: null, mend: null };
+const banks = { sfx: null, outcome: null, mend: null, heal: null };
 let roomAudio = null;
 const live = [];
 
