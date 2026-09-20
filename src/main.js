@@ -53,6 +53,7 @@ import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
 import { stateEngine } from "./game/states.js";
+import { openPanel } from "./dev/panel.js";
 import { Hud } from "./ui/hud.js";
 import { Hand } from "./ui/hand.js";
 import { Coach } from "./ui/coach.js";
@@ -260,6 +261,7 @@ async function boot() {
     scene.outcome.resize(layout);
     scene.endcard.resize(layout);
     scene.prompt.resize(layout);
+    if (scene.panel) scene.panel.resize(layout);
 
     lavaMask.clear();
     lavaMask.rect(
@@ -618,6 +620,8 @@ async function boot() {
     const stepped = stepDoor(Math.min(ticker.deltaMS / 1000, 0.05));
     if (stepped == null) return;
     const real = stepped;
+    if (scene.panel) scene.panel.update(real);
+    if (scene.states && scene.states.held()) return;
     const dt = warpDt(real);
     updateTweens(dt);
     if (director) director.update(real);
@@ -671,11 +675,11 @@ async function boot() {
   scene.states.attach();
 
   if (new URLSearchParams(location.search).has("panel")) {
-    import("./dev/panel.js")
-      .then((mod) => {
-        scene.panel = mod.openPanel(scene);
-      })
-      .catch(() => {});
+    try {
+      scene.panel = openPanel(scene);
+    } catch {
+      scene.panel = null;
+    }
   }
 
   scene.mute = setMuted;

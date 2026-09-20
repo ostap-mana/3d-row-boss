@@ -1,54 +1,22 @@
-import { DIFFICULTY, DOOM, T } from "../config.js";
+import { Container, Graphics, Rectangle, Text } from "pixi.js";
+import { DIFFICULTY, DOOM, FONT, T } from "../config.js";
 import { KNOBS, TOGGLES } from "./knobs.js";
 
 const ROOTS = { DIFFICULTY, DOOM, T };
 
-const CSS = `
-#siege-panel{position:fixed;top:0;right:0;z-index:2147483000;width:308px;
-max-height:100dvh;overflow:auto;background:rgba(10,8,18,.93);color:#e8e0d2;
-font:11px/1.45 ui-monospace,Menlo,Consolas,monospace;border-left:1px solid #f5c65a44;
--webkit-user-select:none;user-select:none;touch-action:auto}
-#siege-panel *{box-sizing:border-box}
-#siege-panel.shut{width:auto;max-height:none;overflow:visible;border:0;background:none}
-#siege-panel.shut .body{display:none}
-#siege-panel .top{display:flex;align-items:center;gap:6px;padding:6px 8px;
-position:sticky;top:0;background:rgba(10,8,18,.98);border-bottom:1px solid #f5c65a33}
-#siege-panel .top b{color:#f5c65a;letter-spacing:.14em;font-weight:700;flex:1}
-#siege-panel .body{padding:0 8px 10px}
-#siege-panel h4{color:#f5c65a;letter-spacing:.14em;font-size:10px;font-weight:700;
-margin:10px 0 5px;padding-top:8px;border-top:1px solid #ffffff14}
-#siege-panel button{font:inherit;color:#e8e0d2;background:#241c33;border:1px solid #ffffff1f;
-border-radius:4px;padding:4px 6px;cursor:pointer}
-#siege-panel button:hover{background:#33264a;border-color:#f5c65a66}
-#siege-panel button.live{background:#1b4a1a;border-color:#27752f;color:#dffcd8}
-#siege-panel button.hot{background:#6b3030;border-color:#c74343;color:#ffe2dd}
-#siege-panel .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-#siege-panel .row{display:flex;gap:4px;align-items:center;margin:4px 0}
-#siege-panel .row label{flex:1;color:#bdb3a4}
-#siege-panel input[type=range]{width:100%;accent-color:#f5c65a;height:16px}
-#siege-panel .knob{margin:7px 0}
-#siege-panel .knob .head{display:flex;gap:6px;align-items:baseline}
-#siege-panel .knob .head span{flex:1}
-#siege-panel .knob .head i{color:#f5c65a;font-style:normal}
-#siege-panel .knob small{color:#8b8274;display:block}
-#siege-panel pre{margin:0;white-space:pre-wrap;word-break:break-word;color:#9fd5b0;font-size:10px}
-`;
+const SHEET = 0x0b0812;
+const GOLD = 0xf5c65a;
+const INK = 0xe8e0d2;
+const DIM = 0x8b8274;
+const CHIP = 0x241c33;
+const CHIP_HOT = 0x6b3030;
+const CHIP_LIVE = 0x1b4a1a;
 
-function el(tag, attrs, kids) {
-  const node = document.createElement(tag);
-  if (attrs) {
-    for (const key of Object.keys(attrs)) {
-      if (key === "on") {
-        for (const name of Object.keys(attrs.on)) {
-          node.addEventListener(name, attrs.on[name]);
-        }
-      } else if (key === "text") node.textContent = attrs.text;
-      else node.setAttribute(key, attrs[key]);
-    }
-  }
-  for (const kid of kids || []) if (kid) node.appendChild(kid);
-  return node;
-}
+const TABS = ["STATES", "MODS", "READ"];
+
+const REFRESH = 0.25;
+
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 function readPath(path) {
   const parts = path.split(".");
@@ -92,226 +60,520 @@ function baseline() {
   return base;
 }
 
-export function openPanel(scene) {
-  if (document.getElementById("siege-panel")) return null;
-
-  const base = baseline();
-  const factors = new Map();
-  const shown = new Map();
-
-  const style = el("style", { text: CSS });
-  document.head.appendChild(style);
-
-  const body = el("div", { class: "body" });
-  const toggle = el("button", { text: "×" });
-  const panel = el("div", { id: "siege-panel" }, [
-    el("div", { class: "top" }, [el("b", { text: "SIEGE" }), toggle]),
-    body,
-  ]);
-  toggle.addEventListener("click", () => {
-    const shut = panel.classList.toggle("shut");
-    toggle.textContent = shut ? "≡" : "×";
+function label(text, size, fill) {
+  return new Text({
+    text,
+    style: {
+      fontFamily: FONT,
+      fontSize: size,
+      fontWeight: "700",
+      fill: fill === undefined ? INK : fill,
+      letterSpacing: 0.4,
+    },
   });
+}
 
-  const states = () => scene.states;
-
-  function section(title) {
-    body.appendChild(el("h4", { text: title }));
+class Chip extends Container {
+  constructor(text, size, onTap) {
+    super();
+    this.bg = new Graphics();
+    this.addChild(this.bg);
+    this.text = label(text, size);
+    this.text.anchor.set(0.5);
+    this.addChild(this.text);
+    this.w = 0;
+    this.h = 0;
+    this.tone = CHIP;
+    this.eventMode = "static";
+    this.cursor = "pointer";
+    this.on("pointertap", (e) => {
+      e.stopPropagation();
+      onTap();
+    });
   }
 
-  const controls = el("div", { class: "grid" });
-  const readout = el("pre");
+  paint(w, h, tone) {
+    if (this.w === w && this.h === h && this.tone === tone) return;
+    this.w = w;
+    this.h = h;
+    this.tone = tone;
+    this.bg.clear();
+    this.bg.roundRect(0, 0, w, h, Math.min(6, h * 0.3));
+    this.bg.fill({ color: tone, alpha: 0.96 });
+    this.bg.roundRect(0, 0, w, h, Math.min(6, h * 0.3));
+    this.bg.stroke({ width: 1, color: GOLD, alpha: 0.28 });
+    this.text.position.set(w / 2, h / 2);
+    if (this.text.width > w - 6) {
+      this.text.scale.set(Math.max(0.55, (w - 6) / this.text.width));
+    } else this.text.scale.set(1);
+    this.hitArea = new Rectangle(0, 0, w, h);
+  }
+}
 
-  section("CONTROL");
-  body.appendChild(controls);
-  const rateLabel = el("i", { text: "×1.00" });
-  const rate = el("input", {
-    type: "range",
-    min: "0.05",
-    max: "2",
-    step: "0.05",
-    value: "1",
-  });
-  rate.addEventListener("input", () => {
-    const v = Number(rate.value);
-    rateLabel.textContent = `×${v.toFixed(2)}`;
-    states().rate(v);
-  });
-  body.appendChild(
-    el("div", { class: "knob" }, [
-      el("div", { class: "head" }, [
-        el("span", { text: "Темп світу" }),
-        rateLabel,
-      ]),
-      rate,
-    ]),
-  );
+class Slider extends Container {
+  constructor(knob, onMove) {
+    super();
+    this.knob = knob;
+    this.value = 1;
+    this.name0 = label(knob.label, 11);
+    this.value0 = label("×1.00", 11, GOLD);
+    this.hint = label("", 10, DIM);
+    this.track = new Graphics();
+    this.addChild(this.track, this.name0, this.value0, this.hint);
+    this.w = 0;
+    this.eventMode = "static";
+    this.cursor = "pointer";
 
-  const act = (label, cls, fn) => {
-    const button = el("button", { text: label, class: cls || "" });
-    button.addEventListener("click", fn);
-    controls.appendChild(button);
-    return button;
-  };
-  act("HALT", "hot", () => states().halt());
-  act("RESUME", "", () => states().resume());
-  act("FREEZE", "", () => states().freeze());
-  act("THAW", "", () => states().thaw());
-  act("STEP 1", "", () => states().step(1));
-  act("STEP 10", "", () => states().step(10));
+    const grab = (e) => {
+      e.stopPropagation();
+      const local = this.toLocal(e.global);
+      const t = clamp(local.x / Math.max(1, this.w), 0, 1);
+      this.value = knob.min + t * (knob.max - knob.min);
+      onMove(this);
+    };
+    this.on("pointerdown", (e) => {
+      this.dragging = true;
+      grab(e);
+    });
+    this.on("globalpointermove", (e) => {
+      if (this.dragging) grab(e);
+    });
+    this.on("pointerup", () => {
+      this.dragging = false;
+    });
+    this.on("pointerupoutside", () => {
+      this.dragging = false;
+    });
+  }
 
-  const buttons = new Map();
-  let groups = null;
+  paint(w, ui) {
+    this.w = w;
+    const line = 13 * ui;
+    this.name0.style.fontSize = 11 * ui;
+    this.value0.style.fontSize = 11 * ui;
+    this.hint.style.fontSize = 10 * ui;
+    this.name0.position.set(0, 0);
+    this.value0.position.set(w - this.value0.width, 0);
+    this.hint.position.set(0, line);
+    const y = line * 2 + 4 * ui;
+    const h = 5 * ui;
+    const t =
+      (this.value - this.knob.min) /
+      Math.max(0.0001, this.knob.max - this.knob.min);
+    this.track.clear();
+    this.track.roundRect(0, y, w, h, h / 2);
+    this.track.fill({ color: 0xffffff, alpha: 0.12 });
+    this.track.roundRect(0, y, Math.max(h, w * t), h, h / 2);
+    this.track.fill({ color: GOLD, alpha: 0.85 });
+    this.track.circle(clamp(w * t, h, w - h), y + h / 2, h * 1.5);
+    this.track.fill({ color: GOLD });
+    this.box = y + h + 6 * ui;
+    this.hitArea = new Rectangle(-6 * ui, 0, w + 12 * ui, this.box);
+    return this.box;
+  }
 
-  function buildStates() {
-    const list = states().list();
-    const seen = list.map((s) => s.name).join("|");
-    if (groups === seen) return list;
-    groups = seen;
+  say(text, value) {
+    this.hint.text = text;
+    this.value0.text = `×${value.toFixed(2)}`;
+    this.value0.position.set(this.w - this.value0.width, 0);
+  }
+}
 
-    for (const node of body.querySelectorAll("[data-states]")) node.remove();
+export class DevPanel extends Container {
+  constructor(scene) {
+    super();
+    this.scene = scene;
+    this.base = baseline();
+    this.tab = 0;
+    this.shut = false;
+    this.scroll = 0;
+    this.span = 0;
+    this.since = 0;
+    this.signature = "";
 
-    const byGroup = {};
-    for (const s of list) (byGroup[s.group] = byGroup[s.group] || []).push(s);
+    this.eventMode = "static";
+    this.sheet = new Graphics();
+    this.addChild(this.sheet);
+    this.on("pointerdown", (e) => e.stopPropagation());
 
-    for (const name of Object.keys(byGroup)) {
-      const head = el("h4", { text: name.toUpperCase() });
-      head.setAttribute("data-states", "1");
-      body.appendChild(head);
-      const grid = el("div", { class: "grid" });
-      grid.setAttribute("data-states", "1");
-      for (const s of byGroup[name]) {
-        const short = s.name.replace(`${s.group}.`, "");
-        const button = el("button", { text: s.label || short });
-        button.addEventListener("click", () => {
-          const out = states().run(s.name);
-          if (out && out.catch) out.catch(() => {});
-        });
-        buttons.set(s.name, button);
-        grid.appendChild(button);
+    this.title = label("SIEGE", 11, GOLD);
+    this.addChild(this.title);
+
+    this.handle = new Chip("≡", 12, () => this.flip());
+    this.addChild(this.handle);
+
+    this.tabs = TABS.map((name, i) => new Chip(name, 10, () => this.pick(i)));
+    for (const tab of this.tabs) this.addChild(tab);
+
+    this.clip = new Container();
+    this.clipMask = new Graphics();
+    this.clip.mask = this.clipMask;
+    this.addChild(this.clip, this.clipMask);
+
+    this.reel = new Container();
+    this.clip.addChild(this.reel);
+
+    this.clip.eventMode = "static";
+    this.clip.on("pointerdown", (e) => {
+      this.drag = e.global.y;
+      this.from = this.scroll;
+    });
+    this.clip.on("globalpointermove", (e) => {
+      if (this.drag === undefined) return;
+      this.scroll = this.from + (e.global.y - this.drag);
+      this.apply();
+    });
+    const drop = () => {
+      this.drag = undefined;
+    };
+    this.clip.on("pointerup", drop);
+    this.clip.on("pointerupoutside", drop);
+
+    this.stateChips = new Map();
+    this.heads = [];
+    this.sliders = [];
+    this.toggles = [];
+    this.readText = label("", 10, 0x9fd5b0);
+    this.readText.style.wordWrap = true;
+    this.reel.addChild(this.readText);
+
+    this.control = [
+      new Chip("HALT", 10, () => this.states().halt()),
+      new Chip("RESUME", 10, () => this.states().resume()),
+      new Chip("FREEZE", 10, () => this.states().freeze()),
+      new Chip("THAW", 10, () => this.states().thaw()),
+      new Chip("STEP", 10, () => this.states().step(1)),
+      new Chip("STEP10", 10, () => this.states().step(10)),
+    ];
+    for (const chip of this.control) this.addChild(chip);
+
+    this.rate = new Slider(
+      { label: "Темп світу", hint: "", min: 0.05, max: 2 },
+      (s) => {
+        this.states().rate(s.value);
+        s.say(`×${s.value.toFixed(2)} від реального часу`, s.value);
+        this.layoutSelf();
+      },
+    );
+    this.addChild(this.rate);
+
+    this.buildMods();
+  }
+
+  states() {
+    return this.scene.states;
+  }
+
+  flip() {
+    this.shut = !this.shut;
+    this.handle.text.text = this.shut ? "≡" : "×";
+    this.layoutSelf();
+  }
+
+  pick(i) {
+    this.tab = i;
+    this.scroll = 0;
+    this.layoutSelf();
+  }
+
+  buildMods() {
+    for (const knob of KNOBS) {
+      if (knob.paths.some((p) => p.startsWith("WORLD_RATE"))) continue;
+      const slider = new Slider(knob, (s) => this.applyKnob(s));
+      slider.say(this.reading(knob), 1);
+      this.sliders.push(slider);
+      this.reel.addChild(slider);
+    }
+
+    for (const flag of TOGGLES) {
+      const chip = new Chip(this.flagText(flag), 10, () => {
+        writePath(flag.path, !readPath(flag.path));
+        chip.text.text = this.flagText(flag);
+        chip.tone = null;
+      });
+      chip.flag = flag;
+      this.toggles.push(chip);
+      this.reel.addChild(chip);
+    }
+
+    this.reset = new Chip("СКИНУТИ MODS", 10, () => {
+      for (const [path, from] of this.base) writePath(path, from);
+      for (const slider of this.sliders) {
+        slider.value = 1;
+        slider.say(this.reading(slider.knob), 1);
       }
-      body.appendChild(grid);
+      this.layoutSelf();
+    });
+    this.reel.addChild(this.reset);
+  }
+
+  flagText(flag) {
+    return `${readPath(flag.path) ? "◼" : "◻"} ${flag.label}`;
+  }
+
+  reading(knob) {
+    try {
+      return knob.show(readPath);
+    } catch {
+      return knob.hint || "";
+    }
+  }
+
+  applyKnob(slider) {
+    const knob = slider.knob;
+    const scale = knob.invert ? 1 / slider.value : slider.value;
+    for (const pattern of knob.paths) {
+      for (const path of expand(pattern)) {
+        const from = this.base.get(path);
+        if (typeof from !== "number") continue;
+        writePath(path, Number((from * scale).toFixed(4)));
+      }
+    }
+    slider.say(this.reading(knob), slider.value);
+    this.layoutSelf();
+  }
+
+  syncStates() {
+    const raw = this.states() ? this.states().list() : [];
+    const order = [];
+    for (const s of raw) if (!order.includes(s.group)) order.push(s.group);
+    const list = [];
+    for (const group of order) {
+      for (const s of raw) if (s.group === group) list.push(s);
+    }
+    const signature = list.map((s) => s.name).join("|");
+    if (signature === this.signature) return list;
+    this.signature = signature;
+
+    for (const chip of this.stateChips.values()) chip.destroy();
+    this.stateChips.clear();
+    for (const head of this.heads) head.destroy();
+    this.heads = [];
+
+    let group = null;
+    for (const state of list) {
+      if (state.group !== group) {
+        group = state.group;
+        const head = label(group.toUpperCase(), 10, GOLD);
+        head.headGroup = group;
+        this.heads.push(head);
+        this.reel.addChild(head);
+      }
+      const short = state.name.replace(`${state.group}.`, "");
+      const chip = new Chip(state.label || short, 10, () => {
+        const out = this.states().run(state.name);
+        if (out && out.catch) out.catch(() => {});
+      });
+      chip.state = state;
+      this.stateChips.set(state.name, chip);
+      this.reel.addChild(chip);
     }
     return list;
   }
 
-  function buildMods() {
-    const head = el("h4", { text: "MODS" });
-    head.setAttribute("data-mods", "1");
-    body.appendChild(head);
+  resize(layout) {
+    this.layout = layout;
+    const s = layout.safeBox;
+    const ui = clamp(layout.ui, 0.8, 1.6);
+    this.ui = ui;
 
-    for (const knob of KNOBS) {
-      if (knob.paths.some((p) => p.startsWith("WORLD_RATE"))) continue;
-      const value = el("i", { text: "×1.00" });
-      const hint = el("small", { text: knob.hint || "" });
-      const slider = el("input", {
-        type: "range",
-        min: String(knob.min),
-        max: String(knob.max),
-        step: "0.05",
-        value: "1",
-      });
-      slider.addEventListener("input", () => {
-        const factor = Number(slider.value);
-        factors.set(knob.key, factor);
-        value.textContent = `×${factor.toFixed(2)}`;
-        const scale = knob.invert ? 1 / factor : factor;
-        for (const pattern of knob.paths) {
-          for (const path of expand(pattern)) {
-            const from = base.get(path);
-            if (typeof from !== "number") continue;
-            writePath(path, Number((from * scale).toFixed(4)));
+    if (layout.portrait) {
+      this.box = {
+        x: s.x,
+        y: s.bottom - s.h * 0.58,
+        w: s.w,
+        h: s.h * 0.58,
+      };
+    } else {
+      const w = Math.min(s.w * 0.3, 300 * ui);
+      this.box = { x: s.right - w, y: s.y, w, h: s.h };
+    }
+    this.layoutSelf();
+  }
+
+  layoutSelf() {
+    if (!this.box) return;
+    const { x, y, w, h } = this.box;
+    const ui = this.ui;
+    const pad = 8 * ui;
+    const head = 22 * ui;
+
+    this.sheet.clear();
+    this.handle.paint(head, head, CHIP);
+
+    if (this.shut) {
+      this.position.set(x + w - head - pad, y + pad);
+      this.handle.position.set(0, 0);
+      this.title.visible = false;
+      for (const tab of this.tabs) tab.visible = false;
+      this.clip.visible = false;
+      this.clipMask.visible = false;
+      for (const chip of this.control) chip.visible = false;
+      this.rate.visible = false;
+      return;
+    }
+
+    this.position.set(x, y);
+    this.title.visible = true;
+    this.clip.visible = true;
+    this.clipMask.visible = true;
+
+    this.sheet.rect(0, 0, w, h);
+    this.sheet.fill({ color: SHEET, alpha: 0.92 });
+    this.sheet.rect(0, 0, w, h);
+    this.sheet.stroke({ width: 1, color: GOLD, alpha: 0.3 });
+    this.hitArea = new Rectangle(0, 0, w, h);
+
+    this.title.style.fontSize = 11 * ui;
+    this.title.position.set(pad, pad);
+    this.handle.position.set(w - head - pad, pad);
+
+    let at = pad + head + 4 * ui;
+
+    const cols = 3;
+    const gap = 4 * ui;
+    const tabW = (w - pad * 2 - gap * (cols - 1)) / cols;
+    this.tabs.forEach((tab, i) => {
+      tab.visible = true;
+      tab.paint(tabW, 18 * ui, i === this.tab ? CHIP_LIVE : CHIP);
+      tab.position.set(pad + i * (tabW + gap), at);
+    });
+    at += 18 * ui + 6 * ui;
+
+    const ctlW = (w - pad * 2 - gap * 2) / 3;
+    this.control.forEach((chip, i) => {
+      chip.visible = true;
+      chip.paint(ctlW, 18 * ui, i === 0 ? CHIP_HOT : CHIP);
+      chip.position.set(
+        pad + (i % 3) * (ctlW + gap),
+        at + Math.floor(i / 3) * (18 * ui + gap),
+      );
+    });
+    at += (18 * ui + gap) * 2 + 2 * ui;
+
+    this.rate.visible = true;
+    this.rate.position.set(pad, at);
+    at += this.rate.paint(w - pad * 2, ui);
+
+    this.clip.position.set(pad, at);
+    this.clipMask.clear();
+    this.clipMask.rect(pad, at, w - pad * 2, h - at - pad);
+    this.clipMask.fill({ color: 0xffffff });
+    this.view = { w: w - pad * 2, h: h - at - pad };
+
+    this.fill();
+  }
+
+  fill() {
+    const ui = this.ui;
+    const w = this.view.w;
+    const gap = 4 * ui;
+    const rowH = 18 * ui;
+    let at = 0;
+
+    const states = this.tab === 0;
+    const mods = this.tab === 1;
+
+    for (const head of this.heads) head.visible = states;
+    for (const chip of this.stateChips.values()) chip.visible = states;
+    for (const slider of this.sliders) slider.visible = mods;
+    for (const chip of this.toggles) chip.visible = mods;
+    if (this.reset) this.reset.visible = mods;
+    this.readText.visible = this.tab === 2;
+
+    if (states) {
+      const colW = (w - gap) / 2;
+      let column = 0;
+      let group = null;
+      for (const [, chip] of this.stateChips) {
+        if (chip.state.group !== group) {
+          group = chip.state.group;
+          if (column === 1) {
+            at += rowH + gap;
+            column = 0;
+          }
+          const head = this.heads.find((n) => n.headGroup === group);
+          if (head) {
+            head.style.fontSize = 10 * ui;
+            head.position.set(0, at);
+            at += 14 * ui;
           }
         }
-        try {
-          hint.textContent = knob.show(readPath);
-        } catch {
-          hint.textContent = knob.hint || "";
-        }
-      });
-      shown.set(knob.key, hint);
-      try {
-        hint.textContent = knob.show(readPath);
-      } catch {
-        hint.textContent = knob.hint || "";
+        chip.paint(colW, rowH, chip.state.live ? CHIP_LIVE : CHIP);
+        chip.position.set(column * (colW + gap), at);
+        if (column === 1) at += rowH + gap;
+        column = column === 0 ? 1 : 0;
       }
-      const wrap = el("div", { class: "knob" }, [
-        el("div", { class: "head" }, [el("span", { text: knob.label }), value]),
-        hint,
-        slider,
-      ]);
-      wrap.setAttribute("data-mods", "1");
-      body.appendChild(wrap);
+      if (column === 1) at += rowH + gap;
     }
 
-    for (const flag of TOGGLES) {
-      const box = el("input", { type: "checkbox" });
-      box.checked = !!readPath(flag.path);
-      box.addEventListener("change", () => writePath(flag.path, box.checked));
-      const row = el("div", { class: "row" }, [
-        el("label", { text: flag.label }),
-        box,
-      ]);
-      row.setAttribute("data-mods", "1");
-      body.appendChild(row);
+    if (mods) {
+      for (const slider of this.sliders) {
+        slider.position.set(0, at);
+        at += slider.paint(w, ui) + 4 * ui;
+      }
+      for (const chip of this.toggles) {
+        chip.paint(w, rowH, CHIP);
+        chip.position.set(0, at);
+        at += rowH + gap;
+      }
+      this.reset.paint(w, rowH, CHIP_HOT);
+      this.reset.position.set(0, at);
+      at += rowH + gap;
     }
 
-    const reset = el("button", { text: "СКИНУТИ MODS" });
-    reset.setAttribute("data-mods", "1");
-    reset.addEventListener("click", () => {
-      for (const [path, from] of base) writePath(path, from);
-      for (const input of body.querySelectorAll(
-        "[data-mods] input[type=range]",
-      ))
-        input.value = "1";
-      for (const label of body.querySelectorAll("[data-mods] .head i"))
-        label.textContent = "×1.00";
-      for (const knob of KNOBS) {
-        const hint = shown.get(knob.key);
-        if (!hint) continue;
-        try {
-          hint.textContent = knob.show(readPath);
-        } catch {
-          hint.textContent = knob.hint || "";
-        }
-      }
-      factors.clear();
-    });
-    body.appendChild(reset);
+    if (this.tab === 2) {
+      this.readText.style.fontSize = 10 * ui;
+      this.readText.style.wordWrapWidth = w;
+      this.readText.position.set(0, 0);
+      at = this.readText.height;
+    }
+
+    this.span = at;
+    this.apply();
   }
 
-  buildStates();
-  buildMods();
-  section("READ");
-  body.appendChild(readout);
+  apply() {
+    const room = Math.min(0, this.view.h - this.span);
+    this.scroll = clamp(this.scroll, room, 0);
+    this.reel.position.set(0, this.scroll);
+  }
 
-  let timer = 0;
-  function tick() {
-    if (!panel.isConnected) return;
-    if (!panel.classList.contains("shut") && states()) {
-      const list = buildStates();
-      for (const s of list) {
-        const button = buttons.get(s.name);
-        if (button) button.classList.toggle("live", s.live);
+  update(dt) {
+    if (this.shut || !this.box) return;
+    this.since += dt;
+    if (this.since < REFRESH) return;
+    this.since = 0;
+
+    const before = this.signature;
+    const list = this.syncStates();
+    if (before !== this.signature) {
+      this.fill();
+      return;
+    }
+
+    if (this.tab === 0) {
+      for (const state of list) {
+        const chip = this.stateChips.get(state.name);
+        if (chip) chip.paint(chip.w, chip.h, state.live ? CHIP_LIVE : CHIP);
       }
-      const read = states().read();
-      readout.textContent = Object.keys(read)
+    }
+
+    if (this.tab === 2 && this.states()) {
+      const read = this.states().read();
+      this.readText.text = Object.keys(read)
         .map((k) => `${k}: ${JSON.stringify(read[k])}`)
         .join("\n");
+      this.span = this.readText.height;
+      this.apply();
     }
-    timer = setTimeout(tick, 250);
   }
+}
 
-  document.body.appendChild(panel);
-  tick();
-
-  return {
-    panel,
-    close() {
-      clearTimeout(timer);
-      panel.remove();
-      style.remove();
-    },
-    factors,
-  };
+export function openPanel(scene) {
+  const panel = new DevPanel(scene);
+  panel.syncStates();
+  scene.app.stage.addChild(panel);
+  if (scene.layout) panel.resize(scene.layout);
+  return panel;
 }

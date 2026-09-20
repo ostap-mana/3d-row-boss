@@ -100,6 +100,7 @@ export function stateEngine(scene) {
   const wrapped = new WeakSet();
   let gen = 0;
   let frozen = false;
+  let stepping = 0;
   let rate = 1;
 
   const director = () => scene.director;
@@ -354,21 +355,31 @@ export function stateEngine(scene) {
 
     freeze() {
       frozen = true;
-      scene.app.ticker.stop();
+      stepping = 0;
       tell("freeze", "world");
       return true;
     },
 
     thaw() {
       frozen = false;
-      scene.app.ticker.start();
+      stepping = 0;
       tell("thaw", "world");
       return true;
     },
 
+    held() {
+      if (stepping > 0) {
+        stepping--;
+        return false;
+      }
+      return frozen;
+    },
+
     step(frames) {
       const n = frames === undefined ? 1 : frames;
-      for (let i = 0; i < n; i++) scene.app.ticker.update(performance.now());
+      frozen = true;
+      stepping += n;
+      tell("step", String(n));
       return n;
     },
 
