@@ -73,20 +73,24 @@ const BAND_EDGE = 2.13 / 84.23;
 const BAND_ALPHA = 0.9;
 
 const VERDICT_W = { portrait: 1.0, landscape: 0.52 };
-const VERDICT_H = { portrait: 0.2, landscape: 0.28 };
+const VERDICT_H = { portrait: 0.2, landscape: 0.2 };
 
-const PLATE_Y = { portrait: 0.47, landscape: 0.46 };
+const PLATE_Y = { portrait: 0.47, landscape: 0.42 };
 const FIGURE_H = { portrait: 0.33, landscape: 0.4 };
 const FIGURE_W = { portrait: 0.92, landscape: 0.46 };
 
 const FIGURE_STARS_H = { portrait: 0.48, landscape: 0.37 };
 const FIGURE_STARS_W = { portrait: 0.92, landscape: 0.46 };
 
-const FIGURE_STARS_SINK = {
-  win: { portrait: 0.3, landscape: 0.34 },
-  loss: { portrait: -0.15, landscape: 0.34 },
-};
-const FIGURE_SINK = 0.04;
+const FIGURE_BURY = { win: 0.21, loss: 0.14 };
+
+const FIGURE_WANT = { portrait: 0, landscape: 0.26 };
+
+const VERDICT_MIN = { portrait: 0.12, landscape: 0.15 };
+
+const PLATE_GIVE = 3;
+
+const FIGURE_SETTLE = 3;
 
 const FIGURE_RISE = {
   win: { portrait: 0.035, landscape: 0.03 },
@@ -151,6 +155,17 @@ const ARM_AFTER = 0.5;
 const PULSE = 2.6;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+function chromeFloor(s, layout, left, right) {
+  const b = layout.banner;
+  const h = layout.hud;
+  let y = s.y;
+  if (b.x - b.w / 2 < right && b.x + b.w / 2 > left) {
+    y = Math.max(y, b.y + b.h / 2);
+  }
+  if (h.x < right && h.x + h.w > left) y = Math.max(y, h.y + h.h);
+  return y;
+}
 
 export class OutcomeScreen extends Container {
   constructor(freeze, onRetry, onCta) {
@@ -344,6 +359,47 @@ export class OutcomeScreen extends Container {
       pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
     }
 
+    const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
+    const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
+
+    const side = this.defeat ? "loss" : "win";
+    const lift = s.h * (FIGURE_RISE[side][key] + FIGURE_GROW[side][key]);
+    const bury = FIGURE_BURY[side];
+    const capH = s.h * figureDown[key];
+    const capW = (s.w * figureAcross[key]) / FIGURE_ASPECT;
+
+    const ceilingFor = (span) => {
+      const halfW = (span * FIGURE_ASPECT) / 2;
+      return (
+        chromeFloor(s, layout, s.cx - halfW, s.cx + halfW) +
+        STARS_AIR * ui -
+        lift
+      );
+    };
+
+    const standing = (top) => {
+      let span = Math.min(capH, capW);
+      for (let pass = 0; pass <= FIGURE_SETTLE; pass++) {
+        span = Math.min(
+          capH,
+          capW,
+          Math.max(0, top - ceilingFor(span)) / (1 - bury),
+        );
+      }
+      return span;
+    };
+
+    const want = s.h * FIGURE_WANT[key];
+    let span = standing(cy - ph / 2);
+    for (let pass = 0; pass < PLATE_GIVE && span < want; pass++) {
+      const give = 2 * (cy - ceilingFor(span) - want * (1 - bury));
+      const next = clamp(give, s.h * VERDICT_MIN[key], ph);
+      if (next >= ph - 0.5) break;
+      ph = next;
+      pw = (ph * VERDICT_ART.w) / VERDICT_ART.h;
+      span = standing(cy - ph / 2);
+    }
+
     if (this.painted) {
       ph = fitVerdict(this.verdict, pw);
       this.verdict.position.set(0, 0);
@@ -354,23 +410,8 @@ export class OutcomeScreen extends Container {
       this.word.position.set(0, 0);
     }
 
-    const figureDown = FIGURE_CARRIES_STARS ? FIGURE_STARS_H : FIGURE_H;
-    const figureAcross = FIGURE_CARRIES_STARS ? FIGURE_STARS_W : FIGURE_W;
-
-    const side = this.defeat ? "loss" : "win";
-    const rise = s.h * FIGURE_RISE[side][key];
-    const grow = s.h * FIGURE_GROW[side][key];
-    const roomTop =
-      layout.banner.y + layout.banner.h / 2 + STARS_AIR * ui - rise - grow;
-    const sink = FIGURE_CARRIES_STARS
-      ? FIGURE_STARS_SINK[side][key]
-      : FIGURE_SINK;
-    const figureFoot = cy + ph * sink - rise;
-    this.figureH = Math.min(
-      s.h * figureDown[key],
-      (s.w * figureAcross[key]) / FIGURE_ASPECT,
-      Math.max(0, figureFoot - roomTop),
-    );
+    this.figureH = span;
+    const figureFoot = cy - ph / 2 + span * bury;
     this.figure.position.set(s.cx, figureFoot);
     const figureUp = this.fitFigure();
 
@@ -403,23 +444,26 @@ export class OutcomeScreen extends Container {
       this.line.position.set(0, -size * 1.6);
     }
 
-    const b = layout.board;
-    const retryX = b.x + b.size / 2;
+    const retryX = s.cx;
 
     const air = RETRY_AIR * ui;
-    const rowLeft = layout.cards.x;
-    const rowRight = rowLeft + layout.cards.w;
-    const overRow = retryX > rowLeft && retryX < rowRight;
     const roof = cy + ph / 2 + air;
-    const sill = (overRow ? layout.cards.y : s.bottom) - air;
-    const room = Math.max(44 * ui, sill - roof);
 
     const reachAcross = Math.min(retryX - s.x, s.x + s.w - retryX);
     const beating = this.defeat ? 1 : 1 + PLAY_BEAT.kick;
     const offered = Math.min(
       s.w * (this.defeat ? RETRY_W[key] : PLAY_W[key]),
+      Math.max(44 * ui, pw),
       Math.max(44 * ui, ((reachAcross - PLATE_EDGE_AIR * ui) * 2) / beating),
     );
+
+    const rowLeft = layout.cards.x;
+    const rowRight = rowLeft + layout.cards.w;
+    const overRow =
+      retryX - offered / 2 < rowRight && retryX + offered / 2 > rowLeft;
+    const sill = (overRow ? layout.cards.y : s.bottom) - air;
+    const room = Math.max(44 * ui, sill - roof);
+
     const box = this.fitRetry(
       offered,
       Math.min(clamp(s.h * RETRY_MAX[key], 40 * ui, 340 * ui), room),
@@ -441,7 +485,9 @@ export class OutcomeScreen extends Container {
   }
 
   fitFigure() {
-    return this.figure.fit(this.defeat, this.figureH);
+    const up = this.figureH > 0 && this.figure.fit(this.defeat, this.figureH);
+    this.figure.visible = up;
+    return up;
   }
 
   reframe(w, h) {
