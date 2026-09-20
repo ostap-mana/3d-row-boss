@@ -2,7 +2,7 @@ export const KNOB_ROOTS = ["DIFFICULTY", "DOOM", "T"];
 
 const pct = (v) => `${Math.round(v * 100)}%`;
 
-const KNOBS = [
+export const KNOBS = [
   {
     key: "damage",
     label: "Шкода від матчу",
@@ -123,7 +123,7 @@ const KNOBS = [
   },
 ];
 
-const TOGGLES = [
+export const TOGGLES = [
   { key: "curve", label: "Крива складності", path: "DIFFICULTY.curve.enabled" },
   { key: "pace", label: "Гарантія темпу", path: "DIFFICULTY.pace.enabled" },
   { key: "mend", label: "Лікування боса", path: "DIFFICULTY.mend.enabled" },

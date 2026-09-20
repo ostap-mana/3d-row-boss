@@ -670,6 +670,14 @@ async function boot() {
   scene.states = stateEngine(scene);
   scene.states.attach();
 
+  if (new URLSearchParams(location.search).has("panel")) {
+    import("./dev/panel.js")
+      .then((mod) => {
+        scene.panel = mod.openPanel(scene);
+      })
+      .catch(() => {});
+  }
+
   scene.mute = setMuted;
   scene.begin = () => begin();
   scene.fullscreen = goFullscreen;
