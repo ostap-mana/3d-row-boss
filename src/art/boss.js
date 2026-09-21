@@ -1,7 +1,6 @@
 import { Container, Graphics, Mesh, PlaneGeometry, Sprite } from "pixi.js";
 import { tween, delay, Ease, tweenValue, killTweensOf } from "../core/tween.js";
 import { canvasTexture, glowTexture, sparkTexture } from "./textures.js";
-import { getRenderer } from "../core/context.js";
 import { lerpColor } from "../core/color.js";
 import { BOSS_ART } from "../core/layout.js";
 import * as sfx from "../audio/sfx.js";
@@ -28,7 +27,7 @@ const DEATH = {
   white: 0xfff4e2,
   land: 0.26,
   fade: 0.34,
-  shards: 34,
+  ash: 34,
   dust: 30,
   motes: 30,
 };
@@ -37,7 +36,7 @@ const LAND = {
   wob: 0.95,
   hold: 0.06,
   dust: 30,
-  shards: 12,
+  ash: 12,
   spread: 1.5,
   dip: 0.22,
   give: 0.1,
@@ -174,21 +173,6 @@ export async function loadBossArt() {
   return painting;
 }
 
-let shardTex = null;
-function shardTexture() {
-  if (shardTex) return shardTex;
-  const g = new Graphics();
-  g.poly([0, -18, 16, -4, 10, 16, -8, 14, -16, -6]);
-  g.fill({ color: 0xffffff });
-  shardTex = getRenderer().generateTexture({
-    target: g,
-    resolution: 2,
-    antialias: true,
-  });
-  g.destroy();
-  return shardTex;
-}
-
 class Bits extends Container {
   constructor() {
     super();
@@ -220,6 +204,8 @@ class Bits extends Container {
       sx: s.scale.x,
       sy: s.scale.y,
       grow: o.grow === undefined ? 1 : o.grow,
+      frames: o.frames || null,
+      frame: 0,
     });
     return s;
   }
@@ -241,6 +227,13 @@ class Bits extends Container {
       p.s.y += p.vy * dt;
       p.s.rotation += p.vr * dt;
       p.s.alpha = p.a0 * (k < 0.35 ? 1 : 1 - (k - 0.35) / 0.65);
+      if (p.frames) {
+        const f = Math.min(p.frames.length - 1, (k * p.frames.length) | 0);
+        if (f !== p.frame) {
+          p.frame = f;
+          p.s.texture = p.frames[f];
+        }
+      }
       if (p.grow !== 1) {
         const g = 1 + (p.grow - 1) * k;
         p.s.scale.set(p.sx * g, p.sy * g);
@@ -321,7 +314,6 @@ export class Boss extends Container {
 
     this.t = 0;
     this.hold = 0;
-    this.emberDebt = 0;
     this.enraged = false;
     this.alive = true;
   }
@@ -769,7 +761,6 @@ export class Boss extends Container {
       const sh = 1 - pose.swing * 0.09 + pose.lean * 0.0016 + pose.crouch * 0.1;
       this.shadow.scale.set(this.shadowBase.x * sh, this.shadowBase.y * sh);
       this.shadow.alpha = 0.58 * (1 - pose.swing * 0.18);
-      this.emitEmbers(dt);
     }
     this.bits.update(dt);
   }
@@ -851,33 +842,6 @@ export class Boss extends Container {
       pose.charge * 0.4;
   }
 
-  emitEmbers(dt) {
-    const pose = this.pose;
-    const rate = (this.enraged ? 15 : 7) + pose.charge * 34;
-    this.emberDebt += rate * dt;
-    const tex = sparkTexture();
-    while (this.emberDebt >= 1) {
-      this.emberDebt -= 1;
-      const up = rand() < 0.5;
-      const from = up ? this.core : this.mouth;
-      const spread = up ? 150 : 70;
-      this.bits.spawn(tex, {
-        x: this.rig.x + from.x + (rand() - 0.5) * spread,
-        y: this.rig.y + from.y + (rand() - 0.5) * spread * 0.7,
-        vx: (rand() - 0.5) * 46,
-        vy: -30 - rand() * 70 - pose.charge * 90,
-        g: -18,
-        drag: 0.9,
-        life: 0.6 + rand() * 0.7,
-        size: 8 + rand() * 16,
-        grow: 0.2,
-        tint: rand() < 0.35 ? this.ember : this.enragedTint,
-        blend: "add",
-        alpha: 0.5 + rand() * 0.4,
-      });
-    }
-  }
-
   async rise(seconds) {
     this.y = this.homeY + this.riseFrom;
     this.alpha = 1;
@@ -894,7 +858,7 @@ export class Boss extends Container {
     this.pose.wobT = 0;
     this.hold = LAND.hold;
     this.dust(LAND.dust, LAND.spread);
-    this.spawnShards(LAND.shards, LAND.spread);
+    this.spawnAsh(LAND.ash, LAND.spread);
     tween(this.pose, { crouch: LAND.dip }, LAND.give, {
       ease: Ease.quadOut,
     }).then(() =>
@@ -920,7 +884,7 @@ export class Boss extends Container {
     this.pose.wobT = 0;
     this.blast(this.mouth, 18, 300, 0.55);
     this.dust(10, 0.8);
-    this.spawnShards(6, 0.7);
+    this.spawnAsh(6, 0.7);
     await delay(0.34);
     await tween(
       this.pose,
@@ -1004,7 +968,7 @@ export class Boss extends Container {
     this.hold = 0.06;
     this.pose.wob = 1;
     this.pose.wobT = 0;
-    this.spawnShards(12, 1);
+    this.spawnAsh(12, 1);
     this.dust(22, 1.2);
     tween(this.pose, { swing: 0, breath: 1, lean: 0, headY: 0 }, 0.6, {
       delay: 0.14,
@@ -1055,7 +1019,7 @@ export class Boss extends Container {
     this.hold = 0.045;
     this.pose.wob = 0.85;
     this.pose.wobT = 0;
-    this.spawnShards(8, 0.85);
+    this.spawnAsh(8, 0.85);
     this.blast(this.core, 12, 420, 0.45, dir);
 
     tween(
@@ -1139,27 +1103,27 @@ export class Boss extends Container {
     this.pose.wob = Math.min(1.1, 0.55 * p);
     this.pose.wobT = 0;
     tween(this.pose, { shove: 0, headX: 0 }, 0.44, { ease: Ease.elasticOut });
-    this.spawnShards(6 + 4 * p, 1);
-    this.blast(this.core, 10, 300, 0.4, -dir);
+    this.spawnAsh(6 + 4 * p, 1);
   }
 
-  spawnShards(count, spread) {
-    const tex = shardTexture();
-    const n = Math.round(count);
+  spawnAsh(count, spread) {
+    const tex = glowTexture();
+    const n = Math.max(1, Math.round(count / 3));
     for (let i = 0; i < n; i++) {
       const ang = rand() * Math.PI * 2;
-      const v = (200 + rand() * 320) * spread;
+      const v = (80 + rand() * 160) * spread;
       this.bits.spawn(tex, {
-        x: this.rig.x + (rand() - 0.5) * 220,
+        x: this.rig.x + (rand() - 0.5) * 210,
         y: this.rig.y + this.core.y + (rand() - 0.5) * 180,
         vx: Math.cos(ang) * v,
-        vy: Math.sin(ang) * v - 90,
-        g: 1400,
-        drag: 0.5,
-        spin: (rand() - 0.5) * 16,
-        life: 0.55 + rand() * 0.4,
-        size: 14 + rand() * 26,
-        tint: i % 3 === 0 ? LAVA : ROCK_EDGE,
+        vy: Math.sin(ang) * v - 50,
+        g: 110,
+        drag: 3,
+        life: 0.46 + rand() * 0.38,
+        size: 64 + rand() * 88,
+        grow: 2.1,
+        tint: ROCK_DARK,
+        alpha: 0.16 + rand() * 0.12,
       });
     }
   }
@@ -1221,7 +1185,7 @@ export class Boss extends Container {
     });
     this.pose.wob = 0.9;
     this.pose.wobT = 0;
-    this.spawnShards(16, 1.3);
+    this.spawnAsh(16, 1.3);
     this.blast(this.core, 26, 460, 0.7);
     this.dust(14, 1);
   }
@@ -1232,7 +1196,7 @@ export class Boss extends Container {
     killTweensOf(this.pose);
     const dir = rand() < 0.5 ? -1 : 1;
 
-    this.spawnShards(26, 1.6);
+    this.spawnAsh(26, 1.6);
     this.blast(this.core, 34, 520, 0.8);
     await Promise.all([
       tween(this.aura, { alpha: 1 }, 0.2),
@@ -1242,7 +1206,7 @@ export class Boss extends Container {
       }),
     ]);
 
-    this.spawnShards(30, 2.2);
+    this.spawnAsh(30, 2.2);
     this.dust(26, 1.6);
 
     tweenValue(0, 1, DEATH.sear, (v) => {
@@ -1251,7 +1215,7 @@ export class Boss extends Container {
 
     delay(DEATH.land).then(() => {
       if (this.destroyed) return;
-      this.spawnShards(DEATH.shards, 2.6);
+      this.spawnAsh(DEATH.ash, 2.6);
       this.dust(DEATH.dust, 2.1);
       this.blast(this.core, DEATH.motes, 620, 0.9);
     });

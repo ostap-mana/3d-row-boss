@@ -325,7 +325,7 @@ const FX = [
   { n: "rake", g: "boss", a: () => [1] },
   { n: "mend", g: "boss", a: () => [0.9] },
   { n: "hit", g: "boss", a: () => [0.8] },
-  { n: "spawnShards", g: "boss", a: () => [14, 1] },
+  { n: "spawnAsh", g: "boss", a: () => [14, 1] },
   { n: "blast", g: "boss", a: (c) => [c.top, 16, 1, 0.7] },
   { n: "dust", g: "boss", a: () => [12, 1] },
   { n: "enrage", g: "boss" },

@@ -926,13 +926,7 @@ export class Director {
           );
         });
 
-      if (step >= 2) {
-        sfx.combo(step);
-        hud.shout("COMBO x" + step, 0.44 + Math.min(0.24, step * 0.05), {
-          fill: step >= 4 ? 0xffa02a : 0xffe066,
-          from: Math.min(2.6, 1.6 + step * 0.26),
-        });
-      }
+      if (step >= 2) sfx.combo(step);
 
       hud.setHp(this.bossHp, 0.4);
       this.checkPhase();
