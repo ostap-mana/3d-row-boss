@@ -277,43 +277,45 @@ export class CutIn extends Container {
       alpha: 0.9,
       alignment: 1,
     });
-    this.plateFront.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
-    this.plateFront.stroke({
-      width: Math.max(1.5, pw * 0.018),
-      color: GEM_COLORS[el],
-      alignment: 0.5,
-    });
-    this.plateFront.roundRect(
-      -pw / 2 + pw * 0.03,
-      -ph / 2 + pw * 0.03,
-      pw - pw * 0.06,
-      ph - pw * 0.06,
-      rad * 0.7,
-    );
-    this.plateFront.stroke({
-      width: Math.max(1, pw * 0.008),
-      color: GEM_LIGHT[el],
-      alpha: 0.5,
-    });
-
-    const tick = pw * 0.26;
-    const inset = pw * 0.09;
-    for (const [sx, sy] of [
-      [-1, -1],
-      [1, 1],
-    ]) {
-      const x = sx * (pw / 2 - inset);
-      const y = sy * (ph / 2 - inset);
-      this.plateFront.moveTo(x - sx * 0, y);
-      this.plateFront.lineTo(x, y - sy * tick);
-      this.plateFront.moveTo(x, y);
-      this.plateFront.lineTo(x - sx * tick, y);
+    if (!this.gateArt) {
+      this.plateFront.roundRect(-pw / 2, -ph / 2, pw, ph, rad);
       this.plateFront.stroke({
-        width: Math.max(2, pw * 0.022),
-        color: GEM_LIGHT[el],
-        alpha: 0.85,
-        cap: "round",
+        width: Math.max(1.5, pw * 0.018),
+        color: GEM_COLORS[el],
+        alignment: 0.5,
       });
+      this.plateFront.roundRect(
+        -pw / 2 + pw * 0.03,
+        -ph / 2 + pw * 0.03,
+        pw - pw * 0.06,
+        ph - pw * 0.06,
+        rad * 0.7,
+      );
+      this.plateFront.stroke({
+        width: Math.max(1, pw * 0.008),
+        color: GEM_LIGHT[el],
+        alpha: 0.5,
+      });
+
+      const tick = pw * 0.26;
+      const inset = pw * 0.09;
+      for (const [sx, sy] of [
+        [-1, -1],
+        [1, 1],
+      ]) {
+        const x = sx * (pw / 2 - inset);
+        const y = sy * (ph / 2 - inset);
+        this.plateFront.moveTo(x - sx * 0, y);
+        this.plateFront.lineTo(x, y - sy * tick);
+        this.plateFront.moveTo(x, y);
+        this.plateFront.lineTo(x - sx * tick, y);
+        this.plateFront.stroke({
+          width: Math.max(2, pw * 0.022),
+          color: GEM_LIGHT[el],
+          alpha: 0.85,
+          cap: "round",
+        });
+      }
     }
 
     if (this.gateArt) fitUltBorder(this.gate, this.gateArt, pw, ph);
