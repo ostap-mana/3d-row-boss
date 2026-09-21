@@ -4,56 +4,69 @@ The frame is not art on a card, it is light added on top of the game. Both sheet
 are drawn with `blendMode: "add"`, around the hero card in `src/art/heroes.js` and
 around the whole screen in `src/fx/ultrim.js`. Under that blend every black pixel
 is invisible and every grey pixel is a grey film laid over the hero. So the take
-has to be genuinely black where the hero stands and lit only along the four edges:
-the hole in the middle is the character, and anything drawn in it ends up on his
-face.
+has to be genuinely black where the hero stands and lit only along the four edges.
 
-Two takes per element: the loop, shipped as `src/assets/cards/ult-<element>.webp`,
-and the slam, shipped as `ult-burst-<element>.webp`. Both are 6x2 sheets of 12
-cells cut by `tools/pack-ult-borders.mjs`.
+The shape is set by what already ships: `tools/gen-ult-vfx.mjs` draws a cell 216
+wide by 344 tall with the card at 128x256 in the middle of it. That is a **thin**
+rail — the line is 7px of 216, a thirtieth of the frame width — hugging a hole
+that is 59% of the frame wide and 74% of it tall, with the colour dying out about
+a fifth of the frame width outside the rail. Anything fatter than that stops being
+this game's frame and becomes a bonfire with a hole in it.
 
 Prompt = STYLE + FRAME LOCK + MOTION + the element's own paragraph, and SLAM in
 place of MOTION for the burst take. Negative prompt below.
+
+## Reference image
+
+Seedance, Veo and Sora all take a reference still. Feed
+`masters/fx/border-ref/fire-target.png` (or `arcane-target.png`) — those are single
+cells lifted straight out of the shipped sheets, so they are the target exactly:
+thin rail, tight falloff, big black hole.
+
+Do not hand the model a screenshot of the running game as the style reference. It
+reads the gem board and the hero cards as things to draw and starts painting
+interface into the frame. The screenshot is for judging the result, not for
+conditioning it.
 
 ## FRAME LOCK
 
 ```
 Portrait 9:16, locked-off static camera, no camera move, no zoom, no pan, no
-parallax. Pure black everywhere except one hollow upright rectangle of light
-standing in the middle of the frame, corners slightly rounded. Its outer edge
-reaches about 80% of the frame width and 88% of the frame height, so a black
-margin about a tenth of the width wide runs down both sides and across the top and
-bottom, and nothing ever touches the outer edge of the frame. The inside of the
-rectangle is a large empty hole of pure black, about 70% of the frame width and
-82% of its height, and nothing crosses it: no light, no spark, no haze, no smoke,
-no glow, no reflection, nothing. All of the light lives on the band itself and in
-the black just outside it. The four sides are equally bright, the two long sides
-and the two short sides read as one continuous closed rectangle, the corners join
-and never break, and no side and no corner goes dark.
+parallax. Pure black everywhere except one thin rectangular rail of light standing
+upright in the middle of the frame, corners rounded on a small radius. The rail is
+thin: about a thirtieth of the frame width, a hairline against the whole picture,
+the same thickness the whole way round. It encloses a large empty hole of pure
+black, about 68% of the frame width and 76% of the frame height, twice as tall as
+it is wide, and nothing crosses that hole: no light, no spark, no haze, no smoke,
+no glow, nothing. Outside the rail the colour falls off fast and is fully black
+within about a tenth of the frame width, so the outer edge of the picture is pure
+black on all four sides. The four sides are equally bright, they read as one
+continuous closed rectangle, the corners join and never break, no side goes dark.
 ```
 
 ## STYLE
 
 ```
-painted 3D mobile-RPG game VFX, semi-realistic, high contrast, a blinding
-white-hot core running the length of the band with saturated colour blooming off
-it into the black, the band is painted moving matter with visible texture and torn
-edges, not a smooth even neon tube and not a drawn interface line, deep black
-between every strand, no flat cartoon shading, no outlines, no metal, no glass, no
-carved moulding
+stylized mobile-RPG game VFX, an additive particle spell effect rendered over a
+black screen, not photographic and not filmed: a blinding near-white core running
+down the middle of the rail with saturated colour blooming only a short distance
+off it, small sharp licks and sparks of element matter breaking off the rail in a
+few places rather than evenly along all of it, deep black between them, crisp hard
+edges, high contrast, no soft cinematic haze, no thick wall of flame, no smoke, no
+depth of field
 ```
 
 ## MOTION
 
-The sheet is twelve frames played forward and then backwards at 7 fps, so a
+The take is resampled to twelve frames and played forward and then backwards, so a
 one-way march around the rectangle reverses on screen and reads as a mistake.
 
 ```
-The light churns and breathes in place along the band: it flickers, thickens and
-thins, hot spots swell and die where they stand, the outer edge tears and reforms.
-Nothing travels one way around the rectangle, nothing drifts across the frame,
-nothing enters or leaves the shot. Fast, violent, restless motion that looks the
-same played backwards.
+The light churns and breathes in place along the rail: it flickers fast, the core
+brightens and dims, the licks swell and die where they stand. The rail itself never
+moves, never grows thicker, never drifts. Nothing travels one way around the
+rectangle, nothing crosses the frame, nothing enters or leaves the shot. Fast crisp
+flicker that looks the same played backwards.
 ```
 
 ## RICKLOW — FIRE
@@ -61,11 +74,11 @@ same played backwards.
 `#ff5a1f` orange, `#a81200` deep ember, `#ffc08a` pale heat
 
 ```
-The band is a rail of burning fire: a white-hot core running the whole rectangle
-with orange flame peeling off it outward into the black, tongues of flame licking
-away from the hole, embers and cinders breaking off the corners and dying in the
-margin. Deep ember-red light pools in the black just outside the band. Every
-flame leans outward; nothing burns inward across the hole.
+The rail is a thin line of white-hot fire: a near-white core with orange flame
+clinging tight to it, a few short tongues of flame licking outward into the black
+and dying within a finger's width of the rail, small embers breaking off at the
+corners. A narrow deep ember-red falloff just outside the line and black beyond it.
+Every flame leans outward; nothing burns inward across the hole.
 ```
 
 ## ARISSA — WATER
@@ -73,11 +86,11 @@ flame leans outward; nothing burns inward across the hole.
 `#2fa8ff` azure, `#0b4d85` deep blue, `#b6e4ff` pale ice
 
 ```
-The band is a rail of fast azure water: a core lit white from inside with ribbons
-of water twisting along it, pale ice-blue foam tearing off outward into the black,
-droplets and spray flicking away from the hole and vanishing in the margin. Deep
-blue light glows in the black just outside the band. Everything is thrown outward;
-nothing splashes inward across the hole.
+The rail is a thin line of running azure water: a core lit white from inside with
+ribbons of water twisting tight along it, a few short bursts of pale ice-blue foam
+tearing outward into the black, small droplets flicking off at the corners. A
+narrow deep blue falloff just outside the line and black beyond it. Everything is
+thrown outward; nothing splashes inward across the hole.
 ```
 
 ## QUINNTO — NATURE
@@ -85,11 +98,11 @@ nothing splashes inward across the hole.
 `#3fd16a` emerald, `#14663a` deep green, `#b6f5c9` pale leaf
 
 ```
-The band is a braid of living emerald growth: vines and tendrils coiling along the
-rectangle, white-hot along their spines, torn leaves and glowing spores breaking
-off outward into the black. Deep green light pools in the black just outside the
-band. The growth crawls along the band and reaches outward; nothing grows inward
-across the hole.
+The rail is a thin line of living emerald growth: a white-hot core with fine vines
+and tendrils coiling tight along it, a few short shoots and leaves reaching outward
+into the black, small glowing spores breaking off at the corners. A narrow deep
+green falloff just outside the line and black beyond it. The growth runs along the
+rail; nothing grows inward across the hole.
 ```
 
 ## SELISA — LIGHTNING
@@ -97,11 +110,11 @@ across the hole.
 `#ffd22e` gold, `#8a6a00` deep amber, `#fff2a8` pale gold
 
 ```
-The band is a live rail of gold-white current: a white-hot channel running the
-whole rectangle with hard forked arcs snapping off it outward into the black,
-sparks scattering away from the hole, the whole band stuttering brighter and
-darker. Pale gold afterimages burn for an instant where an arc just was. No arc
-ever jumps across the hole.
+The rail is a thin live wire of gold-white current: a white-hot channel with fine
+forked arcs snapping off it outward into the black and gone in an instant, sparks
+scattering at the corners, the whole line stuttering brighter and darker. A narrow
+deep amber falloff just outside the line and black beyond it. No arc ever jumps
+across the hole.
 ```
 
 ## SILANTH — ARCANE
@@ -109,10 +122,10 @@ ever jumps across the hole.
 `#a855f7` violet, `#4c1d95` deep indigo, `#e6c9ff` pale lilac
 
 ```
-The band is a rail of violet arcane power: a blinding white core wound about with
-coiling magenta filaments that tighten and flare where they cross, pale lilac
-motes and sparks drifting off it outward into the black. Deep indigo light pools
-in the black just outside the band. The power winds along the band; nothing
+The rail is a thin line of violet arcane power: a blinding white core wound about
+with fine magenta filaments that tighten and flare where they cross, pale lilac
+motes drifting off it a short way into the black. A narrow deep indigo falloff just
+outside the line and black beyond it. The power winds along the rail; nothing
 collapses inward through the hole.
 ```
 
@@ -121,10 +134,10 @@ collapses inward through the hole.
 `#8ceee2` pale teal, `#11594f` deep teal, `#dafff8` near-white
 
 ```
-The band is a rail of cutting air: thin hard bright edges of wind racing along the
-rectangle and crossing each other, near-white where they cross, pale teal vapour
-and fine motes streaming off outward into the black. Deep teal light glows in the
-black just outside the band. Every blade of air sweeps outward; nothing cuts
+The rail is a thin line of cutting air: hard bright edges of wind racing along it
+and crossing each other, near-white where they cross, fine pale teal motes and
+vapour streaming off a short way outward into the black. A narrow deep teal falloff
+just outside the line and black beyond it. Every blade sweeps outward; nothing cuts
 inward across the hole.
 ```
 
@@ -135,56 +148,43 @@ of `<matter>`: embers for fire, spray for water, leaves and spores for nature,
 sparks for lightning, motes for arcane, torn air for wind.
 
 ```
-One hit on one beat. The frame starts completely black and empty; the rectangle
-detonates into existence along its whole length at once, every side lighting in
-the same instant, the band flaring white-hot and swelling to several times its
-thickness, <matter> thrown outward off it into the black margin and a hard bloom
+One hit on one beat. The frame starts completely black and empty; the rail
+detonates into existence along its whole length at once, every side lighting in the
+same instant, the core flaring white and the line swelling to two or three times
+its thickness, <matter> thrown outward off it into the black and a hard short bloom
 of colour thrown out with it. It keeps building to the end: the clip ends at its
-very brightest, do not fade it out and do not let it fall back. Nothing is thrown
-inward across the black hole, and even at the peak the hole stays pure black.
+very brightest, do not fade it out and do not let it fall back. The rail stays a
+rail even at the peak — it never becomes a wall — nothing is thrown inward, and the
+hole stays pure black throughout.
 ```
 
 ## NEGATIVE
 
 ```
-text, letters, numbers, runes, symbols, watermark, logo, signature, ui, hud,
-button, panel, card, picture frame, photo frame, ornate carved frame, gold
-moulding, metal, jewellery, gemstone, engraving, glass, mirror, neon sign, neon
-tube, person, face, character, creature, hands, animal, scenery, landscape,
-horizon, room, floor, sky, light in the middle, glow across the centre, anything
-inside the rectangle, haze, fog, smoke, mist, bloom over the whole frame, grey
-wash, vignette, dark side, one bright corner, gradient background, white
-background, grey background, camera movement, zoom, pan, dolly, shake, blurry, low
-contrast, washed out, dim, static, still, frozen, cut, crop, second rectangle,
-double frame, frame inside a frame, broken corner, open corner
+thick wall of fire, wide band, fat frame, huge glow, soft bloom filling the frame,
+orange haze, photorealistic, photographic, filmed footage, stock footage,
+cinematic, slow motion, bonfire, campfire, torch, burning building, smoke, fog,
+mist, haze, embers filling the whole frame, light in the middle, glow across the
+centre, anything inside the rectangle, text, letters, numbers, runes, symbols,
+watermark, logo, signature, ui, hud, button, panel, card, gem, icon, picture frame,
+photo frame, ornate carved frame, gold moulding, metal, jewellery, gemstone,
+engraving, glass, mirror, neon sign, person, face, character, creature, hands,
+animal, scenery, landscape, horizon, room, floor, sky, vignette, dark side, one
+bright corner, gradient background, white background, grey background, camera
+movement, zoom, pan, dolly, shake, blurry, low contrast, washed out, dim, static,
+frozen, second rectangle, double frame, frame inside a frame, broken corner
 ```
 
 ## One block, ready to paste — FIRE loop
 
 ```
-Painted 3D mobile-RPG game VFX, semi-realistic, high contrast. Portrait 9:16,
-locked-off static camera, no camera move, no zoom, no pan. Pure black everywhere
-except one hollow upright rectangle of burning fire standing in the middle of the
-frame, corners slightly rounded, its outer edge about 80% of the frame width and
-88% of the frame height, a black margin about a tenth of the width down both sides
-and across the top and bottom, nothing touching the outer edge of the frame. The
-inside of the rectangle is a large empty hole of pure black, about 70% of the
-frame width and 82% of its height, and nothing crosses it: no light, no spark, no
-haze, no smoke, no glow, nothing. The band itself is a rail of fire: a blinding
-white-hot core running the whole rectangle with orange flame peeling off it
-outward into the black, tongues of flame licking away from the hole, embers and
-cinders breaking off the corners and dying in the margin, deep ember-red light
-pooling in the black just outside the band. Painted moving matter with visible
-texture and torn edges, not a smooth neon tube and not a drawn interface line,
-deep black between every strand. The four sides are equally bright, the corners
-join and never break, no side goes dark. The fire churns and breathes in place:
-it flickers, thickens and thins, hot spots swell and die where they stand, the
-outer edge tears and reforms. Nothing travels one way around the rectangle,
-nothing drifts across the frame, nothing enters or leaves the shot. Fast, violent,
-restless motion that looks the same played backwards. No text, no letters, no
-numbers, no watermark, no logo, no interface, no picture frame, no metal, no
-glass, no person, no creature, no scenery, no haze, no fog, no smoke, no vignette,
-no glow in the middle.
+Stylized mobile-RPG game VFX, an additive particle spell effect rendered over a black screen, not photographic and not filmed footage. Portrait 9:16, locked-off static camera, no camera move, no zoom, no pan. Pure black everywhere except one thin rectangular rail of white-hot fire standing upright in the middle of the frame, corners rounded on a small radius. The rail is thin: about a thirtieth of the frame width, a hairline against the whole picture, the same thickness the whole way round. It encloses a large empty hole of pure black, about 68% of the frame width and 76% of the frame height, twice as tall as it is wide, and nothing crosses that hole: no light, no spark, no haze, no smoke, no glow, nothing. Outside the rail the colour falls off fast and is fully black within about a tenth of the frame width, so the outer edge of the picture is pure black on all four sides. The line itself is a near-white core with orange flame clinging tight to it, a few short tongues of flame licking outward into the black and dying within a finger's width of the line, small embers breaking off at the corners, a narrow deep ember-red falloff just outside it and black beyond. The four sides are equally bright, they read as one continuous closed rectangle, the corners join and never break, no side goes dark. The fire churns and breathes in place: it flickers fast, the core brightens and dims, the licks swell and die where they stand. The rail never moves, never grows thicker, never drifts; nothing travels one way around the rectangle, nothing crosses the frame, nothing enters or leaves. Fast crisp flicker that looks the same played backwards. No thick wall of fire, no wide band, no huge glow, no soft bloom, no orange haze, no smoke, no photorealism, no cinematic slow motion, no text, no letters, no numbers, no watermark, no logo, no interface, no picture frame, no metal, no glass, no person, no creature, no scenery, no vignette, no glow in the middle.
+```
+
+## One block, ready to paste — FIRE slam
+
+```
+Stylized mobile-RPG game VFX, an additive particle spell effect rendered over a black screen, not photographic and not filmed footage. Portrait 9:16, locked-off static camera, no camera move, no zoom, no pan. The frame starts completely black and empty. A thin rectangular rail of white-hot fire detonates into existence in the middle of the frame, every side lighting in the same instant, corners rounded on a small radius. It encloses a large empty hole of pure black, about 68% of the frame width and 76% of the frame height, twice as tall as it is wide, and nothing ever crosses that hole. The core flares white and the line swells to two or three times its thickness, embers and short tongues of flame thrown outward off it into the black with a hard bloom of orange, deep ember-red falloff just outside the line and pure black at the outer edge of the picture on all four sides. It keeps building to the end: the clip ends at its very brightest, no fade out, no falling back. The rail stays a thin rail even at the peak, it never becomes a wall of fire, nothing is thrown inward, the hole stays pure black throughout. No thick wall of fire, no wide band, no huge glow, no soft bloom, no orange haze, no smoke, no photorealism, no cinematic slow motion, no text, no letters, no numbers, no watermark, no logo, no interface, no picture frame, no metal, no glass, no person, no creature, no scenery, no vignette, no glow in the middle.
 ```
 
 ## Settings
@@ -193,10 +193,10 @@ no glow in the middle.
   fixed camera, no audio, one take per element per style. These models follow
   object nouns, so embers, droplets, leaves, sparks and motes are safe here. Wan
   is not: on the local rig ask only for streaks, ribbons, arcs and edges of light.
-- Judge a take with its middle 70% covered by a black card. If anything shows
-  there, the take is unusable however good the band looks.
-- Grey is the other failure. On add blend a soft bloom filling the margin becomes
-  a grey box over the arena. The black around the band has to stay black.
+- Judge a take by covering its middle 70% with a black card. If anything shows
+  there, the take is unusable however good the rail looks. Then check the outer
+  tenth of the frame is black — on add blend a soft bloom out there becomes a grey
+  box over the arena.
 - Onto the shelf and into the sheet:
 
 ```
@@ -206,15 +206,14 @@ node tools/pack-ult-borders.mjs --proof fire=1
 ```
 
 - The packer prints the cell size and the measured padX/padY it wants. Paste both
-  into the `border` row of `SHAPES` in `src/art/ultborder.js`. A 9:16 take gives
-  cell 176x313, not the 176x315 that ships now, and `shapeOf` matches on exact
-  pixels: get it wrong and the sheet loads as nothing, with no error in the
-  console.
+  into the `border` row of `SHAPES` in `src/art/ultborder.js`. `shapeOf` matches on
+  exact pixels: get the cell wrong and the sheet loads as nothing, with no error in
+  the console.
+- What ships today is not from this route. `tools/gen-ult-vfx.mjs` draws the rail
+  procedurally, 18 cells of 216x344 cut down to 134x214 by `tools/slim-assets.mjs`,
+  cycling at 10 fps. A generated take goes through `pack-ult-borders.mjs` instead:
+  12 cells, played forward and back at 7 fps under `ULT_RIM` in `src/config.js`.
 - The slam is packed off the flare shelf:
   `src/animation/style-flare/<element>/<element>-v12`, then
   `node tools/pack-ult-borders.mjs --flare --burst fire=12`. The packer builds the
   fall by rewinding the take, which is why the take has to end on its peak.
-- The loop plays 12 frames forward and back at 7 fps, a 3.1 s round trip, under
-  `ULT_RIM` in `src/config.js`. The slam runs over `ULT_RIM.burstDur`, 0.9 s.
-- The old takes were deleted in `5b2b0c2`. To compare a new one against them:
-  `git checkout 5b2b0c2^ -- src/animation/style-border`.
