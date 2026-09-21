@@ -1,36 +1,33 @@
-# Hero attack FX prompts
+# Ultimate painted over the game frame
 
-Target: one 5 s, 1:1, 24 fps clip per hero attack, fixed camera, pure black background.
-`tools/pack-spells.mjs` cuts 10 frames out of the window 0.6 s → 2.3 s, so the whole
-strike must be born, peak and die inside those two seconds. Anything that happens
-after 2.4 s is never seen.
+The input is a real screenshot of the running game, not a blank canvas: portrait
+phone frame, KOLTMOS filling the upper half, the row of six hero cards across the
+middle, the gem board below them, HUD along the top. The model paints the hero's
+ultimate into that frame and changes nothing else.
 
-## STYLE (prepend to every prompt)
+Prompt = STYLE + the hero's own paragraph + SCENE LOCK. Negative prompt below.
 
-```
-painted 3D mobile-RPG game VFX, semi-realistic, high contrast, a bright white-hot
-core with saturated colour thrown off it, light and motion only, no flat cartoon
-shading, no outlines
-```
-
-## TECHNICAL (append to every prompt)
+## STYLE
 
 ```
-The effect is isolated on a pure black background, nothing else in frame, no floor,
-no room, no landscape, no character, no hands, no weapon. The effect stays centred
-in frame the whole time. One single continuous shot, one fixed camera, no cuts, no
-camera movement, no zoom, no push in, no orbit, no parallax. One strike on one beat:
-it starts small, reaches its brightest and widest early, then dies away to complete
-black — no second strike, no pulsing, no repeat, and it is finished well before the
-clip ends.
+painted 3D mobile-RPG game VFX added over an existing game screenshot,
+semi-realistic, high contrast, a blinding white-hot core with saturated colour
+thrown off it, light and motion only, the effect glows and casts its own light onto
+what is already in the picture, no flat cartoon shading, no outlines
 ```
 
-## NEGATIVE
+## SCENE LOCK
 
 ```
-character, creature, hands, weapon, sword, staff, floor, ground, room, landscape,
-sky, smoke, dust, haze, fog, text, letters, numbers, watermark, logo, UI, HUD,
-camera shake, zoom, cut, second explosion, looping, grey background, washed out
+Keep the picture underneath exactly as it is: the same camera, the same framing,
+the same boss, the same hero cards, the same gem board, the same interface. Do not
+redraw, move, resize, replace or restyle anything that is already in the frame, and
+do not add any new character, creature, weapon, prop or writing. The only thing that
+changes is the added light of the spell and the glow it throws onto the boss, the
+cards and the board. The effect is born at the hero card in the middle of the frame,
+travels up into the boss in the upper half, and breaks there. One strike on one
+beat: it reaches its brightest early, then dies away and leaves the frame exactly as
+it started.
 ```
 
 ## RICKLOW — FIRE — MAGMA LANCE
@@ -38,11 +35,11 @@ camera shake, zoom, cut, second explosion, looping, grey background, washed out
 `#ff5a1f` orange, `#a81200` deep ember, `#ffc08a` pale heat
 
 ```
-A spear of white-hot fire drives forward through frame, a thin blinding core with
-orange flame peeling back off it in long torn ribbons and deep ember-red light
-trailing behind. As the head of the spear reaches centre it blooms open into a
-short hard burst of white and orange light, then the fire tears apart into thinning
-streaks and gutters out to black.
+A spear of white-hot fire rips up out of the hero card and drives into the boss: a
+thin blinding core with orange flame peeling back off it in long torn ribbons, deep
+ember-red light trailing behind. It bursts against the boss's chest into a short
+hard bloom of white and orange, orange firelight washing across his body, the cards
+and the top of the board, then tearing apart into thinning streaks.
 ```
 
 ## ARISSA — WATER — ABYSSAL TIDE
@@ -50,11 +47,11 @@ streaks and gutters out to black.
 `#2fa8ff` azure, `#0b4d85` deep blue, `#b6e4ff` pale ice
 
 ```
-A wall of glowing azure water rears up and crashes forward through frame, its crest
-lit white from inside, pale ice-blue foam streaming off the top of it and deep blue
-light glowing under the body of the wave. It breaks at the centre of frame into a
-wide crown of white foam and spray, then the water falls away, the light going out
-as it drains to black.
+A wall of glowing azure water rears up off the hero card and crashes forward into
+the boss, its crest lit white from inside, pale ice-blue foam streaming off the top,
+deep blue light glowing under the body of the wave. It breaks against him into a
+wide crown of white spray, cold blue light washing across his body, the cards and
+the top of the board, then drains away.
 ```
 
 ## QUINNTO — NATURE — VERDANT WRATH
@@ -62,10 +59,11 @@ as it drains to black.
 `#3fd16a` emerald, `#14663a` deep green, `#b6f5c9` pale leaf
 
 ```
-Emerald light lashes out from centre frame in whipping vine-like arcs, each arc
-white-hot along its spine, pale green glow blooming where they cross. The arcs
-snap taut all at once into a wide spray of green light thrown outward, deep green
-afterglow hanging for a moment, then thinning away to black.
+Emerald light lashes up from the hero card in whipping vine-like arcs, each arc
+white-hot along its spine, and coils around the boss, pale green glow blooming where
+they cross. The arcs snap taut all at once into a wide spray of green light thrown
+off him, green light washing across his body, the cards and the top of the board,
+then thinning away.
 ```
 
 ## SELISA — LIGHTNING — STORM VERDICT
@@ -73,11 +71,11 @@ afterglow hanging for a moment, then thinning away to black.
 `#ffd22e` gold, `#8a6a00` deep amber, `#fff2a8` pale gold
 
 ```
-A single forked bolt of gold-white lightning strikes straight down into centre
-frame and lands hard, the whole frame flashing white for one instant. From the
-point it lands, gold arcs whip outward and crawl away in branching forks, pale
-gold afterimage burning where the bolt was, then every arc snaps away and the
-frame goes black.
+A single forked bolt of gold-white lightning strikes straight down from the top of
+the frame into the boss and lands hard, the whole picture flashing white-gold for
+one instant. Gold arcs whip off him and crawl away in branching forks, a pale gold
+afterimage burning where the bolt was, gold light washing across his body, the cards
+and the top of the board, then every arc snaps away.
 ```
 
 ## SILANTH — ARCANE — VOID ECLIPSE
@@ -85,11 +83,11 @@ frame goes black.
 `#a855f7` violet, `#4c1d95` deep indigo, `#e6c9ff` pale lilac
 
 ```
-Violet light is sucked inward to a single point at centre frame, winding round
-itself tighter and tighter until the core is blinding white, deep indigo dark
-pressing in around it. The point detonates into a wide flat ring of violet light
-racing outward with lilac streaks dragging behind it, and the ring thins, dims and
-is gone to black.
+Violet light is sucked inward to a single point in front of the boss, winding round
+itself tighter and tighter until the core is blinding white and the frame darkens
+around it. The point detonates into a wide flat ring of violet light racing outward
+through him with lilac streaks dragging behind, violet light washing across his
+body, the cards and the top of the board, then the ring thins and dims away.
 ```
 
 ## TARANIS — WIND — CYCLONE EDGE
@@ -97,19 +95,31 @@ is gone to black.
 `#8ceee2` pale teal, `#11594f` deep teal, `#dafff8` near-white
 
 ```
-Pale cyan-white air spins into a tight vortex at centre frame, thin bright edges
-of cutting wind circling it faster and faster, the throat of it glowing white.
-It bursts open into a wide ring of slicing wind streaks thrown outward, each
-streak a hard bright line with a teal glow behind it, and they thin out and
-vanish to black.
+Pale cyan-white air spins into a tight vortex in front of the boss, thin bright
+edges of cutting wind circling him faster and faster, the throat of it glowing
+white. It bursts open into a wide ring of slicing wind streaks thrown outward, each
+streak a hard bright line with a teal glow behind it, cold cyan light washing across
+his body, the cards and the top of the board, then they thin out and vanish.
 ```
 
-## Notes
+## NEGATIVE
 
+```
+redrawing the scene, different character, new creature, changed boss, changed hero
+cards, changed gem board, rearranged layout, new interface, extra text, extra
+letters, numbers, watermark, logo, hands, weapon, camera move, zoom, pan, cut,
+crop, second explosion, looping, smoke, dust, haze, fog, blurry, washed out,
+desaturated, cartoon outline
+```
+
+## Settings
+
+- img2img: denoise 0.35–0.50. Above that the model starts repainting the boss and
+  the board. If it still drifts, mask everything but the strike path and the boss.
+- Wan i2v: feed the screenshot as the first frame, 24 fps, 3–5 s, fixed camera. The
+  spell must peak around 1 s and be gone by 2 s.
 - Wan renders flame and light well and objects badly. Never ask it for shards,
-  splinters, leaves, stones or rune fragments — ask for streaks, ribbons, arcs
-  and edges of light. On seedance those nouns are safe and can go back in.
-- Every generated plate comes back with a lifted black point. Raise it in the
-  packer before slicing or the sheet ships a grey box.
-- Lightning is gold in this game, not blue-violet. `tools/gen-spells.mjs` still
-  says "violet blue" for SELISA and it fights the hero's own colour.
+  splinters, leaves or rune fragments — ask for streaks, ribbons, arcs and edges of
+  light. On seedance those nouns are safe.
+- Lightning is gold in this game, not blue-violet. `tools/gen-spells.mjs` still says
+  "violet blue" for SELISA and it fights the hero's own colour.
