@@ -47,7 +47,7 @@ import {
   Ease,
 } from "../core/tween.js";
 import { lerpColor } from "../core/color.js";
-import { fitFont } from "../ui/text.js";
+import { clampWidth, fitFont } from "../ui/text.js";
 import * as sfx from "../audio/sfx.js";
 
 const ART = 128;
@@ -247,6 +247,10 @@ function readouts(w, h) {
 }
 
 const BAR_SHARE = 0.088;
+
+const NAME_ROOM = 0.94;
+
+const NAME_FLOOR = 5;
 
 const HITZONE = { cap: 0.713, descend: 0.008, advance: 0.617 };
 
@@ -743,7 +747,9 @@ class HeroCard extends Container {
     this.sigil.x = clip.x + sig / 2 + pad;
     this.sigil.y = clip.y + sig / 2 + pad;
 
-    fitFont(this.label, stack.barW, nameSize);
+    const nameRoom = w * NAME_ROOM;
+    fitFont(this.label, nameRoom, nameSize, NAME_FLOOR);
+    clampWidth(this.label, nameRoom);
     this.label.y = nameY;
 
     const readySize = Math.max(7, Math.min(h * 0.16, w * 0.21));

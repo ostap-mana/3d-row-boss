@@ -13,3 +13,11 @@ export function fitFont(text, maxWidth, idealSize, minSize) {
   text.scale.set(wasScaleX, wasScaleY);
   return text.style.fontSize;
 }
+
+export function clampWidth(text, limit) {
+  text.scale.set(1);
+  if (limit > 0 && text.width > limit && text.width > 0) {
+    text.scale.set(limit / text.width);
+  }
+  return text.scale.x;
+}
