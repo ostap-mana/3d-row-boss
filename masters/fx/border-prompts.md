@@ -315,3 +315,47 @@ For the slam, replace the motion sentence with: `The frame starts black and empt
 then detonates into existence all at once, the line flaring white and swelling,
 embers thrown outward, and the clip ends at its brightest with no fade out.`
 
+
+### Four that are not in the game
+
+Light, dark, earth and air are not elements the fight knows — there is no hero, no
+palette and no gem behind them. The prompts are here in the same framing as the
+five above so a take drops into `pack-ult-borders.mjs` unchanged. No flags on
+these: set 16:9, 5 s, 24 fps, fixed camera and no audio in the interface instead.
+
+Air is Taranis's wind take, kept here under the name that was asked for.
+
+Dark and earth are the two that fight the add blend. Black smoke and dark rock are
+invisible under it, so the only thing that survives is the lit edge and the lit
+seam — ask for the shadow to eat the line, not to sit beside it, and expect to
+raise the black point on both plates.
+
+`#fff4cf` near-white, `#ffcf5a` warm gold, `#7a5a12` deep amber
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of white-gold holy light in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, a blinding white core running down the line with fine straight needles of golden radiance standing off it a short way, small bright motes lifting off the corners, a narrow deep amber falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and breathes in place, the core swelling and settling, bright spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no god rays, no lens flare, no halo, no haze, no text, no interface. Fixed camera, static shot.
+```
+
+`#d8c2ff` pale rim, `#4c0f6b` void purple, `#1a0424` blackened violet
+
+```
+Reference image is style only, copy nothing from it. A thin rectangular frame of black fire in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, the line lit only along its edge with a cold pale-violet rim, ragged black tongues tearing off it outward and swallowing the light where they cross it, small violet motes flicking off the corners, a narrow deep indigo falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and seethes in place, the rim guttering brighter and darker as the black eats it, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no smoke, no fog, no mist, no skulls, no runes, no text, no interface. Fixed camera, static shot.
+```
+
+`#ffb454` molten amber, `#5a3312` deep brown, `#ffd9a0` pale dust
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of cracked stone in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, the line a seam of molten amber light splitting dark rock, small sharp chips and shards of stone breaking off it outward, fine dust and grit flicking off the corners, a narrow deep brown falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and grinds in place, the cracks widening and closing, bright spots pulsing along the seam, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no dust cloud, no haze, no smoke, no text, no interface. Fixed camera, static shot.
+```
+
+`#8ceee2` pale teal, `#11594f` deep teal, `#dafff8` near-white
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of cutting pale teal air in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, hard bright edges of wind racing along the line and crossing each other, near-white where they cross, fine motes and vapour streaming off it, a narrow deep teal falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and flickers in place, fast shimmering light, bright spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no haze, no fog, no text, no interface. Fixed camera, static shot.
+```
+
+The slam swap for these four, in place of the motion sentence, with `<matter>` as
+motes for light, shadow for dark, shards and dust for earth, torn air for air:
+`The frame starts black and empty, then detonates into existence all at once, the
+line flaring white and swelling, <matter> thrown outward, and the clip ends at its
+brightest with no fade out.`
