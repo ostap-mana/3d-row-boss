@@ -282,6 +282,35 @@ Swap the two material clauses for the element, keep everything else:
 - wind: `hard bright edges of pale teal air racing along the line and crossing
   each other, fine motes and vapour streaming off it, a narrow deep teal falloff`
 
+### The five that are left
+
+`masters/fx/fire-border.mp4` is the take that shipped: 1280x720, the rectangle
+near-square in the middle of the frame, black inside and out. Ask for the other
+five in the same framing and `tools/pack-ult-borders.mjs` takes them through the
+same crop (`crop=770:700:256:10`). The black around the line matters more than
+anything else in the shot — a soft wide glow there turns into an orange fog over
+the card and has to be crushed afterwards.
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of azure water in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, ribbons of water twisting tight along the line, pale ice-blue foam and droplets flicking off the corners, a narrow deep blue falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and flickers in place, fast shimmering light, bright spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no haze, no mist, no text, no interface. Fixed camera, static shot. --rt 16:9 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of living emerald growth in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, fine vines and tendrils coiling tight along the line, short shoots and small leaves reaching off it, glowing spores at the corners, a narrow deep green falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and flickers in place, fast shimmering light, bright spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no haze, no smoke, no text, no interface. Fixed camera, static shot. --rt 16:9 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of gold-white electric current in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, fine forked arcs snapping off the line and gone in an instant, sparks scattering at the corners, the whole line stuttering brighter and darker, a narrow deep amber falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and crackles in place, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no haze, no smoke, no text, no interface. Fixed camera, static shot. --rt 16:9 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of violet arcane power in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, fine magenta filaments winding tight along the line and flaring where they cross, pale lilac motes drifting off it, a narrow deep indigo falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and flickers in place, fast shimmering light, bright spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no haze, no runes, no symbols, no text, no interface. Fixed camera, static shot. --rt 16:9 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of cutting pale teal air in the centre of a pure black screen, the line as thin as a neon filament, a wide empty black hole inside it, hard bright edges of wind racing along the line and crossing each other, near-white where they cross, fine motes and vapour streaming off it, a narrow deep teal falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and flickers in place, fast shimmering light, bright spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no wide soft glow, no haze, no fog, no text, no interface. Fixed camera, static shot. --rt 16:9 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
 For the slam, replace the motion sentence with: `The frame starts black and empty,
 then detonates into existence all at once, the line flaring white and swelling,
 embers thrown outward, and the clip ends at its brightest with no fade out.`
