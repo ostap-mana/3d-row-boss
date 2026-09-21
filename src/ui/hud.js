@@ -42,6 +42,13 @@ const PAINT_LOW = 0xff8a72;
 
 const LABEL_INK = 0xffffff;
 
+const NAME_SPACING = 2.4;
+const DOOM_SPACING = 1.6;
+const LABEL_GAP = 8;
+const LABEL_FLOOR = 7;
+const LABEL_SHRINK = 0.5;
+const LABEL_PASSES = 3;
+
 const CHIP_HOLD = 0.1;
 const CHIP_DRAIN = 0.85;
 
@@ -129,7 +136,7 @@ export class Hud extends Container {
         fontSize: 16,
         fontWeight: "800",
         fill: LABEL_INK,
-        letterSpacing: 2.4,
+        letterSpacing: NAME_SPACING,
       },
     });
     this.name.anchor.set(0, 1);
@@ -154,7 +161,7 @@ export class Hud extends Container {
         fontSize: 13,
         fontWeight: "900",
         fill: LABEL_INK,
-        letterSpacing: 1.6,
+        letterSpacing: DOOM_SPACING,
       },
     });
     this.doomLabel.anchor.set(1, 1);
@@ -266,7 +273,7 @@ export class Hud extends Container {
 
     this.barRect = { x: x + inset, y, w: w - inset, h };
 
-    this.name.style.fontSize = Math.max(9, 11 * ui);
+    this.labelBox = { base: Math.max(9, 11 * ui), room: w - inset, ui };
     this.name.x = x + inset;
     this.name.y = y - 3 * ui;
 
@@ -350,9 +357,9 @@ export class Hud extends Container {
     this.banner.x = layout.banner.x;
     this.banner.y = layout.banner.y;
 
-    this.doomLabel.style.fontSize = Math.max(9, 11 * ui);
     this.doomLabel.x = x + w;
     this.doomLabel.y = y - 3 * ui;
+    this.fitLabels();
 
     this.bakeBar();
     this.drawBar();
@@ -545,6 +552,46 @@ export class Hud extends Container {
     return this.doomOn && this.doomLeft <= DOOM.panicAt;
   }
 
+  fitLabels() {
+    const box = this.labelBox;
+    if (!box) return;
+    const gap = LABEL_GAP * box.ui;
+    const set = (text, k, track) => {
+      text.style.fontSize = Math.max(LABEL_FLOOR, box.base * k);
+      text.style.letterSpacing = track * k;
+    };
+    const both = (k) => {
+      set(this.name, k, NAME_SPACING);
+      set(this.doomLabel, k, DOOM_SPACING);
+    };
+    const span = () => this.name.width + this.doomLabel.width + gap;
+
+    let k = 1;
+    both(k);
+    for (let pass = 0; pass < LABEL_PASSES && span() > box.room; pass++) {
+      k = Math.max(LABEL_SHRINK, k * (box.room / span()));
+      both(k);
+    }
+
+    let nk = k;
+    for (let pass = 0; pass < LABEL_PASSES && span() > box.room; pass++) {
+      const left = box.room - this.doomLabel.width - gap;
+      if (left <= 0) break;
+      nk *= left / Math.max(1, this.name.width);
+      set(this.name, nk, NAME_SPACING);
+    }
+
+    this.name.visible = span() <= box.room;
+    if (this.name.visible) return;
+
+    let dk = k;
+    for (let pass = 0; pass < LABEL_PASSES; pass++) {
+      if (this.doomLabel.width <= box.room) break;
+      dk *= box.room / Math.max(1, this.doomLabel.width);
+      set(this.doomLabel, dk, DOOM_SPACING);
+    }
+  }
+
   setDoom(left, total) {
     const wasOn = this.doomOn;
     this.doomOn = true;
@@ -555,6 +602,7 @@ export class Hud extends Container {
     if (this.doomLabel.text !== text) {
       this.doomLabel.text = text;
       this.doomLabel.style.fill = this.doomPanic() ? 0xff5a3a : LABEL_INK;
+      this.fitLabels();
     }
     if (this.doomLabel.alpha < 1) tween(this.doomLabel, { alpha: 1 }, 0.3);
 
