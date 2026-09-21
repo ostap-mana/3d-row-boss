@@ -21,7 +21,6 @@ import {
   ULT_HEAL_FLOOR,
   ULT_HEAL_TO,
   ULT_PACE,
-  VOLLEY,
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
@@ -846,13 +845,11 @@ export class Director {
   partyVolley(step, lead) {
     const { boss, heroRow, vfx, shake, hitStop } = this.s;
     const target = boss.impactPoint();
-    const wide = Math.max(1, heroRow.cards.length - 1);
 
     heroRow.strikeOrder(lead).forEach((index, slot) => {
       const card = heroRow.cards[index];
       const isLead = card.hero.element === lead;
       const power = isLead ? 0.75 + step * 0.2 : DIFFICULTY.assistImpact;
-      const side = (index / wide) * 2 - 1;
 
       delay(DIFFICULTY.volleyDelay + slot * DIFFICULTY.volleyStagger).then(
         () => {
@@ -861,23 +858,12 @@ export class Director {
 
           const from = heroRow.cardPoint(index);
           vfx
-            .volley(
-              card.hero.element,
-              from,
-              target,
-              GEM_COLORS[card.hero.element],
-              {
-                len: isLead
-                  ? VOLLEY.leadLen + step * 14
-                  : VOLLEY.len + step * 8,
-                burst: isLead
-                  ? VOLLEY.leadBurst + step * 18
-                  : VOLLEY.burst + step * 10,
-                travel: isLead ? VOLLEY.leadTravel : VOLLEY.travel,
-                bow: side * (isLead ? VOLLEY.leadBow : VOLLEY.bow),
-                impact: isLead ? power : 0,
-              },
-            )
+            .beam(from, target, GEM_COLORS[card.hero.element], {
+              thickness: isLead ? 16 + step * 5 : 8 + step * 2,
+              impact: power,
+              travel: isLead ? 0.16 : 0.2,
+              element: card.hero.element,
+            })
             .then(() => {
               if (this.ended) return;
               boss.hit(isLead ? power : power * 0.6);

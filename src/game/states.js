@@ -8,7 +8,6 @@ import {
   LIGHTNING,
   NATURE,
   ROWS,
-  VOLLEY,
   WATER,
   WIND,
 } from "../config.js";
@@ -179,12 +178,11 @@ function heroStrike(scene, index, lead) {
   const power = lead ? 0.95 : 0.6;
   card.strike(!!lead);
   return vfx
-    .volley(card.hero.element, from, target, color, {
-      len: lead ? VOLLEY.leadLen : VOLLEY.len,
-      burst: lead ? VOLLEY.leadBurst : VOLLEY.burst,
-      travel: lead ? VOLLEY.leadTravel : VOLLEY.travel,
-      bow: lead ? VOLLEY.leadBow : VOLLEY.bow,
+    .beam(from, target, color, {
+      thickness: lead ? 20 : 10,
       impact: power,
+      travel: lead ? 0.16 : 0.2,
+      element: card.hero.element,
     })
     .then(() => {
       boss.hit(power);
