@@ -40,6 +40,8 @@ const DOOM_HOT = 0xffa030;
 const DOOM_PANIC = 0xff2f1a;
 const PAINT_LOW = 0xff8a72;
 
+const LABEL_INK = 0xffffff;
+
 const CHIP_HOLD = 0.1;
 const CHIP_DRAIN = 0.85;
 
@@ -126,7 +128,7 @@ export class Hud extends Container {
         fontFamily: FONT_TITLE,
         fontSize: 16,
         fontWeight: "800",
-        fill: 0xffd9a8,
+        fill: LABEL_INK,
         letterSpacing: 2.4,
       },
     });
@@ -151,7 +153,7 @@ export class Hud extends Container {
         fontFamily: FONT,
         fontSize: 13,
         fontWeight: "900",
-        fill: 0xffb060,
+        fill: LABEL_INK,
         letterSpacing: 1.6,
       },
     });
@@ -552,7 +554,7 @@ export class Hud extends Container {
     const text = COPY.doomLabel + " " + Math.ceil(this.doomLeft);
     if (this.doomLabel.text !== text) {
       this.doomLabel.text = text;
-      this.doomLabel.style.fill = this.doomPanic() ? 0xff5a3a : 0xffb060;
+      this.doomLabel.style.fill = this.doomPanic() ? 0xff5a3a : LABEL_INK;
     }
     if (this.doomLabel.alpha < 1) tween(this.doomLabel, { alpha: 1 }, 0.3);
 
