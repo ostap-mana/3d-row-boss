@@ -27,8 +27,9 @@ slim-to-budget — re-encode the shipped assets down to a bundle budget.
   module named here.
 
   The rest is safe because the slice is derived from the image itself:
-  spells.js reads its pitch as img.width / cols, bolts.js as img.width /
-  cells. Those only need the width to stay an exact multiple.
+  spells.js reads its pitch as img.width / cols and only needs the width to
+  stay an exact multiple. A one-frame plate like fx/ult-bolt.webp carries no
+  slice at all and rescales freely.
 `;
 
 const args = process.argv.slice(2);
@@ -61,10 +62,7 @@ const PINNED = [
   [/^cards.ult-/, "art/ultborder.js"],
 ];
 
-const DERIVED = [
-  [/^fx.[a-z]+-sheet\.webp$/, 5],
-  [/^fx.water-lance\.webp$/, 8],
-];
+const DERIVED = [[/^fx.[a-z]+-sheet\.webp$/, 5]];
 
 const KEEP = [
   /^fx.claw-rake\.webp$/,

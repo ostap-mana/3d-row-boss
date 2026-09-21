@@ -201,19 +201,6 @@ for (const [mod, rel] of [
   }
 }
 
-{
-  const s = source("art/bolts.js");
-  const cells = num(s, "cells", "bolts.js");
-  const { w, h } = size("fx/water-lance.webp");
-  checks.push({
-    label: "bolts.js",
-    rel: "fx/water-lance.webp",
-    ok: w % cells === 0,
-    want: `width a multiple of ${cells}`,
-    got: `${w}x${h}`,
-  });
-}
-
 const bad = checks.filter((c) => !c.ok);
 for (const c of bad) {
   process.stderr.write(

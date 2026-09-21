@@ -120,7 +120,6 @@ const GLOBS = [
   { dir: "hint", match: /^hand-/, scale: 0.62, q: 84 },
   { dir: "hint", match: /^frame-/, scale: 0.75, q: 86 },
   { dir: "hint", match: /^arrow-/, scale: 0.75, q: 86 },
-  { dir: "fx", match: /-bolt\.webp$|^water-lance\.webp$/, scale: 0.68, q: 84 },
 ];
 
 const EXACT = [

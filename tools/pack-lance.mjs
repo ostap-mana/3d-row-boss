@@ -42,9 +42,14 @@ pack-lance — a moving lance, cut off a green-screen clip into one strip.
   that is sliding.
 
   **One strip, not a grid.** Every frame is the same lance at the same size, so
-  the cells only ever need walking left to right, and art/bolts.js divides the
-  image's own width by its height ratio to find how many there are. No rows, no
-  pitch, no contract to keep in step with a second file.
+  the cells only ever need walking left to right and the count falls out of the
+  image's own width over its height ratio. No rows, no pitch, no contract to
+  keep in step with a second file.
+
+  **Nothing loads a strip today.** art/bolts.js used to slice one, and does not
+  any more: every element's ult now flies the one white plate in
+  src/assets/fx/ult-bolt.webp under its own tint. A strip packed here needs the
+  frame walk put back into that module before it will play.
 
   **The content box is measured once, across every sampled frame, and after the
   key.** Per-frame boxes would breathe: a spark thrown off frame 3 widens that

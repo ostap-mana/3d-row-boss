@@ -533,14 +533,33 @@ export class Vfx extends Container {
       return;
     }
 
+    const heading = Math.atan2(to.y - from.y, to.x - from.x);
+    const shade = (paint, alpha) => {
+      if (!lance || paint == null) return null;
+      const s = new Sprite(lance.frames[0]);
+      s.anchor.set(1, 0.5);
+      s.rotation = heading;
+      s.tint = paint;
+      s.alpha = alpha;
+      s.blendMode = "add";
+      s.x = from.x;
+      s.y = from.y;
+      this.field.addChild(s);
+      return s;
+    };
+
+    const haze = shade(lance && lance.deep, ULT_FX.boltHazeAlpha);
+
     const bolt = new Sprite(lance ? lance.frames[0] : frames[0]);
     bolt.anchor.set(lance ? 1 : 0.5, 0.5);
-    if (lance) bolt.rotation = Math.atan2(to.y - from.y, to.x - from.x);
+    if (lance) bolt.rotation = heading;
     if (lance && lance.tint != null) bolt.tint = lance.tint;
     bolt.blendMode = "add";
     bolt.x = from.x;
     bolt.y = from.y;
     this.field.addChild(bolt);
+
+    const core = shade(lance && lance.core, ULT_FX.boltCoreAlpha);
 
     const lead = new Sprite(glowTexture());
     lead.anchor.set(0.5);
@@ -566,6 +585,15 @@ export class Vfx extends Container {
         const n = lance.frames.length;
         if (n > 1) bolt.texture = lance.frames[Math.min(n - 1, (p * n) | 0)];
         bolt.setSize(len, len / lance.aspect);
+        const ride = (s, long, thick) => {
+          if (!s || s.destroyed) return;
+          s.texture = bolt.texture;
+          s.x = bolt.x;
+          s.y = bolt.y;
+          s.setSize(len * long, (len / lance.aspect) * thick);
+        };
+        ride(haze, ULT_FX.boltHazeLong, ULT_FX.boltHaze);
+        ride(core, ULT_FX.boltCoreLong, ULT_FX.boltCore);
       } else {
         const w = size * (ULT_FX.boltSize + e * ULT_FX.boltSwell);
         const i = Math.floor(e * (SPELL_TRAVEL_LAST + 1));
@@ -590,6 +618,14 @@ export class Vfx extends Container {
 
     bolt.x = to.x;
     bolt.y = to.y;
+    [haze, core].forEach((s) => {
+      if (!s) return;
+      s.x = to.x;
+      s.y = to.y;
+      tween(s, { alpha: 0 }, ULT_FX.boltCoreFade).then(
+        () => !s.destroyed && s.destroy(),
+      );
+    });
     if (lance) {
       if (!frames) {
         tween(bolt, { alpha: 0 }, 0.2).then(() => bolt.destroy());
