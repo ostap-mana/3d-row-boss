@@ -217,3 +217,36 @@ node tools/pack-ult-borders.mjs --proof fire=1
   `src/animation/style-flare/<element>/<element>-v12`, then
   `node tools/pack-ult-borders.mjs --flare --burst fire=12`. The packer builds the
   fall by rewinding the take, which is why the take has to end on its peak.
+
+## Seedance
+
+Seedance takes a short prompt and its own flags, and it has no negative field, so
+the long NEGATIVE block above is for Veo and Sora. Here only a handful of "no"
+terms survive; past a hundred words or so Seedance starts dropping the geometry.
+
+In a Reference node the attached picture is style only. Say so in the prompt, or
+it copies the gem board and the hero cards into the shot.
+
+```
+Reference image is style only, copy nothing from it. A thin glowing rectangular frame of white-hot fire in the centre of a pure black screen, tall rectangle with slightly rounded corners, the line as thin as a neon filament, a wide empty black hole inside it, orange flame clinging tight to the line, tiny embers flicking off the corners, a narrow ember-red falloff fading to pure black well before the edges of the screen. The frame stays perfectly still and flickers in place, fast shimmering light, hot spots pulsing along the line, nothing at all inside the black hole. Stylized mobile game spell VFX, additive glow on black, high contrast, no smoke, no haze, no text, no interface. Fixed camera, static shot. --rt 9:16 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+Swap the two material clauses for the element, keep everything else:
+
+- water: `running azure water twisting tight along the line, pale ice-blue foam
+  bursting off it, droplets flicking off the corners, a narrow deep blue falloff`
+- nature: `fine emerald vines coiling tight along the line, short shoots and small
+  leaves reaching off it, glowing spores at the corners, a narrow deep green
+  falloff`
+- lightning: `gold-white current running the line, fine forked arcs snapping off
+  it and gone in an instant, sparks scattering at the corners, a narrow deep amber
+  falloff`
+- arcane: `fine magenta filaments winding tight along the line and flaring where
+  they cross, pale lilac motes drifting off it, a narrow deep indigo falloff`
+- wind: `hard bright edges of pale teal air racing along the line and crossing
+  each other, fine motes and vapour streaming off it, a narrow deep teal falloff`
+
+For the slam, replace the motion sentence with: `The frame starts black and empty,
+then detonates into existence all at once, the line flaring white and swelling,
+embers thrown outward, and the clip ends at its brightest with no fade out.`
+
