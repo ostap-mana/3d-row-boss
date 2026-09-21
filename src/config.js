@@ -597,7 +597,7 @@ export const ULT_FX = {
   boltSize: 0.3,
   boltLong: 0.95,
   boltSwell: 0.22,
-  boltStub: 0.12,
+  boltSpan: 0.62,
   boltCore: 0.32,
   boltCoreLong: 0.94,
   boltCoreAlpha: 0.7,

@@ -572,18 +572,21 @@ export class Vfx extends Container {
     let last = { x: from.x, y: from.y };
     let drop = 0;
 
+    const span = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    const aim = { x: (to.x - from.x) / span, y: (to.y - from.y) / span };
+    const shaft = lance
+      ? Math.min(size * ULT_FX.boltLong, span * ULT_FX.boltSpan)
+      : 0;
+
     await tweenValue(0, 1, o.travel || ULT_FX.travel, (p) => {
       if (bolt.destroyed) return;
       const e = p * 0.45 + Ease.quadIn(p) * 0.55;
-      bolt.x = from.x + (to.x - from.x) * e;
-      bolt.y = from.y + (to.y - from.y) * e;
-      lead.x = bolt.x;
-      lead.y = bolt.y;
 
       if (lance) {
-        const grown = size * (ULT_FX.boltLong + e * ULT_FX.boltSwell);
-        const reach = Math.hypot(bolt.x - from.x, bolt.y - from.y);
-        const len = Math.min(grown, reach + size * ULT_FX.boltStub);
+        const gone = shaft + (span - shaft) * e;
+        bolt.x = from.x + aim.x * gone;
+        bolt.y = from.y + aim.y * gone;
+        const len = shaft * (1 + e * ULT_FX.boltSwell);
         const n = lance.frames.length;
         if (n > 1) bolt.texture = lance.frames[Math.min(n - 1, (p * n) | 0)];
         bolt.setSize(len, len / lance.aspect);
@@ -597,11 +600,16 @@ export class Vfx extends Container {
         ride(haze, ULT_FX.boltHazeLong, ULT_FX.boltHaze);
         ride(core, ULT_FX.boltCoreLong, ULT_FX.boltCore);
       } else {
+        bolt.x = from.x + (to.x - from.x) * e;
+        bolt.y = from.y + (to.y - from.y) * e;
         const w = size * (ULT_FX.boltSize + e * ULT_FX.boltSwell);
         const i = Math.floor(e * (SPELL_TRAVEL_LAST + 1));
         bolt.texture = frames[Math.min(SPELL_TRAVEL_LAST, i)];
         bolt.setSize(w, w / SPELL_ASPECT);
       }
+
+      lead.x = bolt.x;
+      lead.y = bolt.y;
 
       drop += Math.hypot(bolt.x - last.x, bolt.y - last.y);
       if (drop >= ULT_FX.trailGap) {
