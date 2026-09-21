@@ -484,6 +484,30 @@ export const IMPACT_FX = {
   streaks: 7,
 };
 
+export const VOLLEY = {
+  len: 150,
+  leadLen: 236,
+  travel: 0.22,
+  leadTravel: 0.18,
+  bow: 0.085,
+  leadBow: 0.03,
+  from: 0.44,
+  grow: 0.3,
+  alpha: 0.92,
+  burst: 150,
+  leadBurst: 250,
+  burstSeconds: 0.32,
+  burstAlpha: 0.85,
+  burstFrom: 0.42,
+  muzzle: 0.62,
+  muzzleLife: 0.2,
+  muzzleAlpha: 0.7,
+  sparks: 5,
+  fade: 0.16,
+  sink: 0.12,
+  slim: 0.17,
+};
+
 export const ULT_PACE = {
   rush: 5,
   cast: 1.35,

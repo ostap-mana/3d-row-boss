@@ -42,6 +42,7 @@ import {
   SPARK,
   ULT_CALL,
   ULT_FX,
+  VOLLEY,
 } from "../config.js";
 
 const MAX_PARTICLES = 320;
@@ -413,6 +414,124 @@ export class Vfx extends Container {
     );
     tween(core, { alpha: 0 }, 0.18, { delay: 0.05 }).then(() => core.destroy());
     muzzle.destroy();
+  }
+
+  volleyBurst(element, at, size, spin) {
+    const frames = spellFrames(SPELL_BY_ELEMENT[element]);
+    if (!frames) return false;
+
+    const s = new Sprite(frames[1]);
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.rotation = spin;
+    s.x = at.x;
+    s.y = at.y;
+    s.alpha = VOLLEY.burstAlpha;
+    s.setSize(size * VOLLEY.burstFrom, size * VOLLEY.burstFrom);
+    this.field.addChild(s);
+
+    const n = frames.length - 1;
+    tweenValue(0, 1, VOLLEY.burstSeconds, (p) => {
+      if (s.destroyed) return;
+      s.texture = frames[1 + Math.min(n - 1, (p * n) | 0)];
+      const w =
+        size * (VOLLEY.burstFrom + Ease.quadOut(p) * (1 - VOLLEY.burstFrom));
+      s.setSize(w, w);
+      s.alpha = VOLLEY.burstAlpha * (p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4);
+    }).then(() => {
+      if (!s.destroyed) s.destroy();
+    });
+    return true;
+  }
+
+  async volley(element, from, to, color, opts) {
+    const o = opts || {};
+    const art = boltArt(element);
+    const len = o.len || VOLLEY.len;
+    const travel = o.travel || VOLLEY.travel;
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const span = Math.hypot(dx, dy) || 1;
+    const lift = (o.bow || 0) * span;
+    const nx = -dy / span;
+    const ny = dx / span;
+    const at = (p) => {
+      const off = lift * Math.sin(Math.PI * p);
+      return { x: from.x + dx * p + nx * off, y: from.y + dy * p + ny * off };
+    };
+    const facing = (p) => {
+      const turn = lift * Math.PI * Math.cos(Math.PI * p);
+      return Math.atan2(dy + ny * turn, dx + nx * turn);
+    };
+
+    const ratio = (art && art.aspect) || 6;
+    const thick = len * Math.min(1 / ratio, VOLLEY.slim);
+    const muzzle = new Sprite(glowTexture());
+    muzzle.anchor.set(0.5);
+    muzzle.blendMode = "add";
+    muzzle.tint = color;
+    muzzle.alpha = VOLLEY.muzzleAlpha;
+    muzzle.x = from.x;
+    muzzle.y = from.y;
+    muzzle.setSize(thick * 2, thick * 2);
+    this.field.addChild(muzzle);
+    tween(
+      muzzle.scale,
+      { x: muzzle.scale.x * VOLLEY.muzzle, y: muzzle.scale.y * VOLLEY.muzzle },
+      VOLLEY.muzzleLife,
+    );
+    tween(muzzle, { alpha: 0 }, VOLLEY.muzzleLife).then(() => {
+      if (!muzzle.destroyed) muzzle.destroy();
+    });
+
+    const dart = new Sprite(art ? art.frames[0] : glowTexture());
+    dart.blendMode = "add";
+    dart.alpha = VOLLEY.alpha;
+    dart.x = from.x;
+    dart.y = from.y;
+    if (art) {
+      dart.anchor.set(1, 0.5);
+      if (art.tint != null) dart.tint = art.tint;
+    } else {
+      dart.anchor.set(0.5);
+      dart.tint = color;
+    }
+    this.field.addChild(dart);
+
+    const cells = art ? art.frames.length : 0;
+
+    await tweenValue(0, 1, travel, (p) => {
+      if (dart.destroyed) return;
+      const pos = at(p);
+      dart.x = pos.x;
+      dart.y = pos.y;
+      const out =
+        VOLLEY.from +
+        (1 - VOLLEY.from) * Ease.quadOut(Math.min(1, p / VOLLEY.grow));
+      if (art) {
+        dart.rotation = facing(p);
+        if (cells > 1) {
+          dart.texture = art.frames[Math.min(cells - 1, (p * cells) | 0)];
+        }
+        dart.setSize(len * out, thick * out);
+      } else {
+        dart.setSize(thick * 2 * out, thick * 2 * out);
+      }
+    });
+
+    if (!dart.destroyed) {
+      tween(dart.scale, { x: dart.scale.x * VOLLEY.sink }, VOLLEY.fade, {
+        ease: Ease.quadIn,
+      });
+      tween(dart, { alpha: 0 }, VOLLEY.fade).then(() => {
+        if (!dart.destroyed) dart.destroy();
+      });
+    }
+
+    this.volleyBurst(element, to, o.burst || VOLLEY.burst, facing(1));
+    this.burst(to.x, to.y, color, VOLLEY.sparks, 1.1);
+    if (o.impact) this.impact(to, color, o.impact, element);
   }
 
   async stream(element, from, to, color, opts) {
