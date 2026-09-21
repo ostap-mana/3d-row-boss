@@ -11,8 +11,22 @@ const DIM = 0x8b8274;
 const CHIP = 0x241c33;
 const CHIP_HOT = 0x6b3030;
 const CHIP_LIVE = 0x1b4a1a;
+const CHIP_OFF = 0x14111c;
 
-const TABS = ["STATES", "MODS", "READ"];
+const TABS = ["ГРА", "СТАНИ", "MODS", "READ"];
+
+const MENU = 0;
+const STATES_TAB = 1;
+const MODS_TAB = 2;
+const READ_TAB = 3;
+
+const MENU_GROUPS = ["game", "attack", "spell", "outcome"];
+
+const TONES = {
+  "game.victory": CHIP_LIVE,
+  "game.defeat": CHIP_HOT,
+  "game.restart": CHIP_HOT,
+};
 
 const REFRESH = 0.25;
 
@@ -270,6 +284,12 @@ export class DevPanel extends Container {
     this.layoutSelf();
   }
 
+  show(on) {
+    const want = on === undefined ? this.shut : !!on;
+    if (this.shut !== !want) this.flip();
+    return want;
+  }
+
   pick(i) {
     this.tab = i;
     this.scroll = 0;
@@ -352,6 +372,7 @@ export class DevPanel extends Container {
 
     let group = null;
     for (const state of list) {
+      if (this.stateChips.has(state.name)) continue;
       if (state.group !== group) {
         group = state.group;
         const head = label(group.toUpperCase(), 10, GOLD);
@@ -361,6 +382,7 @@ export class DevPanel extends Container {
       }
       const short = state.name.replace(`${state.group}.`, "");
       const chip = new Chip(state.label || short, 10, () => {
+        if (this.states().busy()) return;
         const out = this.states().run(state.name);
         if (out && out.catch) out.catch(() => {});
       });
@@ -430,7 +452,7 @@ export class DevPanel extends Container {
 
     let at = pad + head + 4 * ui;
 
-    const cols = 3;
+    const cols = TABS.length;
     const gap = 4 * ui;
     const tabW = (w - pad * 2 - gap * (cols - 1)) / cols;
     this.tabs.forEach((tab, i) => {
@@ -453,7 +475,7 @@ export class DevPanel extends Container {
 
     this.rate.visible = true;
     this.rate.position.set(pad, at);
-    at += this.rate.paint(w - pad * 2, ui);
+    at += this.rate.paint(w - pad * 2, ui) + 6 * ui;
 
     this.clip.position.set(pad, at);
     this.clipMask.clear();
@@ -464,6 +486,18 @@ export class DevPanel extends Container {
     this.fill();
   }
 
+  inMenu(chip) {
+    return MENU_GROUPS.includes(chip.state.group);
+  }
+
+  toneOf(state) {
+    const held = this.states() ? this.states().busy() : "";
+    if (held === state.name) return CHIP_LIVE;
+    if (held) return CHIP_OFF;
+    if (state.live) return CHIP_LIVE;
+    return TONES[state.name] || CHIP;
+  }
+
   fill() {
     const ui = this.ui;
     const w = this.view.w;
@@ -471,25 +505,33 @@ export class DevPanel extends Container {
     const rowH = 18 * ui;
     let at = 0;
 
-    const states = this.tab === 0;
-    const mods = this.tab === 1;
+    const menu = this.tab === MENU;
+    const states = this.tab === STATES_TAB;
+    const mods = this.tab === MODS_TAB;
 
-    for (const head of this.heads) head.visible = states;
-    for (const chip of this.stateChips.values()) chip.visible = states;
+    for (const chip of this.stateChips.values()) {
+      chip.visible = states || (menu && this.inMenu(chip));
+    }
+    for (const head of this.heads) {
+      head.visible = states || (menu && MENU_GROUPS.includes(head.headGroup));
+    }
     for (const slider of this.sliders) slider.visible = mods;
     for (const chip of this.toggles) chip.visible = mods;
     if (this.reset) this.reset.visible = mods;
-    this.readText.visible = this.tab === 2;
+    this.readText.visible = this.tab === READ_TAB;
 
-    if (states) {
-      const colW = (w - gap) / 2;
+    if (menu || states) {
+      const cols = menu ? 1 : 2;
+      const rowSize = menu ? 26 * ui : rowH;
+      const colW = (w - gap * (cols - 1)) / cols;
       let column = 0;
       let group = null;
       for (const [, chip] of this.stateChips) {
+        if (!chip.visible) continue;
         if (chip.state.group !== group) {
           group = chip.state.group;
-          if (column === 1) {
-            at += rowH + gap;
+          if (column > 0) {
+            at += rowSize + gap;
             column = 0;
           }
           const head = this.heads.find((n) => n.headGroup === group);
@@ -499,12 +541,15 @@ export class DevPanel extends Container {
             at += 14 * ui;
           }
         }
-        chip.paint(colW, rowH, chip.state.live ? CHIP_LIVE : CHIP);
+        chip.paint(colW, rowSize, this.toneOf(chip.state));
         chip.position.set(column * (colW + gap), at);
-        if (column === 1) at += rowH + gap;
-        column = column === 0 ? 1 : 0;
+        column++;
+        if (column >= cols) {
+          at += rowSize + gap;
+          column = 0;
+        }
       }
-      if (column === 1) at += rowH + gap;
+      if (column > 0) at += rowSize + gap;
     }
 
     if (mods) {
@@ -522,7 +567,7 @@ export class DevPanel extends Container {
       at += rowH + gap;
     }
 
-    if (this.tab === 2) {
+    if (this.tab === READ_TAB) {
       this.readText.style.fontSize = 10 * ui;
       this.readText.style.wordWrapWidth = w;
       this.readText.position.set(0, 0);
@@ -552,14 +597,15 @@ export class DevPanel extends Container {
       return;
     }
 
-    if (this.tab === 0) {
+    if (this.tab === MENU || this.tab === STATES_TAB) {
       for (const state of list) {
         const chip = this.stateChips.get(state.name);
-        if (chip) chip.paint(chip.w, chip.h, state.live ? CHIP_LIVE : CHIP);
+        if (chip && chip.visible)
+          chip.paint(chip.w, chip.h, this.toneOf(state));
       }
     }
 
-    if (this.tab === 2 && this.states()) {
+    if (this.tab === READ_TAB && this.states()) {
       const read = this.states().read();
       this.readText.text = Object.keys(read)
         .map((k) => `${k}: ${JSON.stringify(read[k])}`)

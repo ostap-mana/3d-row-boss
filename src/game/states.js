@@ -1,8 +1,18 @@
-import { COLS, ROWS } from "../config.js";
+import {
+  COLS,
+  GEM_COLORS,
+  GEM_LIGHT,
+  HERO_MAX_HP,
+  ROWS,
+  WATER,
+} from "../config.js";
 import { clearStop, setTimeScale } from "../core/juice.js";
 import { killTweensOf } from "../core/tween.js";
+import { nextFrame } from "../core/idle.js";
 
 const SLOW_FLOOR = 0.01;
+
+const BUSY_CAP = 12000;
 
 function attackArgs(d) {
   const attack = d.currentAttack();
@@ -80,6 +90,8 @@ const CARDS = [
   { name: "card.defeat", group: "outcome", show: "defeat" },
 ];
 
+const OWNED = new Set(STATES.map((s) => s.name));
+
 const QUIET = [
   "vfx",
   "cutin",
@@ -94,6 +106,318 @@ const QUIET = [
   "hud",
 ];
 
+const FX_ELEMENT = WATER;
+
+const BRINK_HP = 420;
+const NEAR_DEATH = 0.04;
+
+function cardsOf(scene) {
+  return (scene.heroRow && scene.heroRow.cards) || [];
+}
+
+function settle(list) {
+  return Promise.all(list.map((v) => Promise.resolve(v).catch(() => null)));
+}
+
+function setBossHp(scene, value) {
+  const d = scene.director;
+  if (!d) return false;
+  d.bossHp = Math.max(0, Math.min(1, value));
+  scene.hud.setHp(d.bossHp, 0.35);
+  d.checkPhase();
+  return d.bossHp;
+}
+
+function setPartyHp(scene, hp) {
+  return settle(
+    cardsOf(scene).map((card) => (card.downed ? null : card.setHp(hp, 0.3))),
+  );
+}
+
+function armUlts(scene) {
+  let armed = 0;
+  for (const card of cardsOf(scene)) if (card.addCharge(1)) armed++;
+  return armed;
+}
+
+function armDoom(scene) {
+  const d = scene.director;
+  if (!d) return false;
+  d.doomLeft = 0.01;
+  d.doomArmed = true;
+  return true;
+}
+
+async function finale(scene, engine, kind) {
+  let d = scene.director;
+  if (!d) return false;
+  if (d.settled() && typeof scene.restart === "function") {
+    scene.restart();
+    await nextFrame();
+    d = scene.director;
+    if (!d) return false;
+  }
+  engine.halt({ freeze: false });
+  engine.thaw();
+  await (kind === "victory" ? d.win() : d.lose());
+  return d.finish();
+}
+
+function heroStrike(scene, index, lead) {
+  const { heroRow, boss, vfx } = scene;
+  const card = heroRow && heroRow.cards[index];
+  if (!card || !boss || !vfx) return false;
+  const target = boss.impactPoint();
+  const from = heroRow.cardPoint(index);
+  const color = GEM_COLORS[card.hero.element];
+  const power = lead ? 0.95 : 0.6;
+  card.strike(!!lead);
+  return vfx
+    .beam(from, target, color, {
+      thickness: lead ? 20 : 10,
+      impact: power,
+      travel: lead ? 0.16 : 0.2,
+    })
+    .then(() => {
+      boss.hit(power);
+      scene.shake(lead ? 6 : 3, lead ? 0.24 : 0.14, {
+        axis: { x: target.x - from.x, y: target.y - from.y },
+      });
+      return true;
+    });
+}
+
+function heroSpell(scene, index) {
+  const { heroRow, boss, vfx } = scene;
+  const card = heroRow && heroRow.cards[index];
+  if (!card || !boss || !vfx) return false;
+  const el = card.hero.element;
+  const b = scene.layout.board;
+  const origin = { x: b.x + b.size / 2, y: b.y + b.size / 2 };
+  const target = boss.impactPoint();
+  const color = GEM_COLORS[el];
+  card.strike(true);
+  return vfx
+    .spell(el, origin, target, color, {
+      size: 218,
+      travel: 0.16,
+      blast: 0.4,
+      beam: { thickness: 30, impact: 1.4 },
+    })
+    .then(() => {
+      vfx.impact(target, color, 1.4);
+      boss.hit(1.4);
+      scene.shake(12, 0.28, {
+        axis: { x: target.x - origin.x, y: target.y - origin.y },
+      });
+      return true;
+    });
+}
+
+function partyVolley(scene) {
+  const d = scene.director;
+  const cards = cardsOf(scene);
+  if (!d || !cards.length) return false;
+  d.partyVolley(2, cards[0].hero.element);
+  return true;
+}
+
+const SCENES = [
+  {
+    name: "game.victory",
+    label: "ПЕРЕМОГА",
+    act: (scene, engine) => finale(scene, engine, "victory"),
+  },
+  {
+    name: "game.defeat",
+    label: "ПОРАЗКА",
+    act: (scene, engine) => finale(scene, engine, "defeat"),
+  },
+  {
+    name: "game.restart",
+    label: "З ПОЧАТКУ",
+    act: (scene) => (scene.restart ? scene.restart() : false),
+  },
+  {
+    name: "game.bossLow",
+    label: "БОС ПРИ СМЕРТІ",
+    act: (scene) => setBossHp(scene, NEAR_DEATH),
+  },
+  {
+    name: "game.bossHalf",
+    label: "БОС НАПОЛОВИНУ",
+    act: (scene) => setBossHp(scene, 0.5),
+  },
+  {
+    name: "game.bossFull",
+    label: "БОС ЦІЛИЙ",
+    act: (scene) => setBossHp(scene, 1),
+  },
+  {
+    name: "game.partyBrink",
+    label: "ГЕРОЇ НА ВОЛОСИНІ",
+    act: (scene) => setPartyHp(scene, BRINK_HP),
+  },
+  {
+    name: "game.partyWhole",
+    label: "ГЕРОЇ ЦІЛІ",
+    act: (scene) => scene.heroRow.healAll(HERO_MAX_HP),
+  },
+  {
+    name: "game.ultsReady",
+    label: "УЛЬТИ ГОТОВІ",
+    act: (scene) => armUlts(scene),
+  },
+  {
+    name: "game.doomNow",
+    label: "DOOM ЗАРАЗ",
+    act: (scene) => armDoom(scene),
+  },
+];
+
+function fxCtx(scene) {
+  const L = scene.layout;
+  const b = L.board;
+  const at = { x: b.x + b.size / 2, y: b.y + b.size / 2 };
+  const top = { x: L.boss.x, y: Math.max(L.safeBox.y, L.boss.floor - b.size) };
+  const el = FX_ELEMENT;
+  return {
+    at,
+    top,
+    el,
+    color: GEM_COLORS[el],
+    light: GEM_LIGHT[el],
+    cell: b.cell,
+    size: b.size,
+  };
+}
+
+const FX = [
+  { n: "rise", g: "boss", a: () => [0.6] },
+  { n: "roar", g: "boss" },
+  { n: "spit", g: "boss" },
+  { n: "lavaBreath", g: "boss", a: () => [0.9] },
+  { n: "smash", g: "boss" },
+  { n: "rake", g: "boss", a: () => [1] },
+  { n: "mend", g: "boss", a: () => [0.9] },
+  { n: "hit", g: "boss", a: () => [0.8] },
+  { n: "spawnShards", g: "boss", a: () => [14, 1] },
+  { n: "blast", g: "boss", a: (c) => [c.top, 16, 1, 0.7] },
+  { n: "dust", g: "boss", a: () => [12, 1] },
+  { n: "enrage", g: "boss" },
+  { n: "die", g: "boss" },
+
+  { n: "burst", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color, 24, 1] },
+  { n: "pop", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color, c.cell] },
+  { n: "charge", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color, c.cell, 0.8] },
+  { n: "ring", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color, c.cell * 2, 4] },
+  { n: "blastWave", g: "vfx", a: (c) => [c.at.x, c.at.y, c.size * 0.6] },
+  { n: "shockRing", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color] },
+  { n: "shatter", g: "vfx", a: (c) => [c.at.x, c.at.y, c.cell, c.color] },
+  { n: "ember", g: "vfx", a: (c) => [c.at.x, c.at.y, c.cell, c.color] },
+  { n: "beam", g: "vfx", a: (c) => [c.top, c.at, c.color] },
+  { n: "stream", g: "vfx", a: (c) => [c.el, c.top, c.at, c.color] },
+  { n: "fireball", g: "vfx", a: (c) => [c.top, c.at, c.color] },
+  { n: "spell", g: "vfx", a: (c) => [c.el, c.top, c.at, c.color] },
+  { n: "ultCast", g: "vfx", a: (c) => [c.el, c.top, c.at, c.color, c.light] },
+  { n: "boom", g: "vfx", a: (c) => [c.at, c.size * 0.5] },
+  {
+    n: "ultGather",
+    g: "vfx",
+    a: (c) => [c.at, c.color, c.light, c.size * 0.4],
+  },
+  { n: "ultMuzzle", g: "vfx", a: (c) => [c.top, c.at, c.color, c.cell] },
+  { n: "ultLance", g: "vfx", a: (c) => [c.top, c.at, c.color, c.cell] },
+  {
+    n: "ultShock",
+    g: "vfx",
+    a: (c) => [c.at, c.top, c.color, c.light, c.cell * 2],
+  },
+  {
+    n: "ultBeckon",
+    g: "vfx",
+    a: (c) => [c.at, c.el, c.color, c.light, c.cell * 2, c.cell * 2, true],
+  },
+  { n: "bossSwing", g: "vfx", a: (c) => ["rake", c.at] },
+  { n: "mend", g: "vfx", a: (c) => [c.at] },
+  {
+    n: "mendMotes",
+    g: "vfx",
+    a: (c) => [c.at, c.cell * 2, c.color, c.light, 0.8],
+  },
+  { n: "mendCinch", g: "vfx", a: (c) => [c.at, c.cell * 2, c.color, 0.8] },
+  { n: "impact", g: "vfx", a: (c) => [c.at, c.color, 1] },
+  { n: "hitPlate", g: "vfx", a: (c) => [c.at, c.color, 1, 0] },
+  { n: "lick", g: "vfx", a: (c) => [c.at, c.color, 1, 0] },
+  { n: "flash", g: "vfx", a: (c) => [c.color, 0.35, 0.4] },
+  { n: "lob", g: "vfx", a: (c) => [c.top, c.at, c.color] },
+  { n: "jet", g: "vfx", a: (c) => [c.top, c.at] },
+  { n: "cone", g: "vfx", a: (c) => [c.top, c.at, c.color] },
+  { n: "shock", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color] },
+  { n: "claw", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color] },
+  { n: "wave", g: "vfx", a: (c) => [c.top.y, c.at.y, c.color] },
+  { n: "sweep", g: "vfx", a: (c) => [c.color] },
+
+  { n: "enrage", g: "hud" },
+  { n: "doomPanic", g: "hud" },
+  { n: "showBanner", g: "hud" },
+  { n: "shout", g: "hud", a: () => ["TEST SHOUT", 0.8] },
+  { n: "damage", g: "hud", a: (c) => [999, c.at.x, c.at.y, 1] },
+  { n: "hideShout", g: "hud", a: () => [false] },
+  { n: "hideDoom", g: "hud" },
+
+  { n: "play", g: "surge", layer: "ultSurge", a: () => [1] },
+  { n: "hide", g: "surge", layer: "ultSurge", a: () => [false] },
+  { n: "burnCrown", g: "surge", layer: "ultSurge", a: () => [1] },
+  { n: "burnEdge", g: "surge", layer: "ultSurge", a: () => [1] },
+
+  { n: "arm", g: "rim", layer: "ultRim", a: (c) => [c.el] },
+  { n: "burst", g: "rim", layer: "ultRim" },
+  { n: "disarm", g: "rim", layer: "ultRim" },
+
+  { n: "play", g: "cutin", a: () => [1] },
+
+  { n: "grab", g: "hand", a: (c) => [c.at.x, c.at.y] },
+  { n: "letGo", g: "hand" },
+  { n: "reach", g: "hand", a: (c) => [c.at.x, c.at.y] },
+  { n: "tapLoop", g: "hand", a: (c) => [c.at] },
+  { n: "press", g: "hand" },
+  { n: "release", g: "hand" },
+  { n: "stop", g: "hand" },
+
+  { n: "hide", g: "spotlight" },
+
+  { n: "healAll", g: "party", layer: "heroRow", a: () => [8000] },
+  { n: "introIn", g: "party", layer: "heroRow", a: () => [0.35] },
+
+  { n: "strike", g: "card", each: true, a: (c) => [c.el] },
+  { n: "hurt", g: "card", each: true, a: () => [600] },
+  { n: "heal", g: "card", each: true, a: () => [8000] },
+  { n: "down", g: "card", each: true },
+  { n: "revive", g: "card", each: true },
+  { n: "beckon", g: "card", each: true, a: () => [1] },
+  { n: "flareReady", g: "card", each: true },
+  { n: "flareUlt", g: "card", each: true },
+  { n: "flareLead", g: "card", each: true },
+  { n: "lightUlt", g: "card", each: true },
+  { n: "dimUlt", g: "card", each: true, a: () => [0.3] },
+  { n: "splashElement", g: "card", each: true },
+  { n: "throwRune", g: "card", each: true },
+  { n: "washElement", g: "card", each: true },
+  { n: "sweepComet", g: "card", each: true, a: () => [1] },
+];
+
+const FX_LAYER = {
+  boss: "boss",
+  vfx: "vfx",
+  hud: "hud",
+  cutin: "cutin",
+  hand: "hand",
+  spotlight: "spotlight",
+  card: "heroRow",
+  party: "heroRow",
+};
+
 export function stateEngine(scene) {
   const live = new Map();
   const listeners = [];
@@ -101,6 +425,8 @@ export function stateEngine(scene) {
   let gen = 0;
   let frozen = false;
   let stepping = 0;
+  let busyName = "";
+  let busyUntil = 0;
   let rate = 1;
 
   const director = () => scene.director;
@@ -118,7 +444,7 @@ export function stateEngine(scene) {
   }
 
   function heroStates() {
-    const cards = (scene.heroRow && scene.heroRow.cards) || [];
+    const cards = cardsOf(scene);
     return cards.map((card, index) => ({
       name: `ult.hero${index}`,
       group: "ult",
@@ -128,13 +454,97 @@ export function stateEngine(scene) {
     }));
   }
 
+  function attackStates() {
+    const cards = cardsOf(scene);
+    if (!cards.length || !scene.boss || !scene.vfx) return [];
+    const named = (card, index) =>
+      card.hero ? card.hero.name : `hero ${index}`;
+    const strikes = cards.map((card, index) => ({
+      name: `attack.hero${index}`,
+      group: "attack",
+      label: named(card, index),
+      act: (s) => heroStrike(s, index, true),
+    }));
+    const spells = cards.map((card, index) => ({
+      name: `spell.hero${index}`,
+      group: "spell",
+      label: named(card, index),
+      act: (s) => heroSpell(s, index),
+    }));
+    return [
+      {
+        name: "attack.volley",
+        group: "attack",
+        label: "ЗАЛП ПАРТІЇ",
+        act: (s) => partyVolley(s),
+      },
+    ]
+      .concat(strikes)
+      .concat(spells);
+  }
+
+  function hold(name, out) {
+    busyName = name;
+    busyUntil = performance.now() + BUSY_CAP;
+    tell("busy", name);
+    const free = () => {
+      if (busyName !== name) return;
+      busyName = "";
+      busyUntil = 0;
+      tell("free", name);
+    };
+    Promise.resolve(out).then(free, free);
+    return out;
+  }
+  function fire(state, extra) {
+    const fx = state.fx;
+    const host = scene[state.host];
+    if (!host) return false;
+    const ctx = fxCtx(scene);
+    const args = extra && extra.length ? extra : fx.a ? fx.a(ctx) : [];
+    if (!fx.each) return host[fx.n](...args);
+    const out = [];
+    for (const card of host.cards || []) {
+      try {
+        out.push(card[fx.n](...args));
+      } catch {
+        continue;
+      }
+    }
+    return Promise.all(out.map((v) => Promise.resolve(v).catch(() => null)));
+  }
+
+  function fxStates() {
+    const out = [];
+    for (const fx of FX) {
+      const key = fx.layer || FX_LAYER[fx.g];
+      const host = scene[key];
+      if (!host) continue;
+      if (fx.each) {
+        const cards = host.cards || [];
+        if (!cards.length || typeof cards[0][fx.n] !== "function") continue;
+      } else if (typeof host[fx.n] !== "function") continue;
+      const plain = `${fx.g}.${fx.n}`;
+      out.push({
+        name: OWNED.has(plain) ? `${fx.g}.fx.${fx.n}` : plain,
+        group: fx.g,
+        fx,
+        host: key,
+      });
+    }
+    return out;
+  }
   function catalogue() {
     const d = director();
-    if (!d) return [];
+    if (!d) return fxStates();
     const own = STATES.concat(heroStates()).filter(
       (s) => typeof d[s.fn] === "function",
     );
-    return own.concat(scene.outcome ? CARDS : []);
+    return SCENES.map((s) => ({ ...s, group: "game" }))
+      .concat(attackStates())
+      .concat(own)
+      .concat(scene.outcome ? CARDS : [])
+      .concat(fxStates());
   }
 
   function find(name) {
@@ -277,6 +687,7 @@ export function stateEngine(scene) {
         bossQueued: d.bossQueued,
         clockHeld: d.clockHeld,
         running: engine.running(),
+        busy: engine.busy(),
         frozen,
         rate,
       };
@@ -285,14 +696,44 @@ export function stateEngine(scene) {
     run(name, ...extra) {
       const d = director();
       const state = find(name);
-      if (!d || !state) return Promise.reject(new Error(`no state ${name}`));
+      if (!state) return Promise.reject(new Error(`no state ${name}`));
+      if (!d && !state.fx) {
+        return Promise.reject(new Error(`no state ${name}`));
+      }
+      const held = engine.busy();
+      if (held) return Promise.reject(new Error(`busy with ${held}`));
       instrument();
       tell("run", name);
 
-      if (state.show) return Promise.resolve(scene.outcome.show(state.show));
+      if (state.act) {
+        return hold(name, Promise.resolve(state.act(scene, engine, extra)));
+      }
+      if (state.fx) {
+        return hold(name, Promise.resolve(fire(state, extra)));
+      }
+      if (state.show) {
+        return hold(name, Promise.resolve(scene.outcome.show(state.show)));
+      }
       if (state.hero !== undefined) d.ultHero = state.hero;
       const args = extra.length ? extra : state.args ? state.args(d) : [];
-      return Promise.resolve(d[state.fn](...args));
+      return hold(name, Promise.resolve(d[state.fn](...args)));
+    },
+
+    busy() {
+      if (!busyName) return "";
+      if (performance.now() > busyUntil) {
+        busyName = "";
+        return "";
+      }
+      return busyName;
+    },
+
+    free() {
+      const was = busyName;
+      busyName = "";
+      busyUntil = 0;
+      if (was) tell("free", was);
+      return was;
     },
 
     stop(name) {
@@ -315,6 +756,7 @@ export function stateEngine(scene) {
       const d = director();
       const hold = !(opts && opts.freeze === false);
       tell("halt", "all");
+      engine.free();
       live.clear();
       quiet();
       clearStop();

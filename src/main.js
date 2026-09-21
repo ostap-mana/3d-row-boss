@@ -674,15 +674,64 @@ async function boot() {
   scene.states = stateEngine(scene);
   scene.states.attach();
 
-  if (new URLSearchParams(location.search).has("panel")) {
+  function ensurePanel() {
+    if (scene.panel) return scene.panel;
     try {
       scene.panel = openPanel(scene);
+      scene.panel.show(false);
+      if (layout) scene.panel.resize(layout);
     } catch {
       scene.panel = null;
     }
+    return scene.panel;
   }
 
+  function toggleMenu(on) {
+    return nextFrame().then(() => {
+      const panel = ensurePanel();
+      return panel ? panel.show(on) : false;
+    });
+  }
+
+  const query = new URLSearchParams(location.search);
+  if (query.has("panel") || query.has("menu")) toggleMenu(true);
+
+  const MENU_TAPS = 3;
+  const MENU_WINDOW = 1200;
+  const MENU_CORNER = 64;
+
+  let cornerTaps = [];
+
+  function cornerTap(e) {
+    if (e.isTrusted === false) return;
+    const list = e.changedTouches || e.touches;
+    const p = list && list.length ? list[0] : e;
+    const box = app.canvas.getBoundingClientRect();
+    const reach = MENU_CORNER * (layout ? layout.ui : 1);
+    if ((p.clientX || 0) - box.left > reach) {
+      cornerTaps = [];
+      return;
+    }
+    if ((p.clientY || 0) - box.top > reach) {
+      cornerTaps = [];
+      return;
+    }
+    const now = performance.now();
+    cornerTaps = cornerTaps.filter((at) => now - at < MENU_WINDOW);
+    cornerTaps.push(now);
+    if (cornerTaps.length < MENU_TAPS) return;
+    cornerTaps = [];
+    toggleMenu();
+  }
+
+  window.addEventListener(
+    window.PointerEvent ? "pointerdown" : "touchstart",
+    cornerTap,
+    { capture: true, passive: true },
+  );
+
   scene.mute = setMuted;
+  scene.menu = (on) => toggleMenu(on);
   scene.begin = () => begin();
   scene.fullscreen = goFullscreen;
   scene.safeZones = (on) => {
@@ -752,6 +801,10 @@ async function boot() {
   });
 
   window.addEventListener("keydown", (e) => {
+    if (e.code === "KeyM") {
+      toggleMenu();
+      return;
+    }
     if (e.code === "KeyR") {
       restart();
       return;
