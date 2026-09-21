@@ -218,6 +218,32 @@ node tools/pack-ult-borders.mjs --proof fire=1
   `node tools/pack-ult-borders.mjs --flare --burst fire=12`. The packer builds the
   fall by rewinding the take, which is why the take has to end on its peak.
 
+## On the game frame
+
+Nano Banana Pro holds this game's look best when it paints onto a screenshot
+instead of into empty black, the same way `attack-prompts.md` works. Feed the
+screenshot as image 1 and ask for the rail added to it, nothing else touched.
+
+```
+This is a screenshot of the running game. Everything already in it stays exactly as it is: the same boss, the same six hero cards, the same gem board, the same health bar, the same numbers and words, the same camera and framing. Do not redraw, move, resize, recolour, restyle or replace anything, do not add a character, a creature, a prop or any writing, and do not change a single number or letter.
+
+Add one thing only: a thin glowing rectangular rail of white-hot fire running around the inside edge of the screen, following the screen's own rectangle, inset a little from the edges, corners rounded on a small radius. The line is thin — about a thirtieth of the screen width, a hairline against the whole picture — and the same thickness the whole way round, a near-white core with orange flame clinging tight to it, a few short tongues licking off it and small embers at the corners. Its glow spills a short way inward and throws warm orange light across the boss, the hero cards and the top of the gem board, then dies well before the middle of the picture. The centre of the screen stays exactly as bright and as clear as it already is, the four sides of the rail are equally bright, the corners join and never break.
+
+Stylized game spell VFX, additive light laid over the picture, high contrast, not photographic, no thick wall of flame, no wide band, no smoke, no haze, no fog over the screen, no vignette, no added text, no added interface.
+```
+
+For the card version, swap the second paragraph's first sentence for: `a thin
+glowing rectangular rail of white-hot fire hugging the border of the leftmost hero
+card at the bottom, sized to that card and following its rounded corners`.
+
+A painted-over screenshot is for judging the look, not for shipping — the sheet
+needs the light alone on black. Since the effect is added light, subtracting the
+original screenshot gives exactly that plate:
+
+```
+ffmpeg -y -i painted.png -i screenshot.png -filter_complex "[0][1]blend=all_mode=subtract" plate.png
+```
+
 ## Seedance
 
 Seedance takes a short prompt and its own flags, and it has no negative field, so
