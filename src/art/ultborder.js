@@ -10,7 +10,7 @@ const SHAPES = [
     count: 12,
     cellW: 176,
     cellH: 315,
-    pad: { x: 0.1316, y: 0.0652 },
+    pad: { x: 0.1423, y: 0.1262 },
   },
   {
     id: "halo",
