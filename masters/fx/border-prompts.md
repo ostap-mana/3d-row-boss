@@ -244,6 +244,16 @@ original screenshot gives exactly that plate:
 ffmpeg -y -i painted.png -i screenshot.png -filter_complex "[0][1]blend=all_mode=subtract" plate.png
 ```
 
+That subtraction is exact and it registers pixel for pixel. Asking the model to
+lift the rail off the screenshot instead is quicker but it repaints rather than
+isolates, so the brightness and the line weight drift a little:
+
+```
+Keep the burning rectangular frame in this image exactly as it is: the same rectangle in the same place at the same size, the same line thickness, the same rounded corners, the same flames and embers, the same colours and the same brightness. Delete everything else in the picture — the boss, the sky, the arena, the gem board, the hero cards, the portraits, the health bar, every number and every word — and put pure black in its place.
+
+The result is the burning frame alone on a pure black background, in exactly the same position and scale as it is here so the two pictures line up. Inside the frame is a large empty hole of pure black with absolutely nothing in it. Outside the frame is pure black too, out to all four edges of the picture; keep only the frame's own narrow falloff on the black immediately around the line, and none of the light it was throwing onto the scene. No background, no scenery, no interface, no text, no numbers, no character, no transparency checkerboard, nothing but the burning rectangle and its own glow on black.
+```
+
 ## Seedance
 
 Seedance takes a short prompt and its own flags, and it has no negative field, so
