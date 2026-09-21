@@ -581,7 +581,9 @@ export class Vfx extends Container {
       lead.y = bolt.y;
 
       if (lance) {
-        const len = size * (ULT_FX.boltLong + e * ULT_FX.boltSwell);
+        const grown = size * (ULT_FX.boltLong + e * ULT_FX.boltSwell);
+        const reach = Math.hypot(bolt.x - from.x, bolt.y - from.y);
+        const len = Math.min(grown, reach + size * ULT_FX.boltStub);
         const n = lance.frames.length;
         if (n > 1) bolt.texture = lance.frames[Math.min(n - 1, (p * n) | 0)];
         bolt.setSize(len, len / lance.aspect);
