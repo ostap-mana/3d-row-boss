@@ -1633,8 +1633,18 @@ export class Director {
   }
 
   async castUltimate() {
-    const { board, boss, heroRow, hud, vfx, cutin, shake, hitStop, layout } =
-      this.s;
+    const {
+      board,
+      boss,
+      heroRow,
+      hud,
+      vfx,
+      cutin,
+      shake,
+      hitStop,
+      layout,
+      ultRim,
+    } = this.s;
     const index = this.ultHero;
     const card = heroRow.cards[index];
     if (!card || card.downed) return;
@@ -1651,6 +1661,7 @@ export class Director {
     await cutin.play(index);
     if (this.ended) return;
 
+    if (ultRim) ultRim.arm(element);
     card.strike(true);
     vfx.sweep(color);
     shake(14, 0.45);
@@ -1849,10 +1860,11 @@ export class Director {
     const { heroRow, vfx, ultRim } = this.s;
     const cfg = ULT_CALL.beckon;
 
-    const lead = this.ended || this.ultCasting ? -1 : heroRow.leadCharged();
+    const casting = this.ultCasting || this.ultInFlight;
+    const lead = this.ended || casting ? -1 : heroRow.leadCharged();
     if (ultRim) {
-      if (lead < 0) ultRim.disarm();
-      else if (ultRim.arm(heroRow.cards[lead].hero.element)) {
+      if (lead < 0 && !casting) ultRim.disarm();
+      else if (lead >= 0 && ultRim.arm(heroRow.cards[lead].hero.element)) {
         const element = heroRow.cards[lead].hero.element;
         this.s.hitStop(ULT_RIM.stop);
         vfx.flash(GEM_LIGHT[element], ULT_RIM.flash, ULT_RIM.flashDur);
