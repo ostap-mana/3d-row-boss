@@ -251,6 +251,7 @@ export class Vfx extends Container {
 
     const from = wide * BLAST.from;
     const dur = o.duration || 0.5;
+    const top = o.alpha === undefined ? BLAST.alpha : o.alpha;
     const n = frames.length;
 
     tweenValue(0, 1, dur, (p) => {
@@ -262,7 +263,7 @@ export class Vfx extends Container {
         p < BLAST.rise
           ? p / BLAST.rise
           : 1 - (p - BLAST.rise) / (1 - BLAST.rise);
-      s.alpha = BLAST.alpha * Math.max(0, fade);
+      s.alpha = top * Math.max(0, fade);
     }).then(() => !s.destroyed && s.destroy());
 
     return true;

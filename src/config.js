@@ -412,6 +412,20 @@ export const BLAST = {
   drop: 0.04,
 };
 
+export const SLAM = {
+  wide: 1.42,
+  depth: 0.2,
+  grow: 0.5,
+  seconds: 0.52,
+  hoop: 0xff8a3d,
+  hoopWide: 2.05,
+  hoopAlpha: 0.72,
+  flash: 0xff2a06,
+  flashAlpha: 0.16,
+  flashSeconds: 0.26,
+  band: 0.8,
+};
+
 export const JET = {
   tint: 0xffffff,
   core: 0xffc063,

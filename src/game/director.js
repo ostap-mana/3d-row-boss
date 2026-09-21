@@ -14,6 +14,7 @@ import {
   RAKE_FX,
   ROWS,
   SCRIPTED_HINT,
+  SLAM,
   SNAP,
   T,
   ULT_CALL,
@@ -1415,30 +1416,28 @@ export class Director {
     if (this.settled()) return;
 
     const impact = boss.fistPoint();
+    const wide = layout.stage.w * SLAM.wide;
+    const ground = layout.board.y + layout.board.size * SLAM.depth;
     shake(20, 0.55, { axis: { x: 0, y: 1 }, freq: 1.2 });
     hitStop(0.7, 0.12);
-    vfx.shock(impact.x, impact.y, 0xff8a3d, {
-      size: layout.stage.w * 1.6,
+    vfx.shock(impact.x, ground, SLAM.hoop, {
+      size: layout.stage.w * SLAM.hoopWide,
       width: 14,
+      tint: SLAM.hoop,
+      alpha: SLAM.hoopAlpha,
     });
-    vfx.shock(impact.x, impact.y, 0xffd35a, {
-      size: layout.stage.w * 0.34,
-      width: 6,
-      duration: 0.3,
-      painted: false,
-    });
-    vfx.bossSwing("smash", impact, {
-      size: layout.stage.w * 1.15,
-      duration: 0.5,
-      grow: 0.35,
-    });
-    vfx.flash(0xff2a06, 0.18, 0.35);
+    vfx.bossSwing(
+      "smash",
+      { x: impact.x, y: ground },
+      { size: wide, duration: SLAM.seconds, grow: SLAM.grow },
+    );
+    vfx.flash(SLAM.flash, SLAM.flashAlpha, SLAM.flashSeconds);
 
     const spreading = this.eruptObsidian(cells);
 
     const row = layout.cards;
     await vfx.wave(impact.y, row.y + row.h * 0.5, 0xff6a10, {
-      thickness: row.h * 1.5,
+      thickness: row.h * SLAM.band,
       duration: 0.26,
     });
     if (this.settled()) return;

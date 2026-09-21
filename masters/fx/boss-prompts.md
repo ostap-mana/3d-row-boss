@@ -19,7 +19,7 @@ show today.
 | --- | --- | --- | --- | --- |
 | CLAW RAKE | `bossRake` | `vfx.claw()` | `claw-rake.webp` | `boss.rake` |
 | LAVA BREATH | `bossBreath` | `vfx.jet()` + `bossSwing("breath")` | `breathjet-sheet.webp`, `breath-sheet.webp` | `boss.breath` |
-| MAGMA SLAM | `bossSmash` | `bossSwing("smash")` + two `vfx.shock()` | `slam-sheet.webp`, `shock-sheet.webp` | `boss.smash` |
+| MAGMA SLAM | `bossSmash` | `bossSwing("smash")` + one `vfx.shock()` | `slam-sheet.webp`, `shock-sheet.webp` | `boss.smash` |
 | ERUPTION | `bossSmash`, turn 3 on | the same slam plate | — borrows `slam` | `boss.smash` |
 | KOLTMOS MENDS | `bossMend` | `vfx.mend()` → `bossSwing("mend")` | — falls back to `nature` | `boss.mend` |
 | CATACLYSM | `castDoom` | `boss.roar()` + two `vfx.shock()` + `flash` + `wave` | — no plate at all | `boss.doom` |
@@ -122,20 +122,42 @@ second jet, no pulsing, no repeat, and it is finished well before the clip ends.
 
 ## MAGMA SLAM — `slam`
 
-Drawn at the boss's fist point, `stage.w × 1.15`, 0.5 s, growing 35%, with a
-painted shock hoop at `stage.w × 1.6` under it and a small vector ring on top. The
-plate is the fire of the blow; the ring is already handled, so a take that is only
-a ring lands as a double hoop.
+This one does not come from a model at all. It is the only beat cut from the
+build's own library, by `tools/pack-slam.mjs`, and the reason is worth keeping.
 
-```
-An unseen fist lands dead centre of frame and on that one impact a low wide
-shockwave bursts outward from the point it struck: a hard ring of white-hot light
-with violet fire dragging behind it, cracks of magenta light racing outward
-underneath, splinters of black stone and gold sparks thrown up along the ring as it
-goes. The ring is brightest the instant it is born, then it widens, thins and dims
-until the frame is completely black again. Exactly one blow and one ring: no second
-impact, no repeat, and it is finished well before the clip ends.
-```
+A generated take of this beat never survived: the model hears "ring" and "shards"
+and returns a billow, and the billow packed flat. Every earlier slam plate —
+Seedance's, and `pack-invokers-fx.mjs` tinting `T_FX_Smoke_4_1_4x4_A` — was a
+silhouette filled with one colour, and a silhouette at `stage.w × 1.15` on the
+additive blend is a pale cream blob three rows deep over the grid. The gems went
+under it and the blow read as a fart of steam.
+
+`masters/fx/fire/T_FX_Fire_9_1_2x6.png` is the shape the beat wanted all along: a
+2×6 flipbook out of the Unity build, cells 512×170, of a low wide burst that opens
+from a streak at the centre, runs out past both edges, tears into islands and
+burns out. It is a hard black-and-white mask with no gradient in it, so the colour
+has to be invented, and where it is put is the whole effect:
+
+- a chamfer distance transform measures how deep inside the shape each pixel sits;
+- the ramp is driven by that depth, not by the mask — `#fff2d0` core on the torn
+  rim, `#ffd35a`, `#ff6a10`, `#ff3a5a` behind it, `#a855f7` in the belly at 22%,
+  which on the additive blend is all but gone. **That is what stops it being a
+  blob**: only the edges burn, and the middle is a hole you can see the board
+  through;
+- later frames cool — their ramp tops out at magma and their gain falls to 0.4, so
+  the wave burns down instead of holding white;
+- the painted cell is padded before the transform, or the violet bloom is cut off
+  square at the cell edge and the plate shows its own letterbox;
+- `CELL` is 320, not the 224 the other spell sheets use. At 224 the torn rim is
+  four pixels wide, upscales to a smooth smear at draw size, and the plate reads
+  as a lens flare.
+
+The fight draws it at `stage.w × 1.42`, growing 50%, over 0.52 s, and **not at the
+fist point**. The boss's feet sit above the board against a bright sky, and a plate
+drawn there disappears into him. It goes on the board — `board.y + size × 0.2` —
+with the painted hoop at the same ground line at `stage.w × 2.05`, alpha 0.72, so
+the ring and the wave share one floor. The small vector ring that used to sit on
+top is gone: a `Graphics` circle reads as UI against painted art.
 
 ## ERUPTION — `erupt`
 
