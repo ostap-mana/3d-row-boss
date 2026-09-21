@@ -14,6 +14,7 @@ import {
   fireFrames,
 } from "../art/fire.js";
 import {
+  HIT_BY_ELEMENT,
   SPELL_ASPECT,
   SPELL_BY_ELEMENT,
   SPELL_TRAVEL_LAST,
@@ -405,7 +406,7 @@ export class Vfx extends Container {
       tween(muzzle.scale, { x: 0, y: 0 }, travel + 0.1),
     ]);
 
-    this.impact(to, color, o.impact || 1);
+    this.impact(to, color, o.impact || 1, o.element);
 
     tween(outer, { alpha: 0 }, 0.22, { delay: 0.05 }).then(() =>
       outer.destroy(),
@@ -449,7 +450,7 @@ export class Vfx extends Container {
     });
 
     await delay(rush);
-    this.impact(to, color, o.impact || 2.4);
+    this.impact(to, color, o.impact || 2.4, element);
     running.then(() => {
       if (jet.destroyed) return;
       tween(jet, { alpha: 0 }, 0.18).then(() => {
@@ -1110,7 +1111,7 @@ export class Vfx extends Container {
     }).then(() => s.destroy());
   }
 
-  impact(at, color, power) {
+  impact(at, color, power, element) {
     const p = power || 1;
     const flash = new Sprite(glowTexture());
     flash.anchor.set(0.5);
@@ -1126,7 +1127,7 @@ export class Vfx extends Container {
 
     const spin = rndRange(0, Math.PI * 2);
 
-    if (this.hitPlate(at, color, p, spin)) {
+    if (this.hitPlate(at, color, p, spin, element)) {
       this.burst(at.x, at.y, color, Math.round(10 * p), 1.4 * p);
       return;
     }
@@ -1158,14 +1159,15 @@ export class Vfx extends Container {
     this.burst(at.x, at.y, color, Math.round(10 * p), 1.4 * p);
   }
 
-  hitPlate(at, color, p, spin) {
-    const frames = spellFrames("hitburst");
+  hitPlate(at, color, p, spin, element) {
+    const own = spellFrames(HIT_BY_ELEMENT[element]);
+    const frames = own || spellFrames("hitburst");
     if (!frames) return false;
 
     const s = new Sprite(frames[0]);
     s.anchor.set(0.5);
     s.blendMode = "add";
-    s.tint = color;
+    s.tint = own ? 0xffffff : color;
     s.x = at.x;
     s.y = at.y;
     s.rotation = spin;

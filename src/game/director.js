@@ -862,6 +862,7 @@ export class Director {
               thickness: isLead ? 16 + step * 5 : 8 + step * 2,
               impact: power,
               travel: isLead ? 0.16 : 0.2,
+              element: card.hero.element,
             })
             .then(() => {
               if (this.ended) return;
@@ -893,20 +894,21 @@ export class Director {
       const origin = this.centroid(cells);
       const target = boss.impactPoint();
       const lead = this.leadElement(cells);
-      const color = GEM_COLORS[lead >= 0 ? lead : WATER];
+      const element = lead >= 0 ? lead : WATER;
+      const color = GEM_COLORS[element];
       const power = 0.9 + step * 0.25;
 
       this.partyVolley(step, lead);
 
       vfx
-        .spell(lead >= 0 ? lead : WATER, origin, target, color, {
+        .spell(element, origin, target, color, {
           size: 150 + step * 34,
           travel: 0.16,
           blast: 0.4,
           beam: { thickness: 18 + step * 6, impact: power },
         })
         .then(() => {
-          if (!this.ended) vfx.impact(target, color, power);
+          if (!this.ended) vfx.impact(target, color, power, element);
           return undefined;
         })
         .then(() => {

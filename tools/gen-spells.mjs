@@ -35,7 +35,85 @@ const TECHNICAL =
   "no smoke, no dust, no haze, " +
   "no text, no letters, no numbers, no watermark, no logo, no UI.";
 
+const HIT_STYLE =
+  "stylized mobile-RPG game VFX, an additive impact effect rendered over a " +
+  "pure black screen, not photographic and not filmed footage: a blinding " +
+  "white-hot core with saturated colour torn off it, crisp hard edges, deep " +
+  "black between them, high contrast";
+
+const HIT_TAIL =
+  "The burst stays dead centre of frame and never reaches the edges, so the " +
+  "corners stay pure black. One hit on one beat: it is widest and brightest on " +
+  "the first instant, it does not gather or charge first, then it dies away " +
+  "until the frame is completely black again. No second blast, no pulsing, no " +
+  "haze, no smoke, no ground, no character, no text. Square frame, fixed " +
+  "camera, static shot.";
+
+const HITS = [
+  {
+    id: "hit-fire",
+    what: "FIRE - hit",
+    prompt:
+      "One explosion of white-hot fire detonates dead centre of the black " +
+      "frame: a near-white core with torn orange flame peeling outward in " +
+      "thick ragged tongues, deep ember-red light dragging behind, bright " +
+      "embers and molten flecks thrown out radially, then it burns down and " +
+      "thins away.",
+  },
+  {
+    id: "hit-water",
+    what: "WATER - hit",
+    prompt:
+      "One burst of glowing azure water detonates dead centre of the black " +
+      "frame: sheets of water thrown outward lit white from inside, pale " +
+      "ice-blue foam and spray torn off their edges, deep blue light through " +
+      "the body of the water, droplets and splinters of ice thrown out " +
+      "radially, then it drains away.",
+  },
+  {
+    id: "hit-nature",
+    what: "NATURE - hit, the earth element",
+    prompt:
+      "One burst of emerald light detonates dead centre of the black frame: " +
+      "splintered slabs of dark stone and torn bark thrown outward off a " +
+      "white-hot core, whipping vines snapping open behind them, deep green " +
+      "light burning in the cracks, glowing spores and torn leaves thrown out " +
+      "radially, then it falls and dims.",
+  },
+  {
+    id: "hit-wind",
+    what: "WIND - hit, the air element",
+    prompt:
+      "One burst of cutting air detonates dead centre of the black frame: " +
+      "hard bright edges of pale teal wind thrown outward in crossing blades, " +
+      "near-white where they cross, one thin sharp ring of compressed air " +
+      "racing out ahead of them, deep teal light behind, fine near-white motes " +
+      "flicked out radially, then it thins away.",
+  },
+  {
+    id: "hit-light",
+    what: "LIGHTNING - hit, the light element",
+    prompt:
+      "One detonation of gold-white holy light dead centre of the black " +
+      "frame: the core flashes pure white and straight hard blades of gold " +
+      "light stab outward from it like rays with deep black between them, " +
+      "fine forked gold arcs snapping off the core, deep amber light behind, " +
+      "pale gold sparks thrown out radially, then the rays snap away.",
+  },
+  {
+    id: "hit-dark",
+    what: "ARCANE - hit, the dark element",
+    prompt:
+      "One detonation of violet void power dead centre of the black frame: a " +
+      "blinding white core opening into a wide flat ring of violet light " +
+      "racing outward, torn black tendrils of shadow whipping off the core " +
+      "with it, deep indigo light smeared behind, pale lilac motes and shards " +
+      "of magenta light thrown out radially, then the ring thins and winks out.",
+  },
+].map((hit) => ({ ...hit, style: HIT_STYLE, technical: HIT_TAIL }));
+
 const SPELLS = [
+  ...HITS,
   {
     id: "water",
     what: "ARISSA - ABYSSAL TIDE - mage ultimate",
@@ -225,11 +303,7 @@ async function generate(spell) {
       method: "POST",
       headers: { ...auth, "Content-Type": "application/json", Prefer: "wait" },
       body: JSON.stringify({
-        input: {
-          ...SETTINGS,
-          prompt:
-            (spell.style || STYLE) + ". " + spell.prompt + " " + TECHNICAL,
-        },
+        input: { ...SETTINGS, prompt: compose(spell) },
       }),
     },
   );
@@ -265,7 +339,11 @@ if (flags.has("--list")) {
 }
 
 const compose = (spell) =>
-  (spell.style || STYLE) + ". " + spell.prompt + " " + TECHNICAL;
+  (spell.style || STYLE) +
+  ". " +
+  spell.prompt +
+  " " +
+  (spell.technical || TECHNICAL);
 
 if (flags.has("--print")) {
   const wanted = named.length

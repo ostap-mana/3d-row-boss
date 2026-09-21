@@ -21,6 +21,12 @@ const QUALITY = 80;
 const DEFAULT_WINDOW = { start: 0.6, span: 1.6, gain: 1 };
 
 const WINDOWS = {
+  "hit-fire": { start: 0, span: 1.8 },
+  "hit-water": { start: 0, span: 1.8 },
+  "hit-nature": { start: 0, span: 1.8 },
+  "hit-wind": { start: 0, span: 1.8 },
+  "hit-light": { start: 0, span: 1.6 },
+  "hit-dark": { start: 0, span: 1.8 },
   water: { start: 0.6, span: 1.7 },
   nature: { start: 0.6, span: 1.7 },
   lightning: { start: 0.5, span: 1.5 },

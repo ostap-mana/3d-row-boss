@@ -1,10 +1,15 @@
 import {
+  ARCANE,
   COLS,
+  FIRE,
   GEM_COLORS,
   GEM_LIGHT,
   HERO_MAX_HP,
+  LIGHTNING,
+  NATURE,
   ROWS,
   WATER,
+  WIND,
 } from "../config.js";
 import { clearStop, setTimeScale } from "../core/juice.js";
 import { killTweensOf } from "../core/tween.js";
@@ -177,6 +182,7 @@ function heroStrike(scene, index, lead) {
       thickness: lead ? 20 : 10,
       impact: power,
       travel: lead ? 0.16 : 0.2,
+      element: card.hero.element,
     })
     .then(() => {
       boss.hit(power);
@@ -185,6 +191,24 @@ function heroStrike(scene, index, lead) {
       });
       return true;
     });
+}
+
+const HIT_ELEMENTS = [
+  { el: FIRE, id: "fire", label: "ВОГОНЬ" },
+  { el: WATER, id: "water", label: "ВОДА" },
+  { el: NATURE, id: "earth", label: "ЗЕМЛЯ" },
+  { el: WIND, id: "air", label: "ПОВІТРЯ" },
+  { el: LIGHTNING, id: "light", label: "СВІТЛО" },
+  { el: ARCANE, id: "dark", label: "ТЕМРЯВА" },
+];
+
+function elementHit(scene, el) {
+  const { boss, vfx } = scene;
+  if (!boss || !vfx) return false;
+  const at = boss.impactPoint();
+  vfx.impact(at, GEM_COLORS[el], 1.2, el);
+  scene.shake(6, 0.22);
+  return true;
 }
 
 function heroSpell(scene, index) {
@@ -202,10 +226,10 @@ function heroSpell(scene, index) {
       size: 218,
       travel: 0.16,
       blast: 0.4,
-      beam: { thickness: 30, impact: 1.4 },
+      beam: { thickness: 30, impact: 1.4, element: el },
     })
     .then(() => {
-      vfx.impact(target, color, 1.4);
+      vfx.impact(target, color, 1.4, el);
       boss.hit(1.4);
       scene.shake(12, 0.28, {
         axis: { x: target.x - origin.x, y: target.y - origin.y },
@@ -346,8 +370,8 @@ const FX = [
     a: (c) => [c.at, c.cell * 2, c.color, c.light, 0.8],
   },
   { n: "mendCinch", g: "vfx", a: (c) => [c.at, c.cell * 2, c.color, 0.8] },
-  { n: "impact", g: "vfx", a: (c) => [c.at, c.color, 1] },
-  { n: "hitPlate", g: "vfx", a: (c) => [c.at, c.color, 1, 0] },
+  { n: "impact", g: "vfx", a: (c) => [c.at, c.color, 1, c.el] },
+  { n: "hitPlate", g: "vfx", a: (c) => [c.at, c.color, 1, 0, c.el] },
   { n: "lick", g: "vfx", a: (c) => [c.at, c.color, 1, 0] },
   { n: "flash", g: "vfx", a: (c) => [c.color, 0.35, 0.4] },
   { n: "lob", g: "vfx", a: (c) => [c.top, c.at, c.color] },
@@ -483,6 +507,16 @@ export function stateEngine(scene) {
       .concat(spells);
   }
 
+  function hitStates() {
+    if (!scene.boss || !scene.vfx) return [];
+    return HIT_ELEMENTS.map(({ el, id, label }) => ({
+      name: `hit.${id}`,
+      group: "hit",
+      label,
+      act: (s) => elementHit(s, el),
+    }));
+  }
+
   function hold(name, out) {
     busyName = name;
     busyUntil = performance.now() + BUSY_CAP;
@@ -542,6 +576,7 @@ export function stateEngine(scene) {
     );
     return SCENES.map((s) => ({ ...s, group: "game" }))
       .concat(attackStates())
+      .concat(hitStates())
       .concat(own)
       .concat(scene.outcome ? CARDS : [])
       .concat(fxStates());

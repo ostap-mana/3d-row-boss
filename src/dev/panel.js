@@ -20,7 +20,7 @@ const STATES_TAB = 1;
 const MODS_TAB = 2;
 const READ_TAB = 3;
 
-const MENU_GROUPS = ["game", "attack", "spell", "outcome"];
+const MENU_GROUPS = ["game", "attack", "spell", "hit", "outcome"];
 
 const TONES = {
   "game.victory": CHIP_LIVE,

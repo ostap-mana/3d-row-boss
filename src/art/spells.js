@@ -18,6 +18,15 @@ export const SPELL_BY_ELEMENT = {
   [WIND]: "wind",
 };
 
+export const HIT_BY_ELEMENT = {
+  [FIRE]: "hit-fire",
+  [WATER]: "hit-water",
+  [NATURE]: "hit-nature",
+  [LIGHTNING]: "hit-light",
+  [ARCANE]: "hit-dark",
+  [WIND]: "hit-wind",
+};
+
 const BOSS_SPELLS = {
   breath: "breath",
   smash: "slam",
