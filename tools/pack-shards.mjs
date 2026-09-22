@@ -43,6 +43,9 @@ const GRADE = !process.argv.includes("--raw");
 const SEAMS = Number(arg("--seams", 0));
 const SEAM_SCALE = Number(arg("--seam-scale", 3.4));
 const SEED = Number(arg("--seed", 7));
+const OUTLINE = Number(arg("--outline", 0.035));
+const SEAM_CUT = Number(arg("--seam-cut", 0.72));
+const FRAMES = Math.max(1, Math.round(Number(arg("--frames", 1))));
 
 function decode(file) {
   const [w, h] = execFileSync("ffprobe", [
@@ -268,31 +271,68 @@ function inside(cell) {
   return d;
 }
 
-function veins(cell, index) {
+const INK = [0x0a, 0x06, 0x10];
+const LIP = [0xa8, 0x88, 0xb0];
+
+function stylize(cell, index, phase) {
   if (SEAMS <= 0) return cell;
   const depth = inside(cell);
   const step = SEAM_SCALE / CELL;
-  const drift = index * 13.7;
+  const drift = index * 13.7 + phase * 0.9;
+  const swell = 0.82 + 0.34 * Math.sin(phase * Math.PI * 2);
+
+  let top = CELL;
+  let bottom = 0;
+  for (let y = 0; y < CELL; y++) {
+    for (let x = 0; x < CELL; x++) {
+      if (cell[(y * CELL + x) * 4 + 3] <= 140) continue;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+      break;
+    }
+  }
+  const tall = Math.max(1, bottom - top);
+
+  const ink = CELL * OUTLINE;
+  const lip = ink + CELL * 0.022;
+
   for (let y = 0; y < CELL; y++) {
     for (let x = 0; x < CELL; x++) {
       const i = y * CELL + x;
       if (cell[i * 4 + 3] <= 140) continue;
+
+      const down = clamp01((y - top) / tall);
       const nx = x * step + drift;
       const ny = y * step;
+
+      const facet = Math.round(fbm(nx * 0.55, ny * 0.55, 2) * 3) / 3;
+      const lit = clamp01(0.82 - down * 0.95 + facet * 0.34);
+      let out = ROCK.map((v, k) => v + (EDGE[k] - v) * lit);
+
       const warp = fbm(nx * 0.7, ny * 0.7, 3);
       const field = fbm(nx + warp * 1.7, ny + warp * 1.7, 4);
       const ridge = 1 - Math.abs(field * 2 - 1);
-      const cut = Math.pow(clamp01((ridge - 0.8) / 0.2), 2.8);
-      const bedded = smoothstep(clamp01(depth[i] / (CELL * 0.03)));
-      const heat = clamp01(cut * bedded * SEAMS);
-      if (heat < 0.02) continue;
-      const hot = heat > 0.55 ? SEAM_HOT : SEAM;
-      const k = Math.pow(heat, 0.7);
+      const band = clamp01((ridge - SEAM_CUT) / (1 - SEAM_CUT));
+      const bedded = smoothstep(clamp01(depth[i] / (CELL * 0.035)));
+      const heat = clamp01(Math.pow(band, 2.4) * bedded * SEAMS * swell);
+      if (heat > 0.02) {
+        const core = clamp01((heat - 0.55) / 0.45);
+        const seam = SEAM.map((v, k) => v + (SEAM_HOT[k] - v) * core);
+        const k = clamp01(heat);
+        out = out.map((v, c) => v + (seam[c] - v) * k);
+      }
+
+      if (depth[i] < lip && depth[i] >= ink && down < 0.55) {
+        const k = 0.75 * (1 - down / 0.55);
+        out = out.map((v, c) => v + (LIP[c] - v) * k);
+      }
+      if (depth[i] < ink) {
+        const k = clamp01(1 - depth[i] / ink);
+        out = out.map((v, c) => v + (INK[c] - v) * Math.pow(k, 0.55));
+      }
+
       for (let c = 0; c < 3; c++) {
-        cell[i * 4 + c] = Math.min(
-          255,
-          Math.round(cell[i * 4 + c] * (1 - k) + hot[c] * k),
-        );
+        cell[i * 4 + c] = Math.max(0, Math.min(255, Math.round(out[c])));
       }
     }
   }
@@ -370,7 +410,12 @@ for (const name of plates) {
   piles.push(
     found
       .sort((a, b) => b.area - a.area)
-      .map((blob, i) => ({ from: name, cell: veins(cut(rgb, w, h, blob), i) })),
+      .map((blob, i) => ({
+        from: name,
+        frames: Array.from({ length: FRAMES }, (_, f) =>
+          stylize(cut(rgb, w, h, blob), i, f / FRAMES),
+        ),
+      })),
   );
 }
 
@@ -389,14 +434,18 @@ if (keep.length < COUNT) {
   process.exit(1);
 }
 
-const rows = Math.ceil(COUNT / COLS);
-const sheetW = COLS * CELL;
+const cols = FRAMES > 1 ? FRAMES : COLS;
+const rows = FRAMES > 1 ? COUNT : Math.ceil(COUNT / COLS);
+const sheetW = cols * CELL;
 const sheetH = rows * CELL;
 const sheet = Buffer.alloc(sheetW * sheetH * 4);
 
-keep.forEach((chunk, i) => {
-  const cx = (i % COLS) * CELL;
-  const cy = Math.floor(i / COLS) * CELL;
+const laid = [];
+keep.forEach((chunk) => chunk.frames.forEach((cell) => laid.push({ cell })));
+
+laid.forEach((chunk, i) => {
+  const cx = (i % cols) * CELL;
+  const cy = Math.floor(i / cols) * CELL;
   for (let y = 0; y < CELL; y++) {
     chunk.cell.copy(
       sheet,

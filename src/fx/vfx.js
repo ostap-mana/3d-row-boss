@@ -22,7 +22,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { streamArt } from "../art/streams.js";
-import { boulderTexture, shardTexture } from "../art/shards.js";
+import { boulderFrames, shardTexture } from "../art/shards.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
@@ -1314,7 +1314,7 @@ export class Vfx extends Container {
         glow.alpha = 0;
         this.field.addChild(glow);
 
-        const rock = art ? new Sprite(art) : null;
+        const rock = art ? new Sprite(art[0]) : null;
         if (rock) {
           rock.anchor.set(0.5);
           rock.setSize(wide * VOLLEY.from, wide * VOLLEY.from);
@@ -1368,7 +1368,7 @@ export class Vfx extends Container {
   async boulder(from, to, opts) {
     const o = opts || {};
     const size = o.size || 260;
-    const art = boulderTexture(o.seed || 0);
+    const art = boulderFrames(o.seed || 0);
 
     const halo = new Sprite(glowTexture());
     halo.anchor.set(0.5);
@@ -1420,7 +1420,9 @@ export class Vfx extends Container {
       halo.alpha = BOULDER.haloAlpha * e;
       const lift = from.y - size * BOULDER.rear * e;
       if (rock && !rock.destroyed) {
-        rock.setSize(w, w);
+        rock.texture = art[((p * art.length) | 0) % art.length];
+        const squash = 1 - BOULDER.wind * Math.sin(Math.PI * p);
+        rock.setSize(w * (2 - squash), w * squash);
         rock.rotation = seed + spin * 0.12 * e;
         rock.alpha = e;
         rock.y = lift;
@@ -1447,9 +1449,11 @@ export class Vfx extends Container {
       halo.alpha = BOULDER.haloAlpha * (0.6 + 0.4 * e);
 
       if (rock && !rock.destroyed) {
+        rock.texture = art[((p * art.length * BOULDER.beat) | 0) % art.length];
         rock.x = x;
         rock.y = y;
-        rock.setSize(w, w);
+        const pull = 1 + BOULDER.stretch * Math.min(1, p * 1.4);
+        rock.setSize(w * (2 - pull), w * pull);
         rock.rotation = seed + spin * e;
         rock.alpha = 1;
       }
@@ -1470,6 +1474,7 @@ export class Vfx extends Container {
     halo.destroy();
     if (shroud && !shroud.destroyed) shroud.destroy();
     if (rock && !rock.destroyed) rock.destroy();
+    this.breakRock(to, size);
 
     this.flash(BOULDER.flash, BOULDER.flashAlpha, BOULDER.flashSeconds);
     this.shockRing(to.x, to.y, OBSIDIAN.seam, {
@@ -1502,6 +1507,36 @@ export class Vfx extends Container {
         s.y = to.y + Math.sin(ang) * reach * p + reach * 1.5 * p * p;
         s.rotation += 0.24;
         s.alpha = p < 0.65 ? 1 : 1 - (p - 0.65) / 0.35;
+      }).then(() => !s.destroyed && s.destroy());
+    }
+  }
+
+  breakRock(at, size) {
+    for (let i = 0; i < BOULDER.pieces; i++) {
+      const art = shardTexture(i * 2 + 1);
+      if (!art) break;
+      const s = new Sprite(art);
+      s.anchor.set(0.5);
+      const w = size * rndRange(BOULDER.piece[0], BOULDER.piece[1]);
+      s.setSize(w, w);
+      s.x = at.x;
+      s.y = at.y;
+      s.rotation = rndRange(0, Math.PI * 2);
+      this.field.addChild(s);
+
+      const ang = -Math.PI / 2 + (i / BOULDER.pieces - 0.5) * Math.PI * 1.5;
+      const speed = size * rndRange(0.5, 1.0);
+      const spin = rndRange(-5, 5);
+      const life = BOULDER.piecesSeconds * rndRange(0.85, 1.15);
+
+      tweenValue(0, 1, life, (p) => {
+        if (s.destroyed) return;
+        s.x = at.x + Math.cos(ang) * speed * p;
+        s.y = at.y + Math.sin(ang) * speed * p + size * 1.9 * p * p;
+        s.rotation += spin * 0.02;
+        const shrink = 1 - p * 0.25;
+        s.setSize(w * shrink, w * shrink);
+        s.alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
       }).then(() => !s.destroyed && s.destroy());
     }
   }

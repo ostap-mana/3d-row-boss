@@ -4,8 +4,8 @@ import shardUrl from "../assets/boss/shard-sheet.webp";
 import boulderUrl from "../assets/boss/boulder-sheet.webp";
 
 const SHEETS = [
-  { url: shardUrl, cols: 4, count: 8, into: "shards" },
-  { url: boulderUrl, cols: 4, count: 4, into: "boulders" },
+  { url: shardUrl, cols: 4, rows: 2, frames: 1, into: "shards" },
+  { url: boulderUrl, cols: 4, rows: 4, frames: 4, into: "boulders" },
 ];
 
 const cut = {};
@@ -24,18 +24,18 @@ async function slice(sheet) {
 
   const cell = Math.round(img.width / sheet.cols);
   const out = [];
-  for (let i = 0; i < sheet.count; i++) {
-    out.push(
-      new Texture({
-        source,
-        frame: new Rectangle(
-          (i % sheet.cols) * cell,
-          Math.floor(i / sheet.cols) * cell,
-          cell,
-          cell,
-        ),
-      }),
-    );
+  for (let row = 0; row < sheet.rows; row++) {
+    const run = [];
+    for (let col = 0; col < sheet.cols; col++) {
+      run.push(
+        new Texture({
+          source,
+          frame: new Rectangle(col * cell, row * cell, cell, cell),
+        }),
+      );
+    }
+    if (sheet.frames > 1) out.push(run);
+    else run.forEach((tex) => out.push([tex]));
   }
   return out;
 }
@@ -57,9 +57,10 @@ function pick(list, index) {
 }
 
 export function shardTexture(index) {
-  return pick(cut.shards, index);
+  const run = pick(cut.shards, index);
+  return run ? run[0] : null;
 }
 
-export function boulderTexture(index) {
+export function boulderFrames(index) {
   return pick(cut.boulders, index) || pick(cut.shards, index);
 }
