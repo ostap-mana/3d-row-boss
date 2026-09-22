@@ -13,6 +13,7 @@ import {
   HEALER,
   MEND_FX,
   OBSIDIAN,
+  RIDER,
   ROWS,
   SCRIPTED_HINT,
   SNAP,
@@ -26,8 +27,9 @@ import {
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
+import { riderClip } from "../art/rider.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
-import { delay, now, tween } from "../core/tween.js";
+import { delay, now, tween, Ease } from "../core/tween.js";
 import { pick, rnd, rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
@@ -1307,6 +1309,8 @@ export class Director {
       await this.bossVolley(attack, cells);
     } else if (attack.kind === "boulder") {
       await this.bossBoulder(attack, cells);
+    } else if (attack.kind === "rider") {
+      await this.bossRider(attack, cells);
     } else {
       await this.bossSmash(attack, cells);
     }
@@ -1381,6 +1385,70 @@ export class Director {
 
     const falling = this.strikeHeroes(attack);
     await Promise.all([flying, landing, falling]);
+  }
+
+  async bossRider(attack, cells) {
+    const { boss, hud, vfx, heroRow, shake, layout } = this.s;
+    const clip = riderClip();
+    if (!clip) return this.bossVolley(attack, cells);
+
+    const board = layout.board;
+    hud.shout(attack.shout || COPY.rider, 0.4, {
+      fill: OBSIDIAN.edge,
+      from: 1.4,
+    });
+    boss.roar();
+    await delay(0.22);
+    if (this.settled()) return;
+
+    const tall = board.size * RIDER.size;
+    const seat = {
+      x: board.x + board.size * RIDER.at,
+      y: board.y + board.size * RIDER.stand,
+    };
+    clip.fit(tall);
+    clip.x = seat.x - board.size * 0.22;
+    clip.y = seat.y;
+    clip.alpha = 0;
+    clip.visible = true;
+    clip.video.playbackRate = RIDER.rate;
+    clip.play();
+    sfx.bossHurl();
+
+    tween(clip, { alpha: 1, x: seat.x }, RIDER.enter, { ease: Ease.quadOut });
+
+    const spreading = this.dropObsidian(cells, 0.1);
+
+    await delay(RIDER.strike);
+    if (this.settled()) {
+      clip.stop();
+      clip.visible = false;
+      return;
+    }
+
+    sfx.bossSmash();
+    shake(18, 0.4);
+    heroRow.cards.forEach((card, i) => {
+      if (card.downed) return;
+      const at = heroRow.cardPoint(i);
+      delay(i * 0.04).then(() => {
+        if (this.ended) return;
+        vfx.impact(at, OBSIDIAN.seamHot, 0.8);
+      });
+    });
+
+    const falling = this.strikeHeroes(attack);
+
+    delay(RIDER.hold).then(() => {
+      if (!clip) return;
+      tween(clip, { alpha: 0 }, RIDER.leave).then(() => {
+        clip.stop();
+        clip.rewind();
+        clip.visible = false;
+      });
+    });
+
+    await Promise.all([spreading, falling, delay(RIDER.hold * 0.7)]);
   }
 
   async bossBoulder(attack, cells) {

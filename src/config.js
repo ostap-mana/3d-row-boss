@@ -90,6 +90,17 @@ export const BOULDER = {
   debrisSeconds: 0.62,
 };
 
+export const RIDER = {
+  size: 0.66,
+  at: 0.3,
+  stand: 1.0,
+  enter: 0.26,
+  rate: 1.3,
+  strike: 0.5,
+  hold: 1.05,
+  leave: 0.3,
+};
+
 export const SNAP = {
   on: false,
   times: 6,
@@ -362,6 +373,7 @@ export const COPY = {
   smash: "MAGMA SLAM!",
   volley: "OBSIDIAN VOLLEY!",
   boulder: "HE TEARS THE HILL LOOSE!",
+  rider: "KOLTMOS CALLS A RIDER!",
   ultHeal: "TEAM HEALED!",
   mend: `${BOSS_NAME} MENDS!`,
   doomLabel: "CATACLYSM",
@@ -421,6 +433,14 @@ export const BOSS_ATTACKS = [
     obsidianBonus: 2,
     shout: COPY.boulder,
     from: 3,
+  },
+  {
+    kind: "rider",
+    targets: "lowest",
+    damage: 0.19,
+    splash: 0.055,
+    shout: COPY.rider,
+    from: 4,
   },
 ];
 

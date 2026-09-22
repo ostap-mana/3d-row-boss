@@ -46,6 +46,7 @@ import { loadSpellArt } from "./art/spells.js";
 import { loadStreamArt } from "./art/streams.js";
 import { loadBoltArt } from "./art/bolts.js";
 import { loadShardArt } from "./art/shards.js";
+import { loadRiderArt } from "./art/rider.js";
 import { loadGemPopArt } from "./art/gempop.js";
 import { loadGemChargeArt } from "./art/gemcharge.js";
 import { loadOutcomeFigures, rewindFigures } from "./art/figures.js";
@@ -854,6 +855,11 @@ async function boot() {
         await load();
       } catch {}
     }
+    try {
+      const rider = await loadRiderArt();
+      if (rider && scene.vfx) scene.vfx.field.addChild(rider);
+    } catch {}
+
     timing.deferred = since();
   }
 

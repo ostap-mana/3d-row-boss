@@ -109,6 +109,7 @@ const glow = String(flag("glow", "46:96")).split(":").map(Number);
 const erode = Number(flag("erode", 1));
 const fade = Number(flag("fade", 14));
 const lift = Number(flag("lift", 8));
+const sheer = Number(flag("sheer", 0));
 const range = String(flag("range", "")).split(":").map(Number);
 
 const probe = execFileSync(
@@ -291,6 +292,24 @@ for (let f = 0; f < frames; f++) {
       pr = r;
       pg = g > rest ? Math.min(g, rest + lift) : g;
       pb = b;
+
+      if (sheer > 0 && g > rest) {
+        const bgRest = bg[0] > bg[2] ? bg[0] : bg[2];
+        const bgCast = bg[1] - bgRest;
+        if (bgCast > 1) {
+          const cast = (g - rest) / bgCast;
+          const part = cast > sheer ? sheer : cast;
+          const open = 1 - part;
+          if (open > 0.05) {
+            a = open;
+            pr = clamp8((r - part * bg[0]) / open) * open;
+            pg = clamp8((g - part * bg[1]) / open) * open;
+            pb = clamp8((b - part * bg[2]) / open) * open;
+            const lit3 = pr > pb ? pr : pb;
+            if (pg > lit3) pg = lit3;
+          }
+        }
+      }
     } else if (warmth[i]) {
       const lit = luma(r - bg[0], g - bg[1], b - bg[2]);
       a = (lit - glow[0]) / glowSpan;
@@ -299,6 +318,8 @@ for (let f = 0; f < frames; f++) {
       pr = clamp8(r - under * bg[0]);
       pg = clamp8(g - under * bg[1]);
       pb = clamp8(b - under * bg[2]);
+      const lit2 = pr > pb ? pr : pb;
+      if (pg > lit2) pg = Math.min(pg, lit2 + lift);
     }
 
     if (a > 0 && fadeRows > 0) {

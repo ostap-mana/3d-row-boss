@@ -20,6 +20,7 @@ circles a flat silhouette on the add blend is a colour wash, not a hit.
 | MAGMA SLAM | one bright column up through the board, single target | `magma-sheet.webp`, the painted fist page, `bossPlate("smash")` |
 | OBSIDIAN VOLLEY | hard dark rock crossing the screen into the card row, all targets | `shard-sheet.webp` through `vfx.shardVolley`, **not a plate** |
 | HE TEARS THE HILL LOOSE | one burning boulder thrown into the board, all targets, turn 3 on | `boulder-sheet.webp` through `vfx.boulder`, **not a plate**; it lands on `fissure-sheet.webp` |
+| KOLTMOS CALLS A RIDER | a beast out of the game's own art lunges onto the board and strikes, focused, turn 4 on | `rider-slash.mp4`, an alpha clip through `src/art/rider.js` |
 | CATACLYSM | `T_FX_Glow_Flash_11_2_4x4` | `doom-sheet.webp` |
 | ENRAGE ROAR | `T_FX_Smoke_11_1_4x4` | `roar-sheet.webp` |
 | MAGMA SLAM, fallback | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
@@ -90,6 +91,39 @@ shards at 192.
 thirty-frame page was tuned to, which is 50 fps against a beat authored at 37.5.
 It is 1.07 now. Every judgement made against the fist before this was made
 against a beat playing at 4/3 speed.
+
+## The rider, and what a green-screen clip will and will not give you
+
+`video/skill_65901201_clip_000.webm` is an Invokers unit on green — a rider on a
+crimson beast, 2560x1440, 151 frames, and the subject is only about 800 px of
+that. It is a **character**, not an effect, which is why it became a summon
+rather than a plate.
+
+What the clip gives up cheaply: the creature. `pack-green-clip.mjs` keys it out
+clean at 448 px, 54 frames, **154 kB** with its matte stacked under the picture,
+and `src/art/alphavideo.js` already folds that back in a mesh shader — the
+outcome cards have shipped on it for weeks. The quad is anchored bottom-centre,
+so `fit(h)` stands the beast on its own feet wherever you put it.
+
+What it does not give up at any price: **its VFX.** The swipe is a big
+translucent disc you can see the beast through, so by construction most of its
+colour *is* backdrop, and it keys olive. Nothing in the tool fixes that —
+`--tint`, `--band`, `--glow`, `--gold` and `--lift` were all tried, and so was a
+new `--sheer`, which unmixes a subject pixel against the backdrop using its
+green excess. `--sheer` is honest arithmetic and still not enough: green excess
+badly underestimates the backdrop fraction once the effect is bright, because a
+white-hot swipe at half coverage over green reads as only slightly green.
+
+So the beat keeps the creature and throws the disc away — `--band 0.5:2.8` lets
+the flood fill reach it as backdrop, and the crop is tight enough that the disc
+falls out of frame. The hit then lands in the fight's own vocabulary: `vfx.impact`
+on each card, `shake(18, 0.4)` and `sfx.bossSmash`. That is the general lesson
+for any clip like this — **take the figure, leave the effect.**
+
+One trap worth naming: the rider is mounted into `vfx.field` once at load and
+lives there hidden. It is not created per beat, because a `VideoSource` takes a
+real load and a real first frame, and building one inside a boss turn would cost
+the turn its budget.
 
 ## tools/paint-beat.mjs — five layers, not one ramp
 
