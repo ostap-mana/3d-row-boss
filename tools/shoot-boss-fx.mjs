@@ -176,10 +176,15 @@ await sleep(600);
 const STATE = {
   volley: "boss.volley",
   smash: "boss.smash",
+  bolt: "boss.bolt",
+  boulder: "boss.boulder",
+  rider: "boss.rider",
   fissure: "boss.fissure",
   doom: "boss.doom",
   roar: "boss.doom",
 };
+
+const TURN = { fissure: 3, bolt: 2, boulder: 3, rider: 4 };
 
 const PLATES = args.includes("--plates");
 
@@ -209,7 +214,7 @@ for (const beat of beats) {
   await evaluate(`(() => {
     const s = window.__SIEGE__;
     s.states.rate(${rate});
-    s.director.turn = ${beat === "fissure" ? 3 : 0};
+    s.director.turn = ${TURN[beat] || 0};
     s.states.run("${state}");
     return true;
   })()`);

@@ -1309,6 +1309,8 @@ export class Director {
       await this.bossVolley(attack, cells);
     } else if (attack.kind === "boulder") {
       await this.bossBoulder(attack, cells);
+    } else if (attack.kind === "bolt") {
+      await this.bossBolt(attack, cells);
     } else if (attack.kind === "rider") {
       await this.bossRider(attack, cells);
     } else {
@@ -1333,6 +1335,7 @@ export class Director {
       size: span * fx.wide,
       duration: fx.seconds,
       grow: fx.grow,
+      rotation: fx.turn,
     };
 
     if (fx.glow) {
@@ -1385,6 +1388,45 @@ export class Director {
 
     const falling = this.strikeHeroes(attack);
     await Promise.all([flying, landing, falling]);
+  }
+
+  async bossBolt(attack, cells) {
+    const { boss, hud, vfx, shake, layout } = this.s;
+    const fx = BOSS_FX.bolt;
+    const board = layout.board;
+
+    hud.shout(attack.shout || COPY.bolt, 0.4, {
+      fill: OBSIDIAN.edge,
+      from: 1.4,
+    });
+    await boss.spit();
+    if (this.settled()) return;
+
+    const cast = {
+      x: board.x + board.size * (0.5 + fx.push),
+      y: board.y + board.size * fx.depth,
+    };
+    this.bossPlate("bolt", cast);
+
+    const land = fx.seconds * fx.burst;
+    const at = {
+      x: cast.x + board.size * fx.hitX,
+      y: cast.y + board.size * fx.hitY,
+    };
+
+    const landing = delay(land).then(() => {
+      if (this.settled()) return null;
+      sfx.bossSmash();
+      shake(19, 0.42);
+      vfx.impact(at, OBSIDIAN.seamHot, 0.9);
+      return this.eruptObsidian(cells);
+    });
+
+    await delay(land);
+    if (this.settled()) return;
+
+    const falling = this.strikeHeroes(attack);
+    await Promise.all([landing, falling, delay(0.3)]);
   }
 
   async bossRider(attack, cells) {

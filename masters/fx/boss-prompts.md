@@ -19,6 +19,7 @@ circles a flat silhouette on the add blend is a colour wash, not a hit.
 | --- | --- | --- |
 | MAGMA SLAM | one bright column up through the board, single target | `magma-sheet.webp`, the painted fist page, `bossPlate("smash")` |
 | OBSIDIAN VOLLEY | hard dark rock crossing the screen into the card row, all targets | `shard-sheet.webp` through `vfx.shardVolley`, **not a plate** |
+| HE SPITS A HEXBOLT | one magenta bolt falls out of him down the board and detonates over the card row, focused, turn 2 on | `bolt-sheet.webp`, `bossPlate("bolt")`, tilted |
 | HE TEARS THE HILL LOOSE | one burning boulder thrown into the board, all targets, turn 3 on | `boulder-sheet.webp` through `vfx.boulder`, **not a plate**; it lands on `fissure-sheet.webp` |
 | KOLTMOS CALLS A RIDER | a beast out of the game's own art lunges onto the board and strikes, focused, turn 4 on | `rider-slash.mp4`, an alpha clip through `src/art/rider.js` |
 | CATACLYSM | `T_FX_Glow_Flash_11_2_4x4` | `doom-sheet.webp` |
@@ -140,6 +141,53 @@ One trap worth naming: the rider is mounted into `vfx.field` once at load and
 lives there hidden. It is not created per beat, because a `VideoSource` takes a
 real load and a real first frame, and building one inside a boss turn would cost
 the turn its budget.
+
+## The hexbolt, and a plate whose art is not centred in its cell
+
+`video/skill_65901202_clip_000.webm` is the same rider on the same green, and it
+throws. The creature was already spent on the turn-4 summon, so this beat takes
+the other half of the clip: the bolt, its trail and the detonation, cut as an
+additive plate and spat by Koltmos himself. `boss.spit()` had been written and
+called by nothing since the states list was built; this is what it is for.
+
+Two steps, and the first one is the whole edit. Frames 17-26 are the flight, the
+white-hot contact and four frames of violet smoke and embers — ten consecutive
+frames, no sampling, because a skipped frame is a jump the eye catches. The crop
+is square so the tool's `scale` squashes nothing, and its left edge is faded to
+the backdrop colour over 50 px, which is how the rider's hand leaves the frame
+without a straight cut through the glow:
+
+```
+ffmpeg -y -i "video/skill_65901202_clip_000.webm" -vf "select='between(n,17,26)',crop=620:620:810:290,format=gbrp,geq=r='min(1,X/50)*r(X,Y)+(1-min(1,X/50))*39':g='min(1,X/50)*g(X,Y)+(1-min(1,X/50))*110':b='min(1,X/50)*b(X,Y)+(1-min(1,X/50))*38',format=rgb24,lutrgb=r='max(0,val-42)':g='max(0,val-113)':b='max(0,val-42)'"   -fps_mode passthrough -c:v ffv1 bolt-add.mkv
+
+node tools/pack-video-sheet.mjs bolt-add.mkv --frames 10 --cols 5 --cell 320   --opaque --quality 86 --out src/assets/fx/bolt-sheet.webp
+```
+
+18 kB, 1612x646, and no key anywhere in it — the backdrop is subtracted, which is
+the method written up under the rider above.
+
+**The art is not centred in its cell, and that is not fixable at pack time.** The
+bolt leaves the rider's hand and travels down and to the right, so it occupies
+the cell from about (0.07, 0.05) to (0.53, 0.77) and its own centre sits left of
+and above the cell's. Cropping to centre it would pull the creature back into
+frame. So the plate is placed rather than recut, and `BOSS_FX.bolt` carries the
+placement as geometry:
+
+- `turn: 0.35` rotates the plate about its centre until the bolt falls nearly
+  vertically. Untilted it enters at the board's left edge and reads as coming
+  from off-screen, which fights the spit animation — he throws it from the
+  middle of the screen.
+- `push: 0.12` slides the plate right so the rotated content lands on the board
+  instead of beside it.
+- `hitX`/`hitY` are where the detonation ends up relative to the plate's centre,
+  in board widths, after that rotation. `bossBolt` puts `vfx.impact`, the shake
+  and `sfx.bossSmash` there, and nowhere else — the flash has to be under the
+  burst or the beat reads as two separate events.
+- `burst: 0.52` is how far into the plate the contact frame sits, so the damage
+  and the obsidian land on it rather than on the plate's start.
+
+Rotation means `bossPlate` now forwards `fx.turn` into `bossSwing`; every other
+plate leaves it undefined and is unchanged.
 
 ## tools/paint-beat.mjs — five layers, not one ramp
 
@@ -1223,9 +1271,17 @@ and the cataclysm across the whole stage.
 ## In the game
 
 Three taps in the top-left corner, `M`, or `?panel`, then the `BOSS` group:
-`boss.rake`, `boss.breath`, `boss.smash`, `boss.mend`, `boss.doom`,
-`boss.doom.lethal`, `boss.obsidian`, `boss.erupt`, `boss.snap`. Over CDP it is
+`boss.turn`, `boss.volley`, `boss.bolt`, `boss.rider`, `boss.boulder`,
+`boss.smash`, `boss.mend`, `boss.snap`, `boss.doom`, `boss.doom.lethal`,
+`boss.strike`, `boss.obsidian`, `boss.erupt`. Over CDP it is
 `__SIEGE__.states.run("boss.doom")`.
+
+`tools/shoot-boss-fx.mjs` drives those from outside: `--beats bolt` runs the
+whole turn, `--beats bolt --plates` fires the plate alone with no wind-up. Both
+halt the states engine with `freeze: false`, which kills tweens in flight — if a
+shot has the rider parked on the board, that is the halt catching its fade-out,
+not a leak. In a real run the clip is hidden until turn 4 and hidden again after,
+which is measurable over CDP on `vfx.field`.
 
 `boss.erupt` is the obsidian erupting out of the board, not the ERUPTION attack —
 that one is `boss.smash` once the turn counter has reached 3.

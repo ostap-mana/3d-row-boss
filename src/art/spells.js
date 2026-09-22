@@ -30,6 +30,7 @@ export const HIT_BY_ELEMENT = {
 const BOSS_SPELLS = {
   smash: ["magma", "slam"],
   fissure: ["fissure", "slam"],
+  bolt: ["bolt", "fissure"],
   doom: "doom",
   roar: "roar",
   mend: ["mend", "nature"],
