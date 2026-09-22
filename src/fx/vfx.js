@@ -902,22 +902,40 @@ export class Vfx extends Container {
     const base = o.alpha === undefined ? 1 : o.alpha;
     const grow = o.grow === undefined ? 0.25 : o.grow;
 
-    const s = new Sprite(frames[0]);
-    s.anchor.set(0.5);
-    s.blendMode = o.blend || "add";
-    s.x = at.x;
-    s.y = at.y;
-    s.rotation = o.rotation || 0;
-    s.alpha = base;
-    this.field.addChild(s);
+    const blend = o.blend || "add";
+    const additive = blend === "add";
+    const last = frames.length - 1;
+
+    const pair = [frames[0], frames[Math.min(last, 1)]].map((frame) => {
+      const s = new Sprite(frame);
+      s.anchor.set(0.5);
+      s.blendMode = blend;
+      s.x = at.x;
+      s.y = at.y;
+      s.rotation = o.rotation || 0;
+      s.alpha = base;
+      this.field.addChild(s);
+      return s;
+    });
+    const [near, far] = pair;
+    far.alpha = 0;
 
     tweenValue(0, 1, o.duration || 0.5, (p) => {
-      s.texture = frames[Math.min(frames.length - 1, (p * frames.length) | 0)];
+      const step = p * frames.length;
+      const i = Math.min(last, step | 0);
+      const mix = i < last ? step - i : 0;
+      near.texture = frames[i];
+      far.texture = frames[Math.min(last, i + 1)];
+
       const w = size * (1 + p * grow);
-      s.setSize(w, w / SPELL_ASPECT);
-      if (o.mirror) s.scale.x = -s.scale.x;
-      s.alpha = base * (p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3);
-    }).then(() => s.destroy());
+      const fade = base * (p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3);
+      for (const s of pair) {
+        s.setSize(w, w / SPELL_ASPECT);
+        if (o.mirror) s.scale.x = -s.scale.x;
+      }
+      near.alpha = fade * (additive ? 1 - mix : 1);
+      far.alpha = fade * mix;
+    }).then(() => pair.forEach((s) => s.destroy()));
 
     return true;
   }

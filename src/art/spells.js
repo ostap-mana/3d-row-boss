@@ -71,9 +71,11 @@ async function cut(url) {
   c.getContext("2d").drawImage(img, 0, 0);
   const sheet = canvasTexture(c);
   const pitch = Math.round(img.width / SHEET.cols);
+  const rows = Math.max(1, Math.round(img.height / pitch));
+  const held = SHEET.cols * rows;
 
   const out = [];
-  for (let i = 0; i < SHEET.count; i++) {
+  for (let i = 0; i < held; i++) {
     out.push(
       new Texture({
         source: sheet.source,

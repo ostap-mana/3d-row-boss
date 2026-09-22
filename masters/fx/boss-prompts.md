@@ -68,8 +68,8 @@ plate on its own rather than waiting out the rig animation that leads the beat.
 
 `masters/fx/painted/claw-page.png` is the claw rake as sixteen hand-painted
 cells on one page, and it is what the beat ships as now. `pack-painted-beat.mjs`
-turns a page like that into the ten the fight wants, and three things about a
-painted page make it not a sprite sheet:
+turns a page like that into the frames the fight wants, and three things about
+a painted page make it not a sprite sheet:
 
 - **The grid is drawn, not machined.** The page is 943x1024, which is not four
   equal cells of anything, and the outer margins are uneven. So the cuts are
@@ -85,17 +85,29 @@ painted page make it not a sprite sheet:
 
 ```
 node tools/pack-painted-beat.mjs --src masters/fx/painted/claw-page.png \
-  --out src/assets/fx/rake-sheet.webp --take 4,7,9,10,11,12,13,14,15,16 \
-  --gain 1.4 --contact
+  --out src/assets/fx/rake-sheet.webp --frames 15 \
+  --take 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 --gain 1.4 --contact
 ```
 
-`--take` is the edit and it is the whole job. The page opens with eight cells of
-the claws splaying into a wide V and only reaches the rake at cell 9, and the
-plate has 0.46 s: two frames of opening, five on the rake, three burning down.
-`--gain` is the other one. At 1 the plate is honest to the painting and reads as
-a brown smear behind the gems, because the vfx field is under them and only the
-gaps between the gem circles are ever seen. At 1.4 it reads like the mask plate
-it replaced, and the corners are still black.
+`--gain` is the first knob. At 1 the plate is honest to the painting and reads
+as a brown smear behind the gems, because the vfx field is under them and only
+the gaps between the gem circles are ever seen. At 1.4 it reads like the mask
+plate it replaced, and the corners are still black.
+
+`--frames` and `--take` are the other one, and between them they are what
+smoothness is. Ten frames across 0.46 s is 22 fps, and a `--take` that spreads
+ten cells over sixteen skips five of them, so the eye gets a jump at every skip
+on top of the low rate. Fifteen consecutive cells is 33 fps with no skips at
+all, and the sheet is only a row taller: `src/art/spells.js` counts the rows off
+the file rather than assuming two, so more frames is a taller sheet and no code.
+66.7 kB against 42.1.
+
+The last of it is not in the sheet at all. `vfx.bossSwing` draws **two** sprites
+and cross-fades them, so between one painted cell and the next the plate is a
+blend rather than a switch — at 60 Hz each cell lands on about two refreshes,
+and without the blend that is exactly what a flipbook looks like. On the
+additive blend the two alphas are complementary, so the light is conserved; on
+the normal blend the near frame stays at full and the far one rises over it.
 
 The palette is the one thing this page does not share with the rest of the boss:
 it is gold and orange fire over violet cores, where every other beat is violet

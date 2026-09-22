@@ -16,9 +16,10 @@ pack-painted-beat — a hand-painted flipbook page into the boss's spell grid.
   colour; project it onto each axis and the empty bands between the runs are
   the gutters, so the cuts go down their middles, and nothing outside a cell's
   own box is ever sampled into it — a page whose drawings lean into their
-  neighbours would otherwise hand every frame a piece of the next one. The page itself is subtracted rather than keyed —
-  \`max(0, pixel - page)\` — which is the same arithmetic the add blend does at
-  draw time and leaves the soft outer glow that a key would chew off.
+  neighbours would otherwise hand every frame a piece of the next one. The page
+  itself is subtracted rather than keyed — \`max(0, pixel - page)\` — which is
+  the same arithmetic the add blend does at draw time, and it leaves the soft
+  outer glow that a key would chew off.
 
   Every cell is then drawn into the output at one shared scale, placed by where
   its ink sits inside its own cell, so the beat keeps the growth and the drift
@@ -30,11 +31,16 @@ pack-painted-beat — a hand-painted flipbook page into the boss's spell grid.
                   src/art/spells.js globs. Required.
   --cols <n>      columns on the page. Default: whatever the gutters say.
   --rows <n>      rows on the page. Default: the same.
-  --take <list>   which cells make the ten, 1-based and in reading order,
-                  comma separated. Default: ten spread evenly over the page.
-                  This is the edit: a painted page usually opens with two or
-                  three cells of the shape gathering, and the plate has 0.46 s
-                  to land a hit.
+  --frames <n>    how many cells the sheet holds. Default 10, which is what
+                  every other spell sheet holds; src/art/spells.js counts the
+                  rows off the file, so more of them is only a taller sheet and
+                  a smoother beat. 15 is three rows.
+  --take <list>   which cells make the sheet, 1-based and in reading order,
+                  comma separated. Default: --frames of them spread evenly over
+                  the page. This is the edit. Spreading skips cells, and every
+                  skip is a jump the eye catches at 30 fps — a run of
+                  consecutive cells is what looks smooth, and the edit is then
+                  where the run starts and ends.
   --cell <px>     output cell. Default 320, plus 2px of pad each side, which is
                   the 324 pitch every other boss sheet ships.
   --floor <n>     how far above the page a pixel must sit to be ink, per
@@ -52,7 +58,7 @@ pack-painted-beat — a hand-painted flipbook page into the boss's spell grid.
                   real grid, where where the drawing sits in its cell is the
                   motion.
   --quality <n>   webp quality. Default 80.
-  --contact       also write <out>-contact.png: the ten cells laid over the
+  --contact       also write <out>-contact.png: every cell laid over the
                   card's own ground, which is the only honest way to read an
                   additive sheet — on white every one of them looks fine.
 
@@ -72,7 +78,6 @@ const flag = (name, fallback) => {
 };
 
 const COLS = 5;
-const COUNT = 10;
 const PAD = 2;
 
 const src = flag("src", null);
@@ -88,6 +93,7 @@ if (!existsSync(input)) {
 }
 const out = resolve(outArg);
 
+const COUNT = Math.round(Number(flag("frames", 10)));
 const cell = Math.round(Number(flag("cell", 320)));
 const floor = Number(flag("floor", 10));
 const gain = Number(flag("gain", 1));
