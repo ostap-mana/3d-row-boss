@@ -39,10 +39,12 @@ node tools/pack-boss-beat.mjs --src masters/fx/slash/T_FX_Mask_25_1_Slash.png \
 node tools/shoot-boss-fx.mjs --plates --rate 0.12 --gap 500
 ```
 
-The rake has no flipbook behind it at all: the build ships one slash shape and an
-erosion gradient beside it, and `--wipe` tears the gash open along that gradient
-and burns it back down, which is how the build animates its own slashes. `--claw`
-stamps three of them, the middle the longest.
+The second command is how the rake was made until the painted page replaced it,
+and it is kept because it is the only mask-painted beat with no flipbook behind
+it at all: the build ships one slash shape and an erosion gradient beside it,
+and `--wipe` tears the gash open along that gradient and burns it back down,
+which is how the build animates its own slashes. `--claw` stamps three of them,
+the middle the longest. Run it and `rake-sheet.webp` goes back to three gashes.
 
 The masks come out of git history — the library sat in `src/source/fx/invokers`
 before that folder was emptied, and the sheets in use now live in
