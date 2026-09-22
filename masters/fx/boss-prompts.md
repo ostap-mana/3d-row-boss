@@ -1,34 +1,104 @@
 # KOLTMOS, beat by beat
 
-Seven effects belong to the boss, and they do not all go through the same door.
-Six are light thrown on black and pack as square additive flipbooks. The seventh,
-the claw, is a drawing on a white page that carries its own matte and plays on the
-normal blend, because its gashes are darker than the arena behind them. Ask the
-model for the wrong one and the take is unusable however good it looks: light on
-black arrives as a pale smear when it is packed as paint, and paint on white
-arrives as nothing at all when it is packed as light.
+Every effect the boss owns is light thrown on black, packed as a square additive
+flipbook and drawn by `vfx.bossSwing`. That was not always true: the claw used to
+be ink on a white page with its own matte, and the rest came from a video model.
+Both doors are shut now — the beats are painted off the build's own FX masks, and
+the section below says how. The prompt sheets further down are kept for the two
+things they still explain: what each beat has to read as, and what a generated
+take has to look like to be usable at all.
 
-`tools/gen-spells.mjs` already holds every prompt here as an id and sends it to
-`bytedance/seedance-1-lite`. This file is what those strings mean, what the game
-does with the plate afterwards, and which of the seven the fight can actually
-show today.
+## How the beats are made now, September 22
+
+Every boss attack draws one painted plate through `vfx.bossSwing`, and all of them
+but the slam are painted by `tools/pack-boss-beat.mjs` off the Invokers build's own
+FX masks. The geometry lives in one place, `BOSS_FX` in `src/config.js`, and
+`Director.bossPlate` reads it: every size is a fraction of the **board**, not of the
+stage, because a stage-wide plate on a phone stops being a shape and becomes a
+contour drawn around the whole grid.
+
+| beat | source mask | sheet |
+| --- | --- | --- |
+| CLAW RAKE | `T_FX_Mask_25_1_Slash` + `_26_1_Slash_Erosion` | `rake-sheet.webp` |
+| LAVA BREATH | `T_FX_Fire_3_1_4x3` | `breath-sheet.webp` |
+| MAGMA SLAM | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
+| ERUPTION | `T_FX_Smoke_4_1_4x4_A` | `erupt-sheet.webp` |
+| CATACLYSM | `T_FX_Glow_Flash_11_2_4x4` | `doom-sheet.webp` |
+| ENRAGE ROAR | `T_FX_Smoke_11_1_4x4` | `roar-sheet.webp` |
+
+```
+node tools/pack-boss-beat.mjs --src masters/fx/invokers/T_FX_Smoke_4_1_4x4_A.png \
+  --out src/assets/fx/erupt-sheet.webp --ramp violet --take 1:14 \
+  --rim 44 --glow 0.8 --cool 1,0.62,1.9,0.7,1.15 --strip
+
+node tools/pack-boss-beat.mjs --src masters/fx/slash/T_FX_Mask_25_1_Slash.png \
+  --wipe masters/fx/slash/T_FX_Mask_26_1_Slash_Erosion.png \
+  --out src/assets/fx/rake-sheet.webp --cell 384 --rim 30 --margin 40 \
+  --glow 0.9 --cool 1,0.62,2,0.7,1.15 --claw --ramp violet --strip
+
+node tools/shoot-boss-fx.mjs --plates --rate 0.12 --gap 500
+```
+
+The rake has no flipbook behind it at all: the build ships one slash shape and an
+erosion gradient beside it, and `--wipe` tears the gash open along that gradient
+and burns it back down, which is how the build animates its own slashes. `--claw`
+stamps three of them, the middle the longest.
+
+The masks come out of git history — the library sat in `src/source/fx/invokers`
+before that folder was emptied, and the sheets in use now live in
+`masters/fx/invokers`.
+
+Two things decide whether a plate works on a phone:
+
+- **The rim has to be thick.** `--rim` is measured in source pixels, and the first
+  pass at 15 read as a lilac wisp behind the gems. At 40-44, with `--glow` at 0.8,
+  the same plate reads as fire. Only the edges burn and the belly stays a hole the
+  match-3 shows through, which is what keeps the board playable under the hit.
+- **Size is board-relative.** `stage.w * 1.9` looked like a magenta outline drawn
+  around the whole screen. `board.size * 1.3` looks like an impact.
+
+`tools/shoot-boss-fx.mjs` is how each one was judged: it drives the built creative
+in a 430x932 phone viewport and photographs every beat on the board. Two traps in
+it are worth knowing — `states.halt()` puts the world rate back to 1, so the rate
+has to be set again after every halt or the plate is gone before the first frame
+lands, and a screenshot costs a few hundred milliseconds, so `--plates` fires the
+plate on its own rather than waiting out the rig animation that leads the beat.
+
+## What the local ComfyUI gave, and why none of it shipped
+
+Fourteen takes on the local Wan 2.2 TI2V-5B, in two prompt styles, at 384 and at
+512 with 41 frames: `tools/gen-boss-fx.mjs` holds every prompt, and
+`tools/pack-boss-fx.mjs` cuts its frames into a spell sheet, raising the black
+point and burning the tail down to black because the model never dies away on its
+own. All of it was rejected:
+
+- the beat comes back backwards — the clip ends at its brightest, however hard the
+  prompt asks for a burn-down;
+- the colour collapses to flat neon magenta with green and cyan fringing;
+- the shapes are organic, not VFX: the eruption came back as glowing seaweed, the
+  cataclysm as a pom-pom, and one take drew a literal candle.
+
+Keep the tool for flame and light where a soft body is the point. For a boss hit
+with a torn edge, the build's own masks and the distance-ramp painter win, and they
+cost seconds instead of minutes.
 
 ## What the fight draws
 
 | beat | fired by | the call | sheet on disk | dev state |
 | --- | --- | --- | --- | --- |
-| CLAW RAKE | `bossRake` | `vfx.claw()` | `claw-rake.webp` | `boss.rake` |
-| LAVA BREATH | `bossBreath` | `vfx.jet()` + `bossSwing("breath")` | `breathjet-sheet.webp`, `breath-sheet.webp` | `boss.breath` |
-| MAGMA SLAM | `bossSmash` | `bossSwing("smash")` + one `vfx.shock()` | `slam-sheet.webp`, `shock-sheet.webp` | `boss.smash` |
-| ERUPTION | `bossSmash`, turn 3 on | the same slam plate | — borrows `slam` | `boss.smash` |
+| CLAW RAKE | `bossRake` | `bossPlate("rake")` | `rake-sheet.webp` | `boss.rake` |
+| LAVA BREATH | `bossBreath` | `bossPlate("breath")` | `breath-sheet.webp` | `boss.breath` |
+| MAGMA SLAM | `bossSmash` | `bossPlate("smash")` | `slam-sheet.webp` | `boss.smash` |
+| ERUPTION | `bossSmash`, turn 3 on | `bossPlate("erupt")` | `erupt-sheet.webp` | `boss.smash` |
+| ENRAGE ROAR | `castDoom`, under the roar | `bossPlate("roar")` | `roar-sheet.webp` | `boss.doom` |
+| CATACLYSM | `castDoom` | `bossPlate("doom")` | `doom-sheet.webp` | `boss.doom` |
 | KOLTMOS MENDS | `bossMend` | `vfx.mend()` → `bossSwing("mend")` | — falls back to `nature` | `boss.mend` |
-| CATACLYSM | `castDoom` | `boss.roar()` + two `vfx.shock()` + `flash` + `wave` | — no plate at all | `boss.doom` |
-| the thrown stone | `dropObsidian`, `bossSnap` | `vfx.lob()` | — vector glow | `boss.obsidian` |
+| the thrown stone | `dropObsidian`, `bossSnap` | nothing | — | `boss.obsidian` |
 
-The last four rows are the work. Eruption is a fist plate standing in for a ground
-eruption, mend borrows the nature ultimate's green, the cataclysm — the loudest
-thing in the fight — is two rings and a screen flash, and the stone the boss spits
-onto the board is a tinted glow blob with a spinning `Graphics` inside it.
+What is left: the mend still borrows Quinnto's nature ultimate, which is a burst
+and exactly the wrong read for a heal, and the stone the boss spits onto the board
+arrives with no effect on it at all — `vfx.lob` went with the rest of the old
+vector work, and `tools/pack-shards.mjs` is still waiting on painted chunks.
 
 ## His colours
 

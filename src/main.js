@@ -43,7 +43,6 @@ import { Boss, loadBossArt } from "./art/boss.js";
 import { loadBossCrest } from "./art/crest.js";
 import { loadFireArt } from "./art/fire.js";
 import { loadSpellArt } from "./art/spells.js";
-import { loadRakeArt } from "./art/rake.js";
 import { loadStreamArt } from "./art/streams.js";
 import { loadBoltArt } from "./art/bolts.js";
 import { loadGemPopArt } from "./art/gempop.js";
@@ -844,7 +843,6 @@ async function boot() {
     } catch {}
     for (const load of [
       loadSpellArt,
-      loadRakeArt,
       loadStreamArt,
       loadBoltArt,
       loadFireArt,

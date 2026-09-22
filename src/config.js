@@ -384,6 +384,64 @@ export const BOSS_ATTACKS = [
   },
 ];
 
+export const BOSS_FX = {
+  rake: {
+    wide: 1.06,
+    depth: 0.46,
+    grow: 0.16,
+    seconds: 0.46,
+    alpha: 1,
+    shake: 15,
+    shakeSeconds: 0.38,
+  },
+  breath: {
+    wide: 1.05,
+    depth: 0.92,
+    grow: 0.28,
+    seconds: 0.56,
+    alpha: 0.95,
+    shake: 10,
+    shakeSeconds: 0.5,
+  },
+  smash: {
+    wide: 1.3,
+    depth: 0.72,
+    grow: 0.42,
+    seconds: 0.5,
+    alpha: 1,
+    shake: 20,
+    shakeSeconds: 0.55,
+  },
+  erupt: {
+    wide: 1.34,
+    depth: 0.6,
+    grow: 0.24,
+    seconds: 0.6,
+    alpha: 1,
+    shake: 22,
+    shakeSeconds: 0.6,
+  },
+  doom: {
+    wide: 1.62,
+    depth: 0.44,
+    grow: 0.4,
+    seconds: 0.78,
+    alpha: 1,
+    shake: 30,
+    shakeSeconds: 0.9,
+  },
+  roar: {
+    stage: true,
+    wide: 1.05,
+    depth: 0.28,
+    grow: 0.7,
+    seconds: 0.64,
+    alpha: 0.9,
+    shake: 16,
+    shakeSeconds: 0.5,
+  },
+};
+
 export const MEND_FX = {
   seconds: 1.15,
   peak: 0.68,

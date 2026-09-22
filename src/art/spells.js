@@ -28,8 +28,12 @@ export const HIT_BY_ELEMENT = {
 };
 
 const BOSS_SPELLS = {
+  rake: "rake",
   breath: "breath",
   smash: "slam",
+  erupt: ["erupt", "slam"],
+  doom: "doom",
+  roar: "roar",
   mend: ["mend", "nature"],
   jet: ["breathjet", "breath"],
 };

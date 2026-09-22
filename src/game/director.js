@@ -1,5 +1,6 @@
 import {
   BOSS_ATTACKS,
+  BOSS_FX,
   BOSS_MAX_HP,
   COLS,
   COPY,
@@ -645,8 +646,12 @@ export class Director {
     hud.shout(COPY.doomCast, 0.6, { fill: 0xff2f1a, from: 2.8 });
     boss.enrage();
     hud.enrage();
+
+    this.bossPlate("roar", boss.impactPoint());
     await boss.roar();
     if (this.settled()) return;
+
+    this.bossPlate("doom");
 
     const rolling = delay(0.32);
 
@@ -1304,12 +1309,36 @@ export class Director {
     this.turn++;
   }
 
+  bossPlate(kind, at) {
+    const fx = BOSS_FX[kind];
+    if (!fx) return false;
+
+    const { vfx, shake, layout } = this.s;
+    const board = layout.board;
+    const span = fx.stage ? layout.stage.w : board.size;
+    const where = at || {
+      x: board.x + board.size / 2,
+      y: board.y + board.size * fx.depth,
+    };
+
+    const drawn = vfx.bossSwing(kind, where, {
+      size: span * fx.wide,
+      duration: fx.seconds,
+      grow: fx.grow,
+      alpha: fx.alpha,
+    });
+    if (drawn && fx.shake) shake(fx.shake, fx.shakeSeconds || 0.4);
+    return drawn;
+  }
+
   async bossRake(attack, cells) {
     const { boss, hud } = this.s;
 
     hud.shout(attack.shout || COPY.rake, 0.4, { fill: 0xff5a6e, from: 1.4 });
     await boss.rake();
     if (this.settled()) return;
+
+    this.bossPlate("rake");
 
     const spreading = this.dropObsidian(cells, 0.06);
 
@@ -1326,6 +1355,8 @@ export class Director {
     hud.shout(attack.shout || COPY.breath, 0.4, { from: 1.4 });
     await boss.lavaBreath(0.62);
     if (this.settled()) return;
+
+    this.bossPlate("breath");
 
     const flame = delay(0.5);
     const spreading = this.dropObsidian(cells, 0.1);
@@ -1344,6 +1375,8 @@ export class Director {
     hud.shout(attack.shout || COPY.smash, 0.4, { fill: 0xffb03d, from: 1.4 });
     await boss.smash();
     if (this.settled()) return;
+
+    this.bossPlate(attack.targets === "all" ? "erupt" : "smash");
 
     const spreading = this.eruptObsidian(cells);
 
