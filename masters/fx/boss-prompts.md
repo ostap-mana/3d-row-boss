@@ -272,6 +272,73 @@ sheet will end on.
 the last cell.
 ```
 
+### All sixteen in one prompt
+
+Sixteen calls is sixteen chances for the crater to move. One page generated in a
+single pass cannot drift, because the model paints the whole progression against
+itself — so this is the first thing to try, and the sixteen above are the fallback
+for whichever cells come back wrong.
+
+```
+A 4x4 sprite sheet, sixteen equal cells on one page, read left to right and top to
+bottom, one single eruption animation: a clenched fist of molten rock punching
+straight up out of the ground. Every cell is the same fixed camera at the same
+scale, the crater on the same ground line low in the cell, the burst growing
+upward out of it. Cell 1: black rock, unbroken, one hairline seam of dull ember
+light. 2: the seam forks into a web of cracks, orange light seeping up, the first
+embers lifting. 3: the cracks spread into a ring and brighten to yellow, a pool of
+light burning under the rock, stone plates tilting up. 4: break-out, a white
+blowout of light bursts up out of the crater, slabs of black rock thrown up and
+outward, the fire still only a low swell a fifth of the cell high. 5: a blunt bulb
+of molten rock shoves up through the flash to a third of the cell, over-bright, a
+ring of debris flying outward. 6: the swell stretches into a column just under
+half the cell, a thick wrist of magma, molten sheets peeling off its sides, the
+crown of fire at the base at its widest. 7: the column reaches three fifths and
+the top gathers into a knuckle mass, the first fingers folding out of it. 8: a
+clenched fist clearly formed on a forearm three quarters of the cell high,
+obsidian crust cracked with white-hot seams, the first smoke behind it. 9: the
+fist climbs to five sixths, the splash of fire at its tallest, rock shards at
+their furthest out. 10: full height and the overshoot, taller and thinner than it
+will settle, the brightest and most white-cored cell of the sheet. 11: the arm
+settles back a fraction, crust closes over the knuckles, the seams narrow from
+white to gold. 12: the fire around the base at its fullest bloom, gold and crimson
+packed into the crater under the fist. 13: the thrown material falls back, arcs of
+molten spatter around the fist, smoke plumes risen high behind it. 14: the embers
+settle along the falling arcs, the outer shards slow, the crust darkened to its
+final black. 15: the core a touch hotter and a few more sparks in the air than the
+last cell. 16: the finished effect, a clenched fist of molten rock punching up out
+of a shattered crater, the forearm one thick column of glowing magma, knuckles of
+black obsidian split by white-hot seams, a crown of fire and flying rock shards
+low around the base, charcoal smoke climbing behind it. Painted 3D mobile-RPG game
+VFX, semi-realistic, high contrast, a white-hot core bleeding out through gold and
+orange into deep crimson, charred obsidian crust cracked with molten seams, torn
+ragged edges, no flat cartoon shading. Pure black background in every cell,
+nothing else in frame, no floor line, no room, no landscape, no character, no
+hands, no grid lines drawn between the cells, no cell borders, no numbers, no
+text, no watermark, no logo, no UI.
+```
+
+If the model drops the tail of that, the short form keeps the arc and loses the
+per-cell detail:
+
+```
+A 4x4 sprite sheet of one eruption, read left to right and top to bottom: a
+clenched fist of molten rock punching up out of the ground. It starts as a
+hairline crack of ember light in black rock, breaks out in a white flash of light
+and flying stone by cell 4, climbs as a column of magma that gathers into a fist,
+reaches full height and peak brightness at cell 10, then settles, crusts over into
+black obsidian split by white-hot seams, and ends on the finished fist over a
+shattered crater with a crown of fire, flying rock shards and charcoal smoke
+behind it. Same fixed camera and scale in every cell, the crater on the same
+ground line, the burst growing upward out of it. Painted 3D mobile-RPG game VFX,
+semi-realistic, high contrast, white-hot core through gold and orange into deep
+crimson. Pure black background, no floor, no character, no grid lines, no cell
+borders, no text, no watermark, no UI.
+```
+
+Same NEGATIVE as below, plus `grid lines, cell borders, panel borders, frame
+numbers, contact sheet labels`.
+
 ### NEGATIVE
 
 ```
