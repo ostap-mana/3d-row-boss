@@ -409,7 +409,7 @@ export const BOSS_FX = {
     wide: 1.18,
     depth: 0.58,
     grow: 0,
-    seconds: 1,
+    seconds: 0.8,
     alpha: 1,
     shake: 20,
     shakeSeconds: 0.55,

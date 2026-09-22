@@ -376,7 +376,7 @@ nudged — a moving impact point is the one flaw the packer cannot fix afterward
 One page, sixteen cells, in reading order and already an arc: the ink climbs from
 the first cell to the ninth and falls away to the sixteenth, and the arm is out at
 full height by the third. All sixteen ship as `magma-sheet.webp`, the MAGMA SLAM
-plate `boss.smash` draws, played as thirty frames over a second.
+plate `boss.smash` draws, played as thirty frames over 0.8 s.
 
 ```
 node tools/pack-painted-beat.mjs --src masters/fx/painted/fist-page.png \
@@ -401,9 +401,13 @@ does not.
   dissolve and nothing else: the frames in between have to be real ones.
   `minterpolate` at `mi_mode=mci` builds them by motion compensation, and on
   this page it works — the cell where the arm is half out of the ground was
-  never painted. Thirty of them at `seconds: 1` is 30 fps, and the sheet is six
-  rows instead of three; it costs about 105 kB, which is what an effect this
-  size is worth.
+  never painted. Thirty of them at `seconds: 0.8` is 37 fps, and the sheet is
+  six rows instead of three; it costs about 105 kB, which is what an effect this
+  size is worth. The length is the other half of it and the two are not the same
+  knob: a second reads as the right pace and leaves each frame on screen long
+  enough to be seen as a frame, 0.8 s is the same thirty paintings going by too
+  fast for that, and half a second is where the beat starts to look sped up
+  again.
 
   ffmpeg will not synthesise past the last input frame and drops about two
   frame-intervals off the tail, so the tool feeds it three copies of the last
