@@ -477,6 +477,63 @@ Shot on the board with `tools/shoot-boss-fx.mjs --beats smash`: the crater sits
 on the bottom row, the fist stands as tall as the grid, and the tail frames go
 to nothing before the sprite is destroyed.
 
+## Midjourney, and where the quality ceiling actually is
+
+The forty-cell page is 1024x765, so a cell is 128x153 and the ink inside it
+reaches 134 px. `bossPlate` draws that plate at `board.size × 1.18`, which on a
+430-wide phone is about 500 px. **The art is upscaled 3.7x at draw time**, and
+that, not the model, is what soft looks like. A better prompt into the same
+1024-wide page changes nothing: forty cells across 1024 px is 128 px a cell
+whatever painted them.
+
+So the only prompt worth writing is one that ends in more pixels per cell, and
+there are two ways to get there.
+
+### Upscale the page, do not redraw it
+
+The lowest-risk win and the one to try first. Generate the page, then
+**Upscale (Subtle)** — 2x to 2048x1530, 256 px a cell, which is exactly where
+the old sixteen-cell page sat and where `--cell 256` was worth paying for.
+
+Subtle and never Creative. Creative reinvents detail cell by cell, and forty
+cells of independently reinvented detail is forty different fists: the crust
+moves, the knuckles change count, and the beat flickers. `--align ground` can
+hold the impact point still and can do nothing at all about the shape above it.
+
+### The page itself
+
+Upload the current page to Midjourney first and paste its URL into `--oref`, so
+the run is a redraw of this eruption rather than a new one.
+
+```
+sprite sheet of one lava fist eruption, 8 columns by 5 rows of separate small frames on pure black, read left to right and top to bottom: cracked glowing ground, a burst of molten rock and flying debris, a clenched fist of magma punching straight up on a thick forearm, the crust closing into black obsidian split by white hot seams, then smoke and embers settling back down to nothing. every frame standing on the same ground line, wide black gaps between the frames. painted mobile game VFX, semi realistic, white hot core bleeding through gold and orange into deep crimson, charred obsidian crust split by molten seams, torn ragged edges, fine ember sparks and grey smoke, crisp high contrast rendering, sharp detail --ar 4:3 --style raw --s 200 --q 2 --chaos 0 --oref <url> --ow 200 --no text, letters, numbers, watermark, logo, ui, grid lines, cell borders, panel frames, white background, grey background, character, hands, horizon, ground plane, blur, soft focus, depth of field
+```
+
+`--style raw` because the default aesthetic pass is what turns a VFX asset into
+an illustration, `--chaos 0` because variety between the four results is the
+opposite of what a sheet wants, and every "no" in `--no` rather than in words:
+Midjourney does not take instructions about what to leave out, it takes a
+`--no` list. `--ow 200` holds the shape; drop to `--sref <url> --sw 200` instead
+if the ask is the look and not this exact fist.
+
+Midjourney will not honour "8 columns by 5 rows". It never does. That is
+survivable here and nowhere else in this repo, because `pack-painted-beat.mjs`
+**measures** the grid off the gutters rather than dividing the width by a
+column count — a page that comes back 7x6 packs as well as one that comes back
+8x5, as long as the gaps between the cells are real and the background is
+black. What is not survivable is cells that touch: the packer never samples
+outside a cell's own box, so two drawings that overlap their gutter hand each
+other a bite. Count the cells on what comes back, feed the real number to
+`--frames`, and take a run of consecutive ones.
+
+### What a run has to come back with
+
+Pure black, not near-black — the packer subtracts the page colour, and a grey
+page subtracted off leaves a grey film. One shared ground line, because
+`--align ground` measures the lowest ink per cell and a frame drawn floating
+lands its crater on the floor of the output cell. And an arc in reading order
+that ends at nothing: the last cell is what the board is left holding.
+
 ## The same fist as a Seedance clip
 
 The sheet is sixteen paintings interpolated to thirty. A clip is 120 real frames
