@@ -49,14 +49,32 @@ pack-painted-beat — a hand-painted flipbook page into the boss's spell grid.
   --margin <n>    fraction of the cell kept clear around the widest frame.
                   Default 0.04.
   --align <what>  what each cell is centred on: \`ink\`, the brightness-weighted
-                  centre of its own drawing, or \`cell\`, the middle of the box
-                  the gutters cut. Default ink. A painted page usually carries
-                  a margin down one side and a wider gap between two of its
+                  centre of its own drawing, \`cell\`, the middle of the box the
+                  gutters cut, or \`ground\`, the point the drawing stands on —
+                  the lowest ink in the cell, and across the band above it the
+                  brightness-weighted x. Default ink. \`ground\` is for a beat
+                  that comes out of the floor rather than detonating in the air:
+                  what must not move between frames is the impact point, and it
+                  is the one feature a rising column keeps. It is the only mode
+                  that does not put the anchor in the middle of the output cell
+                  — see \`--ground\`. A painted page usually carries
+                  margin down one side and a wider gap between two of its
                   rows, and both land in the boxes rather than between them, so
                   \`cell\` hands that slop to the plate as a jump halfway
                   through the beat. \`cell\` is right only for a page drawn on a
                   real grid, where where the drawing sits in its cell is the
                   motion.
+  --ground <f>    where the anchor sits in the output cell, top to bottom.
+                  Default 0.5, or 0.92 with \`--align ground\`, which leaves the
+                  rest of the cell above the impact point for the column to
+                  climb into. Every pixel below it is empty and still costs
+                  file, so keep it low.
+  --alpha <n>     carry an alpha channel, cut from the ink itself: a pixel is
+                  clear at the ink floor and solid <n> above it. Off by
+                  default, which is right for a plate the game adds — black is
+                  already nothing there. A plate the game draws normally needs
+                  this, and needs it soft: fire has no edge, and a hard cut
+                  around it reads as a sticker. 70 matches the painted still.
   --quality <n>   webp quality. Default 80.
   --contact       also write <out>-contact.png: every cell laid over the
                   card's own ground, which is the only honest way to read an
@@ -99,12 +117,16 @@ const floor = Number(flag("floor", 10));
 const gain = Number(flag("gain", 1));
 const margin = Number(flag("margin", 0.04));
 const quality = String(flag("quality", 80));
+const alphaKnee = flag("alpha", null) ? Number(flag("alpha")) : 0;
+const CH = alphaKnee ? 4 : 3;
 const align = String(flag("align", "ink"));
-if (align !== "ink" && align !== "cell") {
-  process.stderr.write(`--align is ink or cell, not ${align}
+if (align !== "ink" && align !== "cell" && align !== "ground") {
+  process.stderr.write(`--align is ink, cell or ground, not ${align}
 `);
   process.exit(1);
 }
+const groundAt = Number(flag("ground", align === "ground" ? 0.92 : 0.5));
+const BAND = 0.18;
 const wantCols = flag("cols", null) ? Number(flag("cols")) : null;
 const wantRows = flag("rows", null) ? Number(flag("rows")) : null;
 const take = flag("take", null)
@@ -243,8 +265,27 @@ for (let r = 0; r < rows; r++) {
       }
     }
     const lit = right >= left;
-    const cx = align === "ink" && mass > 0 ? sx / mass : (x0 + x1) / 2;
-    const cy = align === "ink" && mass > 0 ? sy / mass : (y0 + y1) / 2;
+    let cx = (x0 + x1) / 2;
+    let cy = (y0 + y1) / 2;
+    if (align === "ink" && mass > 0) {
+      cx = sx / mass;
+      cy = sy / mass;
+    }
+    if (align === "ground" && lit) {
+      const sill = Math.max(y0, bottom - Math.round((y1 - y0) * BAND));
+      let bx = 0;
+      let bmass = 0;
+      for (let y = sill; y <= bottom; y++) {
+        for (let x = x0; x < x1; x++) {
+          const ink = over(y * W + x);
+          if (ink <= floor) continue;
+          bx += x * ink;
+          bmass += ink;
+        }
+      }
+      cx = bmass > 0 ? bx / bmass : (left + right) / 2;
+      cy = bottom;
+    }
     boxes.push({
       x0,
       x1,
@@ -253,6 +294,9 @@ for (let r = 0; r < rows; r++) {
       cx,
       cy,
       lit,
+      up: lit ? cy - top : 0,
+      down: lit ? bottom - cy : 0,
+      side: lit ? Math.max(cx - left, right - cx) : 0,
       reach: lit ? Math.max(cx - left, right - cx, cy - top, bottom - cy) : 0,
       wide: lit ? right - left + 1 : 0,
     });
@@ -277,13 +321,18 @@ for (const n of chosen) {
   }
 }
 
-const reach = Math.max(...chosen.map((n) => boxes[n - 1].reach));
-const scale = ((cell / 2) * (1 - margin)) / reach;
+const room = (span, far) => (far > 0 ? (span * (1 - margin)) / far : Infinity);
+const anchorY = cell * groundAt;
+const scale = Math.min(
+  room(cell / 2, Math.max(...chosen.map((n) => boxes[n - 1].side))),
+  room(anchorY, Math.max(...chosen.map((n) => boxes[n - 1].up))),
+  room(cell - anchorY, Math.max(...chosen.map((n) => boxes[n - 1].down))),
+);
 
 const pitch = cell + PAD * 2;
 const sheetW = pitch * COLS;
 const sheetH = pitch * Math.ceil(COUNT / COLS);
-const sheet = Buffer.alloc(sheetW * sheetH * 3);
+const sheet = Buffer.alloc(sheetW * sheetH * CH);
 
 const sample = (fx, fy, ch, box) => {
   if (fx < box.x0 || fx > box.x1 - 1 || fy < box.y0 || fy > box.y1 - 1)
@@ -308,18 +357,25 @@ chosen.forEach((n, i) => {
   const ox = (i % COLS) * pitch + PAD;
   const oy = Math.floor(i / COLS) * pitch + PAD;
   for (let y = 0; y < cell; y++) {
-    const sy = box.cy + (y + 0.5 - cell / 2) / scale;
+    const sy = box.cy + (y + 0.5 - anchorY) / scale;
     for (let x = 0; x < cell; x++) {
       const sx = box.cx + (x + 0.5 - cell / 2) / scale;
-      const dst = ((oy + y) * sheetW + ox + x) * 3;
-      sheet[dst] = sample(sx, sy, 0, box);
-      sheet[dst + 1] = sample(sx, sy, 1, box);
-      sheet[dst + 2] = sample(sx, sy, 2, box);
+      const dst = ((oy + y) * sheetW + ox + x) * CH;
+      const r = sample(sx, sy, 0, box);
+      const g = sample(sx, sy, 1, box);
+      const b = sample(sx, sy, 2, box);
+      sheet[dst] = r;
+      sheet[dst + 1] = g;
+      sheet[dst + 2] = b;
+      if (alphaKnee) {
+        const ink = (Math.max(r, g, b) - floor) / alphaKnee;
+        sheet[dst + 3] = ink < 0 ? 0 : ink > 1 ? 255 : ink * 255;
+      }
     }
   }
 });
 
-const write = (buf, file, extra) => {
+const write = (buf, file, extra, channels) => {
   mkdirSync(dirname(file), { recursive: true });
   execFileSync(
     "ffmpeg",
@@ -330,7 +386,7 @@ const write = (buf, file, extra) => {
       "-f",
       "rawvideo",
       "-pix_fmt",
-      "rgb24",
+      (channels || CH) === 4 ? "rgba" : "rgb24",
       "-s",
       `${sheetW}x${sheetH}`,
       "-i",
@@ -356,7 +412,7 @@ write(sheet, out, [
   "-preset",
   "picture",
   "-pix_fmt",
-  "yuv420p",
+  alphaKnee ? "yuva420p" : "yuv420p",
 ]);
 
 let contactNote = "";
@@ -364,15 +420,19 @@ if (args.includes("--contact")) {
   const ground = [26, 18, 30];
   const test = Buffer.alloc(sheetW * sheetH * 3);
   for (let i = 0; i < sheetW * sheetH; i++) {
+    const a = alphaKnee ? sheet[i * CH + 3] / 255 : 1;
     for (let c = 0; c < 3; c++) {
-      test[i * 3 + c] = Math.min(255, ground[c] + sheet[i * 3 + c]);
+      const ink = sheet[i * CH + c];
+      test[i * 3 + c] = alphaKnee
+        ? Math.min(255, ground[c] * (1 - a) + ink * a)
+        : Math.min(255, ground[c] + ink);
     }
   }
   const contact = join(
     dirname(out),
     `${basename(out).replace(/\.webp$/, "")}-contact.png`,
   );
-  write(test, contact, []);
+  write(test, contact, [], 3);
   contactNote = `contact ${contact}\n`;
 }
 
@@ -382,7 +442,7 @@ const dark = (i) => {
   let sum = 0;
   for (let y = 0; y < cell; y++) {
     for (let x = 0; x < cell; x++) {
-      const at = ((oy + y) * sheetW + ox + x) * 3;
+      const at = ((oy + y) * sheetW + ox + x) * CH;
       sum += Math.max(sheet[at], sheet[at + 1], sheet[at + 2]);
     }
   }
@@ -392,7 +452,8 @@ const dark = (i) => {
 process.stdout.write(
   `${basename(input)}  ${W}x${H}  page ${bg.join(",")}  ` +
     `${cols}x${rows} cells  take ${chosen.join(",")}\n` +
-    `${sheetW}x${sheetH}  cell ${cell}+${PAD}  scale ${scale.toFixed(3)}  ` +
+    `${sheetW}x${sheetH}  cell ${cell}+${PAD}  ${align} ${groundAt}  ` +
+    `scale ${scale.toFixed(3)}  ` +
     `${(statSync(out).size / 1024).toFixed(1)} kB\n${out}\n` +
     contactNote +
     `ink per cell:   ${Array.from({ length: COUNT }, (_, i) => dark(i).toFixed(1).padStart(5)).join(" ")}\n` +

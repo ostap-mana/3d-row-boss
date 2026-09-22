@@ -20,8 +20,9 @@ contour drawn around the whole grid.
 | beat | source mask | sheet |
 | --- | --- | --- |
 | CLAW RAKE | `masters/fx/painted/claw-page.png`, by `pack-painted-beat.mjs` | `rake-sheet.webp` |
+| MAGMA SLAM | `masters/fx/painted/fist-page.png`, by `pack-painted-beat.mjs` | `magma-sheet.webp` |
 | LAVA BREATH | `T_FX_Fire_3_1_4x3` | `breath-sheet.webp` |
-| MAGMA SLAM | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
+| MAGMA SLAM, fallback | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
 | ERUPTION | `T_FX_Smoke_4_1_4x4_A` | `erupt-sheet.webp` |
 | CATACLYSM | `T_FX_Glow_Flash_11_2_4x4` | `doom-sheet.webp` |
 | ENRAGE ROAR | `T_FX_Smoke_11_1_4x4` | `roar-sheet.webp` |
@@ -132,6 +133,11 @@ node tools/pack-still-beat.mjs --src masters/hint/fire-attack.png \
 
 `BOSS_SPELLS.smash` is `["magma", "slam"]`, so the painted plate wins and the
 mask-painted slam stays behind it as the fallback.
+
+That sheet is gone. A painted page of sixteen real frames took the slot, and the
+section below is how. The command above still writes `magma-sheet.webp`, so point
+its `--out` somewhere else before running it: what it makes is a synthesised
+beat, and the slot now holds a drawn one.
 
 Image-to-video was tried on the same still first — `gen-boss-fx.mjs --from
 <image>` feeds it to Wan as the first frame. It holds the art for two frames and
@@ -364,6 +370,48 @@ strength for 12–15, higher strength as the number drops, so the late cells lan
 on the approved art and the early ones are free to be a crack in the ground. A
 frame that comes back with the crater in a different place is thrown out, not
 nudged — a moving impact point is the one flaw the packer cannot fix afterwards.
+
+### What came back, and what it ships as
+
+One page, sixteen cells, in reading order and already an arc: the ink climbs from
+the first cell to the ninth and falls away to the sixteenth, and the arm is out at
+full height by the third. Fifteen of them ship as `magma-sheet.webp`, the MAGMA
+SLAM plate, which is what `boss.smash` draws.
+
+```
+node tools/pack-painted-beat.mjs --src masters/fx/painted/fist-page.png   --out src/assets/fx/magma-sheet.webp --frames 15 --cell 288   --take 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 --align ground --alpha 70 --contact
+```
+
+Two of those flags are new, and both are what an eruption needs that a burst does
+not.
+
+- `--align ground` anchors every cell on the point it stands on rather than on
+  its own centre of light. On an eruption that centre climbs with the column, so
+  centring on it drags the crater down the frame as the fist goes up; anchored on
+  the ground, the measured bottom of all fifteen frames lands within a pixel of
+  the same line and the impact point does not move at all. `--ground 0.92` then
+  puts that line near the bottom of the output cell, because everything the beat
+  does happens above it.
+- `--alpha 70` cuts an alpha channel out of the ink. The slam is the one boss
+  plate the game draws normally rather than adding, and this art is why that
+  matters: the fist is mostly dark obsidian, and dark is nothing on an add blend,
+  so the arm would come out as a few lava veins floating over the board. Solid at
+  70 above the floor is the ramp the painted still shipped with, and it keeps the
+  rock rock while the soft outer smoke still fades.
+
+`BOSS_FX.smash` had to give up its `grow`. The plate used to swell 26% over the
+beat, which is free growth for a burst drawn about its own middle and a disaster
+for a plate anchored at the bottom: scaling about the sprite's centre walks the
+crater down the board by some 45 px while the fist is climbing out of it. The art
+carries every bit of growth this beat has. `wide` went to 1.18 and `depth` to
+0.58, which lands the crater on the bottom row of the board and stands the fist
+as tall as the grid.
+
+Fifteen and not sixteen because `src/art/spells.js` cuts every sheet five to a
+row: sixteen frames is four rows with four of them empty, and `bossSwing` would
+spend the last fifth of the beat on nothing. The sixteenth cell is the faintest of
+the page, so the sheet ends on the fifteenth and the plate's own fade finishes the
+job.
 
 ## What the local ComfyUI gave, and why none of it shipped
 
