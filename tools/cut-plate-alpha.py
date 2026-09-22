@@ -14,19 +14,21 @@ USAGE = """
 cut-plate-alpha — give an additive plate the alpha it needs to blend normally.
 
   python tools/cut-plate-alpha.py <sheet.webp> [--cols 5] [--rows 2]
-                                  [--floor 0.055] [--quality 86] [--strip]
+                                  [--floor 0.09] [--top 0.34] [--hole 0.012]
+                                  [--quality 86] [--strip]
 
   The build's burst sheets come out fully opaque: black background, black rock,
   black everywhere the flame is not. Drawn additively the black vanishes, and so
   does the rock with it, so the burst reads as an orange wash over the board
   instead of an explosion with weight in it.
 
-  This cuts each cell's alpha in two parts. Alpha follows luminance, so the
-  petal tips keep their soft falloff, and then the small dark islands the flame
-  encloses are made opaque, which is what puts the rock back: rock is black like
-  the background, and only being enclosed by the flame tells them apart. The
-  burst's own hollow centre is far bigger than any chunk, so --hole leaves it
-  clear and the board keeps showing through it, as it does in the reference.
+  Alpha follows luminance, so the flame carries its own falloff and the black
+  around it goes to nothing. On top of that, the small dark islands the flame
+  encloses are forced opaque, which is what puts the rock back: rock is black
+  like the background, and only being enclosed by the flame tells them apart.
+  Nothing else is forced — a lit shape filled flat would lay the sheet's black
+  over the board as a hole in the screen. The burst's own hollow centre is far
+  bigger than any chunk, so --hole leaves it clear and the board shows through.
 
   --strip also writes a PNG next to the webp, to look at.
 """
@@ -50,13 +52,14 @@ def opt(name, fallback, cast=float):
 SRC = Path(args[0])
 COLS = opt("--cols", 5, int)
 ROWS = opt("--rows", 2, int)
-FLOOR = opt("--floor", 0.055)
+FLOOR = opt("--floor", 0.09)
 QUALITY = opt("--quality", 86, int)
 STRIP = "--strip" in args
 CLOSE = opt("--close", 5, int)
 FEATHER = opt("--feather", 1.1)
 KEEP = opt("--keep", 0.02)
 HOLE = opt("--hole", 0.012)
+TOP = opt("--top", 0.34)
 
 sheet = Image.open(SRC).convert("RGBA")
 rgb = np.asarray(sheet, dtype=np.float32)[..., :3] / 255.0
@@ -96,8 +99,8 @@ for r in range(ROWS):
             small = sizes <= HOLE * lit.size
             rock = small[marks] & holes
 
-        soft = np.clip((lum - FLOOR) / (0.34 - FLOOR), 0.0, 1.0)
-        a = np.where(closed | rock, 1.0, soft)
+        soft = np.clip((lum - FLOOR) / (TOP - FLOOR), 0.0, 1.0)
+        a = np.where(rock, 1.0, soft)
         if FEATHER > 0:
             a = gaussian_filter(a, FEATHER)
         alpha[y0:y1, x0:x1] = np.clip(a, 0.0, 1.0)
@@ -112,6 +115,11 @@ if STRIP:
 
 covered = float((alpha > 0.5).mean())
 clear = float((alpha < 0.02).mean())
+hole = float(((alpha > 0.5) & (rgb.max(axis=2) < 0.12)).mean())
 print(f"{SRC.name}: {sheet.width}x{sheet.height} {COLS}x{ROWS}")
 print(f"  opaque {covered * 100:.1f}%   clear {clear * 100:.1f}%")
+print(f"  opaque black {hole * 100:.2f}%  (the plate's hole in the screen)")
 print(f"  {SRC.stat().st_size / 1024:.1f} kB")
+if hole > 0.04:
+    print("  TOO MUCH: this plate would black out the board where it lands")
+    raise SystemExit(2)

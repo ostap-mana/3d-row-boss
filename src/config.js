@@ -415,8 +415,6 @@ export const BOSS_FX = {
     shakeSeconds: 0.55,
   },
   erupt: {
-    blend: "normal",
-    glow: 0.7,
     wide: 1.0,
     depth: 0.54,
     grow: 0.2,
