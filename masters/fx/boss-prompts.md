@@ -375,15 +375,17 @@ nudged — a moving impact point is the one flaw the packer cannot fix afterward
 
 One page, sixteen cells, in reading order and already an arc: the ink climbs from
 the first cell to the ninth and falls away to the sixteenth, and the arm is out at
-full height by the third. Fifteen of them ship as `magma-sheet.webp`, the MAGMA
-SLAM plate, which is what `boss.smash` draws.
+full height by the third. All sixteen ship as `magma-sheet.webp`, the MAGMA SLAM
+plate `boss.smash` draws, played as thirty frames over a second.
 
 ```
-node tools/pack-painted-beat.mjs --src masters/fx/painted/fist-page.png   --out src/assets/fx/magma-sheet.webp --frames 15 --cell 288   --take 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 --align ground --alpha 70 --contact
+node tools/pack-painted-beat.mjs --src masters/fx/painted/fist-page.png \
+  --out src/assets/fx/magma-sheet.webp --frames 16 --cell 256 --smooth 30 \
+  --take 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 --align ground --alpha 70 --contact
 ```
 
-Two of those flags are new, and both are what an eruption needs that a burst does
-not.
+Three of those flags are new, and each is something this beat needs that a burst
+does not.
 
 - `--align ground` anchors every cell on the point it stands on rather than on
   its own centre of light. On an eruption that centre climbs with the column, so
@@ -392,6 +394,23 @@ not.
   the same line and the impact point does not move at all. `--ground 0.92` then
   puts that line near the bottom of the output cell, because everything the beat
   does happens above it.
+- `--smooth 30` is the difference between a beat and a flip-through. Sixteen
+  paintings across the half second the slam had puts the whole rise in four
+  frames, and it read as the animation at double speed rather than as a punch.
+  The plate cross-fades between cells already, so slowing it down alone buys a
+  dissolve and nothing else: the frames in between have to be real ones.
+  `minterpolate` at `mi_mode=mci` builds them by motion compensation, and on
+  this page it works — the cell where the arm is half out of the ground was
+  never painted. Thirty of them at `seconds: 1` is 30 fps, and the sheet is six
+  rows instead of three; it costs about 105 kB, which is what an effect this
+  size is worth.
+
+  ffmpeg will not synthesise past the last input frame and drops about two
+  frame-intervals off the tail, so the tool feeds it three copies of the last
+  cell and asks for `want - 1` fps against `cells - 1` fps in, which lands
+  output frame 29 exactly on painted cell 16. Without that padding the last
+  three cells of the sheet come back as one held frame, and the beat ends on a
+  freeze.
 - `--alpha 70` cuts an alpha channel out of the ink. The slam is the one boss
   plate the game draws normally rather than adding, and this art is why that
   matters: the fist is mostly dark obsidian, and dark is nothing on an add blend,
@@ -407,11 +426,12 @@ carries every bit of growth this beat has. `wide` went to 1.18 and `depth` to
 0.58, which lands the crater on the bottom row of the board and stands the fist
 as tall as the grid.
 
-Fifteen and not sixteen because `src/art/spells.js` cuts every sheet five to a
-row: sixteen frames is four rows with four of them empty, and `bossSwing` would
-spend the last fifth of the beat on nothing. The sixteenth cell is the faintest of
-the page, so the sheet ends on the fifteenth and the plate's own fade finishes the
-job.
+Thirty and not thirty-two because `src/art/spells.js` cuts every sheet five to a
+row and counts the rows off the file: a frame count off that grid leaves empty
+cells at the end, and `bossSwing` spends the tail of the beat on nothing. Any
+multiple of five is free. The cell went to 256 because that is where the packer's
+scale lands at 1.0 — the page's own resolution, with nothing spent upsampling it,
+and 63 kB cheaper than the 288 it started at.
 
 ## What the local ComfyUI gave, and why none of it shipped
 

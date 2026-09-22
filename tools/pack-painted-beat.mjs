@@ -69,6 +69,15 @@ pack-painted-beat — a hand-painted flipbook page into the boss's spell grid.
                   rest of the cell above the impact point for the column to
                   climb into. Every pixel below it is empty and still costs
                   file, so keep it low.
+  --smooth <n>    play the beat as <n> frames instead of as the cells taken,
+                  with the ones in between made by motion compensation rather
+                  than by blending. A painted page is as many frames as the
+                  painter drew, and a beat slow enough to read is usually more
+                  than that; cross-fading two paintings only dissolves one into
+                  the other, which is what the plate already does at draw time,
+                  so the frames have to be real. Pick a multiple of 5 — the
+                  sheet is cut five to a row and an empty cell is a beat that
+                  stops early.
   --alpha <n>     carry an alpha channel, cut from the ink itself: a pixel is
                   clear at the ink floor and solid <n> above it. Off by
                   default, which is right for a plate the game adds — black is
@@ -118,6 +127,7 @@ const gain = Number(flag("gain", 1));
 const margin = Number(flag("margin", 0.04));
 const quality = String(flag("quality", 80));
 const alphaKnee = flag("alpha", null) ? Number(flag("alpha")) : 0;
+const smooth = flag("smooth", null) ? Math.round(Number(flag("smooth"))) : 0;
 const CH = alphaKnee ? 4 : 3;
 const align = String(flag("align", "ink"));
 if (align !== "ink" && align !== "cell" && align !== "ground") {
@@ -329,11 +339,6 @@ const scale = Math.min(
   room(cell - anchorY, Math.max(...chosen.map((n) => boxes[n - 1].down))),
 );
 
-const pitch = cell + PAD * 2;
-const sheetW = pitch * COLS;
-const sheetH = pitch * Math.ceil(COUNT / COLS);
-const sheet = Buffer.alloc(sheetW * sheetH * CH);
-
 const sample = (fx, fy, ch, box) => {
   if (fx < box.x0 || fx > box.x1 - 1 || fy < box.y0 || fy > box.y1 - 1)
     return 0;
@@ -352,18 +357,85 @@ const sample = (fx, fy, ch, box) => {
   return v < 0 ? 0 : v > 255 ? 255 : v;
 };
 
-chosen.forEach((n, i) => {
+const drawn = chosen.map((n) => {
   const box = boxes[n - 1];
-  const ox = (i % COLS) * pitch + PAD;
-  const oy = Math.floor(i / COLS) * pitch + PAD;
+  const buf = Buffer.alloc(cell * cell * 3);
   for (let y = 0; y < cell; y++) {
     const sy = box.cy + (y + 0.5 - anchorY) / scale;
     for (let x = 0; x < cell; x++) {
       const sx = box.cx + (x + 0.5 - cell / 2) / scale;
+      const dst = (y * cell + x) * 3;
+      buf[dst] = sample(sx, sy, 0, box);
+      buf[dst + 1] = sample(sx, sy, 1, box);
+      buf[dst + 2] = sample(sx, sy, 2, box);
+    }
+  }
+  return buf;
+});
+
+const TAIL = 3;
+
+const tween = (cells, want) => {
+  const span = cell * cell * 3;
+  const fed = cells.concat(Array(TAIL).fill(cells[cells.length - 1]));
+  const out = execFileSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-v",
+      "error",
+      "-f",
+      "rawvideo",
+      "-pix_fmt",
+      "rgb24",
+      "-s",
+      `${cell}x${cell}`,
+      "-r",
+      String(cells.length - 1),
+      "-i",
+      "pipe:0",
+      "-vf",
+      `minterpolate=fps=${want - 1}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1`,
+      "-frames:v",
+      String(want + TAIL),
+      "-f",
+      "rawvideo",
+      "-pix_fmt",
+      "rgb24",
+      "-",
+    ],
+    { input: Buffer.concat(fed), maxBuffer: 1 << 30 },
+  );
+  const held = Math.floor(out.length / span);
+  if (held < want) {
+    process.stderr.write(
+      `--smooth ${want} came back as ${held} frames; raise --smooth or drop a cell
+`,
+    );
+    process.exit(1);
+  }
+  return Array.from({ length: want }, (_, i) =>
+    out.subarray(i * span, (i + 1) * span),
+  );
+};
+
+const played = smooth && smooth !== drawn.length ? tween(drawn, smooth) : drawn;
+
+const pitch = cell + PAD * 2;
+const sheetW = pitch * COLS;
+const sheetH = pitch * Math.ceil(played.length / COLS);
+const sheet = Buffer.alloc(sheetW * sheetH * CH);
+
+played.forEach((buf, i) => {
+  const ox = (i % COLS) * pitch + PAD;
+  const oy = Math.floor(i / COLS) * pitch + PAD;
+  for (let y = 0; y < cell; y++) {
+    for (let x = 0; x < cell; x++) {
+      const src = (y * cell + x) * 3;
       const dst = ((oy + y) * sheetW + ox + x) * CH;
-      const r = sample(sx, sy, 0, box);
-      const g = sample(sx, sy, 1, box);
-      const b = sample(sx, sy, 2, box);
+      const r = buf[src];
+      const g = buf[src + 1];
+      const b = buf[src + 2];
       sheet[dst] = r;
       sheet[dst + 1] = g;
       sheet[dst + 2] = b;
@@ -451,11 +523,11 @@ const dark = (i) => {
 
 process.stdout.write(
   `${basename(input)}  ${W}x${H}  page ${bg.join(",")}  ` +
-    `${cols}x${rows} cells  take ${chosen.join(",")}\n` +
+    `${cols}x${rows} cells  take ${chosen.join(",")}  played ${played.length}\n` +
     `${sheetW}x${sheetH}  cell ${cell}+${PAD}  ${align} ${groundAt}  ` +
     `scale ${scale.toFixed(3)}  ` +
     `${(statSync(out).size / 1024).toFixed(1)} kB\n${out}\n` +
     contactNote +
-    `ink per cell:   ${Array.from({ length: COUNT }, (_, i) => dark(i).toFixed(1).padStart(5)).join(" ")}\n` +
+    `ink per cell:   ${Array.from({ length: played.length }, (_, i) => dark(i).toFixed(1).padStart(5)).join(" ")}\n` +
     `reach per cell: ${chosen.map((n) => boxes[n - 1].reach.toFixed(0).padStart(5)).join(" ")}\n`,
 );
