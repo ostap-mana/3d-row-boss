@@ -1321,11 +1321,20 @@ export class Director {
       y: board.y + board.size * fx.depth,
     };
 
-    const drawn = vfx.bossSwing(kind, where, {
+    const plate = {
       size: span * fx.wide,
       duration: fx.seconds,
       grow: fx.grow,
+    };
+
+    if (fx.glow) {
+      vfx.bossSwing(kind, where, { ...plate, alpha: fx.glow, blend: "add" });
+    }
+
+    const drawn = vfx.bossSwing(kind, where, {
+      ...plate,
       alpha: fx.alpha,
+      blend: fx.blend,
     });
     if (drawn && fx.shake) shake(fx.shake, fx.shakeSeconds || 0.4);
     return drawn;

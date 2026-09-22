@@ -904,7 +904,7 @@ export class Vfx extends Container {
 
     const s = new Sprite(frames[0]);
     s.anchor.set(0.5);
-    s.blendMode = "add";
+    s.blendMode = o.blend || "add";
     s.x = at.x;
     s.y = at.y;
     s.rotation = o.rotation || 0;
