@@ -171,6 +171,131 @@ and it cannot recover the smoke, which was semi-transparent over the board: that
 haze is why the mid cells still carry grey blocks. Ask for the file, not the
 screenshot.
 
+## THE LAVA FIST, sixteen painted stills
+
+`pack-rise-beat.mjs` grows the column by resampling one still, so every cell is
+the same paint at another scale — the shape is honest, the fire inside it never
+moves. These sixteen prompts are the other way round: each cell is its own
+painting, and the sixteenth is `masters/hint/lava-fist.png` itself, so the
+animation ends exactly on the art that was approved. Generate 1–15, keep 16 as
+the source file, pack 4×4.
+
+Every prompt below is the STILL block, then the ANCHOR block, then the one
+sentence that is the frame. The impact point sits on the same ground line in all
+sixteen and the burst grows upward out of it — that, and a fixed seed, is what
+keeps the sheet from flickering.
+
+### STILL
+
+```
+One still frame out of a sprite sheet. The effect is isolated on a pure black
+background, nothing else in frame, no floor line, no room, no landscape, no
+character, no hands. One fixed camera, the same framing and the same scale in
+every frame, the crater stays on the same ground line low in a tall vertical
+frame. Painted 3D mobile-RPG game VFX, semi-realistic, high contrast, a white-hot
+core bleeding out through gold and orange into deep crimson, charred obsidian
+crust cracked with molten seams, torn ragged edges, no flat cartoon shading. No
+text, no letters, no numbers, no watermark, no logo, no UI.
+```
+
+### ANCHOR
+
+```
+The finished shape this is growing into: a clenched fist of molten rock punching
+straight up out of a shattered crater, the forearm one thick column of glowing
+magma, the knuckles black obsidian split by white-hot seams, a crown of fire and
+flying rock shards thrown out low around the base, charcoal smoke climbing behind
+the burst.
+```
+
+### The sixteen
+
+```
+1/16  Black rock, unbroken. One hairline seam of dull ember light runs across the
+ground where the fist will come through, nothing above it, no flame yet.
+
+2/16  The seam forks into a short web of cracks, dim orange light seeping up
+through them, the first two or three embers lifting off the ground.
+
+3/16  The cracks spread into a ring and brighten to yellow, a pool of light
+burning underneath the rock, the nearest plates of stone tilting up off the
+ground, no column yet.
+
+4/16  Break-out: a white blowout of light bursts up out of the crater, the whole
+ground ring over-bright and washed toward white, slabs of black rock thrown up
+and outward, the column still only a low swell of fire one fifth of the frame
+high.
+
+5/16  A blunt bulb of molten rock shoves up through the flash to a third of the
+frame, still over-bright and pushed toward white, a ring of debris and fire
+flying outward low around the base.
+
+6/16  The swell has stretched into a column reaching just under half the frame,
+reading as a thick wrist of magma, sheets of molten rock peeling off its sides,
+the crown of fire at the base opening to its widest.
+
+7/16  The column reaches three fifths of the frame and the top gathers into a
+knuckle mass, the first fingers folding out of it, the first dark crust closing
+over the hottest parts.
+
+8/16  A clenched fist is clearly formed at the top of a forearm that now fills
+about three quarters of the frame height, obsidian crust cracked with white-hot
+seams, the first charcoal smoke lifting behind it.
+
+9/16  The fist climbs to five sixths of the frame, the splash of fire around the
+base at its tallest, rock shards at their furthest out, long fire trails still
+connecting them back to the crater.
+
+10/16  Full height and the overshoot: the arm is punched out a touch taller and
+thinner than it will settle, and the whole effect is at its brightest and most
+white-cored of the entire sheet.
+
+11/16  The arm settles back a fraction, crust closes over the knuckles, the
+white-hot seams narrow to gold, the base fire pulls in from its widest.
+
+12/16  The shape now matches the anchor exactly, and the fire around the base is
+at its fullest bloom, gold and crimson packed into the crater under the fist.
+
+13/16  The thrown material starts coming back down: arcs of molten spatter
+falling around the fist, the smoke plumes risen high behind it, the fist itself
+unchanged.
+
+14/16  The embers settle into their places along the falling arcs, the outer rock
+shards slow at the edge of the burst, the crust on the fist darkened to its final
+black.
+
+15/16  One step short of the final art: the same fist, the same crater, the same
+smoke, the core a touch hotter and a few more sparks still in the air than the
+sheet will end on.
+
+16/16  The final art, unchanged: masters/hint/lava-fist.png itself, dropped into
+the last cell.
+```
+
+### NEGATIVE
+
+```
+second explosion, aftershock, pulsing, looping, ground, floor, horizon, wall,
+room, landscape, sky, person, face, character, creature, body, hands holding,
+weapon, prop, camera movement, zoom, orbit, shake, text, letters, numbers,
+watermark, logo, signature, ui, hud, grey background, white background, gradient
+background, vignette, checkerboard, transparency checker, photorealistic,
+photographic, filmed footage, blurry, low contrast, washed out, dim, lens flare,
+depth of field, violet fire, magenta fire
+```
+
+`violet fire` is in there for the same reason `orange fire` is in the boss list,
+with the sign turned over: this one is the heroes' fire and must not drift into
+Koltmos's colours.
+
+### Running it
+
+Fix the seed across all fifteen and feed frame 16 in as an image reference at low
+strength for 12–15, higher strength as the number drops, so the late cells land
+on the approved art and the early ones are free to be a crack in the ground. A
+frame that comes back with the crater in a different place is thrown out, not
+nudged — a moving impact point is the one flaw the packer cannot fix afterwards.
+
 ## What the local ComfyUI gave, and why none of it shipped
 
 Fourteen takes on the local Wan 2.2 TI2V-5B, in two prompt styles, at 384 and at
