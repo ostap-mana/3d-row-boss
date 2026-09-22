@@ -437,6 +437,65 @@ multiple of five is free. The cell went to 256 because that is where the packer'
 scale lands at 1.0 — the page's own resolution, with nothing spent upsampling it,
 and 63 kB cheaper than the 288 it started at.
 
+## The same fist as a Seedance clip
+
+The sheet is sixteen paintings interpolated to thirty. A clip is 120 real frames
+for the same second and a half, so the rise stops being interpolation and starts
+being motion — which is the only thing a video model buys here. Everything the
+painted page had to be told still holds: square, crater nailed to one spot, ends
+on black.
+
+Seedance has no negative field and drops geometry past about a hundred words, so
+the "no" terms live inside the prompt and the shape lives in the images. Three
+ways in, strongest first.
+
+### First frame and last frame
+
+Cell 1 of `masters/fx/painted/fist-page.png` as the first frame, the finished art
+`masters/hint/lava-fist.png` as the last. The two stills carry the shape, so the
+prompt only has to carry the rise, and the clip cannot land anywhere but on the
+approved art.
+
+```
+The eruption between these two frames, as one continuous rise. The cracked rock blows open in a white flash of light and flying stone, a thick column of molten magma climbs straight up out of the crater, and its top gathers into the clenched fist of the last frame, which it reaches by 1.5 seconds and holds while the thrown rock falls back, the embers die and the frame burns down to pure black. One rise, no cuts, no second explosion, no pulsing. The crater stays on the same spot low in frame and never moves. Painted mobile game spell VFX on a pure black background, white-hot core through gold and orange into deep crimson, no ground, no floor, no character, no text, no interface. Fixed camera, static shot. --rt 1:1 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+### First frame only
+
+Cell 1 alone, when the last-frame slot is not available. The arc has to be spelled
+out, and the timing is what keeps the beat inside the window `pack-spells.mjs`
+samples for `slam`.
+
+```
+Animate this frame as one single eruption. Black rock cracks wide open, a white flash of light and flying stone bursts out of the crater, and a thick column of molten magma climbs straight up and gathers into a clenched fist of glowing rock, knuckles of black obsidian split by white-hot seams, a crown of fire and flying shards low around the base. It breaks out in the first half second, hits full height and peak brightness by 1.5 seconds, then the crust closes over the knuckles, the thrown rock falls back, the embers die and the frame burns down to pure black. One continuous rise, no cuts, no second explosion. The crater never moves, low in frame. Painted mobile game spell VFX, white-hot core through gold and orange into deep crimson, pure black background, no ground, no character, no text, no interface. Fixed camera, static shot. --rt 1:1 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+### Reference only
+
+A Reference node treats the picture as style, so the finished art has to be named
+as the target or the model paints something else in its colours. This is the
+weakest of the three and the only one that needs no cell cut off the page.
+
+```
+The attached art is the finished shape of this effect: match it, and copy nothing else from the picture. One single eruption on a pure black screen. Black rock cracks open with a seam of ember light, a white flash and flying stone bursts out, a thick column of molten magma climbs straight up and gathers into that clenched fist by 1.5 seconds, then it crusts over into black obsidian split by white-hot seams, the thrown rock falls back and the frame burns down to pure black. One continuous rise, no cuts, no second explosion. The crater never moves, low in frame. Painted mobile game spell VFX, white-hot core through gold and orange into deep crimson, pure black background, no ground, no character, no text, no interface. Fixed camera, static shot. --rt 1:1 --dur 5 --rs 1080p --fps 24 --cf true --wm false
+```
+
+### What has to come back
+
+The five ways the September 22 claw take was unusable are the same five here, and
+four of them are set before the render: `--rt 1:1` because `bossPlate` draws the
+sprite square, `--cf true` because a moving camera moves the crater, the break-out
+inside the first half second because `pack-spells.mjs` cuts `slam` out of
+0.5–2.0 s, and the burn-down because a plate still lit when the sprite dies pops
+off the board. The fifth is the one only the file can answer: no frame may go
+fully white, which on the add blend is the board disappearing.
+
+Then `tools/retime-clip.mjs` before anything else. The rise is where a generated
+clip's four-frame ripple shows worst — the column travels furthest per frame
+exactly where every fourth one jumps — and that ripple is what a jerky take
+actually is. Smoothness here is not frame count; the painted sheet already runs
+thirty. It is even spacing.
+
 ## What the local ComfyUI gave, and why none of it shipped
 
 Fourteen takes on the local Wan 2.2 TI2V-5B, in two prompt styles, at 384 and at
