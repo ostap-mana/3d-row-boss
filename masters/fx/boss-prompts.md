@@ -19,7 +19,7 @@ contour drawn around the whole grid.
 
 | beat | source mask | sheet |
 | --- | --- | --- |
-| CLAW RAKE | `T_FX_Mask_25_1_Slash` + `_26_1_Slash_Erosion` | `rake-sheet.webp` |
+| CLAW RAKE | `masters/fx/painted/claw-page.png`, by `pack-painted-beat.mjs` | `rake-sheet.webp` |
 | LAVA BREATH | `T_FX_Fire_3_1_4x3` | `breath-sheet.webp` |
 | MAGMA SLAM | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
 | ERUPTION | `T_FX_Smoke_4_1_4x4_A` | `erupt-sheet.webp` |
@@ -63,6 +63,43 @@ it are worth knowing — `states.halt()` puts the world rate back to 1, so the r
 has to be set again after every halt or the plate is gone before the first frame
 lands, and a screenshot costs a few hundred milliseconds, so `--plates` fires the
 plate on its own rather than waiting out the rig animation that leads the beat.
+
+## A painted page is a beat already drawn
+
+`masters/fx/painted/claw-page.png` is the claw rake as sixteen hand-painted
+cells on one page, and it is what the beat ships as now. `pack-painted-beat.mjs`
+turns a page like that into the ten the fight wants, and three things about a
+painted page make it not a sprite sheet:
+
+- **The grid is drawn, not machined.** The page is 943x1024, which is not four
+  equal cells of anything, and the outer margins are uneven. So the cuts are
+  measured: project the ink onto each axis, and the empty bands between the runs
+  are the gutters. Nothing outside a cell's own box is ever sampled into it,
+  which is what stops a frame carrying a piece of its neighbour.
+- **The page is grey, 42,42,42.** Nobody paints fire on black and can see what
+  they are doing. It is subtracted rather than keyed, which is the arithmetic
+  the add blend does anyway and leaves the outer glow a key would chew.
+- **The ink is not centred in its cell.** `--align ink` puts every frame on its
+  own brightness-weighted centre, so the beat keeps its growth and loses the
+  slop. `--align cell` is right only for a page drawn on a real grid.
+
+```
+node tools/pack-painted-beat.mjs --src masters/fx/painted/claw-page.png \
+  --out src/assets/fx/rake-sheet.webp --take 4,7,9,10,11,12,13,14,15,16 \
+  --gain 1.4 --contact
+```
+
+`--take` is the edit and it is the whole job. The page opens with eight cells of
+the claws splaying into a wide V and only reaches the rake at cell 9, and the
+plate has 0.46 s: two frames of opening, five on the rake, three burning down.
+`--gain` is the other one. At 1 the plate is honest to the painting and reads as
+a brown smear behind the gems, because the vfx field is under them and only the
+gaps between the gem circles are ever seen. At 1.4 it reads like the mask plate
+it replaced, and the corners are still black.
+
+The palette is the one thing this page does not share with the rest of the boss:
+it is gold and orange fire over violet cores, where every other beat is violet
+and magenta. That is the art as it was handed over, not a packing artefact.
 
 ## A painted still is a beat waiting to happen
 
