@@ -57,6 +57,33 @@ export const VOLLEY = {
   chips: 8,
 };
 
+export const BOULDER = {
+  size: 0.62,
+  charge: 0.26,
+  flight: 0.42,
+  from: 0.15,
+  rear: 0.1,
+  hang: 0.3,
+  spin: [1.1, 2.3],
+  halo: 1.6,
+  haloAlpha: 0.5,
+  shroud: 1.85,
+  shroudAlpha: 0.8,
+  shroudDrop: 0.06,
+  launch: 0.78,
+  impactLead: 0.05,
+  trail: 0.04,
+  flash: 0xffb066,
+  flashAlpha: 0.34,
+  flashSeconds: 0.36,
+  ring: 2.5,
+  ringSeconds: 0.5,
+  ringFlat: 0.42,
+  chips: 22,
+  debris: 7,
+  debrisSeconds: 0.62,
+};
+
 export const SNAP = {
   on: false,
   times: 6,
@@ -328,7 +355,7 @@ export const COPY = {
   ultClear: "BOARD CLEARED!",
   smash: "MAGMA SLAM!",
   volley: "OBSIDIAN VOLLEY!",
-  fissure: "THE GROUND SPLITS!",
+  boulder: "HE TEARS THE HILL LOOSE!",
   ultHeal: "TEAM HEALED!",
   mend: `${BOSS_NAME} MENDS!`,
   doomLabel: "CATACLYSM",
@@ -382,11 +409,11 @@ export const BOSS_ATTACKS = [
     shout: COPY.smash,
   },
   {
-    kind: "fissure",
+    kind: "boulder",
     targets: "all",
     damage: 0.092,
     obsidianBonus: 2,
-    shout: COPY.fissure,
+    shout: COPY.boulder,
     from: 3,
   },
 ];

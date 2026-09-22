@@ -22,7 +22,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { streamArt } from "../art/streams.js";
-import { shardTexture } from "../art/shards.js";
+import { boulderTexture, shardTexture } from "../art/shards.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
@@ -30,6 +30,7 @@ import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
 import {
   BLAST,
   BOOM,
+  BOULDER,
   FIRE,
   HITP,
   IMPACT_FX,
@@ -1362,6 +1363,147 @@ export class Vfx extends Container {
           });
       }),
     );
+  }
+
+  async boulder(from, to, opts) {
+    const o = opts || {};
+    const size = o.size || 260;
+    const art = boulderTexture(o.seed || 0);
+
+    const halo = new Sprite(glowTexture());
+    halo.anchor.set(0.5);
+    halo.blendMode = "add";
+    halo.tint = OBSIDIAN.seam;
+    halo.x = from.x;
+    halo.y = from.y;
+    halo.alpha = 0;
+    this.field.addChild(halo);
+
+    const shroudFrames = spellFrames("flame");
+    const shroud = shroudFrames ? new Sprite(shroudFrames[0]) : null;
+    if (shroud) {
+      shroud.anchor.set(0.5);
+      shroud.blendMode = "add";
+      shroud.tint = OBSIDIAN.seamHot;
+      shroud.x = from.x;
+      shroud.y = from.y;
+      shroud.alpha = 0;
+      this.field.addChild(shroud);
+    }
+
+    const rock = art ? new Sprite(art) : null;
+    if (rock) {
+      rock.anchor.set(0.5);
+      rock.x = from.x;
+      rock.y = from.y;
+      rock.alpha = 0;
+      this.field.addChild(rock);
+    }
+    const spin = rndRange(BOULDER.spin[0], BOULDER.spin[1]);
+    const seed = rndRange(0, Math.PI * 2);
+
+    const wrap = (x, y, w, p, alpha) => {
+      if (!shroud || shroud.destroyed) return;
+      const n = shroudFrames.length;
+      shroud.texture = shroudFrames[Math.min(n - 1, ((p * n * 2) | 0) % n)];
+      shroud.x = x;
+      shroud.y = y + w * BOULDER.shroudDrop;
+      shroud.setSize(w * BOULDER.shroud, w * BOULDER.shroud);
+      shroud.rotation = seed * 0.4 + p * 0.6;
+      shroud.alpha = alpha;
+    };
+
+    await tweenValue(0, 1, BOULDER.charge, (p) => {
+      const e = Ease.quadOut(p);
+      const w = size * BOULDER.from * (0.3 + e * 0.7);
+      halo.setSize(w * BOULDER.halo, w * BOULDER.halo);
+      halo.alpha = BOULDER.haloAlpha * e;
+      const lift = from.y - size * BOULDER.rear * e;
+      if (rock && !rock.destroyed) {
+        rock.setSize(w, w);
+        rock.rotation = seed + spin * 0.12 * e;
+        rock.alpha = e;
+        rock.y = lift;
+      }
+      halo.y = lift;
+      wrap(from.x, lift, w, p * 0.3, BOULDER.shroudAlpha * e * 0.7);
+    });
+
+    let trail = 0;
+    await tweenValue(0, 1, BOULDER.flight, (p) => {
+      const e = p * (BOULDER.launch + (1 - BOULDER.launch) * p);
+      const grow = BOULDER.from + (1 - BOULDER.from) * Ease.quadIn(p);
+      const w = size * grow;
+      const x = from.x + (to.x - from.x) * e;
+      const y =
+        from.y -
+        size * BOULDER.rear +
+        (to.y - from.y + size * BOULDER.rear) * e -
+        Math.sin(Math.PI * e) * size * BOULDER.hang;
+
+      halo.x = x;
+      halo.y = y;
+      halo.setSize(w * BOULDER.halo, w * BOULDER.halo);
+      halo.alpha = BOULDER.haloAlpha * (0.6 + 0.4 * e);
+
+      if (rock && !rock.destroyed) {
+        rock.x = x;
+        rock.y = y;
+        rock.setSize(w, w);
+        rock.rotation = seed + spin * e;
+        rock.alpha = 1;
+      }
+
+      wrap(x, y, w, 0.3 + p, BOULDER.shroudAlpha);
+
+      if (p - trail > BOULDER.trail) {
+        trail = p;
+        this.ember(
+          x + rndRange(-w, w) * 0.22,
+          y + rndRange(-w, w) * 0.22,
+          w * 0.2,
+          p > 0.5 ? OBSIDIAN.seamHot : OBSIDIAN.seam,
+        );
+      }
+    });
+
+    halo.destroy();
+    if (shroud && !shroud.destroyed) shroud.destroy();
+    if (rock && !rock.destroyed) rock.destroy();
+
+    this.flash(BOULDER.flash, BOULDER.flashAlpha, BOULDER.flashSeconds);
+    this.shockRing(to.x, to.y, OBSIDIAN.seam, {
+      from: size * 0.3,
+      to: size * BOULDER.ring,
+      duration: BOULDER.ringSeconds,
+      flat: BOULDER.ringFlat,
+      light: OBSIDIAN.seamHot,
+    });
+    this.burst(to.x, to.y, OBSIDIAN.seamHot, BOULDER.chips, 1.5);
+
+    for (let i = 0; i < BOULDER.debris; i++) {
+      const chip = shardTexture(i * 3 + 1);
+      if (!chip) break;
+      const s = new Sprite(chip);
+      s.anchor.set(0.5);
+      const w = size * rndRange(0.12, 0.24);
+      s.setSize(w, w);
+      s.x = to.x;
+      s.y = to.y;
+      s.rotation = rndRange(0, Math.PI * 2);
+      this.field.addChild(s);
+
+      const ang = -Math.PI / 2 + rndRange(-1.25, 1.25);
+      const reach = size * rndRange(0.4, 1.05);
+      const life = BOULDER.debrisSeconds * rndRange(0.8, 1.2);
+      tweenValue(0, 1, life, (p) => {
+        if (s.destroyed) return;
+        s.x = to.x + Math.cos(ang) * reach * p;
+        s.y = to.y + Math.sin(ang) * reach * p + reach * 1.5 * p * p;
+        s.rotation += 0.24;
+        s.alpha = p < 0.65 ? 1 : 1 - (p - 0.65) / 0.35;
+      }).then(() => !s.destroyed && s.destroy());
+    }
   }
 
   async sweep(color) {

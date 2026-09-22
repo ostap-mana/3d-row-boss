@@ -19,7 +19,7 @@ circles a flat silhouette on the add blend is a colour wash, not a hit.
 | --- | --- | --- |
 | MAGMA SLAM | one bright column up through the board, single target | `magma-sheet.webp`, the painted fist page, `bossPlate("smash")` |
 | OBSIDIAN VOLLEY | hard dark rock crossing the screen into the card row, all targets | `shard-sheet.webp` through `vfx.shardVolley`, **not a plate** |
-| THE GROUND SPLITS | a molten tear opening across the board's lower rows, all targets, turn 3 on | `fissure-sheet.webp`, `bossPlate("fissure")` |
+| HE TEARS THE HILL LOOSE | one burning boulder thrown into the board, all targets, turn 3 on | `boulder-sheet.webp` through `vfx.boulder`, **not a plate**; it lands on `fissure-sheet.webp` |
 | CATACLYSM | `T_FX_Glow_Flash_11_2_4x4` | `doom-sheet.webp` |
 | ENRAGE ROAR | `T_FX_Smoke_11_1_4x4` | `roar-sheet.webp` |
 | MAGMA SLAM, fallback | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
@@ -35,12 +35,27 @@ which is the wash. On the **normal** blend with a real alpha cut, a dark body
 *occludes* the gems, and the eye finds a hole in a bright grid faster than it
 finds a glow. Both new beats are `blend: "normal"`, and so is the slam.
 
-**The volley is not a plate at all.** A square flipbook cannot start at the boss
-and end on the card row, so `vfx.shardVolley(from, targets, opts)` flies one
-sprite per target off `src/art/shards.js`. `VOLLEY.fan` launches each shard from
-a point already pushed toward its own target and `VOLLEY.bow` bends its path, so
-no two share a lane — without those two the eight of them go down the screen
-centre in one stripe and read as a single grey smear.
+**Two of the three are not plates at all.** A square flipbook cannot start at the
+boss and end somewhere else, so both thrown beats fly real sprites off
+`src/art/shards.js`.
+
+`vfx.shardVolley(from, targets, opts)` sends one shard per target. `VOLLEY.fan`
+launches each from a point already pushed toward its own target and `VOLLEY.bow`
+bends its path, so no two share a lane — without those two the eight of them go
+down the screen centre in one stripe and read as a single grey smear.
+
+`vfx.boulder(from, to, opts)` is the heavy one: wind-up, throw, impact. It is
+built on one idea, which is **depth**. The rock leaves the boss at `BOULDER.from`
+= 0.15 of its final size and arrives at 1.0, so a near sevenfold scale change
+over 0.42 s is what sells a thing coming at the camera; the first version started
+at 0.3 and travelled 360 px, which is barely more than its own width, and it read
+as a rock sliding down the screen rather than being thrown. `BOULDER.launch`
+bends the position curve — a full `quadIn` parks it at the boss for half the
+flight. It flies wrapped in the `flame` sheet (`BOULDER.shroud`) because a dark
+body against a bright sky with no fire on it is a hole, not a projectile. It
+lands on a white flash, a flat shock ring, chips, seven tumbling debris shards,
+`shake(26, 0.6)` and the fissure plate at the impact point — so the ground does
+split, but as the *consequence* of the throw rather than as its own attack.
 
 **Board-relative, still.** Every size is a fraction of `board.size`, never the
 stage, for the reason the old note gives.
@@ -48,16 +63,27 @@ stage, for the reason the old note gives.
 ### The sheets these attacks ship as
 
 ```
-node tools/pack-shards.mjs --cell 192 --out src/assets/boss/shard-sheet.webp
+node tools/pack-shards.mjs --cell 192 --count 8 --seams 0.7 --seam-scale 4   --out src/assets/boss/shard-sheet.webp
+
+node tools/pack-shards.mjs --cell 320 --count 4 --seams 0.9 --seam-scale 5   --out src/assets/boss/boulder-sheet.webp
 
 node tools/paint-beat.mjs --crack 10 --out masters/fx/painted/fissure-page.png   --cols 5 --cell 320 --gutter 44 --ramp magma --rim 7 --crust 0.09 --seam 0.5   --seam-scale 5 --flow 1.2 --embers 26 --shards 7 --shard-size 7 --smoke 0.4   --ground 0.5 --cool 1,0.55 --gain 1,0.85 --seed 11
 
 node tools/pack-painted-beat.mjs --src masters/fx/painted/fissure-page.png   --out src/assets/fx/fissure-sheet.webp --frames 10 --take 1,2,3,4,5,6,7,8,9,10   --cell 320 --align cell --gain 1.1 --alpha 70 --contact
 ```
 
-`shard-sheet.webp` stays under `src/assets/boss/`. Move it to `src/assets/fx/`
-and `src/art/spells.js` globs `*-sheet.webp` and slices the 4-column sheet as a
-5-column flipbook into garbage.
+Both rock sheets stay under `src/assets/boss/`. Move either into
+`src/assets/fx/` and `src/art/spells.js` globs `*-sheet.webp` and slices a
+4-column sheet as a 5-column flipbook into garbage.
+
+`--seams` is what makes the rock Koltmos's. `masters/boss/shards/` is painted
+obsidian with white chipped edges — over a dark board that reads as ice, not
+glass. `pack-shards` regrades luminance into the exact `OBSIDIAN` palette from
+`src/config.js` and then drives a ridge-noise field through the body, bedded by
+the inside-distance so the cracks stay off the rim. At `--seams 0.9
+--seam-scale 5` they are cracks; the first pass, thresholded at 0.62, gave lava
+rivers that ate the rock. The boulder carries them at 320 px and the volley
+shards at 192.
 
 **The slam was playing a third too fast.** `magma-sheet.webp` is 820x1312, pitch
 164, eight rows — **forty frames**. `BOSS_FX.smash.seconds` was still the 0.8 the

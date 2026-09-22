@@ -40,6 +40,9 @@ const MIN_AREA = 2400;
 
 const QUALITY = 88;
 const GRADE = !process.argv.includes("--raw");
+const SEAMS = Number(arg("--seams", 0));
+const SEAM_SCALE = Number(arg("--seam-scale", 3.4));
+const SEED = Number(arg("--seed", 7));
 
 function decode(file) {
   const [w, h] = execFileSync("ffprobe", [
@@ -196,6 +199,106 @@ function grade(r, g, b) {
   );
 }
 
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const smoothstep = (t) => t * t * (3 - 2 * t);
+
+function hash2(x, y) {
+  let h = x * 374761393 + y * 668265263 + SEED * 972897;
+  h = (h ^ (h >>> 13)) >>> 0;
+  h = Math.imul(h, 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function valueNoise(x, y) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = smoothstep(x - xi);
+  const yf = smoothstep(y - yi);
+  const a = hash2(xi, yi);
+  const b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1);
+  const d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+}
+
+function fbm(x, y, octaves) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let fx = x;
+  let fy = y;
+  for (let o = 0; o < octaves; o++) {
+    sum += valueNoise(fx, fy) * amp;
+    norm += amp;
+    amp *= 0.5;
+    fx *= 2.03;
+    fy *= 2.01;
+  }
+  return sum / norm;
+}
+
+function inside(cell) {
+  const d = new Float32Array(CELL * CELL);
+  const INF = 1e9;
+  for (let i = 0; i < d.length; i++) d[i] = cell[i * 4 + 3] > 140 ? INF : 0;
+  for (let y = 0; y < CELL; y++) {
+    for (let x = 0; x < CELL; x++) {
+      const i = y * CELL + x;
+      if (d[i] === 0) continue;
+      let v = d[i];
+      if (x > 0) v = Math.min(v, d[i - 1] + 1);
+      if (y > 0) v = Math.min(v, d[i - CELL] + 1);
+      if (y > 0 && x > 0) v = Math.min(v, d[i - CELL - 1] + 1.4142);
+      if (y > 0 && x < CELL - 1) v = Math.min(v, d[i - CELL + 1] + 1.4142);
+      d[i] = v;
+    }
+  }
+  for (let y = CELL - 1; y >= 0; y--) {
+    for (let x = CELL - 1; x >= 0; x--) {
+      const i = y * CELL + x;
+      let v = d[i];
+      if (x < CELL - 1) v = Math.min(v, d[i + 1] + 1);
+      if (y < CELL - 1) v = Math.min(v, d[i + CELL] + 1);
+      if (y < CELL - 1 && x < CELL - 1)
+        v = Math.min(v, d[i + CELL + 1] + 1.4142);
+      if (y < CELL - 1 && x > 0) v = Math.min(v, d[i + CELL - 1] + 1.4142);
+      d[i] = v;
+    }
+  }
+  return d;
+}
+
+function veins(cell, index) {
+  if (SEAMS <= 0) return cell;
+  const depth = inside(cell);
+  const step = SEAM_SCALE / CELL;
+  const drift = index * 13.7;
+  for (let y = 0; y < CELL; y++) {
+    for (let x = 0; x < CELL; x++) {
+      const i = y * CELL + x;
+      if (cell[i * 4 + 3] <= 140) continue;
+      const nx = x * step + drift;
+      const ny = y * step;
+      const warp = fbm(nx * 0.7, ny * 0.7, 3);
+      const field = fbm(nx + warp * 1.7, ny + warp * 1.7, 4);
+      const ridge = 1 - Math.abs(field * 2 - 1);
+      const cut = Math.pow(clamp01((ridge - 0.8) / 0.2), 2.8);
+      const bedded = smoothstep(clamp01(depth[i] / (CELL * 0.03)));
+      const heat = clamp01(cut * bedded * SEAMS);
+      if (heat < 0.02) continue;
+      const hot = heat > 0.55 ? SEAM_HOT : SEAM;
+      const k = Math.pow(heat, 0.7);
+      for (let c = 0; c < 3; c++) {
+        cell[i * 4 + c] = Math.min(
+          255,
+          Math.round(cell[i * 4 + c] * (1 - k) + hot[c] * k),
+        );
+      }
+    }
+  }
+  return cell;
+}
+
 function cut(rgb, w, h, blob) {
   const own = new Uint8Array(w * h);
   blob.cells.forEach((p) => (own[p] = 1));
@@ -267,7 +370,7 @@ for (const name of plates) {
   piles.push(
     found
       .sort((a, b) => b.area - a.area)
-      .map((blob) => ({ from: name, cell: cut(rgb, w, h, blob) })),
+      .map((blob, i) => ({ from: name, cell: veins(cut(rgb, w, h, blob), i) })),
   );
 }
 

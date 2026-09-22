@@ -50,10 +50,10 @@ const STATES = [
     args: attackArgs("volley"),
   },
   {
-    name: "boss.fissure",
+    name: "boss.boulder",
     group: "boss",
-    fn: "bossFissure",
-    args: attackArgs("fissure"),
+    fn: "bossBoulder",
+    args: attackArgs("boulder"),
   },
   {
     name: "boss.smash",

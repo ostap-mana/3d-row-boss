@@ -2,6 +2,7 @@ import {
   BOSS_ATTACKS,
   BOSS_FX,
   BOSS_MAX_HP,
+  BOULDER,
   COLS,
   COPY,
   DIFFICULTY,
@@ -41,6 +42,8 @@ const rollKillMatch = () => {
 };
 
 const OBSIDIAN_SLACK = 2;
+
+const BOULDER_AT = 0.62;
 
 const OPTIONS_IN_PLAY = 2;
 
@@ -1302,8 +1305,8 @@ export class Director {
 
     if (attack.kind === "volley") {
       await this.bossVolley(attack, cells);
-    } else if (attack.kind === "fissure") {
-      await this.bossFissure(attack, cells);
+    } else if (attack.kind === "boulder") {
+      await this.bossBoulder(attack, cells);
     } else {
       await this.bossSmash(attack, cells);
     }
@@ -1380,26 +1383,50 @@ export class Director {
     await Promise.all([flying, landing, falling]);
   }
 
-  async bossFissure(attack, cells) {
-    const { boss, hud } = this.s;
+  async bossBoulder(attack, cells) {
+    const { boss, hud, vfx, shake, layout } = this.s;
+    const board = layout.board;
 
-    hud.shout(attack.shout || COPY.fissure, 0.4, {
-      fill: OBSIDIAN.seam,
-      from: 1.4,
+    hud.shout(attack.shout || COPY.boulder, 0.4, {
+      fill: OBSIDIAN.seamHot,
+      from: 1.5,
     });
     boss.roar();
-    await delay(0.3);
-    if (this.settled()) return;
-
-    this.bossPlate("fissure");
-
-    const spreading = this.dropObsidian(cells, 0.08);
-
     await delay(0.24);
     if (this.settled()) return;
 
+    const at = {
+      x: board.x + board.size / 2,
+      y: board.y + board.size * BOULDER_AT,
+    };
+    const thrown = vfx
+      .boulder(boss.impactPoint(), at, {
+        size: board.size * BOULDER.size,
+        seed: this.turn,
+      })
+      .then(() => {
+        if (this.settled()) return;
+        sfx.bossSmash();
+        shake(26, 0.6);
+        this.bossPlate("fissure", at);
+      });
+
+    await delay(BOULDER.charge * 0.7);
+    if (this.settled()) return;
+    sfx.bossHurl();
+    shake(9, 0.26);
+
+    const left = BOULDER.charge + BOULDER.flight - BOULDER.charge * 0.7;
+    const landing = delay(left).then(() => {
+      if (this.settled()) return null;
+      return this.eruptObsidian(cells);
+    });
+
+    await delay(Math.max(0, left - BOULDER.impactLead));
+    if (this.settled()) return;
+
     const falling = this.strikeHeroes(attack);
-    await Promise.all([spreading, falling, delay(0.26)]);
+    await Promise.all([thrown, landing, falling, delay(0.3)]);
   }
 
   async bossSmash(attack, cells) {
