@@ -318,22 +318,24 @@ hands, no grid lines drawn between the cells, no cell borders, no numbers, no
 text, no watermark, no logo, no UI.
 ```
 
-If the model drops the tail of that, the short form keeps the arc and loses the
-per-cell detail:
+If the model drops the tail of that, four sentences keep the arc and lose the
+per-cell detail. Nothing shorter survives: the first sentence is the sheet, the
+second is the whole animation, the third is what must not move between cells, and
+the fourth is the palette and everything that must not be in frame.
 
 ```
-A 4x4 sprite sheet of one eruption, read left to right and top to bottom: a
-clenched fist of molten rock punching up out of the ground. It starts as a
-hairline crack of ember light in black rock, breaks out in a white flash of light
-and flying stone by cell 4, climbs as a column of magma that gathers into a fist,
-reaches full height and peak brightness at cell 10, then settles, crusts over into
-black obsidian split by white-hot seams, and ends on the finished fist over a
-shattered crater with a crown of fire, flying rock shards and charcoal smoke
-behind it. Same fixed camera and scale in every cell, the crater on the same
-ground line, the burst growing upward out of it. Painted 3D mobile-RPG game VFX,
-semi-realistic, high contrast, white-hot core through gold and orange into deep
-crimson. Pure black background, no floor, no character, no grid lines, no cell
-borders, no text, no watermark, no UI.
+A 4x4 sprite sheet, sixteen cells read left to right and top to bottom, of one
+eruption: a clenched fist of molten rock punching straight up out of the ground.
+It starts as a hairline crack of ember light in black rock, breaks out in a white
+flash of light and flying stone by cell 4, climbs as a column of magma that
+gathers into a fist, hits full height and peak brightness at cell 10, then
+settles, crusts over into black obsidian split by white-hot seams, and ends on the
+finished fist over a shattered crater with a crown of fire, flying rock shards and
+charcoal smoke behind it. Same fixed camera and scale in every cell, the crater on
+the same ground line low in the cell, the burst growing upward out of it. Painted
+3D mobile-RPG game VFX, semi-realistic, high contrast, a white-hot core bleeding
+through gold and orange into deep crimson, pure black background, no floor, no
+character, no grid lines or cell borders, no text, no watermark, no UI.
 ```
 
 Same NEGATIVE as below, plus `grid lines, cell borders, panel borders, frame
