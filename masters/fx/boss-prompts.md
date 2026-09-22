@@ -374,6 +374,77 @@ the page, no drop shadow, no texture, no text. One swipe in the whole clip, then
 burns down and the page is plain white again. Fixed camera, static shot.
 ```
 
+### The take that came back sideways, September 22
+
+`video/boss-animaaion-attack_Seedance 2.5 Reference_2026-09-22_11-46-04.mp4` is
+the reason this section exists. The colour is right — violet and gold with fire
+in it, which is the hard half — and everything else about it is unusable, in
+five ways that are all the same mistake: it was directed as a **shot**, and the
+plate is not a shot. Measured off the file:
+
+- **It is 720×1280.** The plate is drawn square: `bossPlate` takes one number,
+  `board.size × 1.06`, and sets the sprite `w × w`. A 9:16 take squeezes into
+  that and reads as a different effect.
+- **Nothing ever comes down.** The centre of light sits at `y` 0.44–0.50 of the
+  frame from the first frame to the last; the claw flies **left to right across
+  the middle**. The boss is above the board and the hit lands on it, so a strike
+  travels top-right to bottom-left or it is not a strike, it is something
+  passing by.
+- **The beat is at 4.33 s.** `pack-spells.mjs` samples ten frames out of
+  0.6–2.2 s for this id. The first 2.5 s of this clip is the claw assembling
+  itself in place — its lit area climbs from 11.8% to 27.5% without anything
+  happening — so the sheet would be ten frames of a prop standing still.
+- **One frame is 100% lit.** At 4.33 s the whole frame goes white. On the
+  additive blend that is not an impact, that is the board disappearing.
+- **It ends lit.** At 6.00 s, 12.9% of the frame is still burning at peak 249.
+  A plate that has not reached black pops off when the sprite is destroyed.
+
+The reference image is the likely author of the first two: hand a model a
+picture of a flying claw comet and it will fly the comet, whatever the prompt
+says. Reference a still of three torn diagonal gashes, or none at all.
+
+```
+Three parallel claw slashes tear diagonally across the centre of frame from the
+upper right down to the lower left, and all three open at the very same instant,
+together, in one single beat: one strike, not three. They arrive on the same
+frame, none of them lagging behind another, never one after another, never three
+separate attacks. Each slash opens from nothing where it already lies and rips
+along its own length: a tapered gash, widest about a third of the way along and
+coming to a fine point at both ends, its edges ragged and torn with small hooks
+and splinters coming off them, never a smooth stripe, never a rounded bar, never
+a straight line. The middle slash is the longest and cuts the deepest, the two
+outside it are shorter and sit parallel to it and evenly spaced. Each gash is a
+violet wound with a thin white-hot core burning down the middle of its length
+and a torn gold-bright rim along its edges, throwing small sparks and flecks of
+molten light off it, a wash of cyan light passing through the middle of the
+beat. Nothing flies: there is no claw, no hand, no creature, no blade and no
+projectile crossing the frame, only the three gashes opening where they already
+are. The slashes do not travel, do not enter from one side, do not leave on the
+other and do not drift; they stay centred and hold the same place in frame from
+the moment they open. They reach their brightest the instant they finish
+opening, hold for a moment, then burn down and fade from the tips inward until
+the frame is completely black again. The middle of each gash stays open and dark
+so the background reads through it, and the corners of the frame stay black —
+the light never floods the whole frame and there is no white flash. Exactly one
+swipe in the whole clip, landing on one beat inside the first second: no second
+strike, no repeat, no further set of slashes, no aftershock, and it is finished
+well before the clip ends.
+```
+
+Square 1:1, 5 s, 24 fps, 480p, fixed camera, with the STYLE and TECHNICAL blocks
+above. Then `masters/fx/clips/rake.mp4` — the id is `rake`, not `claw`, because
+`BOSS_SPELLS.rake` reads `rake-sheet.webp` — and:
+
+```
+node tools/pack-spells.mjs --contact rake
+node tools/shoot-boss-fx.mjs --plates --rate 0.12 --gap 500
+```
+
+`rake` has no row in `WINDOWS`, so it packs on the default 0.6–2.2 s. If the
+beat lands late anyway, `--start` and `--span` will move the window, but a take
+that gathers first has already lost the frames the sheet needed — regenerate
+rather than chase it.
+
 ## The stone he spits
 
 Not a clip. `vfx.lob` flies a tinted glow with a spinning `paintGlob` inside it,
