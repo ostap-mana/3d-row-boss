@@ -28,14 +28,11 @@ export const HIT_BY_ELEMENT = {
 };
 
 const BOSS_SPELLS = {
-  rake: "rake",
-  breath: "breath",
   smash: ["magma", "slam"],
-  erupt: ["erupt", "slam"],
+  fissure: ["fissure", "slam"],
   doom: "doom",
   roar: "roar",
   mend: ["mend", "nature"],
-  jet: ["breathjet", "breath"],
 };
 
 const FOUND = import.meta.glob(

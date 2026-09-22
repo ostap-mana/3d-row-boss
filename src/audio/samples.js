@@ -37,7 +37,7 @@ const SLICES = {
   rise: { at: 12.14, dur: 1.1, gain: 0.24 },
   roar: { at: 13.36, dur: 1.7, gain: 0.3 },
   spit: { at: 15.18, dur: 0.85, gain: 0.16 },
-  breath: { at: 16.15, dur: 1.2, gain: 0.14 },
+  hurl: { at: 16.15, dur: 1.2, gain: 0.14 },
   smash: { at: 17.47, dur: 1.2, gain: 0.3 },
   hit: { at: 18.79, dur: 0.5, gain: 0.14 },
   enrage: { at: 19.41, dur: 1.5, gain: 0.24 },

@@ -13,7 +13,7 @@ import { resolve, dirname, join } from "node:path";
 const USAGE = `
 shoot-boss-fx — photograph every boss beat where it actually lands.
 
-  node tools/shoot-boss-fx.mjs [--beats rake,breath,smash,erupt,doom,roar]
+  node tools/shoot-boss-fx.mjs [--beats volley,smash,fissure,doom,roar]
                                [--out <dir>] [--shots 6] [--rate 0.35]
                                [--file dist/km5.html]
 
@@ -38,7 +38,7 @@ const file = resolve(flag("file", join(ROOT, "dist/km5.html")));
 const outDir = resolve(flag("out", join(ROOT, "masters/fx/boss-shots")));
 const shots = Number(flag("shots", 6));
 const rate = Number(flag("rate", 0.35));
-const beats = flag("beats", "rake,breath,smash,erupt,doom,roar").split(",");
+const beats = flag("beats", "volley,smash,fissure,doom,roar").split(",");
 const gap = Number(flag("gap", 400));
 
 if (!existsSync(file)) {
@@ -164,7 +164,7 @@ for (let i = 0; i < 200; i++) {
   await sleep(200);
 }
 
-await sleep(2500);
+await sleep(9000);
 await evaluate(`(() => {
   const s = window.__SIEGE__;
   s.states.halt({ freeze: false });
@@ -174,10 +174,9 @@ await evaluate(`(() => {
 await sleep(600);
 
 const STATE = {
-  rake: "boss.rake",
-  breath: "boss.breath",
+  volley: "boss.volley",
   smash: "boss.smash",
-  erupt: "boss.smash",
+  fissure: "boss.fissure",
   doom: "boss.doom",
   roar: "boss.doom",
 };
@@ -210,7 +209,7 @@ for (const beat of beats) {
   await evaluate(`(() => {
     const s = window.__SIEGE__;
     s.states.rate(${rate});
-    s.director.turn = ${beat === "erupt" ? 3 : 0};
+    s.director.turn = ${beat === "fissure" ? 3 : 0};
     s.states.run("${state}");
     return true;
   })()`);

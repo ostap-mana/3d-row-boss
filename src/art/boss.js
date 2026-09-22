@@ -918,35 +918,6 @@ export class Boss extends Container {
     tween(this.pose, { charge: 0 }, 0.26, { delay: 0.2 });
   }
 
-  async lavaBreath(hold) {
-    const h = hold === undefined ? 0.55 : hold;
-
-    await tween(
-      this.pose,
-      { breath: 0.86, lean: -18, charge: 0.85, jaw: 0.1, headY: -26 },
-      0.26,
-      { ease: Ease.quadOut },
-    );
-    sfx.bossBreath(h);
-
-    await tween(
-      this.pose,
-      { breath: 1.16, lean: 34, charge: 1, jaw: 1, headY: 22 },
-      0.14,
-      { ease: Ease.backOut },
-    );
-    this.pose.wob = 0.7;
-    this.pose.wobT = 0;
-    this.blast(this.mouth, 14, 340, 0.55);
-
-    tween(this.pose, { lean: 24, headY: 16 }, h, { ease: Ease.quadOut });
-    tween(this.pose, { jaw: 0, breath: 1, lean: 0, headY: 0 }, 0.38, {
-      delay: h,
-      ease: Ease.quadOut,
-    });
-    tween(this.pose, { charge: 0 }, 0.3, { delay: h });
-  }
-
   async smash() {
     await tween(
       this.pose,
@@ -978,11 +949,10 @@ export class Boss extends Container {
     tween(this.pose, { jaw: 0 }, 0.3, { delay: 0.12, ease: Ease.quadOut });
   }
 
-  async rake(side) {
+  async hurl(side) {
     const dir =
       side === undefined ? (rand() < 0.5 ? -1 : 1) : side < 0 ? -1 : 1;
 
-    sfx.bossRoar();
     await tween(
       this.pose,
       {
@@ -1000,7 +970,6 @@ export class Boss extends Container {
     await delay(0.1);
     if (!this.alive) return dir;
 
-    sfx.bossSmash();
     await tween(
       this.pose,
       {

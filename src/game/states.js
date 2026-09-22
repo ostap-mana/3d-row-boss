@@ -1,5 +1,6 @@
 import {
   ARCANE,
+  BOSS_ATTACKS,
   COLS,
   FIRE,
   GEM_COLORS,
@@ -19,9 +20,15 @@ const SLOW_FLOOR = 0.01;
 
 const BUSY_CAP = 12000;
 
-function attackArgs(d) {
-  const attack = d.currentAttack();
-  return [attack, d.pickObsidian(attack)];
+function attackArgs(kind) {
+  return (d) => {
+    const live = d.currentAttack();
+    const base = BOSS_ATTACKS.find((a) => a.kind === kind);
+    const attack = base
+      ? { ...live, kind, targets: base.targets, shout: base.shout }
+      : live;
+    return [attack, d.pickObsidian(attack)];
+  };
 }
 
 function openCell(d) {
@@ -36,9 +43,24 @@ function openCell(d) {
 
 const STATES = [
   { name: "boss.turn", group: "boss", fn: "bossTurn" },
-  { name: "boss.rake", group: "boss", fn: "bossRake", args: attackArgs },
-  { name: "boss.breath", group: "boss", fn: "bossBreath", args: attackArgs },
-  { name: "boss.smash", group: "boss", fn: "bossSmash", args: attackArgs },
+  {
+    name: "boss.volley",
+    group: "boss",
+    fn: "bossVolley",
+    args: attackArgs("volley"),
+  },
+  {
+    name: "boss.fissure",
+    group: "boss",
+    fn: "bossFissure",
+    args: attackArgs("fissure"),
+  },
+  {
+    name: "boss.smash",
+    group: "boss",
+    fn: "bossSmash",
+    args: attackArgs("smash"),
+  },
   { name: "boss.mend", group: "boss", fn: "bossMend" },
   {
     name: "boss.snap",
@@ -320,9 +342,8 @@ const FX = [
   { n: "rise", g: "boss", a: () => [0.6] },
   { n: "roar", g: "boss" },
   { n: "spit", g: "boss" },
-  { n: "lavaBreath", g: "boss", a: () => [0.9] },
   { n: "smash", g: "boss" },
-  { n: "rake", g: "boss", a: () => [1] },
+  { n: "hurl", g: "boss", a: () => [1] },
   { n: "mend", g: "boss", a: () => [0.9] },
   { n: "hit", g: "boss", a: () => [0.8] },
   { n: "spawnAsh", g: "boss", a: () => [14, 1] },
@@ -362,7 +383,7 @@ const FX = [
     g: "vfx",
     a: (c) => [c.at, c.el, c.color, c.light, c.cell * 2, c.cell * 2, true],
   },
-  { n: "bossSwing", g: "vfx", a: (c) => ["rake", c.at] },
+  { n: "bossSwing", g: "vfx", a: (c) => ["fissure", c.at] },
   { n: "mend", g: "vfx", a: (c) => [c.at] },
   {
     n: "mendMotes",
@@ -375,10 +396,8 @@ const FX = [
   { n: "lick", g: "vfx", a: (c) => [c.at, c.color, 1, 0] },
   { n: "flash", g: "vfx", a: (c) => [c.color, 0.35, 0.4] },
   { n: "lob", g: "vfx", a: (c) => [c.top, c.at, c.color] },
-  { n: "jet", g: "vfx", a: (c) => [c.top, c.at] },
   { n: "cone", g: "vfx", a: (c) => [c.top, c.at, c.color] },
   { n: "shock", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color] },
-  { n: "claw", g: "vfx", a: (c) => [c.at.x, c.at.y, c.color] },
   { n: "wave", g: "vfx", a: (c) => [c.top.y, c.at.y, c.color] },
   { n: "sweep", g: "vfx", a: (c) => [c.color] },
 

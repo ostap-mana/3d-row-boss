@@ -45,6 +45,7 @@ import { loadFireArt } from "./art/fire.js";
 import { loadSpellArt } from "./art/spells.js";
 import { loadStreamArt } from "./art/streams.js";
 import { loadBoltArt } from "./art/bolts.js";
+import { loadShardArt } from "./art/shards.js";
 import { loadGemPopArt } from "./art/gempop.js";
 import { loadGemChargeArt } from "./art/gemcharge.js";
 import { loadOutcomeFigures, rewindFigures } from "./art/figures.js";
@@ -845,6 +846,7 @@ async function boot() {
       loadSpellArt,
       loadStreamArt,
       loadBoltArt,
+      loadShardArt,
       loadFireArt,
       loadOutcomeFigures,
     ]) {

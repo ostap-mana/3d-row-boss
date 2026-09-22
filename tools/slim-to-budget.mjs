@@ -52,7 +52,6 @@ if (!existsSync(FROM)) {
 }
 
 const PINNED = [
-  [/^fx.claw-rake\.webp$/, "art/rake.js"],
   [/^fx.torrent-sheet\.webp$/, "art/streams.js"],
   [/^fx.fire-lance\.webp$/, "art/streams.js"],
   [/^fx.fire-sheet\.webp$/, "art/fire.js"],
@@ -64,11 +63,7 @@ const PINNED = [
 
 const DERIVED = [[/^fx.[a-z]+-sheet\.webp$/, 5]];
 
-const KEEP = [
-  /^fx.claw-rake\.webp$/,
-  /^fx.torrent-sheet\.webp$/,
-  /^fx.fire-lance\.webp$/,
-];
+const KEEP = [/^fx.torrent-sheet\.webp$/, /^fx.fire-lance\.webp$/];
 
 const PROFILES = {
   light: { derived: [0.94, 76], flat: [1, 82], pinnedQ: 80, clipCrf: 26 },

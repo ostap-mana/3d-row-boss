@@ -1,0 +1,111 @@
+{
+ "1": {
+  "class_type": "UnetLoaderGGUF",
+  "inputs": {
+   "unet_name": "Wan2.2-TI2V-5B-Q5_K_M.gguf"
+  }
+ },
+ "2": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+   "type": "wan"
+  }
+ },
+ "3": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "wan2.2_vae.safetensors"
+  }
+ },
+ "4": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "the burst opens wider for an instant, throwing its molten chunks and torn flame outward, then loses its heat and collapses: the fire breaks into drifting embers, the glowing rocks go dark, and the frame ends completely black, pure black background, nothing else in frame, static locked camera, painted game explosion vfx, violet and magenta fire with a white hot core and gold sparks, isolated on a pure black background, nothing else in frame, static locked camera"
+  }
+ },
+ "5": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "candle, pencil, stick, vase, torch, lamp, object, toy, person, face, hands, creature, monster, room, floor, ground, wall, sky, landscape, table, text, letters, watermark, logo, ui, interface, camera movement, zoom, pan, grey background, white background, gradient background, blurry, washed out, low contrast, dim, rainbow, green, cyan, teal"
+  }
+ },
+ "7": {
+  "class_type": "Wan22ImageToVideoLatent",
+  "inputs": {
+   "vae": [
+    "3",
+    0
+   ],
+   "width": 512,
+   "height": 512,
+   "length": 41,
+   "batch_size": 1,
+   "start_image": [
+    "11",
+    0
+   ]
+  }
+ },
+ "8": {
+  "class_type": "ModelSamplingSD3",
+  "inputs": {
+   "model": [
+    "1",
+    0
+   ],
+   "shift": 8
+  }
+ },
+ "9": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "8",
+    0
+   ],
+   "positive": [
+    "4",
+    0
+   ],
+   "negative": [
+    "5",
+    0
+   ],
+   "latent_image": [
+    "7",
+    0
+   ],
+   "seed": 142882965,
+   "steps": 30,
+   "cfg": 5,
+   "sampler_name": "uni_pc",
+   "scheduler": "simple",
+   "denoise": 1
+  }
+ },
+ "10": {
+  "class_type": "SaveLatent",
+  "inputs": {
+   "samples": [
+    "9",
+    0
+   ],
+   "filename_prefix": "boss-lat/magma-i2v-b"
+  }
+ },
+ "11": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "bossfx-start-fire-attack.png"
+  }
+ }
+}

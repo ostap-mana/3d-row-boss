@@ -8,24 +8,84 @@ the section below says how. The prompt sheets further down are kept for the two
 things they still explain: what each beat has to read as, and what a generated
 take has to look like to be usable at all.
 
-## How the beats are made now, September 22
+## Three attacks, September 22 — up, across, out of the floor
 
-Every boss attack draws one painted plate through `vfx.bossSwing`, and all of them
-but the slam are painted by `tools/pack-boss-beat.mjs` off the Invokers build's own
-FX masks. The geometry lives in one place, `BOSS_FX` in `src/config.js`, and
-`Director.bossPlate` reads it: every size is a fraction of the **board**, not of the
-stage, because a stage-wide plate on a phone stops being a shape and becomes a
-contour drawn around the whole grid.
+The set was cut to three, and every one of them now has a different vector on
+screen. CLAW RAKE, LAVA BREATH and ERUPTION are gone: their plates were flat
+violet silhouettes off the build's masks, and over twenty-five saturated gem
+circles a flat silhouette on the add blend is a colour wash, not a hit.
 
-| beat | source mask | sheet |
+| beat | what the player sees | how it is drawn |
 | --- | --- | --- |
-| CLAW RAKE | `masters/fx/painted/claw-page.png`, by `pack-painted-beat.mjs` | `rake-sheet.webp` |
-| MAGMA SLAM | `masters/fx/painted/fist-page-40.png`, by `pack-painted-beat.mjs` | `magma-sheet.webp` |
-| LAVA BREATH | `T_FX_Fire_3_1_4x3` | `breath-sheet.webp` |
-| MAGMA SLAM, fallback | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
-| ERUPTION | `T_FX_Smoke_4_1_4x4_A` | `erupt-sheet.webp` |
+| MAGMA SLAM | one bright column up through the board, single target | `magma-sheet.webp`, the painted fist page, `bossPlate("smash")` |
+| OBSIDIAN VOLLEY | hard dark rock crossing the screen into the card row, all targets | `shard-sheet.webp` through `vfx.shardVolley`, **not a plate** |
+| THE GROUND SPLITS | a molten tear opening across the board's lower rows, all targets, turn 3 on | `fissure-sheet.webp`, `bossPlate("fissure")` |
 | CATACLYSM | `T_FX_Glow_Flash_11_2_4x4` | `doom-sheet.webp` |
 | ENRAGE ROAR | `T_FX_Smoke_11_1_4x4` | `roar-sheet.webp` |
+| MAGMA SLAM, fallback | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
+
+Three things about this set are load-bearing and were all measured, not assumed.
+
+**`vfx` draws ABOVE the gems.** `world.addChild(bg, lavaMask, bossLayer, board,
+heroRow, vfx, hud, ...)` in `src/main.js` — the vfx field is index 5, the board
+is 3 and the card row is 4. Everything earlier in this file that says the plate
+sits under the gems is false. It matters because it inverts the whole recipe: on
+the add blend black is nothing, so a silhouette can only ever brighten the grid,
+which is the wash. On the **normal** blend with a real alpha cut, a dark body
+*occludes* the gems, and the eye finds a hole in a bright grid faster than it
+finds a glow. Both new beats are `blend: "normal"`, and so is the slam.
+
+**The volley is not a plate at all.** A square flipbook cannot start at the boss
+and end on the card row, so `vfx.shardVolley(from, targets, opts)` flies one
+sprite per target off `src/art/shards.js`. `VOLLEY.fan` launches each shard from
+a point already pushed toward its own target and `VOLLEY.bow` bends its path, so
+no two share a lane — without those two the eight of them go down the screen
+centre in one stripe and read as a single grey smear.
+
+**Board-relative, still.** Every size is a fraction of `board.size`, never the
+stage, for the reason the old note gives.
+
+### The sheets these attacks ship as
+
+```
+node tools/pack-shards.mjs --cell 192 --out src/assets/boss/shard-sheet.webp
+
+node tools/paint-beat.mjs --crack 10 --out masters/fx/painted/fissure-page.png   --cols 5 --cell 320 --gutter 44 --ramp magma --rim 7 --crust 0.09 --seam 0.5   --seam-scale 5 --flow 1.2 --embers 26 --shards 7 --shard-size 7 --smoke 0.4   --ground 0.5 --cool 1,0.55 --gain 1,0.85 --seed 11
+
+node tools/pack-painted-beat.mjs --src masters/fx/painted/fissure-page.png   --out src/assets/fx/fissure-sheet.webp --frames 10 --take 1,2,3,4,5,6,7,8,9,10   --cell 320 --align cell --gain 1.1 --alpha 70 --contact
+```
+
+`shard-sheet.webp` stays under `src/assets/boss/`. Move it to `src/assets/fx/`
+and `src/art/spells.js` globs `*-sheet.webp` and slices the 4-column sheet as a
+5-column flipbook into garbage.
+
+**The slam was playing a third too fast.** `magma-sheet.webp` is 820x1312, pitch
+164, eight rows — **forty frames**. `BOSS_FX.smash.seconds` was still the 0.8 the
+thirty-frame page was tuned to, which is 50 fps against a beat authored at 37.5.
+It is 1.07 now. Every judgement made against the fist before this was made
+against a beat playing at 4/3 speed.
+
+## tools/paint-beat.mjs — five layers, not one ramp
+
+`pack-boss-beat.mjs` paints a mask by inside-distance alone: a hot rim and a
+hollow belly, which is the neon outline the board reads as UI. `paint-beat.mjs`
+gives a beat a body instead — near-black crust mottled with noise, molten seams
+from a domain-warped ridge field that scrolls frame to frame, a torn rim whose
+depth is itself noise so the edge tears instead of tracing the silhouette,
+ember streaks with their own lives across the beat, and smoke built from the
+frames behind this one. It writes a painted **page** on black with real gutters,
+which is exactly what `pack-painted-beat.mjs` already knows how to cut.
+
+`--crack <n>` skips the flipbook entirely and draws a splitting crack: a jagged
+centreline whose gap opens along its length, rock lips on both sides, flame
+licks climbing out of the widest part. That is where the fissure comes from —
+the build's own fire masks all read as *fire*, and what the beat had to say was
+*the floor tore*.
+
+Two things it cannot do, learned by doing them: the procedural obsidian chips
+(`--shards`) are convincing at 320 px and read as pebbles below about 120, and
+`T_FX_Obj_Rocks_1_1_3x3_A` is unusable as a plate — 128x128 for nine frames is a
+42 px cell.
 
 ```
 node tools/pack-boss-beat.mjs --src masters/fx/invokers/T_FX_Smoke_4_1_4x4_A.png \

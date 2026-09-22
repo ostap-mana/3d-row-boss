@@ -69,17 +69,6 @@ const SHEETS = [
     q: 82,
   },
   {
-    rel: "fx/claw-rake.webp",
-    cols: 4,
-    cell: "640x377",
-    pad: 2,
-    count: 12,
-    grids: 2,
-    block: 1139,
-    scale: 0.58,
-    q: 76,
-  },
-  {
     rel: "fx/torrent-sheet.webp",
     cols: 4,
     cell: "512x152",

@@ -22,6 +22,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { streamArt } from "../art/streams.js";
+import { shardTexture } from "../art/shards.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
@@ -33,10 +34,12 @@ import {
   HITP,
   IMPACT_FX,
   MEND_FX,
+  OBSIDIAN,
   SHARD,
   SPARK,
   ULT_CALL,
   ULT_FX,
+  VOLLEY,
 } from "../config.js";
 
 const MAX_PARTICLES = 320;
@@ -1278,6 +1281,87 @@ export class Vfx extends Container {
       }
       await delay(0.055);
     }
+  }
+
+  shardVolley(from, targets, opts) {
+    if (!targets || !targets.length) return Promise.resolve();
+    const o = opts || {};
+    const size = o.size || 90;
+    const flight = o.flight || VOLLEY.flight;
+    const stagger = o.stagger || VOLLEY.stagger;
+
+    return Promise.all(
+      targets.map((to, i) => {
+        const art = shardTexture(i + (o.seed || 0));
+        const lead = i * stagger;
+        const span = flight * rndRange(0.9, 1.12);
+        const spin =
+          rndRange(VOLLEY.spin[0], VOLLEY.spin[1]) * (i % 2 ? -1 : 1);
+        const wide = size * rndRange(0.86, 1.14);
+        const lift = Math.abs(to.x - from.x) * VOLLEY.arc + wide * 0.6;
+        const mouth = {
+          x: from.x + (to.x - from.x) * VOLLEY.fan,
+          y: from.y + (to.y - from.y) * VOLLEY.fan * 0.35,
+        };
+        const bow = (to.x - from.x) * VOLLEY.bow;
+
+        const glow = new Sprite(glowTexture());
+        glow.anchor.set(0.5);
+        glow.blendMode = "add";
+        glow.tint = OBSIDIAN.seam;
+        glow.setSize(wide * VOLLEY.glow, wide * VOLLEY.glow);
+        glow.alpha = 0;
+        this.field.addChild(glow);
+
+        const rock = art ? new Sprite(art) : null;
+        if (rock) {
+          rock.anchor.set(0.5);
+          rock.setSize(wide * VOLLEY.from, wide * VOLLEY.from);
+          rock.rotation = rndRange(0, Math.PI * 2);
+          rock.alpha = 0;
+          this.field.addChild(rock);
+        }
+
+        const seed = rock ? rock.rotation : 0;
+
+        return delay(lead)
+          .then(
+            () =>
+              new Promise((done) => {
+                tweenValue(0, 1, span, (p) => {
+                  const e = Ease.quadIn(p);
+                  const swell = Math.sin(Math.PI * e);
+                  const x = mouth.x + (to.x - mouth.x) * e + swell * bow;
+                  const y =
+                    mouth.y + (to.y - mouth.y) * e - swell * lift * VOLLEY.hang;
+                  const grow = VOLLEY.from + (1 - VOLLEY.from) * e;
+                  const fade = p < 0.12 ? p / 0.12 : 1;
+
+                  glow.x = x;
+                  glow.y = y;
+                  glow.setSize(
+                    wide * VOLLEY.glow * grow,
+                    wide * VOLLEY.glow * grow,
+                  );
+                  glow.alpha = VOLLEY.glowAlpha * fade;
+
+                  if (rock && !rock.destroyed) {
+                    rock.x = x;
+                    rock.y = y;
+                    rock.rotation = seed + spin * e;
+                    rock.setSize(wide * grow, wide * grow);
+                    rock.alpha = fade;
+                  }
+                }).then(done);
+              }),
+          )
+          .then(() => {
+            glow.destroy();
+            if (rock && !rock.destroyed) rock.destroy();
+            this.burst(to.x, to.y, OBSIDIAN.seamHot, VOLLEY.chips, 0.9);
+          });
+      }),
+    );
   }
 
   async sweep(color) {

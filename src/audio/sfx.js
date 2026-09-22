@@ -439,21 +439,19 @@ export function bossSpit() {
   tone({ freq: 90, to: 150, dur: 0.24, gain: 0.1, type: "sawtooth", cut: 900 });
 }
 
-export function bossBreath(hold) {
-  const dur = 0.5 + (hold || 0.6);
-  if (samples.play("breath", { rate: 1.2 / dur })) return;
+export function bossHurl() {
+  const dur = 0.62;
+  if (samples.play("hurl", { rate: 1.2 / dur })) return;
   noise({
     type: "bandpass",
-    freq: 700,
-    to: 2000,
+    freq: 900,
+    to: 2400,
     dur,
-    gain: 0.17,
-    q: 0.5,
-    attack: 0.14,
-    hold: dur * 0.4,
+    gain: 0.16,
+    q: 0.7,
+    attack: 0.04,
   });
-  noise({ type: "lowpass", freq: 400, to: 180, dur, gain: 0.12, attack: 0.2 });
-  tone({ freq: 70, to: 52, dur, gain: 0.12, type: "sawtooth", cut: 500 });
+  tone({ freq: 96, to: 150, dur: 0.3, gain: 0.11, type: "sawtooth", cut: 900 });
 }
 
 export function bossSmash() {

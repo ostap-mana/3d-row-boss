@@ -73,19 +73,6 @@ function grid(label, rel, g) {
 }
 
 {
-  const s = source("art/rake.js");
-  const g = {
-    cols: num(s, "cols", "rake.js"),
-    cellW: num(s, "cellW", "rake.js"),
-    cellH: num(s, "cellH", "rake.js"),
-    pad: num(s, "pad", "rake.js"),
-    count: num(s, "count", "rake.js"),
-    block: num(s, "block", "rake.js"),
-  };
-  grid("rake.js", "fx/claw-rake.webp", g);
-}
-
-{
   const s = source("art/streams.js");
   const blocks = s.split(/\n\s{4}(?=cols:)/).slice(1);
   const files = ["fx/torrent-sheet.webp", "fx/fire-lance.webp"];

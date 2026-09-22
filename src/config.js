@@ -42,6 +42,21 @@ export const OBSIDIAN = {
   seamHot: 0xffc247,
 };
 
+export const VOLLEY = {
+  size: 0.19,
+  fan: 0.34,
+  bow: 0.18,
+  flight: 0.3,
+  stagger: 0.04,
+  spin: [1.6, 3.4],
+  arc: 0.14,
+  hang: 1,
+  from: 0.78,
+  glow: 1.5,
+  glowAlpha: 0.34,
+  chips: 8,
+};
+
 export const SNAP = {
   on: false,
   times: 6,
@@ -311,10 +326,9 @@ export const COPY = {
   lavaHint: "BREAK IT",
   snap: "NOT THAT ONE!",
   ultClear: "BOARD CLEARED!",
-  breath: "LAVA BREATH!",
   smash: "MAGMA SLAM!",
-  rake: "CLAW RAKE!",
-  eruption: "ERUPTION!",
+  volley: "OBSIDIAN VOLLEY!",
+  fissure: "THE GROUND SPLITS!",
   ultHeal: "TEAM HEALED!",
   mend: `${BOSS_NAME} MENDS!`,
   doomLabel: "CATACLYSM",
@@ -359,48 +373,34 @@ export const HERO_HP_FLOOR = 0;
 export const HERO_CRITICAL = 0.42;
 
 export const BOSS_ATTACKS = [
-  {
-    kind: "rake",
-    targets: "lowest",
-    damage: 0.15,
-    splash: 0.045,
-    shout: COPY.rake,
-  },
-  { kind: "breath", targets: "all", damage: 0.085, shout: COPY.breath },
+  { kind: "volley", targets: "all", damage: 0.095, shout: COPY.volley },
   {
     kind: "smash",
     targets: "lowest",
-    damage: 0.27,
+    damage: 0.24,
     splash: 0.05,
     shout: COPY.smash,
   },
   {
-    kind: "smash",
+    kind: "fissure",
     targets: "all",
-    damage: 0.11,
-    obsidianBonus: 3,
-    shout: COPY.eruption,
+    damage: 0.092,
+    obsidianBonus: 2,
+    shout: COPY.fissure,
     from: 3,
   },
 ];
 
 export const BOSS_FX = {
-  rake: {
-    wide: 1.06,
-    depth: 0.46,
-    grow: 0.16,
-    seconds: 0.46,
+  fissure: {
+    blend: "normal",
+    glow: 0.45,
+    wide: 1.02,
+    depth: 0.74,
+    grow: 0.06,
+    seconds: 0.45,
     alpha: 1,
-    shake: 15,
-    shakeSeconds: 0.38,
-  },
-  breath: {
-    wide: 1.05,
-    depth: 0.92,
-    grow: 0.28,
-    seconds: 0.56,
-    alpha: 0.95,
-    shake: 10,
+    shake: 16,
     shakeSeconds: 0.5,
   },
   smash: {
@@ -409,19 +409,10 @@ export const BOSS_FX = {
     wide: 1.18,
     depth: 0.58,
     grow: 0,
-    seconds: 0.8,
+    seconds: 1.07,
     alpha: 1,
     shake: 20,
     shakeSeconds: 0.55,
-  },
-  erupt: {
-    wide: 1.0,
-    depth: 0.54,
-    grow: 0.2,
-    seconds: 0.6,
-    alpha: 1,
-    shake: 22,
-    shakeSeconds: 0.6,
   },
   doom: {
     wide: 1.62,

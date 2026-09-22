@@ -42,7 +42,7 @@ pack-torrent — the water jet clip into one sprite sheet.
                   times what the picture does; a matte carried as grey is
                   lossy like everything else. Draws with the normal blend, so
                   the paint keeps its own colour rather than washing out over
-                  a lit board. See art/rake.js, which does the same.
+                  a lit board.
   --opaque        no alpha plane: the coverage is multiplied into the colour
                   and the sheet ships flat on black, for a flipbook that goes
                   on with the add blend, where black already is transparency.

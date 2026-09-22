@@ -21,6 +21,7 @@ import {
   ULT_HEAL_FLOOR,
   ULT_HEAL_TO,
   ULT_PACE,
+  VOLLEY,
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
@@ -1299,12 +1300,12 @@ export class Director {
 
     const cells = this.pickObsidian(attack);
 
-    if (attack.kind === "rake") {
-      await this.bossRake(attack, cells);
-    } else if (attack.kind === "smash") {
-      await this.bossSmash(attack, cells);
+    if (attack.kind === "volley") {
+      await this.bossVolley(attack, cells);
+    } else if (attack.kind === "fissure") {
+      await this.bossFissure(attack, cells);
     } else {
-      await this.bossBreath(attack, cells);
+      await this.bossSmash(attack, cells);
     }
     this.turn++;
   }
@@ -1340,42 +1341,65 @@ export class Director {
     return drawn;
   }
 
-  async bossRake(attack, cells) {
-    const { boss, hud } = this.s;
+  async bossVolley(attack, cells) {
+    const { boss, hud, vfx, heroRow, shake, layout } = this.s;
 
-    hud.shout(attack.shout || COPY.rake, 0.4, { fill: 0xff5a6e, from: 1.4 });
-    await boss.rake();
+    hud.shout(attack.shout || COPY.volley, 0.4, {
+      fill: OBSIDIAN.seamHot,
+      from: 1.4,
+    });
+    await boss.hurl();
     if (this.settled()) return;
 
-    this.bossPlate("rake");
+    sfx.bossHurl();
+    shake(11, 0.3);
 
-    const spreading = this.dropObsidian(cells, 0.06);
+    const from = boss.impactPoint();
+    const marks = heroRow.cards.map((card, i) => heroRow.cardPoint(i));
+    const buried = cells.map((cell) => this.centroid([cell]));
 
-    await delay(0.2);
+    const flying = vfx
+      .shardVolley(from, marks.concat(buried), {
+        size: layout.board.size * VOLLEY.size,
+        seed: this.turn,
+      })
+      .then(() => {
+        if (this.settled()) return;
+        shake(6, 0.18);
+      });
+
+    const landing = delay(VOLLEY.flight * 0.82).then(() => {
+      if (this.settled()) return null;
+      return this.eruptObsidian(cells);
+    });
+
+    await delay(VOLLEY.flight * 0.9);
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-    await Promise.all([spreading, falling, delay(0.22)]);
+    await Promise.all([flying, landing, falling]);
   }
 
-  async bossBreath(attack, cells) {
+  async bossFissure(attack, cells) {
     const { boss, hud } = this.s;
 
-    hud.shout(attack.shout || COPY.breath, 0.4, { from: 1.4 });
-    await boss.lavaBreath(0.62);
+    hud.shout(attack.shout || COPY.fissure, 0.4, {
+      fill: OBSIDIAN.seam,
+      from: 1.4,
+    });
+    boss.roar();
+    await delay(0.3);
     if (this.settled()) return;
 
-    this.bossPlate("breath");
+    this.bossPlate("fissure");
 
-    const flame = delay(0.5);
-    const spreading = this.dropObsidian(cells, 0.1);
+    const spreading = this.dropObsidian(cells, 0.08);
 
-    await delay(0.22);
+    await delay(0.24);
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-
-    await Promise.all([flame, spreading, falling]);
+    await Promise.all([spreading, falling, delay(0.26)]);
   }
 
   async bossSmash(attack, cells) {
@@ -1385,7 +1409,7 @@ export class Director {
     await boss.smash();
     if (this.settled()) return;
 
-    this.bossPlate(attack.targets === "all" ? "erupt" : "smash");
+    this.bossPlate("smash");
 
     const spreading = this.eruptObsidian(cells);
 
