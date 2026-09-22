@@ -64,6 +64,30 @@ has to be set again after every halt or the plate is gone before the first frame
 lands, and a screenshot costs a few hundred milliseconds, so `--plates` fires the
 plate on its own rather than waiting out the rig animation that leads the beat.
 
+## A painted still is a beat waiting to happen
+
+`masters/hint/fire-attack.png` is one hand-painted magma burst on black, and it is
+the look the slam was always after. `tools/pack-still-beat.mjs` turns that one
+frame into the ten the fight needs: every cell is the same art pushed wider, its
+gain falling away, its colour cooling from white through gold to deep red, and the
+late cells eaten from the middle outward so the fire tears into islands instead of
+shrinking as one lump. The centre stays open the whole way, which is what lets the
+board read through the hit.
+
+```
+node tools/pack-still-beat.mjs --src masters/hint/fire-attack.png \
+  --out src/assets/fx/magma-sheet.webp --strip
+```
+
+`BOSS_SPELLS.smash` is `["magma", "slam"]`, so the painted plate wins and the
+mask-painted slam stays behind it as the fallback.
+
+Image-to-video was tried on the same still first — `gen-boss-fx.mjs --from
+<image>` feeds it to Wan as the first frame. It holds the art for two frames and
+then throws it away: by frame three the burst is a flat magenta flower with the
+painting gone. A still with a synthesised beat keeps the artist's frame exactly;
+the model cannot.
+
 ## What the local ComfyUI gave, and why none of it shipped
 
 Fourteen takes on the local Wan 2.2 TI2V-5B, in two prompt styles, at 384 and at

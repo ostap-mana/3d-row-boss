@@ -404,8 +404,8 @@ export const BOSS_FX = {
     shakeSeconds: 0.5,
   },
   smash: {
-    wide: 1.3,
-    depth: 0.72,
+    wide: 1.46,
+    depth: 0.56,
     grow: 0.42,
     seconds: 0.5,
     alpha: 1,

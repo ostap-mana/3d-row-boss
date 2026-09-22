@@ -30,7 +30,7 @@ export const HIT_BY_ELEMENT = {
 const BOSS_SPELLS = {
   rake: "rake",
   breath: "breath",
-  smash: "slam",
+  smash: ["magma", "slam"],
   erupt: ["erupt", "slam"],
   doom: "doom",
   roar: "roar",

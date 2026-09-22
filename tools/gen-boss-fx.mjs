@@ -6,7 +6,7 @@ import {
   readdirSync,
   writeFileSync,
 } from "node:fs";
-import { resolve, dirname, join, sep } from "node:path";
+import { resolve, dirname, join, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const USAGE = `
@@ -15,6 +15,7 @@ gen-boss-fx — KOLTMOS's own beats, generated on the local ComfyUI.
   node tools/gen-boss-fx.mjs --list
   node tools/gen-boss-fx.mjs --print erupt-v1
   node tools/gen-boss-fx.mjs erupt-v1 doom-v1 roar-v1
+  node tools/gen-boss-fx.mjs --from masters/hint/fire-attack.png magma-i2v
   node tools/gen-boss-fx.mjs --decode
   node tools/gen-boss-fx.mjs --clip
   node tools/pack-spells.mjs --contact --start 0 --span 1.3 erupt-v1
@@ -43,6 +44,15 @@ const COMFY = resolve(
   process.env.COMFYUI_ROOT ||
     "C:/Users/Yonix/AppData/Local/Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI",
 );
+
+const START = (() => {
+  const at = process.argv.indexOf("--from");
+  if (at < 0 || !process.argv[at + 1]) return "";
+  const src = resolve(ROOT, process.argv[at + 1]);
+  const name = "bossfx-start-" + basename(src);
+  copyFileSync(src, join(COMFY, "input", name));
+  return name;
+})();
 
 const STYLE =
   "painted 3D mobile-RPG game VFX, semi-realistic, high contrast, " +
@@ -131,6 +141,28 @@ const SHORT_TAKES = [
       "a stream of violet fire sprays toward the camera and opens into a wide " +
       "cone of flame, white hot throat, magenta tongues and gold sparks, " +
       "it roars once and burns out to black",
+  },
+];
+
+const START_TAKES = [
+  {
+    id: "magma-i2v",
+    positive:
+      "the explosion in the frame keeps blowing outward and then burns down: " +
+      "the molten shards and rock chunks fly apart and tumble away, the flame " +
+      "spikes stretch, tear into separate islands and thin out, the white hot " +
+      "core dims through gold to deep red, the last embers drift and wink out, " +
+      "and the frame ends completely black, " +
+      "pure black background, nothing else in frame, static locked camera",
+  },
+  {
+    id: "magma-i2v-b",
+    positive:
+      "the burst opens wider for an instant, throwing its molten chunks and " +
+      "torn flame outward, then loses its heat and collapses: the fire breaks " +
+      "into drifting embers, the glowing rocks go dark, and the frame ends " +
+      "completely black, " +
+      "pure black background, nothing else in frame, static locked camera",
   },
 ];
 
@@ -257,6 +289,7 @@ export function plan(only) {
   const all = [
     ...TAKES.map((t) => ({ ...t, plain: false })),
     ...SHORT_TAKES.map((t) => ({ ...t, plain: true })),
+    ...START_TAKES.map((t) => ({ ...t, plain: true })),
   ];
   return all
     .filter((t) => !want || want.includes(t.id))
@@ -295,6 +328,9 @@ export function sampleGraph({ id, positive, seed, plain }) {
       class_type: "CLIPTextEncode",
       inputs: { clip: ["2", 0], text: plain ? PLAIN_NEGATIVE : NEGATIVE },
     },
+    ...(START
+      ? { 11: { class_type: "LoadImage", inputs: { image: START } } }
+      : {}),
     7: {
       class_type: "Wan22ImageToVideoLatent",
       inputs: {
@@ -303,6 +339,7 @@ export function sampleGraph({ id, positive, seed, plain }) {
         height: H,
         length: LENGTH,
         batch_size: 1,
+        ...(START ? { start_image: ["11", 0] } : {}),
       },
     },
     8: {
