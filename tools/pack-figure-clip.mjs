@@ -41,6 +41,14 @@ subject's own colour left exactly as it was generated.
   away, the trails stay gold and a star, which is nowhere near green, comes
   out whole. --no-light drops it.
 
+  Smoke is the same reading with the sign turned over, and --shade turns it
+  on. A swirl that rolls in over the loss card was never attached to the
+  figure either, so no propagated matte holds it; what it does is stand
+  between the backdrop and the camera without hiding it, taking green away
+  instead of adding gold. Distance from the backdrop answers that too, and the
+  same unmixing gives the colour, so the vortex ships as the translucent thing
+  it is rather than as the opaque grey blob a silhouette makes of it.
+
   --matte <dir>   directory of matte frames, one per source frame, numbered.
                   White is the subject. Required.
   --cell <px>     width of the output; the picture tile is square and the
@@ -59,6 +67,14 @@ subject's own colour left exactly as it was generated.
                   lit on, and every test written on brightness alone dropped
                   its shaded half.
   --no-light      keep only what the matte holds.
+  --dim <n>       how much green a pixel outside the silhouette must have lost
+                  against the backdrop before it counts as smoke at all.
+                  Default 12.
+  --shade <a:b>   how far such a pixel must sit from the backdrop colour
+                  before it is worth keeping, and where it is kept whole. Off
+                  unless given; 45:140 is the loss card's vortex, the floor
+                  set above the backdrop's own vignette so the plate does not
+                  ship a film of itself.
   --fade <px>     how far in from the top and sides alpha ramps to nothing,
                   in output pixels. Default 0 — a matte that never reaches an
                   edge needs none, and the check prints what it found.
@@ -119,6 +135,10 @@ const matteQ = Number(flag("matte-q", 0.2));
 const warm = Number(flag("warm", 8));
 const glow = String(flag("glow", "30:150")).split(":").map(Number);
 const lighting = !args.includes("--no-light");
+const dim = Number(flag("dim", 12));
+const shade = flag("shade", null)
+  ? String(flag("shade", "")).split(":").map(Number)
+  : null;
 const fade = Number(flag("fade", 0));
 const range = String(flag("range", "")).split(":").map(Number);
 
@@ -251,10 +271,12 @@ const out32 = Buffer.alloc(px * 4 * frames);
 const stillPath = flag("still", null);
 const still = stillPath ? Buffer.alloc(px * 4) : null;
 const glowSpan = Math.max(1, glow[1] - glow[0]);
+const shadeSpan = shade ? Math.max(1, shade[1] - shade[0]) : 1;
 const fadeRows = Math.round((fade * side) / cell);
 const rim = { top: 0, left: 0, right: 0, bottom: 0 };
 let untouched = 0;
 let lit = 0;
+let shaded = 0;
 
 for (let f = 0; f < frames; f++) {
   const off = (first + f) * px * 4;
@@ -282,16 +304,23 @@ for (let f = 0; f < frames; f++) {
       pb = b;
       untouched++;
     } else {
-      if (lighting) {
+      if (lighting || shade) {
         const dr = r - bg[0];
         const dg = g - bg[1];
         const db = b - bg[2];
-        if (dr > warm) {
+        const far = Math.hypot(dr, dg, db);
+        if (lighting && dr > warm) {
           shining = true;
-          let al = (Math.hypot(dr, dg, db) - glow[0]) / glowSpan;
+          let al = (far - glow[0]) / glowSpan;
           al = al < 0 ? 0 : al > 1 ? 1 : al;
           if (al > a) a = al;
           lit++;
+        } else if (shade && dg < -dim) {
+          shining = true;
+          let al = (far - shade[0]) / shadeSpan;
+          al = al < 0 ? 0 : al > 1 ? 1 : al;
+          if (al > a) a = al;
+          shaded++;
         }
       }
       if (a > 0 || shining) {
@@ -458,6 +487,7 @@ if (still) {
 
 const held = (100 * untouched) / (px * frames);
 const halo = (100 * lit) / (px * frames);
+const smoke = (100 * shaded) / (px * frames);
 
 process.stdout.write(
   `${basename(input)}  ${srcW}x${srcH}  +  ${sheet.length} matte  ->  ` +
@@ -465,7 +495,8 @@ process.stdout.write(
     `${(statSync(out).size / 1024).toFixed(1)} kB\n${out}\n` +
     stillNote +
     `opaque and untouched ${held.toFixed(1)}% of pixels, ` +
-    `light ${halo.toFixed(2)}%\n` +
+    `light ${halo.toFixed(2)}%` +
+    (shade ? `, smoke ${smoke.toFixed(2)}%\n` : `\n`) +
     `max alpha on an edge: top ${rim.top}, left ${rim.left}, ` +
     `right ${rim.right}, bottom ${rim.bottom}\n` +
     `\n{ w: ${cell}, h: ${cell}, fps: ${fps}, frames: ${frames} }\n`,
