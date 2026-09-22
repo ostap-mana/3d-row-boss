@@ -120,6 +120,22 @@ falls out of frame. The hit then lands in the fight's own vocabulary: `vfx.impac
 on each card, `shake(18, 0.4)` and `sfx.bossSmash`. That is the general lesson
 for any clip like this — **take the figure, leave the effect.**
 
+**There is a better answer for a translucent effect, and it is not a key at all.**
+Subtract the backdrop arithmetically and ship the residual opaque on black for
+the add blend: `lutrgb r-42 g-113 b-42` against this clip's flat 39,110,38
+backdrop, then `pack-video-sheet --opaque`. That is the same arithmetic the board
+does at draw time, so the effect needs no alpha and no unmix — what survives is
+exactly what the light added over the green. Measured on a sheet cut that way, 6
+of 62085 lit pixels came back green-dominant, worst excess 4/255 on a near-black
+pixel. The cost is that the backdrop's green comes off pale glows too, so whites
+land slightly magenta; on this palette that reads as on-tone, and dark smoke
+drops out entirely. Do not "fix" the magenta later — it is the method working.
+
+What that does **not** do is rescue a figure. You cannot have the creature and a
+translucent disc in one alpha clip, because the clip carries one alpha and the
+disc's alpha is not the creature's. If the disc is wanted, it ships as a second
+additive plate over the board, about 10 kB, not inside the clip.
+
 One trap worth naming: the rider is mounted into `vfx.field` once at load and
 lives there hidden. It is not created per beat, because a `VideoSource` takes a
 real load and a real first frame, and building one inside a boss turn would cost

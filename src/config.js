@@ -373,6 +373,7 @@ export const COPY = {
   smash: "MAGMA SLAM!",
   volley: "OBSIDIAN VOLLEY!",
   boulder: "HE TEARS THE HILL LOOSE!",
+  bolt: "HE SPITS A HEXBOLT!",
   rider: "KOLTMOS CALLS A RIDER!",
   ultHeal: "TEAM HEALED!",
   mend: `${BOSS_NAME} MENDS!`,
@@ -427,6 +428,14 @@ export const BOSS_ATTACKS = [
     shout: COPY.smash,
   },
   {
+    kind: "bolt",
+    targets: "lowest",
+    damage: 0.2,
+    splash: 0.045,
+    shout: COPY.bolt,
+    from: 2,
+  },
+  {
     kind: "boulder",
     targets: "all",
     damage: 0.092,
@@ -437,8 +446,8 @@ export const BOSS_ATTACKS = [
   {
     kind: "rider",
     targets: "lowest",
-    damage: 0.19,
-    splash: 0.055,
+    damage: 0.23,
+    splash: 0.07,
     shout: COPY.rider,
     from: 4,
   },
@@ -466,6 +475,14 @@ export const BOSS_FX = {
     alpha: 1,
     shake: 20,
     shakeSeconds: 0.55,
+  },
+  bolt: {
+    wide: 1.16,
+    depth: 0.33,
+    grow: 0.05,
+    seconds: 0.58,
+    alpha: 1,
+    burst: 0.52,
   },
   doom: {
     wide: 1.62,
