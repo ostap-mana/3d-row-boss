@@ -139,6 +139,38 @@ then throws it away: by frame three the burst is a flat magenta flower with the
 painting gone. A still with a synthesised beat keeps the artist's frame exactly;
 the model cannot.
 
+## The other half of the arc: climbing out of the ground
+
+`pack-still-beat` starts on the artist's frame and burns it down, which is the
+whole beat for a hit that lands. An eruption is the mirror of it — nothing, a
+crack of light on the ground, then the column stretching up until the last cell
+is the still. `tools/pack-rise-beat.mjs` writes that: every cell samples the same
+art about one impact point with two scales, a vertical one that extends the
+column and a horizontal one that opens the burst, so the shape is never invented
+and the last cell is the source pixel for pixel. The early cells run over-bright
+and pushed toward white, which is the break-out flash.
+
+```
+node tools/pack-rise-beat.mjs --src masters/hint/lava-fist-onblack.png \
+  --ground 0.9 --hold 0.08 --out masters/hint/lava-fist-rise.webp \
+  --preview masters/hint/lava-fist-rise.mp4
+```
+
+The impact point is measured from the brightest mass by default, which lands in
+the middle of the burst and lets the plate grow downward as well as up.
+`--ground 0.9` puts it on the rock line instead, and that is the difference
+between a burst that inflates and one that erupts. `--frames 24 --cols 6` is for
+looking at; the fight reads 12.
+
+The lava fist came in as a screenshot of a transparent PNG, not the PNG, so the
+source had a checkerboard baked into it. `tools/unchecker.py` fits the pitch,
+origin and parity off the border strips and solves alpha from the difference
+between the two phases, then suppresses what is left by colour — the checker is
+neutral and dim, the art is saturated or bright. It recovers the fire cleanly
+and it cannot recover the smoke, which was semi-transparent over the board: that
+haze is why the mid cells still carry grey blocks. Ask for the file, not the
+screenshot.
+
 ## What the local ComfyUI gave, and why none of it shipped
 
 Fourteen takes on the local Wan 2.2 TI2V-5B, in two prompt styles, at 384 and at
