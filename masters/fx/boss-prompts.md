@@ -20,7 +20,7 @@ contour drawn around the whole grid.
 | beat | source mask | sheet |
 | --- | --- | --- |
 | CLAW RAKE | `masters/fx/painted/claw-page.png`, by `pack-painted-beat.mjs` | `rake-sheet.webp` |
-| MAGMA SLAM | `masters/fx/painted/fist-page.png`, by `pack-painted-beat.mjs` | `magma-sheet.webp` |
+| MAGMA SLAM | `masters/fx/painted/fist-page-40.png`, by `pack-painted-beat.mjs` | `magma-sheet.webp` |
 | LAVA BREATH | `T_FX_Fire_3_1_4x3` | `breath-sheet.webp` |
 | MAGMA SLAM, fallback | `T_FX_Fire_9_1_2x6`, by `pack-slam.mjs` | `slam-sheet.webp` |
 | ERUPTION | `T_FX_Smoke_4_1_4x4_A` | `erupt-sheet.webp` |
@@ -371,12 +371,13 @@ on the approved art and the early ones are free to be a crack in the ground. A
 frame that comes back with the crater in a different place is thrown out, not
 nudged — a moving impact point is the one flaw the packer cannot fix afterwards.
 
-### What came back, and what it ships as
+### What came back, and what it shipped as
 
 One page, sixteen cells, in reading order and already an arc: the ink climbs from
 the first cell to the ninth and falls away to the sixteenth, and the arm is out at
-full height by the third. All sixteen ship as `magma-sheet.webp`, the MAGMA SLAM
-plate `boss.smash` draws, played as thirty frames over 0.8 s.
+full height by the third. All sixteen shipped as `magma-sheet.webp`, the MAGMA
+SLAM plate `boss.smash` draws, played as thirty frames over 0.8 s — until the
+forty-cell page below replaced it.
 
 ```
 node tools/pack-painted-beat.mjs --src masters/fx/painted/fist-page.png \
@@ -436,6 +437,45 @@ cells at the end, and `bossSwing` spends the tail of the beat on nothing. Any
 multiple of five is free. The cell went to 256 because that is where the packer's
 scale lands at 1.0 — the page's own resolution, with nothing spent upsampling it,
 and 63 kB cheaper than the 288 it started at.
+
+## Forty cells, and no interpolation at all
+
+`masters/fx/painted/fist-page-40.png` is the same eruption drawn out to a 8x5
+page, forty cells in reading order, already on black. It replaces the sixteen.
+The `--smooth 30` the old page needed is gone with it: thirty of those frames
+were built by motion compensation because the painter had drawn sixteen, and
+forty painted ones are forty painted ones. That is the whole of what this page
+buys, and it is the only thing that was ever wrong with the beat.
+
+```
+node tools/pack-painted-beat.mjs --src masters/fx/painted/fist-page-40.png \
+  --out src/assets/fx/magma-sheet.webp --frames 40 --cell 160 \
+  --take 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40 \
+  --align ground --alpha 70
+```
+
+The gutters give 8x5 on their own, so `--cols`/`--rows` stay out of it. Forty is
+a multiple of five, so the sheet cuts eight clean rows and `bossSwing` spends
+none of the beat on an empty cell.
+
+`--cell 160` is where this page's scale lands at 1.0, the same argument the old
+`--cell 256` was making about a page with four columns instead of eight: the
+widest frame reaches 134 px, and 160 less the 4% margin is 147, which is a
+scale of 1.055 — near enough native that nothing is spent upsampling detail the
+page does not have. Asking for 256 would have cost about 230 kB of file for a
+2x blur. The sheet lands at 820x1312 and **193 kB, down from 335** — forty real
+frames for 142 kB less than thirty interpolated ones, which after the 1.33x
+base64 markup is about 190 kB off the bundle.
+
+Everything else is unchanged and for the same reasons: `--align ground` because
+the impact point is what must not move on an eruption, `--alpha 70` because
+`smash` is the one boss plate drawn normally rather than added and the fist is
+mostly dark obsidian, and no `--grow` on the plate because the art carries the
+growth.
+
+Shot on the board with `tools/shoot-boss-fx.mjs --beats smash`: the crater sits
+on the bottom row, the fist stands as tall as the grid, and the tail frames go
+to nothing before the sprite is destroyed.
 
 ## The same fist as a Seedance clip
 
