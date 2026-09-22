@@ -412,60 +412,11 @@ export const BLAST = {
   drop: 0.04,
 };
 
-export const SLAM = {
-  wide: 1.42,
-  depth: 0.2,
-  grow: 0.5,
-  seconds: 0.52,
-  hoop: 0xff8a3d,
-  hoopWide: 2.05,
-  hoopAlpha: 0.72,
-  flash: 0xff2a06,
-  flashAlpha: 0.16,
-  flashSeconds: 0.26,
-  band: 0.8,
-};
-
-export const JET = {
-  tint: 0xffffff,
-  core: 0xffc063,
-  smoke: 0x351709,
-  throat: 0xffd08a,
-  alpha: 0.95,
-  bed: 0.58,
-  coreLift: 0.5,
-  reach: 1.12,
-  spread: 1.22,
-  root: 0.04,
-  lip: 0.42,
-  open: 0.14,
-  rate: 1.6,
-  tail: 0.34,
-  wash: 0.42,
-  splash: 0.86,
-  embers: 7,
-  native: 0.66,
-};
-
-export const RAKE_FX = {
-  long: 1.34,
-  wide: 0.78,
-  mid: 0.5,
-};
-
 export const SPARK = {
   hot: 0xfff0d0,
   streak: 2.4,
   fall: 1.9,
   hold: 0.45,
-};
-
-export const FRONT = {
-  alpha: 0.3,
-  lip: 0.9,
-  lead: 0.3,
-  spin: 0.012,
-  embers: 7,
 };
 
 export const BOOM = {

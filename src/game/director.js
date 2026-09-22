@@ -11,10 +11,8 @@ import {
   HEALER,
   MEND_FX,
   OBSIDIAN,
-  RAKE_FX,
   ROWS,
   SCRIPTED_HINT,
-  SLAM,
   SNAP,
   T,
   ULT_CALL,
@@ -641,36 +639,16 @@ export class Director {
   }
 
   async castDoom(lethal) {
-    const { boss, hud, vfx, shake, hitStop, layout } = this.s;
+    const { boss, hud } = this.s;
 
     sfx.doomCast();
     hud.shout(COPY.doomCast, 0.6, { fill: 0xff2f1a, from: 2.8 });
     boss.enrage();
     hud.enrage();
-    shake(18, 0.5, { freq: 0.5 });
     await boss.roar();
     if (this.settled()) return;
 
-    const impact = boss.impactPoint();
-    vfx.shock(impact.x, impact.y, 0xff2a06, {
-      size: layout.stage.w * 2.4,
-      width: 18,
-    });
-    vfx.shock(impact.x, impact.y, 0xffd35a, {
-      size: layout.stage.w * 0.5,
-      width: 8,
-      duration: 0.38,
-      painted: false,
-    });
-    vfx.flash(0xff2a06, 0.85, 0.7);
-    shake(30, 0.9);
-    hitStop(0.92, 0.18);
-
-    const row = layout.cards;
-    const rolling = vfx.wave(impact.y, row.y + row.h * 0.5, 0xff3a06, {
-      thickness: row.h * 2.2,
-      duration: 0.32,
-    });
+    const rolling = delay(0.32);
 
     await delay(0.2);
     if (this.settled()) return;
@@ -1070,19 +1048,12 @@ export class Director {
   }
 
   async bossSnap(cell) {
-    const { board, boss, hud, vfx, shake } = this.s;
+    const { board, boss, hud } = this.s;
 
     hud.shout(COPY.snap, 0.3, { fill: 0xff5a6e, from: 1.2 });
     const thrown = this.bossQueued === 0 ? boss.spit() : null;
-    const p = board.cellPos(cell.r, cell.c);
-    await vfx.lob(
-      boss.mouthPoint(),
-      { x: board.x + p.x, y: board.y + p.y },
-      0xff6a10,
-      { duration: SNAP.flight, size: board.cell * 0.9 },
-    );
+    await delay(SNAP.flight);
     if (this.settled()) return;
-    shake(8, 0.2);
     await board.lockCells([{ ...cell, crust: this.crustLayers() }], {
       onto: true,
     });
@@ -1334,116 +1305,52 @@ export class Director {
   }
 
   async bossRake(attack, cells) {
-    const { boss, hud, vfx, shake, hitStop, layout } = this.s;
+    const { boss, hud } = this.s;
 
     hud.shout(attack.shout || COPY.rake, 0.4, { fill: 0xff5a6e, from: 1.4 });
-    const dir = await boss.rake();
+    await boss.rake();
     if (this.settled()) return;
-
-    const at = boss.impactPoint();
-    const clawY = layout.board.y + layout.board.size * 0.75;
-    const rake = layout.portrait
-      ? {
-          x: layout.board.x + layout.board.size / 2,
-          y: layout.board.y + layout.board.size * RAKE_FX.mid,
-          len: layout.board.size * RAKE_FX.wide,
-        }
-      : { x: at.x, y: clawY, len: layout.stage.w * RAKE_FX.long };
-    shake(16, 0.4, { axis: { x: dir, y: 0.3 }, freq: 1.15 });
-    hitStop(0.6, 0.1);
-    vfx.claw(rake.x, rake.y, 0xff3a5a, {
-      dir,
-      gap: layout.stage.h * 0.032,
-      len: rake.len,
-    });
-    vfx.flash(0xff2a3a, 0.16, 0.3);
 
     const spreading = this.dropObsidian(cells, 0.06);
 
-    const row = layout.cards;
-    await vfx.wave(clawY, row.y + row.h * 0.5, 0xff3a5a, {
-      thickness: row.h * 1.1,
-      duration: 0.2,
-    });
+    await delay(0.2);
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-    shake(11, 0.32);
     await Promise.all([spreading, falling, delay(0.22)]);
   }
 
   async bossBreath(attack, cells) {
-    const { boss, hud, vfx, shake, layout } = this.s;
+    const { boss, hud } = this.s;
 
     hud.shout(attack.shout || COPY.breath, 0.4, { from: 1.4 });
     await boss.lavaBreath(0.62);
     if (this.settled()) return;
 
-    shake(10, 0.5, { freq: 0.45 });
-    const row = layout.cards;
-    const mouth = boss.mouthPoint();
-    const onto = { x: row.x + row.w / 2, y: row.y + row.h * 0.45 };
-    const shape = {
-      hold: 0.5,
-      spread: row.w * 0.9,
-      heat: layout.portrait ? 0.9 : 1,
-      mouth: 44 * layout.ui,
-    };
-    const flame =
-      vfx.jet(mouth, onto, shape) || vfx.cone(mouth, onto, 0xff6a10, shape);
-    vfx.bossSwing(
-      "breath",
-      { x: (mouth.x + onto.x) / 2, y: (mouth.y + onto.y) / 2 },
-      { size: row.w * 1.15, duration: 0.62, alpha: 0.9, grow: 0.3 },
-    );
+    const flame = delay(0.5);
     const spreading = this.dropObsidian(cells, 0.1);
 
     await delay(0.22);
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-    shake(13, 0.45);
-    vfx.flash(0xff5a1f, 0.2, 0.4);
 
     await Promise.all([flame, spreading, falling]);
   }
 
   async bossSmash(attack, cells) {
-    const { hud, boss, vfx, shake, hitStop, layout } = this.s;
+    const { hud, boss } = this.s;
 
     hud.shout(attack.shout || COPY.smash, 0.4, { fill: 0xffb03d, from: 1.4 });
     await boss.smash();
     if (this.settled()) return;
 
-    const impact = boss.fistPoint();
-    const wide = layout.stage.w * SLAM.wide;
-    const ground = layout.board.y + layout.board.size * SLAM.depth;
-    shake(20, 0.55, { axis: { x: 0, y: 1 }, freq: 1.2 });
-    hitStop(0.7, 0.12);
-    vfx.shock(impact.x, ground, SLAM.hoop, {
-      size: layout.stage.w * SLAM.hoopWide,
-      width: 14,
-      tint: SLAM.hoop,
-      alpha: SLAM.hoopAlpha,
-    });
-    vfx.bossSwing(
-      "smash",
-      { x: impact.x, y: ground },
-      { size: wide, duration: SLAM.seconds, grow: SLAM.grow },
-    );
-    vfx.flash(SLAM.flash, SLAM.flashAlpha, SLAM.flashSeconds);
-
     const spreading = this.eruptObsidian(cells);
 
-    const row = layout.cards;
-    await vfx.wave(impact.y, row.y + row.h * 0.5, 0xff6a10, {
-      thickness: row.h * SLAM.band,
-      duration: 0.26,
-    });
+    await delay(0.26);
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-    shake(15, 0.4);
     await Promise.all([spreading, falling, delay(0.32)]);
   }
 
@@ -1492,47 +1399,31 @@ export class Director {
   }
 
   async dropObsidian(cells, wait) {
-    const { board, boss, vfx } = this.s;
+    const { board } = this.s;
     if (cells.length === 0) return;
 
-    const from = boss.mouthPoint();
-    await Promise.all(
-      cells.map((cell, i) => {
-        const p = board.cellPos(cell.r, cell.c);
-        return vfx.lob(from, { x: board.x + p.x, y: board.y + p.y }, 0xff6a10, {
-          delay: (wait || 0) + i * 0.08,
-          duration: 0.42,
-          size: board.cell * 0.9,
-        });
-      }),
-    );
+    await delay((wait || 0) + (cells.length - 1) * 0.08 + 0.42);
     if (this.settled()) return;
     await board.lockCells(cells);
     this.refreshHint();
   }
 
   async eruptObsidian(cells) {
-    const { board, vfx } = this.s;
+    const { board } = this.s;
     if (cells.length === 0) return;
 
-    cells.forEach((cell) => {
-      const p = board.cellPos(cell.r, cell.c);
-      vfx.ring(board.x + p.x, board.y + p.y, OBSIDIAN.seamHot, 170, 7);
-      vfx.burst(board.x + p.x, board.y + p.y, OBSIDIAN.seam, 8, 1.2);
-    });
     await board.lockCells(cells);
     this.refreshHint();
   }
 
   strikeHeroes(attack) {
-    const { heroRow, hud, vfx, layout, hitStop } = this.s;
+    const { heroRow, hud, layout } = this.s;
     if (this.settled()) return Promise.resolve();
     if (this.ultCasting && !attack.unstoppable) return Promise.resolve();
     const targets = heroRow.resolveTargets(attack.targets);
     const solo = targets.length === 1;
     const jobs = [];
     let fell = 0;
-    let held = false;
 
     heroRow.cards.forEach((card, i) => {
       const direct = targets.indexOf(i) !== -1;
@@ -1549,11 +1440,6 @@ export class Director {
       const lift = layout.cards.h * (i % 2 ? 0.42 : 0.06);
       const pop = () => {
         if (this.ended) return;
-        if (!held) {
-          held = true;
-          hitStop(direct ? (solo ? 0.55 : 0.42) : 0.24);
-        }
-        vfx.impact({ x: card.x, y: card.y }, 0xff5a1f, direct ? 0.55 : 0.3);
         hud.damage(lost * HERO_MAX_HP, at.x, at.y - lift, direct ? 1 : 0, {
           sign: "-",
           fill: direct ? 0xff6b5a : 0xffb3a8,

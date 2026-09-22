@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "engine": "pixi",
+  "space": {
+    "width": 375,
+    "height": 667,
+    "yAxis": "down"
+  },
+  "assets": {}
+}
