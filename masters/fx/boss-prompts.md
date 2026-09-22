@@ -480,6 +480,43 @@ weakest of the three and the only one that needs no cell cut off the page.
 The attached art is the finished shape of this effect: match it, and copy nothing else from the picture. One single eruption on a pure black screen. Black rock cracks open with a seam of ember light, a white flash and flying stone bursts out, a thick column of molten magma climbs straight up and gathers into that clenched fist by 1.5 seconds, then it crusts over into black obsidian split by white-hot seams, the thrown rock falls back and the frame burns down to pure black. One continuous rise, no cuts, no second explosion. The crater never moves, low in frame. Painted mobile game spell VFX, white-hot core through gold and orange into deep crimson, pure black background, no ground, no character, no text, no interface. Fixed camera, static shot. --rt 1:1 --dur 5 --rs 1080p --fps 24 --cf true --wm false
 ```
 
+### The sheet itself as the input
+
+Handing the model the whole 4x4 page is the one route that needs nothing cut off
+it, and it carries every frame of the beat at once — but a contact sheet is the
+easiest picture in the world to animate wrongly. A model given a grid animates
+the grid: sixteen little fists jittering in their cells, or the page itself
+drifting. So the first two sentences are not about the effect at all, they are
+about what the picture is and what must not survive from it. This one is written
+to paste anywhere — Seedance, Veo through Gemini, Sora, Kling — with only the
+tail changing per model.
+
+```
+The attached image is a 16-frame sprite sheet of one single VFX animation, read left to right and top to bottom. Play those sixteen frames back as one continuous video effect. Do not show the sheet, the grid, the cells or any borders, no copies, no split screen — one single effect alone, filling the frame. A clenched fist of molten rock erupts straight up out of the ground: black rock cracks open with a seam of ember light, a white flash of light and flying stone bursts out of the crater, a thick column of magma climbs and its top gathers into the fist at full height and peak brightness by 1.5 seconds, the crust closes over the knuckles into black obsidian split by white-hot seams, then the thrown rock falls back, the embers die and the frame burns down to pure black. One continuous rise, no cuts, no second explosion, no looping. The crater stays on one spot low in frame and never moves. Painted mobile game spell VFX, white-hot core through gold and orange into deep crimson, pure black background, nothing else in frame: no ground, no floor, no room, no character, no hands, no text, no interface. Fixed camera, static shot.
+```
+
+On Seedance, append the flags: `--rt 1:1 --dur 5 --rs 1080p --fps 24 --cf true
+--wm false`. It runs long for Seedance's hundred-word ceiling, so if the geometry
+comes back soft, drop the palette sentence first and the timing second — the two
+sentences about the sheet and the "never moves" clause are the ones that cannot
+go.
+
+### Veo, Sora and anything without flags
+
+They have a negative field, which is where the "no" terms belong instead, and
+they have no `--rt 1:1`: Veo renders 16:9 or 9:16 and neither is what
+`bossPlate` draws. So the framing has to be asked for in words and taken in the
+crop afterwards — `the effect dead centre of frame with wide empty black margins
+on both sides, the whole burst inside the middle square` — and the file cropped
+to square before `pack-spells.mjs` ever sees it. A take that fills a 16:9 frame
+edge to edge has no square to cut out of it and is thrown away.
+
+Duration, camera and frame rate go in the request rather than the prompt: 5 s,
+static camera, 24 fps. The NEGATIVE block at the bottom of this file is the one
+to paste, plus `sprite sheet, grid, contact sheet, cells, panel borders, split
+screen, multiple copies, thumbnails` — every term that describes the input
+picture, because that is the failure this route has and the others do not.
+
 ### What has to come back
 
 The five ways the September 22 claw take was unusable are the same five here, and
