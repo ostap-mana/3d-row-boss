@@ -18,7 +18,7 @@ perf-probe — measure what a frame costs in the built creative.
   "npx vite build --minify false --outDir dist-prof" first if you want
   readable names; the shipped bundle works too, just mangled.
 
-  --file <path>   the creative to measure. Default dist/km5.html.
+  --file <path>   the creative to measure. Default dist/km3.html.
   --ms <n>        how long to sample the fight. Default 15000.
   --gap <ms>      pause between bot moves. Default 1200.
   --w/--h/--dpr   the emulated phone. Default 390x844 at 3.
@@ -37,7 +37,7 @@ const flag = (n, d) => {
   return i === -1 ? d : args[i + 1];
 };
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), "..");
-const file = resolve(flag("file", join(ROOT, "dist/km5.html")));
+const file = resolve(flag("file", join(ROOT, "dist/km3.html")));
 const sampleMs = Number(flag("ms", 15000));
 const gap = Number(flag("gap", 1200));
 const dpr = Number(flag("dpr", 3));

@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
-const DELIVERABLE = "km5.html";
+const DELIVERABLE = "km3.html";
 
 const EMITS = [
   "displayed",

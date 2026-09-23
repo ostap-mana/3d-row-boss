@@ -12,7 +12,7 @@ what happened.
 
   Tuning a fight by eye does not work: a run is fifteen seconds long and the
   thing you need to see is a distribution, not a frame. This drives
-  dist/km5.html in headless Chrome through the real input pipeline, plays
+  dist/km3.html in headless Chrome through the real input pipeline, plays
   whole games with the board's own findBestSwap, and logs boss health, moves,
   heroes standing, swaps available, obsidian, and what the pace guard is doing
   at every move.
@@ -35,7 +35,7 @@ what happened.
                   difficulty dial — it stands in for how fast a person plays.
                   Default 1600.
   --no-ults       never fire an ultimate, to see the fight without them.
-  --file <path>   the creative to play. Default dist/km5.html.
+  --file <path>   the creative to play. Default dist/km3.html.
   --out <path>    where to write the run log as JSON. Optional.
 
   node tools/bot-run.mjs --runs 8 --gap 2200
@@ -53,7 +53,7 @@ const flag = (name, fallback) => {
 };
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), "..");
-const file = resolve(flag("file", join(ROOT, "dist/km5.html")));
+const file = resolve(flag("file", join(ROOT, "dist/km3.html")));
 if (!existsSync(file)) {
   process.stderr.write(`no such file: ${file}\nrun npm run build first\n`);
   process.exit(1);

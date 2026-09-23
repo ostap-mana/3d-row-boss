@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const USAGE = `
 contract-check — rehearse the PlayLab gate against the built file.
 
-  node tools/contract-check.mjs [--file dist/km5.html]
+  node tools/contract-check.mjs [--file dist/km3.html]
 
   Loads the creative the way a wrapper does: subscribes through the bus before
   anything starts, drives start, pause, resume and setAudio, replaces openStore
@@ -29,7 +29,7 @@ const flag = (n, d) => {
 };
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const file = resolve(ROOT, flag("file", "dist/km5.html"));
+const file = resolve(ROOT, flag("file", "dist/km3.html"));
 if (!existsSync(file)) {
   process.stderr.write(`no such file: ${file}\nrun npm run build first\n`);
   process.exit(1);

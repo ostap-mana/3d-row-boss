@@ -15,7 +15,7 @@ shoot-boss-fx — photograph every boss beat where it actually lands.
 
   node tools/shoot-boss-fx.mjs [--beats volley,bolt,spire,fissure,doom,roar]
                                [--out <dir>] [--shots 6] [--rate 0.35]
-                               [--file dist/km5.html]
+                               [--file dist/km3.html]
 
   A plate that survives its contact sheet can still vanish on the board: the
   vfx field sits under the boss and under the gems. This drives the built
@@ -38,7 +38,7 @@ const flag = (n, d) => {
 };
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname.slice(1)), "..");
-const file = resolve(flag("file", join(ROOT, "dist/km5.html")));
+const file = resolve(flag("file", join(ROOT, "dist/km3.html")));
 const outDir = resolve(flag("out", join(ROOT, "masters/fx/boss-shots")));
 const shots = Number(flag("shots", 6));
 const rate = Number(flag("rate", 0.35));
