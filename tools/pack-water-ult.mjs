@@ -108,8 +108,8 @@ const box = (name, fallback) => {
   return { w, h, x, y };
 };
 
-const FLIGHT = resolve(ROOT, opt("flight", "masters/fx/clips/water-bolt.mp4"));
-const BLAST = resolve(ROOT, opt("blast", "masters/fx/clips/water-blast.mp4"));
+const FLIGHT = resolve(ROOT, opt("flight", "video/masters/fx/water-bolt.mp4"));
+const BLAST = resolve(ROOT, opt("blast", "video/masters/fx/water-blast.mp4"));
 const OUT = resolve(ROOT, opt("out", "src/assets/fx/water-sheet.webp"));
 
 const FLIGHT_AT = list("flight-at", [40, 44, 48, 52, 56]);

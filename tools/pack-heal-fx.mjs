@@ -4,7 +4,7 @@ import { resolve, dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CLIPS = join(ROOT, "masters/fx/clips");
+const CLIPS = join(ROOT, "video/masters/fx");
 
 const FRAMES = join(
   process.env.COMFYUI_OUTPUT ||

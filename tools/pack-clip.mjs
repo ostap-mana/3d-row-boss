@@ -33,10 +33,10 @@ pack-clip — a green-screen clip into one mp4 the GPU keys at runtime.
   --scale <w:h>   resize after the repaint. Rarely worth it: the bits go on the
                   matte edge rather than on the pixel count, so a smaller clip
                   comes back about the same size and softer.
-  --out <file>    default: src/assets/outcome/<name>.mp4
+  --out <file>    default: video/game/<name>.mp4
 
-  node tools/pack-clip.mjs masters/outcome/retry-raw.mp4 \
-    --crop 736:720:248:0 --out src/assets/outcome/spurn.mp4
+  node tools/pack-clip.mjs video/masters/retry-raw.mp4 \
+    --crop 736:720:248:0 --out video/game/spurn.mp4
 `;
 
 const args = process.argv.slice(2);
@@ -58,9 +58,7 @@ if (!existsSync(input)) {
 }
 
 const slug = basename(input, extname(input)).replace(/[^a-z0-9]+/gi, "-");
-const out = resolve(
-  flag("out", join(ROOT, "src/assets/outcome", `${slug}.mp4`)),
-);
+const out = resolve(flag("out", join(ROOT, "video/game", `${slug}.mp4`)));
 const cropBox = flag("crop", null);
 const grow = Math.max(0, Math.round(Number(flag("grow", 3))));
 const cut = Number(flag("cut", 35));

@@ -21,12 +21,12 @@ gen-boss-fx — KOLTMOS's own beats, generated on the local ComfyUI.
   node tools/pack-spells.mjs --contact --start 0 --span 1.3 erupt-v1
 
 Sampling writes a latent per take, decoding turns it into PNG frames and --clip
-lays those frames into masters/fx/clips so pack-spells.mjs can cut the sheet.
+lays those frames into video/masters/fx so pack-spells.mjs can cut the sheet.
 `;
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WORKFLOWS = join(ROOT, "masters/fx/boss-workflows");
-const CLIPS = join(ROOT, "masters/fx/clips");
+const CLIPS = join(ROOT, "video/masters/fx");
 
 const HOST = process.env.COMFYUI_URL || "http://127.0.0.1:8188";
 

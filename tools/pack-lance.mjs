@@ -8,7 +8,7 @@ pack-lance — a moving lance, cut off a green-screen clip into one strip.
 
   node tools/pack-lance.mjs <id> [options]
 
-  --clip <file>     default masters/fx/clips/<id>-bolt.mp4
+  --clip <file>     default video/masters/fx/<id>-bolt.mp4
   --out <file>      default src/assets/fx/<id>-lance.webp
   --frames <n>      how many frames land on the strip. Default 8.
   --at <n>          source frame the sampling starts on. Default 30.
@@ -87,7 +87,7 @@ const opt = (name, fallback) => {
 };
 const num = (name, fallback) => Number(opt(name, fallback));
 
-const CLIP = resolve(ROOT, opt("clip", `masters/fx/clips/${id}-bolt.mp4`));
+const CLIP = resolve(ROOT, opt("clip", `video/masters/fx/${id}-bolt.mp4`));
 const OUT = resolve(ROOT, opt("out", `src/assets/fx/${id}-lance.webp`));
 const COUNT = num("frames", 8);
 const AT = num("at", 30);

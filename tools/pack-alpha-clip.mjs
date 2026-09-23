@@ -70,9 +70,9 @@ pack-alpha-clip — a clip and its matte into one mp4 that carries alpha.
                   half a megabyte to animate worse than the clip does.
   --still-width <px>  width of that still. Default: --cell.
   --still-quality <n>  its webp quality. Default 82.
-  --out <file>    default: src/assets/outcome/<name>.mp4
+  --out <file>    default: video/game/<name>.mp4
 
-  node tools/pack-alpha-clip.mjs masters/outcome/victory-figure.mp4 \\
+  node tools/pack-alpha-clip.mjs video/masters/victory-figure.mp4 \\
     --matte .comfy/victory-matte --cell 512
 `;
 
@@ -106,9 +106,7 @@ if (!existsSync(matte)) {
 }
 
 const slug = basename(input, extname(input)).replace(/[^a-z0-9]+/gi, "-");
-const out = resolve(
-  flag("out", join(ROOT, "src/assets/outcome", `${slug}.mp4`)),
-);
+const out = resolve(flag("out", join(ROOT, "video/game", `${slug}.mp4`)));
 const cell = Math.round(Number(flag("cell", 512)) / 2) * 2;
 const crf = String(flag("crf", 23));
 const matteQ = Number(flag("matte-q", 0.2));
