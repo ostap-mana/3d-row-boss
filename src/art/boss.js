@@ -918,37 +918,6 @@ export class Boss extends Container {
     tween(this.pose, { charge: 0 }, 0.26, { delay: 0.2 });
   }
 
-  async smash() {
-    await tween(
-      this.pose,
-      { swing: 0.95, breath: 1.08, lean: -16, charge: 0.45, headY: -18 },
-      0.3,
-      { ease: Ease.quadOut },
-    );
-    await delay(0.13);
-    if (!this.alive) return;
-
-    await tween(
-      this.pose,
-      { swing: -0.45, breath: 0.82, lean: 34, jaw: 0.8, headY: 28 },
-      0.1,
-      { ease: Ease.quadIn },
-    );
-
-    sfx.bossSmash();
-    this.hold = 0.06;
-    this.pose.wob = 1;
-    this.pose.wobT = 0;
-    this.spawnAsh(12, 1);
-    this.dust(22, 1.2);
-    tween(this.pose, { swing: 0, breath: 1, lean: 0, headY: 0 }, 0.6, {
-      delay: 0.14,
-      ease: Ease.elasticOut,
-    });
-    tween(this.pose, { charge: 0 }, 0.2, { ease: Ease.quadOut });
-    tween(this.pose, { jaw: 0 }, 0.3, { delay: 0.12, ease: Ease.quadOut });
-  }
-
   async stomp() {
     await tween(
       this.pose,

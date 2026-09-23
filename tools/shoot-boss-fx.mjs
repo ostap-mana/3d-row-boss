@@ -13,14 +13,18 @@ import { resolve, dirname, join } from "node:path";
 const USAGE = `
 shoot-boss-fx — photograph every boss beat where it actually lands.
 
-  node tools/shoot-boss-fx.mjs [--beats volley,smash,bolt,boulder,rider,tide,fissure,doom,roar]
+  node tools/shoot-boss-fx.mjs [--beats volley,bolt,spire,fissure,doom,roar]
                                [--out <dir>] [--shots 6] [--rate 0.35]
                                [--file dist/km5.html]
 
   A plate that survives its contact sheet can still vanish on the board: the
   vfx field sits under the boss and under the gems. This drives the built
   creative in a phone viewport, slows the world down, fires one beat at a time
-  and saves plain screenshots of each.
+  and saves plain screenshots of each. The director's own boss queue is cut
+  first and then drained: halting the fight loop still queues one more boss
+  turn, the idle press queues another, and turns queued during the warm-up
+  are still in flight, so without the cut and the wait a second attack lands
+  on top of the one being shot and its damage numbers show up mid-beat.
 `;
 
 const args = process.argv.slice(2);
@@ -38,7 +42,7 @@ const file = resolve(flag("file", join(ROOT, "dist/km5.html")));
 const outDir = resolve(flag("out", join(ROOT, "masters/fx/boss-shots")));
 const shots = Number(flag("shots", 6));
 const rate = Number(flag("rate", 0.35));
-const beats = flag("beats", "volley,smash,fissure,doom,roar").split(",");
+const beats = flag("beats", "volley,bolt,spire,fissure,doom,roar").split(",");
 const gap = Number(flag("gap", 400));
 
 if (!existsSync(file)) {
@@ -165,9 +169,11 @@ for (let i = 0; i < 200; i++) {
 }
 
 await sleep(9000);
-await evaluate(`(() => {
+await evaluate(`(async () => {
   const s = window.__SIEGE__;
   s.states.halt({ freeze: false });
+  s.director.queueBoss = () => false;
+  await s.director.bossSettled(4);
   s.states.rate(${rate});
   return true;
 })()`);
@@ -175,17 +181,14 @@ await sleep(600);
 
 const STATE = {
   volley: "boss.volley",
-  smash: "boss.smash",
   bolt: "boss.bolt",
-  boulder: "boss.boulder",
-  rider: "boss.rider",
-  tide: "boss.tide",
+  spire: "boss.spire",
   fissure: "boss.fissure",
   doom: "boss.doom",
   roar: "boss.doom",
 };
 
-const TURN = { fissure: 3, bolt: 2, boulder: 3, rider: 4, tide: 5 };
+const TURN = { fissure: 2, bolt: 1, spire: 2 };
 
 const PLATES = args.includes("--plates");
 

@@ -2,7 +2,6 @@ import {
   BOSS_ATTACKS,
   BOSS_FX,
   BOSS_MAX_HP,
-  BOULDER,
   COLS,
   COPY,
   DIFFICULTY,
@@ -13,12 +12,11 @@ import {
   HEALER,
   MEND_FX,
   OBSIDIAN,
-  RIDER,
   ROWS,
   SCRIPTED_HINT,
   SNAP,
+  SPIRE,
   T,
-  TIDE,
   ULT_CALL,
   ULT_RIM,
   ULT_HEAL_FLOOR,
@@ -28,13 +26,18 @@ import {
   WATER,
 } from "../config.js";
 import { MIN_SWAPS } from "./board.js";
-import { riderClip } from "../art/rider.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
 import { delay, now, tween } from "../core/tween.js";
 import { pick, rnd, rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
 import { EV, track, trackOnce } from "../net/analytics.js";
+
+const ATTACK_BEATS = {
+  volley: "bossVolley",
+  bolt: "bossBolt",
+  spire: "bossSpire",
+};
 
 const toWorld = (realSeconds) => realSeconds * worldRate();
 const toReal = (worldSeconds) => worldSeconds / worldRate();
@@ -45,8 +48,6 @@ const rollKillMatch = () => {
 };
 
 const OBSIDIAN_SLACK = 2;
-
-const BOULDER_AT = 0.62;
 
 const OPTIONS_IN_PLAY = 2;
 
@@ -1305,20 +1306,8 @@ export class Director {
     }
 
     const cells = this.pickObsidian(attack);
-
-    if (attack.kind === "volley") {
-      await this.bossVolley(attack, cells);
-    } else if (attack.kind === "boulder") {
-      await this.bossBoulder(attack, cells);
-    } else if (attack.kind === "bolt") {
-      await this.bossBolt(attack, cells);
-    } else if (attack.kind === "rider") {
-      await this.bossRider(attack, cells);
-    } else if (attack.kind === "tide") {
-      await this.bossTide(attack, cells);
-    } else {
-      await this.bossSmash(attack, cells);
-    }
+    const strike = ATTACK_BEATS[attack.kind] || ATTACK_BEATS.volley;
+    await this[strike](attack, cells);
     this.turn++;
   }
 
@@ -1458,177 +1447,67 @@ export class Director {
     await Promise.all([landing, falling, delay(0.34)]);
   }
 
-  async bossRider(attack, cells) {
-    const { boss, hud, vfx, heroRow, shake, layout } = this.s;
-    const clip = riderClip();
-    if (!clip) return this.bossVolley(attack, cells);
-
-    const cards = layout.cards;
-    hud.shout(attack.shout || COPY.rider, 0.4, {
-      fill: OBSIDIAN.edge,
-      from: 1.4,
-    });
-    boss.roar();
-    await delay(0.2);
-    if (this.settled()) return;
-
-    const wide = layout.stage.w * RIDER.wide;
-    clip.scale.set(wide, wide / RIDER.aspect);
-    clip.x = layout.stage.w / 2;
-    clip.y = cards.y + cards.h * (1 + RIDER.drop);
-    clip.alpha = 0;
-    clip.visible = true;
-    clip.video.playbackRate = RIDER.rate;
-    clip.play();
-    sfx.bossHurl();
-
-    tween(clip, { alpha: RIDER.alpha }, RIDER.enter);
-
-    delay(RIDER.hold).then(() =>
-      tween(clip, { alpha: 0 }, RIDER.leave).then(() => {
-        clip.stop();
-        clip.rewind();
-        clip.visible = false;
-      }),
-    );
-
-    const spreading = this.dropObsidian(cells, 0.1);
-
-    await delay(RIDER.strike);
-    if (this.settled()) {
-      clip.stop();
-      clip.visible = false;
-      return;
+  spireSeats() {
+    const board = this.s.board;
+    const held = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (board.isLocked(r, c)) held.push({ r, c });
+      }
     }
-
-    sfx.bossSmash();
-    shake(20, 0.42);
-    heroRow.cards.forEach((card, i) => {
-      if (card.downed) return;
-      delay(i * 0.05).then(() => {
-        if (this.ended) return;
-        vfx.impact(heroRow.cardPoint(i), OBSIDIAN.seamHot, 0.75);
-      });
-    });
-
-    const falling = this.strikeHeroes(attack);
-
-    await Promise.all([spreading, falling, delay(RIDER.hold * 0.7)]);
+    if (!held.length) {
+      return [
+        { r: 2, c: 1 },
+        { r: 2, c: 3 },
+      ];
+    }
+    const step = Math.max(1, Math.ceil(held.length / SPIRE.most));
+    return held.filter((cell, i) => i % step === 0).slice(0, SPIRE.most);
   }
 
-  async bossBoulder(attack, cells) {
-    const { boss, hud, vfx, shake, layout } = this.s;
-    const board = layout.board;
+  async bossSpire(attack, cells) {
+    const { boss, hud, vfx, heroRow, shake, layout } = this.s;
+    const seats = cells.length ? cells : this.spireSeats();
 
-    hud.shout(attack.shout || COPY.boulder, 0.4, {
-      fill: OBSIDIAN.seamHot,
-      from: 1.5,
-    });
-    boss.roar();
-    await delay(0.24);
-    if (this.settled()) return;
-
-    const at = {
-      x: board.x + board.size / 2,
-      y: board.y + board.size * BOULDER_AT,
-    };
-    const thrown = vfx
-      .boulder(boss.impactPoint(), at, {
-        size: board.size * BOULDER.size,
-        seed: this.turn,
-      })
-      .then(() => {
-        if (this.settled()) return;
-        sfx.bossSmash();
-        shake(26, 0.6);
-        this.bossPlate("fissure", at);
-      });
-
-    await delay(BOULDER.charge * 0.7);
-    if (this.settled()) return;
-    sfx.bossHurl();
-    shake(9, 0.26);
-
-    const left = BOULDER.charge + BOULDER.flight - BOULDER.charge * 0.7;
-    const landing = delay(left).then(() => {
-      if (this.settled()) return null;
-      return this.eruptObsidian(cells);
-    });
-
-    await delay(Math.max(0, left - BOULDER.impactLead));
-    if (this.settled()) return;
-
-    const falling = this.strikeHeroes(attack);
-    await Promise.all([thrown, landing, falling, delay(0.3)]);
-  }
-
-  async bossTide(attack, cells) {
-    const { boss, hud, vfx, heroRow, shake, layout, board } = this.s;
-    const b = layout.board;
-    const cards = layout.cards;
-
-    hud.shout(attack.shout || COPY.tide, 0.4, {
+    hud.shout(attack.shout || COPY.spire, 0.4, {
       fill: OBSIDIAN.seam,
-      from: 1.5,
+      from: 1.4,
     });
     await boss.stomp();
     if (this.settled()) return;
+    shake(12, 0.35);
 
-    shake(12, 0.3);
-    sfx.bossTide();
-
-    let firstRow = ROWS;
-    cells.forEach((cell) => {
-      if (cell.r < firstRow) firstRow = cell.r;
-    });
-    let erupted = null;
+    const spots = seats.map((cell) => this.centroid([cell]));
+    const marks = heroRow.cards.map((card, i) => heroRow.cardPoint(i));
+    let landing = null;
     let falling = null;
 
-    const rolling = vfx.tide(b, cards.y + cards.h * TIDE.spillAt, {
-      onRow: (r) => {
+    const rising = vfx.spires(spots, marks, {
+      cell: layout.board.cell,
+      onErupt: () => {
         if (this.settled()) return;
-        board.flatten(r, TIDE.press, TIDE.pressSeconds);
-        if (!erupted && cells.length && r >= firstRow) {
-          erupted = this.eruptObsidian(cells);
-        }
+        shake(9, 0.24);
+        landing = this.eruptObsidian(cells);
       },
-      onSpill: () => {
+      onBreak: () => {
         if (this.settled()) return;
-        sfx.bossSmash();
-        shake(TIDE.shake, TIDE.shakeSeconds);
-        vfx.flash(TIDE.flash, TIDE.flashAlpha, TIDE.flashSeconds);
+        sfx.obsidianBreak(spots.length);
+      },
+      onLand: () => {
+        if (this.settled()) return;
+        sfx.knock();
+        shake(8, 0.22);
         heroRow.cards.forEach((card, i) => {
           if (card.downed) return;
-          delay(i * 0.03).then(() => {
-            if (this.ended) return;
-            vfx.impact(heroRow.cardPoint(i), OBSIDIAN.seamHot, 0.7);
-          });
+          vfx.impact(heroRow.cardPoint(i), OBSIDIAN.seamHot, 0.7);
         });
         falling = this.strikeHeroes(attack);
       },
     });
 
-    await rolling;
+    await rising;
     if (this.settled()) return;
-    await Promise.all([erupted, falling, delay(0.3)]);
-  }
-
-  async bossSmash(attack, cells) {
-    const { hud, boss } = this.s;
-
-    hud.shout(attack.shout || COPY.smash, 0.4, { fill: 0xffb03d, from: 1.4 });
-    await boss.smash();
-    if (this.settled()) return;
-
-    this.bossPlate("smash");
-
-    const spreading = this.eruptObsidian(cells);
-
-    await delay(0.26);
-    if (this.settled()) return;
-
-    const falling = this.strikeHeroes(attack);
-    await Promise.all([spreading, falling, delay(0.32)]);
+    await Promise.all([landing, falling]);
   }
 
   async bossMend() {

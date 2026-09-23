@@ -4,7 +4,6 @@ import {
   glowTexture,
   shockTexture,
   sparkTexture,
-  tideBodyTexture,
 } from "../art/textures.js";
 import { tween, tweenValue, delay, Ease } from "../core/tween.js";
 import { rndRange } from "../core/rng.js";
@@ -23,8 +22,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { streamArt } from "../art/streams.js";
-import { boulderFrames } from "../art/shards.js";
-import { blockTexture } from "../art/obsidian.js";
+import { blockTexture, spireArt } from "../art/obsidian.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
@@ -32,16 +30,14 @@ import { CROWN_CELL, readyCrownFrames } from "../art/readyfx.js";
 import {
   BLAST,
   BOOM,
-  BOULDER,
   FIRE,
   HITP,
   IMPACT_FX,
   MEND_FX,
   OBSIDIAN,
-  ROWS,
   SHARD,
   SPARK,
-  TIDE,
+  SPIRE,
   ULT_CALL,
   ULT_FX,
   VOLLEY,
@@ -1391,339 +1387,281 @@ export class Vfx extends Container {
     );
   }
 
-  async boulder(from, to, opts) {
+  spires(spots, marks, opts) {
+    const art = spireArt();
+    if (!art || !spots.length) return Promise.resolve();
     const o = opts || {};
-    const size = o.size || 260;
-    const art = boulderFrames(o.seed || 0);
+    const cell = o.cell || 80;
+    const n = spots.length;
+    const k = (cell * SPIRE.tall) / art.unit;
+    const breakAt =
+      SPIRE.warn + (n - 1) * SPIRE.stagger + SPIRE.rise + SPIRE.hold;
 
-    const halo = new Sprite(glowTexture());
-    halo.anchor.set(0.5);
-    halo.blendMode = "add";
-    halo.tint = OBSIDIAN.seam;
-    halo.x = from.x;
-    halo.y = from.y;
-    halo.alpha = 0;
-    this.field.addChild(halo);
+    const order = spots
+      .map((at, i) => ({ at, i }))
+      .sort((a, b) => a.at.x - b.at.x);
+    const aim = [];
+    order.forEach(({ i }, j) => {
+      const slot = ((j + 0.5) * marks.length) / n;
+      aim[i] = marks[Math.min(marks.length - 1, slot | 0)];
+    });
 
-    const shroudFrames = spellFrames("flame");
-    const shroud = shroudFrames ? new Sprite(shroudFrames[0]) : null;
-    if (shroud) {
-      shroud.anchor.set(0.5);
-      shroud.blendMode = "add";
-      shroud.tint = OBSIDIAN.seamHot;
-      shroud.x = from.x;
-      shroud.y = from.y;
-      shroud.alpha = 0;
-      this.field.addChild(shroud);
-    }
-
-    const rock = art ? new Sprite(art) : null;
-    if (rock) {
-      rock.anchor.set(0.5);
-      rock.x = from.x;
-      rock.y = from.y;
-      rock.alpha = 0;
-      this.field.addChild(rock);
-    }
-    const spin = rndRange(BOULDER.spin[0], BOULDER.spin[1]);
-    const seed = rndRange(0, Math.PI * 2);
-
-    const wrap = (x, y, w, p, alpha) => {
-      if (!shroud || shroud.destroyed) return;
-      const n = shroudFrames.length;
-      shroud.texture = shroudFrames[Math.min(n - 1, ((p * n * 2) | 0) % n)];
-      shroud.x = x;
-      shroud.y = y + w * BOULDER.shroudDrop;
-      shroud.setSize(w * BOULDER.shroud, w * BOULDER.shroud);
-      shroud.rotation = seed * 0.4 + p * 0.6;
-      shroud.alpha = alpha;
+    const first = { erupt: true, crack: true, land: true };
+    const once = (key, fn) => {
+      if (!first[key]) return;
+      first[key] = false;
+      if (fn) fn();
     };
 
-    await tweenValue(0, 1, BOULDER.charge, (p) => {
-      const e = Ease.quadOut(p);
-      const w = size * BOULDER.from * (0.3 + e * 0.7);
-      halo.setSize(w * BOULDER.halo, w * BOULDER.halo);
-      halo.alpha = BOULDER.haloAlpha * e;
-      const lift = from.y - size * BOULDER.rear * e;
-      if (rock && !rock.destroyed) {
-        rock.texture = art[((p * art.length) | 0) % art.length];
-        const squash = 1 - BOULDER.wind * Math.sin(Math.PI * p);
-        rock.setSize(w * (2 - squash), w * squash);
-        rock.rotation = seed + spin * 0.12 * e;
-        rock.alpha = e;
-        rock.y = lift;
-      }
-      halo.y = lift;
-      wrap(from.x, lift, w, p * 0.3, BOULDER.shroudAlpha * e * 0.7);
-    });
+    return Promise.all(
+      spots.map((at, i) => {
+        const base = { x: at.x, y: at.y + cell * SPIRE.sink };
+        const wide = art.frameW * k * SPIRE.wide;
+        const tilt = rndRange(-SPIRE.tilt, SPIRE.tilt);
+        const eruptAt = SPIRE.warn + i * SPIRE.stagger;
 
-    let trail = 0;
-    await tweenValue(0, 1, BOULDER.flight, (p) => {
-      const e = p * (BOULDER.launch + (1 - BOULDER.launch) * p);
-      const grow = BOULDER.from + (1 - BOULDER.from) * Ease.quadIn(p);
-      const w = size * grow;
-      const x = from.x + (to.x - from.x) * e;
-      const y =
-        from.y -
-        size * BOULDER.rear +
-        (to.y - from.y + size * BOULDER.rear) * e -
-        Math.sin(Math.PI * e) * size * BOULDER.hang;
+        const heat = new Sprite(glowTexture());
+        heat.anchor.set(0.5);
+        heat.blendMode = "add";
+        heat.tint = OBSIDIAN.seam;
+        heat.x = base.x;
+        heat.y = base.y - cell * 0.3;
+        heat.alpha = 0;
+        heat.setSize(1, 1);
+        this.field.addChild(heat);
 
-      halo.x = x;
-      halo.y = y;
-      halo.setSize(w * BOULDER.halo, w * BOULDER.halo);
-      halo.alpha = BOULDER.haloAlpha * (0.6 + 0.4 * e);
+        const rig = new Container();
+        rig.x = base.x;
+        rig.y = base.y;
+        rig.rotation = tilt;
+        rig.scale.y = 0;
+        this.field.addChild(rig);
 
-      if (rock && !rock.destroyed) {
-        rock.texture = art[((p * art.length * BOULDER.beat) | 0) % art.length];
-        rock.x = x;
-        rock.y = y;
-        const pull = 1 + BOULDER.stretch * Math.min(1, p * 1.4);
-        rock.setSize(w * (2 - pull), w * pull);
-        rock.rotation = seed + spin * e;
-        rock.alpha = 1;
-      }
+        const stump = new Sprite(art.stump);
+        stump.anchor.set(0.5, 1);
+        stump.setSize(wide, art.stumpH * k);
+        stump.y = art.pad * k;
+        rig.addChild(stump);
 
-      wrap(x, y, w, 0.3 + p, BOULDER.shroudAlpha);
+        const tip = new Sprite(art.tip);
+        tip.anchor.set(0.5, 1);
+        tip.setSize(wide, art.tipH * k);
+        tip.y = (art.pad - art.split) * k;
+        rig.addChild(tip);
 
-      if (p - trail > BOULDER.trail) {
-        trail = p;
-        this.ember(
-          x + rndRange(-w, w) * 0.22,
-          y + rndRange(-w, w) * 0.22,
-          w * 0.2,
-          p > 0.5 ? OBSIDIAN.seamHot : OBSIDIAN.seam,
-        );
-      }
-    });
+        const crack = new Sprite(beamTexture());
+        crack.anchor.set(0.5);
+        crack.blendMode = "add";
+        crack.tint = OBSIDIAN.seamHot;
+        crack.rotation = Math.PI / 2;
+        crack.x = art.crackX * k * SPIRE.wide;
+        crack.y = -art.split * k;
+        crack.setSize(cell * 0.14, art.crackW * k * SPIRE.wide * 1.5);
+        crack.alpha = 0;
+        rig.addChild(crack);
 
-    halo.destroy();
-    if (shroud && !shroud.destroyed) shroud.destroy();
-    if (rock && !rock.destroyed) rock.destroy();
-    this.breakRock(to, size);
-
-    this.flash(BOULDER.flash, BOULDER.flashAlpha, BOULDER.flashSeconds);
-    this.shockRing(to.x, to.y, OBSIDIAN.seam, {
-      from: size * 0.3,
-      to: size * BOULDER.ring,
-      duration: BOULDER.ringSeconds,
-      flat: BOULDER.ringFlat,
-      light: OBSIDIAN.seamHot,
-    });
-    this.burst(to.x, to.y, OBSIDIAN.seamHot, BOULDER.chips, 1.5);
-
-    for (let i = 0; i < BOULDER.debris; i++) {
-      const chip = blockTexture();
-      if (!chip) break;
-      const s = new Sprite(chip);
-      s.anchor.set(0.5);
-      const w = size * rndRange(0.12, 0.24);
-      s.setSize(w, w);
-      s.x = to.x;
-      s.y = to.y;
-      s.rotation = rndRange(0, Math.PI * 2);
-      this.field.addChild(s);
-
-      const ang = -Math.PI / 2 + rndRange(-1.25, 1.25);
-      const reach = size * rndRange(0.4, 1.05);
-      const life = BOULDER.debrisSeconds * rndRange(0.8, 1.2);
-      tweenValue(0, 1, life, (p) => {
-        if (s.destroyed) return;
-        s.x = to.x + Math.cos(ang) * reach * p;
-        s.y = to.y + Math.sin(ang) * reach * p + reach * 1.5 * p * p;
-        s.rotation += 0.24;
-        s.alpha = p < 0.65 ? 1 : 1 - (p - 0.65) / 0.35;
-      }).then(() => !s.destroyed && s.destroy());
-    }
-  }
-
-  async tide(board, to, opts) {
-    const o = opts || {};
-    const size = board.size;
-    const cell = board.cell;
-    const midX = board.x + size / 2;
-    const start = board.y + size * TIDE.start;
-    const crestArt = spellFrames("fissure");
-    const fire = fireFrames();
-
-    const wake = new Sprite(glowTexture());
-    wake.anchor.set(0.5, 0.8);
-    wake.blendMode = "add";
-    wake.tint = OBSIDIAN.seam;
-    wake.setSize(size * TIDE.wakeWide, size * TIDE.wake);
-    wake.alpha = 0;
-    this.field.addChild(wake);
-
-    const body = new Sprite(tideBodyTexture());
-    body.anchor.set(0.5, 1);
-    body.setSize(size * TIDE.bodyWide, size * TIDE.body);
-    body.alpha = 0;
-    this.field.addChild(body);
-
-    const crest = crestArt
-      ? [
-          { blend: "normal", gain: TIDE.crestAlpha },
-          { blend: "add", gain: TIDE.crestGlow },
-        ].map(({ blend, gain }) => {
-          const s = new Sprite(crestArt[0]);
-          s.anchor.set(0.5);
-          s.blendMode = blend;
-          const w = size * TIDE.crestWide;
-          s.setSize(w, w / SPELL_ASPECT);
-          s.alpha = 0;
-          this.field.addChild(s);
-          return { s, gain };
-        })
-      : [];
-
-    const flames = [];
-    if (fire) {
-      for (let i = 0; i < TIDE.flames; i++) {
-        const frame = TIDE.flameFrames[i % TIDE.flameFrames.length];
-        const s = new Sprite(fire[Math.min(fire.length - 1, frame)]);
-        s.anchor.set(0.5, 0.96);
-        s.blendMode = "add";
-        s.tint = i % 3 === 0 ? 0xffffff : OBSIDIAN.seamHot;
-        s.alpha = 0;
-        this.field.addChild(s);
-        const w = size * TIDE.flame * rndRange(0.8, 1.2);
-        flames.push({
-          s,
-          w,
-          flip: i % 2 ? -1 : 1,
-          dx:
-            ((i + 0.5) / TIDE.flames - 0.5) * size + rndRange(-0.4, 0.4) * cell,
-          dy: rndRange(-0.16, 0.1) * cell,
-          phase: rndRange(0, Math.PI * 2),
+        const warm = tweenValue(0, 1, eruptAt, (p) => {
+          if (heat.destroyed) return;
+          const w = cell * SPIRE.glow * (0.3 + Ease.quadOut(p) * 0.7);
+          heat.setSize(w, w * 0.7);
+          heat.alpha = SPIRE.glowAlpha * Ease.quadIn(p);
+          if (p > 0.4 && rndRange(0, 1) < 0.35) {
+            this.risingSpark(base.x + rndRange(-0.3, 0.3) * cell, base.y, cell);
+          }
         });
-      }
-    }
 
-    const last = crestArt ? crestArt.length - 1 : 0;
-    let nextRow = 0;
-    let spilled = false;
-    let emberAt = 0;
+        const erupt = warm.then(() => {
+          once("erupt", o.onErupt);
+          this.ring(base.x, base.y, OBSIDIAN.seam, cell * 1.9, 5, {
+            flat: 0.42,
+            duration: 0.42,
+          });
+          this.groundDust(base.x, base.y, cell, SPIRE.dust);
+          this.shatter(base.x, base.y - cell * 0.1, cell * 0.8, OBSIDIAN.seam);
+          this.burst(
+            base.x,
+            base.y - cell * 0.2,
+            OBSIDIAN.seamHot,
+            SPIRE.chips,
+            1,
+          );
+          return tweenValue(0, 1, SPIRE.rise, (p) => {
+            if (rig.destroyed) return;
+            rig.scale.y = Ease.backOut(p);
+            rig.scale.x = 1 + (1 - p) * 0.22;
+          });
+        });
 
-    const place = (y, fade, frame, boil) => {
-      wake.x = midX;
-      wake.y = y - size * TIDE.body * 0.35;
-      wake.alpha = TIDE.wakeAlpha * fade;
-
-      body.x = midX;
-      body.y = y + cell * TIDE.bodySink;
-      body.alpha = TIDE.bodyAlpha * fade;
-
-      crest.forEach(({ s, gain }) => {
-        s.texture = crestArt[Math.min(last, Math.max(0, frame | 0))];
-        s.x = midX;
-        s.y = y;
-        s.alpha = gain * fade;
-      });
-
-      flames.forEach(({ s, w, flip, dx, dy, phase }) => {
-        if (s.destroyed) return;
-        const lick = 1 + 0.16 * Math.sin(boil * 23 + phase);
-        const sway = 1 + 0.08 * Math.sin(boil * 17 + phase * 1.7);
-        s.x = midX + dx + Math.sin(boil * 9 + phase) * cell * 0.06;
-        s.y = y + dy - cell * TIDE.flameLift;
-        s.setSize(w * sway, (w / FIRE_ASPECT) * lick);
-        s.scale.x *= flip;
-        s.alpha =
-          TIDE.flameAlpha * fade * (0.78 + 0.22 * Math.sin(boil * 41 + phase));
-      });
-    };
-
-    const glowAt = (y, heat) => {
-      for (let i = 0; i < 2; i++) {
-        this.ember(
-          midX + rndRange(-0.5, 0.5) * size * TIDE.bodyWide,
-          y - rndRange(0, 0.7) * cell,
-          cell * TIDE.emberSize * rndRange(0.6, 1.1),
-          rndRange(0, 1) < heat ? OBSIDIAN.seamHot : OBSIDIAN.seam,
+        const holdFor = breakAt - eruptAt - SPIRE.rise;
+        const smoulder = erupt.then(() =>
+          tweenValue(0, 1, holdFor, (p) => {
+            if (rig.destroyed) return;
+            const pulse = 0.8 + 0.2 * Math.sin(p * 46 + i);
+            crack.alpha = SPIRE.crack * Ease.quadIn(p) * pulse;
+            heat.alpha =
+              SPIRE.glowAlpha * (0.7 + 0.3 * Math.sin(p * 30 + i * 2));
+            if (rndRange(0, 1) < SPIRE.embers) {
+              this.risingSpark(
+                base.x + rndRange(-0.45, 0.45) * cell,
+                base.y - cell * SPIRE.tall * rndRange(0.35, 0.8),
+                cell * 0.5,
+              );
+            }
+          }),
         );
-      }
-      if (this.field.children.length < MAX_PARTICLES - 20) {
-        this.burst(
-          midX + rndRange(-0.45, 0.45) * size,
-          y - cell * 0.1,
-          OBSIDIAN.seamHot,
-          3,
-          0.7,
-        );
-      }
-    };
 
-    await tweenValue(0, 1, TIDE.open, (p) => {
-      const fade = Math.min(1, p / TIDE.rise);
-      place(start, fade, 1 + Ease.quadOut(p) * 3, p * TIDE.open);
-    });
+        return smoulder.then(() => {
+          if (rig.destroyed) return;
+          once("crack", o.onBreak);
 
-    await tweenValue(0, 1, TIDE.seconds, (p) => {
-      const e = p * (TIDE.surge + (1 - TIDE.surge) * p);
-      const y = start + (to - start) * e;
-      const boil = TIDE.open + p * TIDE.seconds;
-      place(y, 1, 4 + Math.round(1 + Math.sin(boil * 21)), boil);
+          const seat = this.field.toLocal(
+            { x: tip.x, y: tip.y - (art.tipH * k) / 2 },
+            rig,
+          );
+          rig.removeChild(tip);
+          rig.removeChild(crack);
+          crack.destroy();
+          tip.anchor.set(0.5);
+          tip.x = seat.x;
+          tip.y = seat.y;
+          tip.rotation = tilt;
+          this.field.addChild(tip);
 
-      while (nextRow < ROWS && y >= board.y + (nextRow + 0.5) * cell) {
-        if (o.onRow) o.onRow(nextRow);
-        nextRow++;
-      }
-      if (!spilled && p >= 1) {
-        spilled = true;
-        if (o.onSpill) o.onSpill();
-      }
-      if (p - emberAt > TIDE.embers) {
-        emberAt = p;
-        glowAt(y, 0.55);
-      }
-    });
+          const flash = new Sprite(glowTexture());
+          flash.anchor.set(0.5);
+          flash.blendMode = "add";
+          flash.tint = 0xfff0d0;
+          flash.x = seat.x;
+          flash.y = seat.y + (art.tipH * k) / 2;
+          flash.setSize(cell * SPIRE.flash, cell * SPIRE.flash * 0.6);
+          this.field.addChild(flash);
+          tween(
+            flash.scale,
+            { x: flash.scale.x * 1.9, y: flash.scale.y * 1.9 },
+            0.26,
+          );
+          tween(flash, { alpha: 0 }, 0.26).then(() => flash.destroy());
+          this.burst(flash.x, flash.y, OBSIDIAN.seamHot, 6, 1);
 
-    if (!spilled) {
-      spilled = true;
-      if (o.onSpill) o.onSpill();
-    }
+          tween(heat, { alpha: 0 }, SPIRE.fall).then(() => heat.destroy());
+          tweenValue(0, 1, SPIRE.fall, (p) => {
+            if (rig.destroyed) return;
+            rig.scale.y = 1 - Ease.quadIn(p);
+          }).then(() => {
+            this.groundDust(base.x, base.y, cell * 0.8, 4);
+            rig.destroy({ children: true });
+          });
 
-    const drop = cell * 0.55;
-    await tweenValue(0, 1, TIDE.drain, (p) => {
-      const e = Ease.quadOut(p);
-      const y = to + drop * e;
-      const boil = TIDE.open + TIDE.seconds + p * TIDE.drain;
-      place(y, 1 - Ease.quadIn(p), 6 + e * 3, boil);
-    });
+          const to = aim[i] || { x: base.x, y: base.y + cell * 3 };
+          const spin =
+            rndRange(SPIRE.spin[0], SPIRE.spin[1]) * (i % 2 ? -1 : 1);
+          const side = (i % 2 ? 1 : -1) * SPIRE.bow * cell;
+          const from = { x: seat.x, y: seat.y };
+          const bowX = (from.x + to.x) / 2 + side;
+          const bowY = Math.min(from.y, to.y) - cell * 0.7;
 
-    wake.destroy();
-    body.destroy();
-    crest.forEach(({ s }) => !s.destroyed && s.destroy());
-    flames.forEach(({ s }) => !s.destroyed && s.destroy());
+          const streak = new Sprite(beamTexture());
+          streak.anchor.set(0.5);
+          streak.blendMode = "add";
+          streak.tint = OBSIDIAN.seam;
+          streak.alpha = 0;
+          this.field.addChild(streak);
+
+          const glow = new Sprite(glowTexture());
+          glow.anchor.set(0.5);
+          glow.blendMode = "add";
+          glow.tint = OBSIDIAN.seam;
+          glow.setSize(wide * 1.3, wide * 1.3);
+          glow.alpha = 0.4;
+          this.field.addChild(glow);
+
+          return tweenValue(0, 1, SPIRE.fly, (p) => {
+            if (tip.destroyed) return;
+            const e = Ease.quadIn(p);
+            const q = 1 - e;
+            const x = q * q * from.x + 2 * q * e * bowX + e * e * to.x;
+            const y = q * q * from.y + 2 * q * e * bowY + e * e * to.y;
+            tip.x = x;
+            tip.y = y;
+            tip.rotation = tilt + spin * p;
+            glow.x = x;
+            glow.y = y;
+
+            const runX = x - from.x;
+            const runY = y - from.y;
+            streak.x = from.x + runX / 2;
+            streak.y = from.y + runY / 2;
+            streak.rotation = Math.atan2(runY, runX) + Math.PI / 2;
+            streak.setSize(wide * SPIRE.tail, Math.hypot(runX, runY));
+            streak.alpha =
+              SPIRE.tailAlpha * (p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8);
+          }).then(() => {
+            streak.destroy();
+            glow.destroy();
+            if (!tip.destroyed) tip.destroy();
+            once("land", o.onLand);
+            this.shatter(to.x, to.y, cell * SPIRE.shatter, OBSIDIAN.seamHot);
+            this.burst(to.x, to.y, OBSIDIAN.seamHot, SPIRE.chips, 1);
+          });
+        });
+      }),
+    );
   }
 
-  breakRock(at, size) {
-    for (let i = 0; i < BOULDER.pieces; i++) {
-      const art = blockTexture();
-      if (!art) break;
-      const s = new Sprite(art);
+  risingSpark(x, y, reach) {
+    if (this.field.children.length >= MAX_PARTICLES) return;
+    const s = new Sprite(sparkTexture());
+    s.anchor.set(0.5);
+    s.blendMode = "add";
+    s.tint = rndRange(0, 1) < 0.3 ? SPARK.hot : OBSIDIAN.seamHot;
+    const size = rndRange(6, 13);
+    s.setSize(size, size * 1.6);
+    s.x = x;
+    s.y = y;
+    this.field.addChild(s);
+    const drift = rndRange(-0.25, 0.25) * reach;
+    const rise = reach * rndRange(0.6, 1.1);
+    const life = rndRange(0.28, 0.5);
+    tweenValue(0, 1, life, (t) => {
+      if (s.destroyed) return;
+      const e = Ease.quadOut(t);
+      s.x = x + drift * e;
+      s.y = y - rise * e;
+      s.alpha = 1 - Ease.quadIn(t);
+    }).then(() => {
+      if (!s.destroyed) s.destroy();
+    });
+  }
+
+  groundDust(x, y, cell, count) {
+    const room = MAX_PARTICLES - this.field.children.length;
+    const n = Math.min(count, Math.max(0, room));
+    for (let i = 0; i < n; i++) {
+      const s = new Sprite(glowTexture());
       s.anchor.set(0.5);
-      const w = size * rndRange(BOULDER.piece[0], BOULDER.piece[1]);
-      s.setSize(w, w);
-      s.x = at.x;
-      s.y = at.y;
-      s.rotation = rndRange(0, Math.PI * 2);
+      s.tint = 0x2a1b28;
+      const size = cell * rndRange(SPIRE.dustSize[0], SPIRE.dustSize[1]);
+      s.setSize(size, size * 0.55);
+      s.x = x + rndRange(-0.2, 0.2) * cell;
+      s.y = y;
+      s.alpha = rndRange(0.35, 0.55);
       this.field.addChild(s);
-
-      const ang = -Math.PI / 2 + (i / BOULDER.pieces - 0.5) * Math.PI * 1.5;
-      const speed = size * rndRange(0.5, 1.0);
-      const spin = rndRange(-5, 5);
-      const life = BOULDER.piecesSeconds * rndRange(0.85, 1.15);
-
-      tweenValue(0, 1, life, (p) => {
+      const dir = i % 2 ? 1 : -1;
+      const run = dir * cell * rndRange(0.35, 0.9);
+      const lift = cell * rndRange(0.1, 0.35);
+      const life = rndRange(0.4, 0.62);
+      const seed = { x: s.scale.x, y: s.scale.y };
+      tweenValue(0, 1, life, (t) => {
         if (s.destroyed) return;
-        s.x = at.x + Math.cos(ang) * speed * p;
-        s.y = at.y + Math.sin(ang) * speed * p + size * 1.9 * p * p;
-        s.rotation += spin * 0.02;
-        const shrink = 1 - p * 0.25;
-        s.setSize(w * shrink, w * shrink);
-        s.alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
-      }).then(() => !s.destroyed && s.destroy());
+        const e = Ease.quadOut(t);
+        s.x = x + run * e;
+        s.y = y - lift * e;
+        const g = 1 + t * 1.1;
+        s.scale.set(seed.x * g, seed.y * g);
+        s.alpha = (t < 0.2 ? 1 : 1 - (t - 0.2) / 0.8) * 0.5;
+      }).then(() => {
+        if (!s.destroyed) s.destroy();
+      });
     }
   }
 

@@ -74,6 +74,167 @@ export function blockTexture() {
   return blockTex;
 }
 
+const SPIRE_TOP = 244;
+const SPIRE_SPLIT = 104;
+const SPIRE_HALF = 56;
+const SPIRE_PAD = 10;
+
+const SPIRE_LEFT = [
+  [-42, 0],
+  [-36, -34],
+  [-46, -72],
+  [-30, -104],
+  [-24, -140],
+  [-28, -172],
+  [-12, -206],
+  [-2, -244],
+];
+
+const SPIRE_RIGHT = [
+  [10, -204],
+  [14, -170],
+  [28, -138],
+  [22, -104],
+  [40, -68],
+  [30, -34],
+  [38, 0],
+];
+
+const SPIRE_CRACK = [
+  [-30, -104],
+  [-18, -96],
+  [-6, -110],
+  [6, -100],
+  [22, -104],
+];
+
+const STUMP_SEAM = [-10, -6, -2, -40, -14, -80, -4, -100];
+const TIP_SEAM = [2, -112, -6, -150, 4, -190, -2, -226];
+
+const flat = (pts) => pts.flat();
+
+function strokePath(g, pts, style) {
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+  g.stroke(style);
+}
+
+function drawSeam(g, pts) {
+  g.moveTo(pts[0], pts[1]);
+  for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+  g.stroke({ width: 9, color: OBSIDIAN.seam, alpha: 0.9 });
+  g.moveTo(pts[0], pts[1]);
+  for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+  g.stroke({ width: 3.5, color: OBSIDIAN.seamHot, alpha: 0.95 });
+}
+
+function drawRock(g, body, lit, dark, seam, outers, ridge) {
+  g.poly(flat(body.map(([x, y]) => [x + 5, y + 7])));
+  g.fill({ color: 0x000000, alpha: 0.55 });
+
+  g.poly(flat(body));
+  g.fill({ color: OBSIDIAN.rock });
+
+  g.poly(flat(lit));
+  g.fill({ color: OBSIDIAN.edge, alpha: 0.7 });
+  g.poly(flat(dark));
+  g.fill({ color: 0x000000, alpha: 0.28 });
+
+  drawSeam(g, seam);
+
+  outers.forEach((pts) =>
+    strokePath(g, pts, { width: 8, color: 0x0a0610, alpha: 1 }),
+  );
+  strokePath(g, SPIRE_CRACK, { width: 4, color: 0x0a0610, alpha: 0.9 });
+  strokePath(g, ridge, { width: 5, color: 0xa888b0, alpha: 0.55 });
+}
+
+function spireFrame(g, top, bottom) {
+  g.rect(
+    -SPIRE_HALF - SPIRE_PAD,
+    top - SPIRE_PAD,
+    SPIRE_HALF * 2 + SPIRE_PAD * 2,
+    bottom - top + SPIRE_PAD * 2,
+  );
+  g.fill({ color: 0xffffff, alpha: 0 });
+}
+
+function drawStump(g) {
+  spireFrame(g, -SPIRE_SPLIT, 0);
+  const left = SPIRE_LEFT.slice(0, 4);
+  const right = SPIRE_RIGHT.slice(3);
+  drawRock(
+    g,
+    left.concat(SPIRE_CRACK.slice(1, -1), right),
+    left.concat([
+      [-8, -92],
+      [-4, -44],
+      [-10, 0],
+    ]),
+    right.concat([
+      [22, 0],
+      [14, -40],
+      [8, -90],
+    ]),
+    STUMP_SEAM,
+    [left, right],
+    left.slice(1),
+  );
+}
+
+function drawTip(g) {
+  spireFrame(g, -SPIRE_TOP, -SPIRE_SPLIT);
+  const left = SPIRE_LEFT.slice(3);
+  const right = SPIRE_RIGHT.slice(0, 4);
+  drawRock(
+    g,
+    left.concat(right, SPIRE_CRACK.slice(1, -1).reverse()),
+    left.concat([
+      [-2, -200],
+      [-8, -160],
+      [-12, -120],
+    ]),
+    right.concat([
+      [6, -112],
+      [4, -150],
+      [2, -190],
+    ]),
+    TIP_SEAM,
+    [left.concat(right)],
+    left.slice(1),
+  );
+}
+
+let spireTex = null;
+
+export function spireArt() {
+  if (spireTex) return spireTex;
+  const make = (draw) => {
+    const g = new Graphics();
+    draw(g);
+    const tex = getRenderer().generateTexture({
+      target: g,
+      resolution: 2,
+      antialias: true,
+    });
+    g.destroy();
+    return tex;
+  };
+  spireTex = {
+    stump: make(drawStump),
+    tip: make(drawTip),
+    unit: SPIRE_TOP,
+    split: SPIRE_SPLIT,
+    pad: SPIRE_PAD,
+    frameW: (SPIRE_HALF + SPIRE_PAD) * 2,
+    stumpH: SPIRE_SPLIT + SPIRE_PAD * 2,
+    tipH: SPIRE_TOP - SPIRE_SPLIT + SPIRE_PAD * 2,
+    crackX: (SPIRE_CRACK[0][0] + SPIRE_CRACK[SPIRE_CRACK.length - 1][0]) / 2,
+    crackW: SPIRE_CRACK[SPIRE_CRACK.length - 1][0] - SPIRE_CRACK[0][0],
+  };
+  return spireTex;
+}
+
 export class ObsidianView extends Container {
   constructor() {
     super();
