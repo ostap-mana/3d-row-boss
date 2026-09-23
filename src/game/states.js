@@ -619,13 +619,13 @@ export function stateEngine(scene) {
     const own = STATES.concat(heroStates()).filter(
       (s) => typeof d[s.fn] === "function",
     );
-    return SCENES.map((s) => ({ ...s, group: "game" }))
+    return cutinStates()
+      .concat(SCENES.map((s) => ({ ...s, group: "game" })))
       .concat(attackStates())
       .concat(hitStates())
       .concat(own)
       .concat(scene.outcome ? CARDS : [])
-      .concat(fxStates())
-      .concat(cutinStates());
+      .concat(fxStates());
   }
 
   function find(name) {

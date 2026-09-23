@@ -242,6 +242,10 @@ export class DevPanel extends Container {
     };
     this.clip.on("pointerup", drop);
     this.clip.on("pointerupoutside", drop);
+    this.on("wheel", (e) => {
+      this.scroll -= e.deltaY;
+      this.apply();
+    });
 
     this.stateChips = new Map();
     this.heads = [];
