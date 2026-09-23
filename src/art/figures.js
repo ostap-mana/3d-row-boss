@@ -2,10 +2,13 @@ import { Container, Sprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import { loadAlphaClip } from "./alphavideo.js";
 import victoryStillUrl from "../assets/outcome/victory-figure.webp";
+import defeatStillUrl from "../assets/outcome/defeat-figure.webp";
 import victoryClipUrl from "../assets/outcome/victory-figure.mp4";
+import defeatClipUrl from "../assets/outcome/defeat-figure.mp4";
 
 const ART = {
   victory: { still: victoryStillUrl, clip: victoryClipUrl },
+  defeat: { still: defeatStillUrl, clip: defeatClipUrl },
 };
 
 const SIDES = Object.keys(ART);
