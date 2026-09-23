@@ -99,10 +99,10 @@ export const RIDER = {
   wide: 1.02,
   drop: -0.28,
   enter: 0.14,
-  rate: 1.25,
-  strike: 0.62,
-  hold: 1.35,
-  leave: 0.26,
+  rate: 1,
+  strike: 0.6,
+  hold: 1.15,
+  leave: 0.22,
 };
 
 export const SNAP = {
