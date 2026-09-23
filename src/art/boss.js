@@ -949,6 +949,37 @@ export class Boss extends Container {
     tween(this.pose, { jaw: 0 }, 0.3, { delay: 0.12, ease: Ease.quadOut });
   }
 
+  async stomp() {
+    await tween(
+      this.pose,
+      { breath: 1.1, lean: -12, headY: -26, charge: 0.55, crouch: -0.1 },
+      0.26,
+      { ease: Ease.quadOut },
+    );
+    await delay(0.08);
+    if (!this.alive) return;
+
+    await tween(
+      this.pose,
+      { crouch: 0.5, lean: 26, headY: 30, jaw: 0.75, breath: 0.9 },
+      0.09,
+      { ease: Ease.quadIn },
+    );
+
+    sfx.bossSmash();
+    this.hold = 0.06;
+    this.pose.wob = 1;
+    this.pose.wobT = 0;
+    this.dust(26, 1.5);
+    this.spawnAsh(12, 1);
+    tween(this.pose, { crouch: 0, lean: 0, headY: 0, breath: 1 }, 0.58, {
+      delay: 0.12,
+      ease: Ease.elasticOut,
+    });
+    tween(this.pose, { charge: 0 }, 0.22, { ease: Ease.quadOut });
+    tween(this.pose, { jaw: 0 }, 0.3, { delay: 0.12, ease: Ease.quadOut });
+  }
+
   async hurl(side) {
     const dir =
       side === undefined ? (rand() < 0.5 ? -1 : 1) : side < 0 ? -1 : 1;

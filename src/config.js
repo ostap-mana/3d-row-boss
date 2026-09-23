@@ -93,6 +93,40 @@ export const BOULDER = {
   debrisSeconds: 0.62,
 };
 
+export const TIDE = {
+  start: -0.02,
+  spillAt: 0.38,
+  open: 0.16,
+  seconds: 0.82,
+  surge: 0.45,
+  drain: 0.3,
+  rise: 0.12,
+  crestWide: 1.14,
+  crestAlpha: 1,
+  crestGlow: 0.35,
+  bodyWide: 1.06,
+  body: 0.56,
+  bodyAlpha: 1,
+  bodySink: 0.2,
+  wake: 0.62,
+  wakeWide: 1.25,
+  wakeAlpha: 0.22,
+  flames: 6,
+  flameFrames: [5, 6],
+  flame: 0.4,
+  flameLift: 0.1,
+  flameAlpha: 0.88,
+  embers: 0.035,
+  emberSize: 0.28,
+  press: 0.24,
+  pressSeconds: 0.44,
+  shake: 18,
+  shakeSeconds: 0.45,
+  flash: 0xff5a1f,
+  flashAlpha: 0.22,
+  flashSeconds: 0.36,
+};
+
 export const RIDER = {
   aspect: 3.158,
   alpha: 0.94,
@@ -379,6 +413,7 @@ export const COPY = {
   boulder: "HE TEARS THE HILL LOOSE!",
   bolt: "HE SPITS A HEXBOLT!",
   rider: "THE BEAST RUNS THEM DOWN!",
+  tide: "MOLTEN TIDE!",
   ultHeal: "TEAM HEALED!",
   mend: `${BOSS_NAME} MENDS!`,
   doomLabel: "CATACLYSM",
@@ -453,6 +488,14 @@ export const BOSS_ATTACKS = [
     splash: 0.085,
     shout: COPY.rider,
     from: 4,
+  },
+  {
+    kind: "tide",
+    targets: "all",
+    damage: 0.1,
+    obsidianBonus: 1,
+    shout: COPY.tide,
+    from: 5,
   },
 ];
 

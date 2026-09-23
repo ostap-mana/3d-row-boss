@@ -454,6 +454,47 @@ export function bossHurl() {
   tone({ freq: 96, to: 150, dur: 0.3, gain: 0.11, type: "sawtooth", cut: 900 });
 }
 
+export function bossTide() {
+  noise({
+    type: "lowpass",
+    freq: 240,
+    to: 1500,
+    dur: 0.95,
+    gain: 0.24,
+    q: 0.6,
+    attack: 0.1,
+  });
+  noise({
+    type: "bandpass",
+    freq: 700,
+    to: 2600,
+    dur: 0.8,
+    gain: 0.07,
+    q: 1.2,
+    attack: 0.2,
+    delay: 0.1,
+  });
+  tone({ freq: 58, to: 42, dur: 0.95, gain: 0.18, type: "sine" });
+  tone({
+    freq: 118,
+    to: 70,
+    dur: 0.6,
+    gain: 0.07,
+    type: "sawtooth",
+    cut: 700,
+    delay: 0.05,
+  });
+  for (let i = 0; i < 6; i++) {
+    noise({
+      type: "highpass",
+      freq: 2600,
+      dur: 0.06,
+      gain: 0.035,
+      delay: 0.15 + i * 0.11 + rand() * 0.06,
+    });
+  }
+}
+
 export function bossSmash() {
   if (samples.play("smash")) return;
   tone({ freq: 130, to: 38, dur: 0.55, gain: 0.28, type: "sine" });

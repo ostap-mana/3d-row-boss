@@ -73,6 +73,12 @@ const STATES = [
     fn: "bossSmash",
     args: attackArgs("smash"),
   },
+  {
+    name: "boss.tide",
+    group: "boss",
+    fn: "bossTide",
+    args: attackArgs("tide"),
+  },
   { name: "boss.mend", group: "boss", fn: "bossMend" },
   {
     name: "boss.snap",
@@ -355,6 +361,7 @@ const FX = [
   { n: "roar", g: "boss" },
   { n: "spit", g: "boss" },
   { n: "smash", g: "boss" },
+  { n: "stomp", g: "boss" },
   { n: "hurl", g: "boss", a: () => [1] },
   { n: "mend", g: "boss", a: () => [0.9] },
   { n: "hit", g: "boss", a: () => [0.8] },

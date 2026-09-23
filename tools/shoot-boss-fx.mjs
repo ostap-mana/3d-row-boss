@@ -13,7 +13,7 @@ import { resolve, dirname, join } from "node:path";
 const USAGE = `
 shoot-boss-fx — photograph every boss beat where it actually lands.
 
-  node tools/shoot-boss-fx.mjs [--beats volley,smash,fissure,doom,roar]
+  node tools/shoot-boss-fx.mjs [--beats volley,smash,bolt,boulder,rider,tide,fissure,doom,roar]
                                [--out <dir>] [--shots 6] [--rate 0.35]
                                [--file dist/km5.html]
 
@@ -179,12 +179,13 @@ const STATE = {
   bolt: "boss.bolt",
   boulder: "boss.boulder",
   rider: "boss.rider",
+  tide: "boss.tide",
   fissure: "boss.fissure",
   doom: "boss.doom",
   roar: "boss.doom",
 };
 
-const TURN = { fissure: 3, bolt: 2, boulder: 3, rider: 4 };
+const TURN = { fissure: 3, bolt: 2, boulder: 3, rider: 4, tide: 5 };
 
 const PLATES = args.includes("--plates");
 

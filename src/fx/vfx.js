@@ -4,6 +4,7 @@ import {
   glowTexture,
   shockTexture,
   sparkTexture,
+  tideBodyTexture,
 } from "../art/textures.js";
 import { tween, tweenValue, delay, Ease } from "../core/tween.js";
 import { rndRange } from "../core/rng.js";
@@ -37,8 +38,10 @@ import {
   IMPACT_FX,
   MEND_FX,
   OBSIDIAN,
+  ROWS,
   SHARD,
   SPARK,
+  TIDE,
   ULT_CALL,
   ULT_FX,
   VOLLEY,
@@ -1602,6 +1605,166 @@ export class Vfx extends Container {
           .then(() => pair.forEach((sp) => !sp.destroyed && sp.destroy()));
       }),
     );
+  }
+
+  async tide(board, to, opts) {
+    const o = opts || {};
+    const size = board.size;
+    const cell = board.cell;
+    const midX = board.x + size / 2;
+    const start = board.y + size * TIDE.start;
+    const crestArt = spellFrames("fissure");
+    const fire = fireFrames();
+
+    const wake = new Sprite(glowTexture());
+    wake.anchor.set(0.5, 0.8);
+    wake.blendMode = "add";
+    wake.tint = OBSIDIAN.seam;
+    wake.setSize(size * TIDE.wakeWide, size * TIDE.wake);
+    wake.alpha = 0;
+    this.field.addChild(wake);
+
+    const body = new Sprite(tideBodyTexture());
+    body.anchor.set(0.5, 1);
+    body.setSize(size * TIDE.bodyWide, size * TIDE.body);
+    body.alpha = 0;
+    this.field.addChild(body);
+
+    const crest = crestArt
+      ? [
+          { blend: "normal", gain: TIDE.crestAlpha },
+          { blend: "add", gain: TIDE.crestGlow },
+        ].map(({ blend, gain }) => {
+          const s = new Sprite(crestArt[0]);
+          s.anchor.set(0.5);
+          s.blendMode = blend;
+          const w = size * TIDE.crestWide;
+          s.setSize(w, w / SPELL_ASPECT);
+          s.alpha = 0;
+          this.field.addChild(s);
+          return { s, gain };
+        })
+      : [];
+
+    const flames = [];
+    if (fire) {
+      for (let i = 0; i < TIDE.flames; i++) {
+        const frame = TIDE.flameFrames[i % TIDE.flameFrames.length];
+        const s = new Sprite(fire[Math.min(fire.length - 1, frame)]);
+        s.anchor.set(0.5, 0.96);
+        s.blendMode = "add";
+        s.tint = i % 3 === 0 ? 0xffffff : OBSIDIAN.seamHot;
+        s.alpha = 0;
+        this.field.addChild(s);
+        const w = size * TIDE.flame * rndRange(0.8, 1.2);
+        flames.push({
+          s,
+          w,
+          flip: i % 2 ? -1 : 1,
+          dx:
+            ((i + 0.5) / TIDE.flames - 0.5) * size + rndRange(-0.4, 0.4) * cell,
+          dy: rndRange(-0.16, 0.1) * cell,
+          phase: rndRange(0, Math.PI * 2),
+        });
+      }
+    }
+
+    const last = crestArt ? crestArt.length - 1 : 0;
+    let nextRow = 0;
+    let spilled = false;
+    let emberAt = 0;
+
+    const place = (y, fade, frame, boil) => {
+      wake.x = midX;
+      wake.y = y - size * TIDE.body * 0.35;
+      wake.alpha = TIDE.wakeAlpha * fade;
+
+      body.x = midX;
+      body.y = y + cell * TIDE.bodySink;
+      body.alpha = TIDE.bodyAlpha * fade;
+
+      crest.forEach(({ s, gain }) => {
+        s.texture = crestArt[Math.min(last, Math.max(0, frame | 0))];
+        s.x = midX;
+        s.y = y;
+        s.alpha = gain * fade;
+      });
+
+      flames.forEach(({ s, w, flip, dx, dy, phase }) => {
+        if (s.destroyed) return;
+        const lick = 1 + 0.16 * Math.sin(boil * 23 + phase);
+        const sway = 1 + 0.08 * Math.sin(boil * 17 + phase * 1.7);
+        s.x = midX + dx + Math.sin(boil * 9 + phase) * cell * 0.06;
+        s.y = y + dy - cell * TIDE.flameLift;
+        s.setSize(w * sway, (w / FIRE_ASPECT) * lick);
+        s.scale.x *= flip;
+        s.alpha =
+          TIDE.flameAlpha * fade * (0.78 + 0.22 * Math.sin(boil * 41 + phase));
+      });
+    };
+
+    const glowAt = (y, heat) => {
+      for (let i = 0; i < 2; i++) {
+        this.ember(
+          midX + rndRange(-0.5, 0.5) * size * TIDE.bodyWide,
+          y - rndRange(0, 0.7) * cell,
+          cell * TIDE.emberSize * rndRange(0.6, 1.1),
+          rndRange(0, 1) < heat ? OBSIDIAN.seamHot : OBSIDIAN.seam,
+        );
+      }
+      if (this.field.children.length < MAX_PARTICLES - 20) {
+        this.burst(
+          midX + rndRange(-0.45, 0.45) * size,
+          y - cell * 0.1,
+          OBSIDIAN.seamHot,
+          3,
+          0.7,
+        );
+      }
+    };
+
+    await tweenValue(0, 1, TIDE.open, (p) => {
+      const fade = Math.min(1, p / TIDE.rise);
+      place(start, fade, 1 + Ease.quadOut(p) * 3, p * TIDE.open);
+    });
+
+    await tweenValue(0, 1, TIDE.seconds, (p) => {
+      const e = p * (TIDE.surge + (1 - TIDE.surge) * p);
+      const y = start + (to - start) * e;
+      const boil = TIDE.open + p * TIDE.seconds;
+      place(y, 1, 4 + Math.round(1 + Math.sin(boil * 21)), boil);
+
+      while (nextRow < ROWS && y >= board.y + (nextRow + 0.5) * cell) {
+        if (o.onRow) o.onRow(nextRow);
+        nextRow++;
+      }
+      if (!spilled && p >= 1) {
+        spilled = true;
+        if (o.onSpill) o.onSpill();
+      }
+      if (p - emberAt > TIDE.embers) {
+        emberAt = p;
+        glowAt(y, 0.55);
+      }
+    });
+
+    if (!spilled) {
+      spilled = true;
+      if (o.onSpill) o.onSpill();
+    }
+
+    const drop = cell * 0.55;
+    await tweenValue(0, 1, TIDE.drain, (p) => {
+      const e = Ease.quadOut(p);
+      const y = to + drop * e;
+      const boil = TIDE.open + TIDE.seconds + p * TIDE.drain;
+      place(y, 1 - Ease.quadIn(p), 6 + e * 3, boil);
+    });
+
+    wake.destroy();
+    body.destroy();
+    crest.forEach(({ s }) => !s.destroyed && s.destroy());
+    flames.forEach(({ s }) => !s.destroyed && s.destroy());
   }
 
   breakRock(at, size) {

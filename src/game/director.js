@@ -18,6 +18,7 @@ import {
   SCRIPTED_HINT,
   SNAP,
   T,
+  TIDE,
   ULT_CALL,
   ULT_RIM,
   ULT_HEAL_FLOOR,
@@ -1313,6 +1314,8 @@ export class Director {
       await this.bossBolt(attack, cells);
     } else if (attack.kind === "rider") {
       await this.bossRider(attack, cells);
+    } else if (attack.kind === "tide") {
+      await this.bossTide(attack, cells);
     } else {
       await this.bossSmash(attack, cells);
     }
@@ -1542,6 +1545,57 @@ export class Director {
 
     const falling = this.strikeHeroes(attack);
     await Promise.all([thrown, landing, falling, delay(0.3)]);
+  }
+
+  async bossTide(attack, cells) {
+    const { boss, hud, vfx, heroRow, shake, layout, board } = this.s;
+    const b = layout.board;
+    const cards = layout.cards;
+
+    hud.shout(attack.shout || COPY.tide, 0.4, {
+      fill: OBSIDIAN.seam,
+      from: 1.5,
+    });
+    await boss.stomp();
+    if (this.settled()) return;
+
+    shake(12, 0.3);
+    sfx.bossTide();
+
+    let firstRow = ROWS;
+    cells.forEach((cell) => {
+      if (cell.r < firstRow) firstRow = cell.r;
+    });
+    let erupted = null;
+    let falling = null;
+
+    const rolling = vfx.tide(b, cards.y + cards.h * TIDE.spillAt, {
+      onRow: (r) => {
+        if (this.settled()) return;
+        board.flatten(r, TIDE.press, TIDE.pressSeconds);
+        if (!erupted && cells.length && r >= firstRow) {
+          erupted = this.eruptObsidian(cells);
+        }
+      },
+      onSpill: () => {
+        if (this.settled()) return;
+        sfx.bossSmash();
+        shake(TIDE.shake, TIDE.shakeSeconds);
+        vfx.flash(TIDE.flash, TIDE.flashAlpha, TIDE.flashSeconds);
+        heroRow.cards.forEach((card, i) => {
+          if (card.downed) return;
+          delay(i * 0.03).then(() => {
+            if (this.ended) return;
+            vfx.impact(heroRow.cardPoint(i), OBSIDIAN.seamHot, 0.7);
+          });
+        });
+        falling = this.strikeHeroes(attack);
+      },
+    });
+
+    await rolling;
+    if (this.settled()) return;
+    await Promise.all([erupted, falling, delay(0.3)]);
   }
 
   async bossSmash(attack, cells) {
