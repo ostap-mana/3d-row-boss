@@ -70,6 +70,13 @@ const STAGE = {
   landscape: { min: 1.05, max: 2.4 },
 };
 
+const TABLET = { from: 480, to: 600, column: 0.48 };
+
+function portraitCeiling(w) {
+  const tablet = clamp((w - TABLET.from) / (TABLET.to - TABLET.from), 0, 1);
+  return STAGE.portrait.max + (TABLET.column - STAGE.portrait.max) * tablet;
+}
+
 const BOARD_BLEED = 0.1;
 
 const COLUMN_SHARE = 1.05;
@@ -79,7 +86,8 @@ const CLOSE_KEEPOUT = 52;
 function stageBox(w, h, portrait) {
   const range = portrait ? STAGE.portrait : STAGE.landscape;
   const view = w / h;
-  const aspect = clamp(view, range.min, range.max);
+  const ceiling = portrait ? portraitCeiling(w) : range.max;
+  const aspect = clamp(view, range.min, ceiling);
 
   let sw = view > aspect ? h * aspect : w;
   let sh = view < aspect ? w / aspect : h;
