@@ -5,6 +5,16 @@ const PIXEL_BUDGET = 2.6e6;
 const MIN_DPR = 1;
 const MAX_DPR = 3;
 
+let budgetScale = 1;
+
+export function setPixelBudgetScale(k) {
+  budgetScale = Math.max(0.2, Math.min(1, k));
+}
+
+export function pixelBudgetScale() {
+  return budgetScale;
+}
+
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 function visual() {
@@ -35,7 +45,7 @@ export function measureViewport() {
 export function resolutionFor(w, h) {
   const dpr = globalThis.devicePixelRatio || 1;
   const capped = clamp(dpr, MIN_DPR, MAX_DPR);
-  const afford = Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h));
+  const afford = Math.sqrt((PIXEL_BUDGET * budgetScale) / Math.max(1, w * h));
   return clamp(Math.min(capped, afford), MIN_DPR, capped);
 }
 

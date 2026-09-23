@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Text, Rectangle } from "pixi.js";
+import { Container, Graphics, Sprite, Text, Texture, Rectangle } from "pixi.js";
 import {
   DIFFICULTY,
   GEM_COLORS,
@@ -262,6 +262,8 @@ const READOUT_MIN = 10.5;
 
 const READOUT_PAIR_MIN = 11;
 
+const LABEL_HOLD = 0.08;
+
 function readoutSize(u) {
   return (u * (1 - BAR_RIM * 3)) / HITZONE.cap;
 }
@@ -322,12 +324,19 @@ class Gauge extends Container {
     this.pair = true;
 
     this.reads = true;
+
+    this.shown = null;
+    this.labelDue = false;
+    this.labelAge = LABEL_HOLD;
+    this.labelFitFor = "";
   }
 
   place(top, barW, barH) {
     this.top = top;
     this.barW = barW;
     this.barH = barH;
+    this.shown = null;
+    this.labelFitFor = "";
     this.draw();
   }
 
@@ -338,6 +347,40 @@ class Gauge extends Container {
     this.max = String(max);
     this.fallback = fallback;
     this.draw();
+  }
+
+  tick(dt) {
+    this.labelAge += dt;
+    if (this.labelDue && this.labelAge >= LABEL_HOLD) this.writeLabel();
+  }
+
+  barsChanged() {
+    const s = this.shown;
+    return (
+      !s ||
+      s.v !== this.v ||
+      s.w !== this.barW ||
+      s.h !== this.barH ||
+      s.top !== this.top ||
+      s.fallback !== this.fallback
+    );
+  }
+
+  writeLabel() {
+    this.labelDue = false;
+    this.labelAge = 0;
+    const text = this.pair ? `${this.value} / ${this.max}` : this.value;
+    if (this.label.text === text && this.labelFitFor) return;
+    const h = this.barH;
+    const size = readoutSize(h);
+    this.label.style.letterSpacing = size * READOUT_TYPE.track;
+    this.label.text = text;
+    const shape = `${text.length}:${this.barW}:${h}`;
+    if (shape !== this.labelFitFor) {
+      this.labelFitFor = shape;
+      fitFont(this.label, this.barW * READOUT_TYPE.width, size, 4);
+    }
+    this.label.y = this.top + h / 2;
   }
 
   pairFits(w, h, max) {
@@ -354,8 +397,17 @@ class Gauge extends Container {
     const h = this.barH;
     if (!w || !h) return;
 
-    const g = this.g;
-    g.clear();
+    if (this.barsChanged()) this.drawBars(w, h);
+
+    this.label.visible = this.reads;
+    if (!this.reads) return;
+
+    if (this.labelAge >= LABEL_HOLD) this.writeLabel();
+    else this.labelDue = true;
+  }
+
+  drawBars(w, h) {
+    this.shown = { v: this.v, w, h, top: this.top, fallback: this.fallback };
 
     const rim = h * BAR_RIM;
     const pad = this.trough ? 0 : Math.max(0.6, h * 0.2);
@@ -366,9 +418,6 @@ class Gauge extends Container {
       this.trough.x = -w / 2;
       this.trough.y = this.top;
       this.trough.setSize(w, h);
-    } else {
-      g.rect(-w / 2, this.top, w, h);
-      g.fill({ color: 0x0b0716, alpha: 0.78 });
     }
 
     if (this.paint) {
@@ -376,21 +425,22 @@ class Gauge extends Container {
       this.paint.x = -w / 2 + pad;
       this.paint.y = this.top + pad;
       this.paint.setSize(lit, bore);
-    } else if (this.v > 0.001) {
+    }
+
+    if (this.trough && this.paint) return;
+
+    const g = this.g;
+    g.clear();
+    if (!this.trough) {
+      g.rect(-w / 2, this.top, w, h);
+      g.fill({ color: 0x0b0716, alpha: 0.78 });
+    }
+    if (!this.paint && this.v > 0.001) {
       g.rect(-w / 2 + pad, this.top + pad, lit, bore);
       g.fill({ color: this.fallback });
       g.rect(-w / 2 + pad, this.top + pad, lit, bore * 0.5);
       g.fill({ color: 0xffffff, alpha: 0.26 });
     }
-
-    this.label.visible = this.reads;
-    if (!this.reads) return;
-
-    const size = readoutSize(h);
-    this.label.style.letterSpacing = size * READOUT_TYPE.track;
-    this.label.text = this.pair ? `${this.value} / ${this.max}` : this.value;
-    fitFont(this.label, w * READOUT_TYPE.width, size, 4);
-    this.label.y = this.top + h / 2;
   }
 }
 
@@ -469,17 +519,18 @@ class HeroCard extends Container {
       this.art.addChild(this.plate);
     }
 
-    this.portrait = new Sprite(heroCardArt(index));
+    this.portraitArt = heroCardArt(index);
+    this.portraitWindow = new Texture({
+      source: this.portraitArt.source,
+      frame: this.portraitArt.frame.clone(),
+    });
+    this.portrait = new Sprite(this.portraitWindow);
     this.portrait.anchor.set(0.5);
     this.art.addChild(this.portrait);
 
     this.footScrim = new Sprite(gradientTexture("cardFoot", FOOT_SCRIM));
     this.footScrim.anchor.set(0.5, 1);
     this.art.addChild(this.footScrim);
-
-    this.artMask = new Graphics();
-    this.addChild(this.artMask);
-    this.art.mask = this.artMask;
 
     this.aura = new Sprite(glowTexture());
     this.aura.anchor.set(0.5);
@@ -713,25 +764,16 @@ class HeroCard extends Container {
 
     if (this.plate) this.plate.setSize(w, h);
 
-    const art = this.portrait.texture;
-    const cover = Math.max(w / art.width, h / art.height);
-    const aw = art.width * cover;
-    const ah = art.height * cover;
-    this.portrait.setSize(aw, ah);
-    this.portrait.y = (ah - h) * HEAD_BIAS;
+    this.cropPortrait(w, h);
 
     const stack = readouts(w, h);
     const nameSize = Math.max(7, Math.min(h * 0.145, w * 0.2));
     const nameY = stack.hpY - stack.gap - nameSize * 0.5;
     this.footScrim.setSize(
       w,
-      Math.max(h * FOOT_BAND, h / 2 - nameY + nameSize * 0.8),
+      Math.min(h, Math.max(h * FOOT_BAND, h / 2 - nameY + nameSize * 0.8)),
     );
     this.footScrim.y = h / 2;
-
-    this.artMask.clear();
-    this.artMask.rect(clip.x, clip.y, clip.w, clip.h);
-    this.artMask.fill({ color: 0xffffff });
 
     this.aura.setSize(w * 1.9, h * 1.9);
     this.burn.setSize(w * 2.1, h * 2.1);
@@ -825,6 +867,23 @@ class HeroCard extends Container {
     this.cometRy = wordH * comet.ry;
     this.cometHeadSize = wordH * comet.head;
     this.cometTrailW = wordH * 0.19;
+  }
+
+  cropPortrait(w, h) {
+    const art = this.portraitArt;
+    const cover = Math.max(w / art.width, h / art.height);
+    const aw = art.width * cover;
+    const ah = art.height * cover;
+    const shift = (ah - h) * HEAD_BIAS;
+    const frame = this.portraitWindow.frame;
+    frame.x = art.frame.x + (aw - w) / 2 / cover;
+    frame.y = art.frame.y + ((ah - h) / 2 - shift) / cover;
+    frame.width = w / cover;
+    frame.height = h / cover;
+    this.portraitWindow.update();
+    this.portrait.setSize(w, h);
+    this.portrait.x = 0;
+    this.portrait.y = 0;
   }
 
   drawHpBar() {
@@ -1218,6 +1277,8 @@ class HeroCard extends Container {
 
   update(dt) {
     this.t += dt;
+    this.hpGauge.tick(dt);
+    this.manaGauge.tick(dt);
 
     if (this.ultLit && this.ultBorder && this.ultShown === this.ultArt) {
       this.ultT += dt;

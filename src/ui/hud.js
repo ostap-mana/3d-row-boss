@@ -631,7 +631,10 @@ export class Hud extends Container {
     const r = h / 2;
 
     if (this.barShape) {
-      g.clear();
+      if (this.barDrawn) {
+        g.clear();
+        this.barDrawn = false;
+      }
       this.cropBar(this.barChip, this.hpChip);
       this.cropBar(this.barFill, this.hpShown);
       this.cropBar(this.barFlash, Math.max(this.hpChip, this.hpShown));
@@ -647,6 +650,7 @@ export class Hud extends Container {
     }
 
     g.clear();
+    this.barDrawn = true;
     g.roundRect(x - 2, y - 2, w + 4, h + 4, r + 2);
     g.fill({ color: BAR_EDGE, alpha: 0.85 });
 

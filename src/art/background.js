@@ -1,6 +1,7 @@
-import { Container, Sprite, Texture, ImageSource } from "pixi.js";
+import { Container, Sprite, Texture, ImageSource, Rectangle } from "pixi.js";
 import { glowTexture, gradientTexture } from "./textures.js";
 import { BOSS_ART } from "../core/layout.js";
+import { getRenderer } from "../core/context.js";
 import arenaUrl from "../assets/arena/sky.webp";
 import { stream } from "../core/rng.js";
 
@@ -9,6 +10,8 @@ const rand = stream("bg");
 const HORIZON = 0.38;
 
 const OVERSCAN = 1.25;
+
+const BAKE_MAX_RESOLUTION = 2;
 
 const SKY_STOPS = [
   [0.0, "#5c5688"],
@@ -59,33 +62,39 @@ export class Background extends Container {
   constructor() {
     super();
 
+    this.plate = new Sprite(Texture.EMPTY);
+    this.plate.visible = false;
+    this.addChild(this.plate);
+
+    this.deep = new Container();
+
     this.sky = new Sprite(gradientTexture("sky", SKY_STOPS));
-    this.addChild(this.sky);
+    this.deep.addChild(this.sky);
 
     if (arenaTexture) {
       this.arena = new Sprite(arenaTexture);
-      this.addChild(this.arena);
+      this.deep.addChild(this.arena);
     }
 
     this.grade = new Sprite(Texture.WHITE);
     this.grade.blendMode = "multiply";
     this.grade.tint = GRADE_TINT;
     this.grade.alpha = GRADE_ALPHA;
-    this.addChild(this.grade);
+    this.deep.addChild(this.grade);
 
     this.bloom = new Sprite(glowTexture());
     this.bloom.anchor.set(0.5);
     this.bloom.blendMode = "add";
     this.bloom.tint = BLOOM_TINT;
     this.bloom.alpha = 0.18;
-    this.addChild(this.bloom);
+    this.deep.addChild(this.bloom);
 
     this.ember = new Sprite(glowTexture());
     this.ember.anchor.set(0.5);
     this.ember.blendMode = "add";
     this.ember.tint = EMBER_TINT;
     this.ember.alpha = 0.3;
-    this.addChild(this.ember);
+    this.deep.addChild(this.ember);
 
     this.shafts = [];
     for (let i = 0; i < 7; i++) {
@@ -121,6 +130,8 @@ export class Background extends Container {
     this.crown = new Sprite(gradientTexture("crown", CROWN_STOPS));
     this.addChild(this.crown);
 
+    this.baked = null;
+    this.bakeKey = "";
     this.t = 0;
     this.layout = null;
   }
@@ -174,6 +185,54 @@ export class Background extends Container {
       s.sway = 8 + rand() * 22;
       s.deckY = deckY;
     });
+
+    this.bake(w, h);
+  }
+
+  bake(w, h) {
+    const renderer = getRenderer();
+    const resolution = Math.min(renderer.resolution, BAKE_MAX_RESOLUTION);
+    const key = `${w}:${h}:${this.deckY}:${resolution}`;
+    if (key === this.bakeKey) return;
+
+    let texture = null;
+    try {
+      texture = renderer.generateTexture({
+        target: this.deep,
+        frame: new Rectangle(0, 0, w, h),
+        resolution,
+        antialias: false,
+        textureSourceOptions: { scaleMode: "linear" },
+      });
+    } catch {
+      texture = null;
+    }
+
+    if (!texture) {
+      this.plate.visible = false;
+      if (this.deep.parent !== this) this.addChildAt(this.deep, 0);
+      return;
+    }
+
+    this.bakeKey = key;
+    if (this.deep.parent === this) this.removeChild(this.deep);
+    const old = this.baked;
+    this.baked = texture;
+    this.plate.texture = texture;
+    this.plate.visible = true;
+    this.plate.x = 0;
+    this.plate.y = 0;
+    this.plate.setSize(w, h);
+    if (old) old.destroy(true);
+  }
+
+  dispose() {
+    if (this.baked) {
+      this.plate.texture = Texture.EMPTY;
+      this.baked.destroy(true);
+      this.baked = null;
+    }
+    this.bakeKey = "";
   }
 
   fitArena(w, h, deckY) {

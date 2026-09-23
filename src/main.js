@@ -12,9 +12,13 @@ import { computeLayout } from "./core/layout.js";
 import {
   measureSafeInsets,
   measureViewport,
+  pixelBudgetScale,
   resolutionFor,
+  setPixelBudgetScale,
   watchViewport,
 } from "./core/viewport.js";
+import { startTextureWarmup } from "./core/gpuwarm.js";
+import { deviceStartScale, startFrameGovernor } from "./core/governor.js";
 import { setApp } from "./core/context.js";
 import { nextFrame } from "./core/idle.js";
 import { updateTweens } from "./core/tween.js";
@@ -47,7 +51,11 @@ import { loadStreamArt } from "./art/streams.js";
 import { loadBoltArt } from "./art/bolts.js";
 import { loadGemPopArt } from "./art/gempop.js";
 import { loadGemChargeArt } from "./art/gemcharge.js";
-import { loadOutcomeFigures, rewindFigures } from "./art/figures.js";
+import {
+  loadOutcomeFigures,
+  rewindFigures,
+  warmFigures,
+} from "./art/figures.js";
 import { HeroRow } from "./art/heroes.js";
 import { Board } from "./game/board.js";
 import { Director } from "./game/director.js";
@@ -90,13 +98,16 @@ async function boot() {
 
   const app = new Application();
 
+  const quality = new URLSearchParams(location.search).get("quality");
+  setPixelBudgetScale(quality ? Number(quality) || 1 : deviceStartScale());
+
   const first = measureViewport();
 
   await app.init({
     background: "#05030a",
     width: first.w,
     height: first.h,
-    antialias: true,
+    antialias: false,
     resolution: resolutionFor(first.w, first.h),
     autoDensity: true,
     powerPreference: "high-performance",
@@ -146,6 +157,7 @@ async function boot() {
 
   function buildScene() {
     if (scene.bossLayer) scene.bossLayer.mask = null;
+    if (scene.bg) scene.bg.dispose();
     world.removeChildren();
     overlay.removeChildren();
 
@@ -313,7 +325,21 @@ async function boot() {
 
   relayout();
 
-  watchViewport(host, relayout);
+  const viewportWatch = watchViewport(host, relayout);
+  startTextureWarmup(app);
+
+  let governor = null;
+  function startGovernor() {
+    if (governor) return governor;
+    governor = startFrameGovernor(app, {
+      scale: pixelBudgetScale(),
+      apply(k) {
+        setPixelBudgetScale(k);
+        viewportWatch.refresh();
+      },
+    });
+    return governor;
+  }
 
   ["fullscreenchange", "webkitfullscreenchange"].forEach((type) =>
     document.addEventListener(type, () => relayout(), { passive: true }),
@@ -739,6 +765,8 @@ async function boot() {
     return { ...layout.safe, shown: guides.visible };
   };
   scene.timing = timing;
+  scene.quality = () => (governor ? governor.state() : null);
+  scene.degrade = () => !!(governor && governor.stepDown());
   scene.events = eventLog;
   scene.bus = busReport;
   scene.replay = replayReport;
@@ -852,6 +880,7 @@ async function boot() {
         await load();
       } catch {}
     }
+    warmFigures(app.renderer);
     timing.deferred = since();
   }
 
@@ -867,6 +896,7 @@ async function boot() {
     scene.prompt.dismiss();
     director.spendOpeningHint();
     director.run();
+    startGovernor();
   });
 }
 

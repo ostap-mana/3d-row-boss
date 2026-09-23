@@ -50,6 +50,16 @@ export async function loadOutcomeFigures() {
   return stills;
 }
 
+export function warmFigures(renderer) {
+  for (const key of SIDES) {
+    const clip = clips[key];
+    if (!clip || !clip.shader) continue;
+    try {
+      renderer.shader.bind(clip.shader, true);
+    } catch {}
+  }
+}
+
 const side = (defeat) => (defeat ? "defeat" : "victory");
 
 function figureTexture(defeat) {
