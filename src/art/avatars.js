@@ -26,6 +26,8 @@ const HERO_AVATAR = {
 
 const SIZE = 320;
 
+const CARD = { w: 160, h: 328 };
+
 const BACKING = "rgba(18,10,34,0.88)";
 
 const RIM = "rgba(10,6,18,0.55)";
@@ -50,12 +52,11 @@ function css(color, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function bust(img, element) {
-  const w = img.width;
-  const h = img.height;
+function bust(img, element, w, h) {
   const c = makeCanvas(w, h);
   const ctx = c.getContext("2d");
-  ctx.drawImage(img, 0, 0);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, w, h);
 
   const top = h * (1 - SCRIM);
   const g = ctx.createLinearGradient(0, top, 0, h);
@@ -109,7 +110,8 @@ export async function loadHeroAvatars() {
           art.roundel === art.card ? null : decode(art.roundel),
         ]);
         baked[element] = {
-          bust: bust(card, element),
+          bust: bust(card, element, card.width, card.height),
+          card: bust(card, element, CARD.w, CARD.h),
           roundel: roundel(round || card),
         };
       } catch {}
@@ -127,6 +129,11 @@ async function decode(url) {
 export function heroBust(element) {
   const art = baked[element];
   return (art && art.bust) || null;
+}
+
+export function heroCardBust(element) {
+  const art = baked[element];
+  return (art && art.card) || null;
 }
 
 export function heroRoundel(element) {

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { statSync, existsSync } from "node:fs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "masters/heroes/portrait-sheet.webp");
+const SOURCE = join(ROOT, "masters/heroes/portrait-sheet-4x.webp");
 const OUT_DIR = join(ROOT, "src/assets/heroes");
 
 const single = (name) => join(ROOT, `masters/heroes/portrait-${name}.png`);
@@ -15,13 +15,13 @@ const GAP_LEVEL = 100;
 
 const MARGIN_LEVEL = 100;
 
-const HUNT = 10;
+const HUNT = 40;
 
-const TRIM = 2;
+const TRIM = 8;
 
-const TARGET = { w: 160, h: 328 };
+const TARGET = { w: 400, h: 820 };
 
-const QUALITY = "88";
+const QUALITY = "84";
 
 function probe(file) {
   const out = execFileSync(

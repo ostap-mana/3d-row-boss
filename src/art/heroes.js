@@ -27,7 +27,7 @@ import {
   hpPaintTexture,
   BAR_INSET,
 } from "./cardbars.js";
-import { heroBust, heroRoundel } from "./avatars.js";
+import { heroBust, heroCardBust, heroRoundel } from "./avatars.js";
 import { SPELL_BY_ELEMENT, SPELL_TRAVEL_LAST, spellFrames } from "./spells.js";
 import { CROWN_CELL, readyCrownFrames } from "./readyfx.js";
 import {
@@ -130,7 +130,9 @@ function initPortraits() {
   portraitTextures = HEROES.map(
     (hero, i) => heroRoundel(hero.element) || drawn[i],
   );
-  cardArtTextures = HEROES.map((hero, i) => heroBust(hero.element) || drawn[i]);
+  cardArtTextures = HEROES.map(
+    (hero, i) => heroCardBust(hero.element) || drawn[i],
+  );
 
   return portraitTextures;
 }
