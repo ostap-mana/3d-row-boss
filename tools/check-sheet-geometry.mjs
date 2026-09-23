@@ -1,5 +1,11 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  openSync,
+  readSync,
+  closeSync,
+} from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,25 +40,52 @@ function num(text, key, where) {
   return Number(m[1]);
 }
 
+function header(file, bytes) {
+  const buf = Buffer.alloc(bytes);
+  const fd = openSync(file, "r");
+  try {
+    const got = readSync(fd, buf, 0, bytes, 0);
+    return buf.subarray(0, got);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function webpSize(b, rel) {
+  const chunk = b.toString("latin1", 12, 16);
+  if (chunk === "VP8X") {
+    return {
+      w: b.readUIntLE(24, 3) + 1,
+      h: b.readUIntLE(27, 3) + 1,
+    };
+  }
+  if (chunk === "VP8L") {
+    const bits = b.readUInt32LE(21);
+    return { w: (bits & 0x3fff) + 1, h: ((bits >> 14) & 0x3fff) + 1 };
+  }
+  if (chunk === "VP8 ") {
+    return {
+      w: b.readUInt16LE(26) & 0x3fff,
+      h: b.readUInt16LE(28) & 0x3fff,
+    };
+  }
+  throw new Error(`${rel}: unknown webp chunk ${JSON.stringify(chunk)}`);
+}
+
 function size(rel) {
   const file = join(A, rel);
   if (!existsSync(file)) throw new Error(`missing asset: ${rel}`);
-  const [w, h] = execFileSync("ffprobe", [
-    "-v",
-    "error",
-    "-select_streams",
-    "v:0",
-    "-show_entries",
-    "stream=width,height",
-    "-of",
-    "csv=p=0",
-    file,
-  ])
-    .toString()
-    .trim()
-    .split(",")
-    .map(Number);
-  return { w, h };
+  const b = header(file, 32);
+  if (
+    b.toString("latin1", 0, 4) === "RIFF" &&
+    b.toString("latin1", 8, 12) === "WEBP"
+  ) {
+    return webpSize(b, rel);
+  }
+  if (b.readUInt32BE(0) === 0x89504e47) {
+    return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+  }
+  throw new Error(`${rel}: not a webp or png`);
 }
 
 const checks = [];
