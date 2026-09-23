@@ -1045,19 +1045,6 @@ export class Board extends Container {
     }
   }
 
-  flatten(r, amount, seconds) {
-    for (let c = 0; c < COLS; c++) {
-      const gem = this.grid[r] && this.grid[r][c];
-      if (!gem || gem.destroyed) continue;
-      if (this.locks[r] && this.locks[r][c]) continue;
-      delay(Math.abs(c - (COLS - 1) / 2) * 0.014).then(() => {
-        if (this.destroyed || gem.destroyed) return;
-        if (this.grid[r][c] !== gem) return;
-        punch(gem, -amount, seconds, { axis: "y" });
-      });
-    }
-  }
-
   applyGravity() {
     this.falling = [];
     this.holes = [];

@@ -10,8 +10,7 @@ paint-beat — paint a boss beat off the build's own flipbook, as a painted page
 
   The Invokers flipbooks are hard silhouettes. pack-boss-beat paints them by
   inside-distance alone, which gives a rim and a hollow belly: a neon outline,
-  which is what the board reads as UI. The lava fist that was approved is not
-  that. It is a body — black obsidian crust split by molten seams, a hot torn
+  which is what the board reads as UI. The painted lava fist was not that. It is a body — black obsidian crust split by molten seams, a hot torn
   rim, embers thrown off it and smoke left behind.
 
   So this paints five layers instead of one:

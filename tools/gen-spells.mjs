@@ -175,20 +175,6 @@ const SPELLS = [
       "well before the clip ends.",
   },
   {
-    id: "slam",
-    what: "KOLTMOS - MAGMA SLAM - boss attack",
-    style: BOSS_STYLE,
-    prompt:
-      "An unseen fist lands dead centre of frame and on that one impact a low " +
-      "wide shockwave bursts outward from the point it struck: a hard ring of " +
-      "white-hot light with violet fire dragging behind it, cracks of magenta " +
-      "light racing outward underneath, splinters of black stone and gold " +
-      "sparks thrown up along the ring as it goes. The ring is brightest the " +
-      "instant it is born, then it widens, thins and dims until the frame is " +
-      "completely black again. Exactly one blow and one ring: no second " +
-      "impact, no repeat, and it is finished well before the clip ends.",
-  },
-  {
     id: "claw",
     what: "MAGMAROTH - CLAW RAKE - boss attack",
     prompt:

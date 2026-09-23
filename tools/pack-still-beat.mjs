@@ -39,7 +39,7 @@ const arg = (name, fallback) => {
 const num = (name, fallback) => Number(arg(name, fallback));
 
 const SRC = resolve(ROOT, arg("--src", ""));
-const OUT = resolve(ROOT, arg("--out", "src/assets/fx/magma-sheet.webp"));
+const OUT = resolve(ROOT, arg("--out", ""));
 const STRIP = args.includes("--strip");
 
 const COLS = 5;
@@ -111,6 +111,10 @@ function encode(buf, w, h, file, extra) {
   );
 }
 
+if (!arg("--out", "")) {
+  process.stderr.write("pack-still-beat: --out is required\n");
+  process.exit(1);
+}
 if (!arg("--src", "") || !existsSync(SRC)) {
   process.stderr.write(`pack-still-beat: no source at ${SRC}\n`);
   process.exit(1);

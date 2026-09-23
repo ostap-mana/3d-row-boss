@@ -27,7 +27,7 @@ pack-boss-beat — paint a boss plate off the build's own FX masks.
   --wipe <png>  no flipbook: tear one slash open along the erosion gradient and
                 burn it back down, the way the build animates its own slashes.
   --claw        three gashes off that one slash, the middle the longest.
-  --ramp r      magma (the slam palette) or violet (the rest of the boss).
+  --ramp r      magma (fire over obsidian) or violet (the rest of the boss).
   --strip       also write the sheet as a PNG to look at.
 `;
 
