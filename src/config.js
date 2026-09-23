@@ -538,7 +538,7 @@ export const BOSS_FX = {
     art: 0.995,
     burstX: 0.03,
     burstY: 0.27,
-    stagger: 0.028,
+    stagger: 0.055,
     spread: 0.16,
   },
   doom: {

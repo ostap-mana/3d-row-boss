@@ -23,8 +23,7 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { streamArt } from "../art/streams.js";
-import { boulderFrames } from "../art/shards.js";
-import { blockTexture } from "../art/obsidian.js";
+import { boulderFrames, shardTexture } from "../art/shards.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
@@ -1324,13 +1323,11 @@ export class Vfx extends Container {
         glow.alpha = 0;
         this.field.addChild(glow);
 
-        const slab = blockTexture();
-        const rock = slab ? new Sprite(slab) : null;
-        const flip = i % 2 ? -1 : 1;
+        const art = shardTexture(i + (o.seed || 0));
+        const rock = art ? new Sprite(art) : null;
         if (rock) {
           rock.anchor.set(0.5);
           rock.setSize(wide * VOLLEY.from, wide * VOLLEY.from);
-          rock.scale.x *= flip;
           rock.rotation = rndRange(0, Math.PI * 2);
           rock.alpha = 0;
           this.field.addChild(rock);
@@ -1375,7 +1372,6 @@ export class Vfx extends Container {
                     rock.y = y;
                     rock.rotation = seed + spin * e;
                     rock.setSize(wide * grow, wide * grow);
-                    rock.scale.x *= flip;
                     rock.alpha = fade;
                   }
                 }).then(done);
@@ -1513,7 +1509,7 @@ export class Vfx extends Container {
     this.burst(to.x, to.y, OBSIDIAN.seamHot, BOULDER.chips, 1.5);
 
     for (let i = 0; i < BOULDER.debris; i++) {
-      const chip = blockTexture();
+      const chip = shardTexture(i * 3 + 1);
       if (!chip) break;
       const s = new Sprite(chip);
       s.anchor.set(0.5);
@@ -1535,76 +1531,6 @@ export class Vfx extends Container {
         s.alpha = p < 0.65 ? 1 : 1 - (p - 0.65) / 0.35;
       }).then(() => !s.destroyed && s.destroy());
     }
-  }
-
-  boltVolley(from, targets, opts) {
-    const frames = bossSpellFrames("bolt");
-    if (!frames || !targets || !targets.length) return Promise.resolve();
-
-    const o = opts || {};
-    const size = o.size || 200;
-    const last = frames.length - 1;
-    const hit = Math.max(
-      1,
-      Math.round(last * (o.burst === undefined ? 0.5 : o.burst)),
-    );
-
-    return Promise.all(
-      targets.map((to, i) => {
-        const lead = i * (o.stagger || 0);
-        const span = o.duration || 0.55;
-        const want = Math.atan2(to.y - from.y, to.x - from.x);
-        const spin = want - (o.art || 0);
-        const cos = Math.cos(spin);
-        const sin = Math.sin(spin);
-        const bx = (o.burstX || 0) * size;
-        const by = (o.burstY || 0) * size;
-        const rest = {
-          x: to.x - (bx * cos - by * sin),
-          y: to.y - (bx * sin + by * cos),
-        };
-        const head = {
-          x: from.x - (bx * cos - by * sin),
-          y: from.y - (bx * sin + by * cos),
-        };
-
-        const pair = [0, 1].map((k) => {
-          const sp = new Sprite(frames[0]);
-          sp.anchor.set(0.5);
-          sp.blendMode = "add";
-          sp.rotation = spin;
-          sp.setSize(size, size);
-          sp.alpha = k ? o.glow || 0 : 0;
-          this.field.addChild(sp);
-          return sp;
-        });
-
-        return delay(lead)
-          .then(
-            () =>
-              new Promise((done) => {
-                tweenValue(0, 1, span, (p) => {
-                  const step = Math.min(last, (p * frames.length) | 0);
-                  const run = Math.min(1, step / hit);
-                  const e = Ease.quadIn(run);
-                  const x = head.x + (rest.x - head.x) * e;
-                  const y = head.y + (rest.y - head.y) * e;
-                  const fade = p > 0.82 ? 1 - (p - 0.82) / 0.18 : 1;
-
-                  pair.forEach((sp, k) => {
-                    if (sp.destroyed) return;
-                    sp.texture = frames[step];
-                    sp.x = x;
-                    sp.y = y;
-                    sp.setSize(size, size);
-                    sp.alpha = (k ? o.glow || 0 : o.alpha || 1) * fade;
-                  });
-                }).then(done);
-              }),
-          )
-          .then(() => pair.forEach((sp) => !sp.destroyed && sp.destroy()));
-      }),
-    );
   }
 
   async tide(board, to, opts) {
@@ -1769,7 +1695,7 @@ export class Vfx extends Container {
 
   breakRock(at, size) {
     for (let i = 0; i < BOULDER.pieces; i++) {
-      const art = blockTexture();
+      const art = shardTexture(i * 2 + 1);
       if (!art) break;
       const s = new Sprite(art);
       s.anchor.set(0.5);
