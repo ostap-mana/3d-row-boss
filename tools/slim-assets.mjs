@@ -42,15 +42,6 @@ function probe(file) {
 
 const SHEETS = [
   {
-    rel: "outcome/defeat-figure.webp",
-    cols: 8,
-    cell: "300x300",
-    pad: 2,
-    count: 38,
-    scale: 0.56,
-    q: 82,
-  },
-  {
     rel: "outcome/victory-figure.webp",
     cols: 7,
     cell: "300x300",

@@ -2,23 +2,20 @@ import { Container, Sprite } from "pixi.js";
 import { canvasTexture } from "./textures.js";
 import { loadAlphaClip } from "./alphavideo.js";
 import victoryStillUrl from "../assets/outcome/victory-figure.webp";
-import defeatStillUrl from "../assets/outcome/defeat-figure.webp";
 import victoryClipUrl from "../assets/outcome/victory-figure.mp4";
-import defeatClipUrl from "../assets/outcome/defeat-figure.mp4";
 
 const ART = {
   victory: { still: victoryStillUrl, clip: victoryClipUrl },
-  defeat: { still: defeatStillUrl, clip: defeatClipUrl },
 };
 
-const SIDES = ["victory", "defeat"];
+const SIDES = Object.keys(ART);
 
 export const FIGURE_ASPECT = 1;
 
 export const FIGURE_CARRIES_STARS = true;
 
-const stills = { victory: null, defeat: null };
-const clips = { victory: null, defeat: null };
+const stills = Object.fromEntries(SIDES.map((key) => [key, null]));
+const clips = Object.fromEntries(SIDES.map((key) => [key, null]));
 let loaded = false;
 
 async function decode(url) {
@@ -53,7 +50,7 @@ export async function loadOutcomeFigures() {
 const side = (defeat) => (defeat ? "defeat" : "victory");
 
 function figureTexture(defeat) {
-  return stills[side(defeat)];
+  return stills[side(defeat)] || null;
 }
 
 export function rewindFigures() {
@@ -76,7 +73,7 @@ export class FigureView extends Container {
     this.addChild(this.still);
     this.clip = null;
     this.span = 0;
-    this.grounded = { victory: false, defeat: false };
+    this.grounded = Object.fromEntries(SIDES.map((key) => [key, false]));
     this.watch = 0;
   }
 
