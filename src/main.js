@@ -655,6 +655,7 @@ async function boot() {
     scene.board.update(dt);
     scene.heroRow.update(dt);
     scene.ultRim.update(dt);
+    scene.cutin.update(dt);
     scene.hud.update(dt);
     scene.spotlight.update(dt);
     scene.outcome.update(dt);

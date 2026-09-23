@@ -7,10 +7,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "src/assets/cards");
 const PROOF_DIR = join(ROOT, "src/animation/vfx-proof");
 
-const COLS = 6;
-const COUNT = 18;
-const CELL_W = 216;
-const CELL_H = 344;
+const CUTIN = process.argv.includes("--cutin");
+const K = CUTIN ? 2 : 1;
+
+const COLS = CUTIN ? 3 : 6;
+const COUNT = CUTIN ? 6 : 18;
+const CELL_W = 216 * K;
+const CELL_H = 344 * K;
 
 const FPS = 10;
 
@@ -20,11 +23,12 @@ const MARGIN = 44;
 const LINE = 7;
 const RADIUS = 5;
 
-const SS = 3;
+const DS = CUTIN ? 2 : 3;
+const SS = K * DS;
 const QUALITY = 72;
 
-const W = CELL_W * SS;
-const H = CELL_H * SS;
+const W = CELL_W * DS;
+const H = CELL_H * DS;
 const hw = (CARD_W * SS) / 2;
 const hh = (CARD_H * SS) / 2;
 const rad = RADIUS * SS;
@@ -171,7 +175,7 @@ function rnd(i) {
 
 const BRUSH_DIR = "masters/fx/invokers";
 
-const BRUSH_PX = 96;
+const BRUSH_PX = 96 * K;
 
 const BRUSH_FLOOR = 0.07;
 
@@ -557,16 +561,16 @@ function finish(buf) {
   const w = CELL_W;
   const h = CELL_H;
   const lin = new Float32Array(w * h * 3);
-  const inv = 1 / (SS * SS);
+  const inv = 1 / (DS * DS);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let r = 0;
       let g = 0;
       let b = 0;
-      for (let sy = 0; sy < SS; sy++) {
-        const row = (y * SS + sy) * W;
-        for (let sx = 0; sx < SS; sx++) {
-          const j = (row + x * SS + sx) * 3;
+      for (let sy = 0; sy < DS; sy++) {
+        const row = (y * DS + sy) * W;
+        for (let sx = 0; sx < DS; sx++) {
+          const j = (row + x * DS + sx) * 3;
           r += buf[j];
           g += buf[j + 1];
           b += buf[j + 2];
@@ -579,7 +583,7 @@ function finish(buf) {
     }
   }
 
-  const R = 7;
+  const R = 7 * K;
   const tmp = new Float32Array(w * h * 3);
   const blur = new Float32Array(w * h * 3);
   const src = new Float32Array(w * h * 3);
@@ -1326,6 +1330,25 @@ const loopDraw = (buf, R, f, cr, cg, cb) => {
   glints(buf, R, cr, cg, cb, f / COUNT, breath);
 };
 
+const cutinDraw = (buf, R, f, cr, cg, cb) => {
+  const breath = breatheAt(R.breathe, f);
+  const sheen = R.sheen(0);
+  rim(
+    buf,
+    cr,
+    cg,
+    cb,
+    R.lineAmp,
+    R.glowAmp * breath,
+    (u) => R.wave(u)(0),
+    sheen,
+    R.deep,
+  );
+  corners(buf, cr, cg, cb, R.lineAmp * 0.85 * breath, sheen);
+  emit(buf, R, f, cr, cg, cb, breath);
+  glints(buf, R, cr, cg, cb, f / COUNT, breath);
+};
+
 let total = 0;
 console.log(
   `${COLS}x${COUNT / COLS} of ${CELL_W}x${CELL_H}, ${SS}x supersampled`,
@@ -1340,10 +1363,13 @@ for (const { id, color, deep } of ELEMENTS) {
     (deep & 255) / 255,
   ];
   if (dumpBrushes) dumpBrush(R.art);
-  for (const [what, draw] of [
-    ["", loopDraw],
-    ["burst-", burstFrame],
-  ]) {
+  const draws = CUTIN
+    ? [["cutin-", cutinDraw]]
+    : [
+        ["", loopDraw],
+        ["burst-", burstFrame],
+      ];
+  for (const [what, draw] of draws) {
     const t0 = Date.now();
     const { sheet, sw, sh } = sheetOf(draw, R, color);
     const out = join(OUT_DIR, `ult-${what}${id}.webp`);
@@ -1360,7 +1386,7 @@ console.log(`\n${(total / 1024).toFixed(1)} kB of sheets`);
 console.log(
   `\nsrc/art/ultborder.js: cols ${COLS}, count ${COUNT}, ` +
     `cell ${CELL_W}x${CELL_H}, fps ${FPS}\n` +
-    `  padX ${((CELL_W / CARD_W - 1) / 2).toFixed(4)}  ` +
-    `padY ${((CELL_H / CARD_H - 1) / 2).toFixed(4)}  cycle (not ping-pong)\n` +
+    `  padX ${((CELL_W / (CARD_W * K) - 1) / 2).toFixed(4)}  ` +
+    `padY ${((CELL_H / (CARD_H * K) - 1) / 2).toFixed(4)}  cycle (not ping-pong)\n` +
     `  sheet ${CELL_W * COLS}x${(CELL_H * COUNT) / COLS}`,
 );

@@ -57,6 +57,16 @@ const SHAPES = [
     loop: "cycle",
     fps: 10,
   },
+  {
+    id: "cutin",
+    cols: 3,
+    count: 6,
+    cellW: 432,
+    cellH: 688,
+    pad: { x: 0.3438, y: 0.1719 },
+    loop: "cycle",
+    fps: 10,
+  },
 ];
 
 const FPS = 7;
@@ -148,6 +158,10 @@ export function ultBorder(element) {
 
 export function ultBurst(element) {
   return sheets[`burst-${ID_BY_ELEMENT[element]}`] || null;
+}
+
+export function ultCutin(element) {
+  return sheets[`cutin-${ID_BY_ELEMENT[element]}`] || null;
 }
 
 export function ultLoopTexture(art, t, rate) {

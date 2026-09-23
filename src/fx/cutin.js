@@ -11,7 +11,13 @@ import {
 import { heroPortrait } from "../art/heroes.js";
 import { heroBust } from "../art/avatars.js";
 import { glowTexture } from "../art/textures.js";
-import { fitUltBorder, ultBurst, ultBurstTexture } from "../art/ultborder.js";
+import {
+  fitUltBorder,
+  ultBurst,
+  ultBurstTexture,
+  ultCutin,
+  ultLoopTexture,
+} from "../art/ultborder.js";
 import { lerpColor } from "../core/color.js";
 import { tween, delay, killTweensOf, Ease } from "../core/tween.js";
 import * as sfx from "../audio/sfx.js";
@@ -121,6 +127,16 @@ export class CutIn extends Container {
     this.plateFront = new Graphics();
     this.bust.addChild(this.plateFront);
 
+    this.rail = new Sprite(Texture.EMPTY);
+    this.rail.anchor.set(0.5);
+    this.rail.blendMode = "add";
+    this.rail.alpha = 0;
+    this.rail.visible = false;
+    this.bust.addChild(this.rail);
+
+    this.railArt = null;
+    this.railT = 0;
+
     this.ring = new Graphics();
     this.ring.blendMode = "add";
     this.ring.alpha = 0;
@@ -196,6 +212,8 @@ export class CutIn extends Container {
     this.gateArt = art && art.shape !== "halo" ? art : null;
     this.gate.visible = !!this.gateArt;
     if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
+    this.railArt = ultCutin(element);
+    if (this.railArt) this.rail.texture = this.railArt.frames[0];
   }
 
   setHero(index) {
@@ -320,6 +338,7 @@ export class CutIn extends Container {
     }
 
     if (this.gateArt) fitUltBorder(this.gate, this.gateArt, pw, ph);
+    if (this.railArt) fitUltBorder(this.rail, this.railArt, pw, ph);
 
     this.glow.setSize(pw * 3.4, ph * 1.9);
     this.glow.x = this.bust.x;
@@ -520,6 +539,7 @@ export class CutIn extends Container {
     killTweensOf(this.ring);
     killTweensOf(this.ring.scale);
     killTweensOf(this.gateDriver);
+    killTweensOf(this.rail);
     killTweensOf(this.plate);
     killTweensOf(this.kicker);
     killTweensOf(this.name);
@@ -542,6 +562,9 @@ export class CutIn extends Container {
     this.ring.scale.set(1);
     this.gateDriver.v = 0;
     if (this.gateArt) this.gate.texture = this.gateArt.frames[0];
+    this.rail.alpha = 0;
+    this.rail.visible = false;
+    this.railT = 0;
     this.plate.alpha = 1;
     this.plate.x = 0;
     this.kicker.alpha = 1;
@@ -560,6 +583,12 @@ export class CutIn extends Container {
         this.gate.texture = ultBurstTexture(this.gateArt, this.gateDriver.v);
       },
     });
+  }
+
+  update(dt) {
+    if (!this.visible || !this.railArt || !this.rail.visible) return;
+    this.railT += dt;
+    this.rail.texture = ultLoopTexture(this.railArt, this.railT);
   }
 
   hold(index) {
@@ -628,6 +657,11 @@ export class CutIn extends Container {
       this.gateTo(GATE.land, 0.32, Ease.linear),
     ]);
     if (this.playId !== token) return;
+
+    if (this.railArt) {
+      this.rail.visible = true;
+      tween(this.rail, { alpha: 1 }, 0.2, { ease: Ease.quadOut });
+    }
 
     this.ring.alpha = 0.85;
     this.ring.scale.set(0.75);
