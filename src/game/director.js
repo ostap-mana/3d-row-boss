@@ -1391,7 +1391,7 @@ export class Director {
   }
 
   async bossBolt(attack, cells) {
-    const { boss, hud, vfx, shake, layout } = this.s;
+    const { boss, hud, vfx, heroRow, shake, layout } = this.s;
     const fx = BOSS_FX.bolt;
     const board = layout.board;
 
@@ -1402,23 +1402,49 @@ export class Director {
     await boss.spit();
     if (this.settled()) return;
 
-    const cast = {
-      x: board.x + board.size * (0.5 + fx.push),
-      y: board.y + board.size * fx.depth,
-    };
-    this.bossPlate("bolt", cast);
-
+    const from = boss.mouthPoint();
+    const size = board.cell * fx.each;
     const land = fx.seconds * fx.burst;
-    const at = {
-      x: cast.x + board.size * fx.hitX,
-      y: cast.y + board.size * fx.hitY,
-    };
+
+    heroRow.cards.forEach((card, i) => {
+      const at = heroRow.cardPoint(i);
+      const want = Math.atan2(at.y - from.y, at.x - from.x);
+      const spin = want - fx.art + (i - 2.5) * fx.spread;
+      const cos = Math.cos(spin);
+      const sin = Math.sin(spin);
+      const bx = fx.burstX * size;
+      const by = fx.burstY * size;
+      const seat = {
+        x: at.x - (bx * cos - by * sin),
+        y: at.y - (bx * sin + by * cos),
+      };
+      const plate = {
+        size,
+        duration: fx.seconds,
+        grow: fx.grow,
+        rotation: spin,
+      };
+
+      delay(i * fx.stagger).then(() => {
+        if (this.settled()) return;
+        vfx.bossSwing("bolt", seat, {
+          ...plate,
+          alpha: fx.glow,
+          blend: "add",
+        });
+        vfx.bossSwing("bolt", seat, { ...plate, alpha: fx.alpha });
+      });
+
+      delay(i * fx.stagger + land).then(() => {
+        if (this.settled() || card.downed) return;
+        vfx.impact(at, OBSIDIAN.seamHot, 0.7);
+      });
+    });
 
     const landing = delay(land).then(() => {
       if (this.settled()) return null;
       sfx.bossSmash();
-      shake(19, 0.42);
-      vfx.impact(at, OBSIDIAN.seamHot, 0.9);
+      shake(15, 0.4);
       return this.eruptObsidian(cells);
     });
 
@@ -1426,7 +1452,7 @@ export class Director {
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-    await Promise.all([landing, falling, delay(0.3)]);
+    await Promise.all([landing, falling, delay(0.34)]);
   }
 
   async bossRider(attack, cells) {
