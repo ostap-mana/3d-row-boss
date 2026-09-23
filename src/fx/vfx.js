@@ -1534,6 +1534,76 @@ export class Vfx extends Container {
     }
   }
 
+  boltVolley(from, targets, opts) {
+    const frames = bossSpellFrames("bolt");
+    if (!frames || !targets || !targets.length) return Promise.resolve();
+
+    const o = opts || {};
+    const size = o.size || 200;
+    const last = frames.length - 1;
+    const hit = Math.max(
+      1,
+      Math.round(last * (o.burst === undefined ? 0.5 : o.burst)),
+    );
+
+    return Promise.all(
+      targets.map((to, i) => {
+        const lead = i * (o.stagger || 0);
+        const span = o.duration || 0.55;
+        const want = Math.atan2(to.y - from.y, to.x - from.x);
+        const spin = want - (o.art || 0);
+        const cos = Math.cos(spin);
+        const sin = Math.sin(spin);
+        const bx = (o.burstX || 0) * size;
+        const by = (o.burstY || 0) * size;
+        const rest = {
+          x: to.x - (bx * cos - by * sin),
+          y: to.y - (bx * sin + by * cos),
+        };
+        const head = {
+          x: from.x - (bx * cos - by * sin),
+          y: from.y - (bx * sin + by * cos),
+        };
+
+        const pair = [0, 1].map((k) => {
+          const sp = new Sprite(frames[0]);
+          sp.anchor.set(0.5);
+          sp.blendMode = "add";
+          sp.rotation = spin;
+          sp.setSize(size, size);
+          sp.alpha = k ? o.glow || 0 : 0;
+          this.field.addChild(sp);
+          return sp;
+        });
+
+        return delay(lead)
+          .then(
+            () =>
+              new Promise((done) => {
+                tweenValue(0, 1, span, (p) => {
+                  const step = Math.min(last, (p * frames.length) | 0);
+                  const run = Math.min(1, step / hit);
+                  const e = Ease.quadIn(run);
+                  const x = head.x + (rest.x - head.x) * e;
+                  const y = head.y + (rest.y - head.y) * e;
+                  const fade = p > 0.82 ? 1 - (p - 0.82) / 0.18 : 1;
+
+                  pair.forEach((sp, k) => {
+                    if (sp.destroyed) return;
+                    sp.texture = frames[step];
+                    sp.x = x;
+                    sp.y = y;
+                    sp.setSize(size, size);
+                    sp.alpha = (k ? o.glow || 0 : o.alpha || 1) * fade;
+                  });
+                }).then(done);
+              }),
+          )
+          .then(() => pair.forEach((sp) => !sp.destroyed && sp.destroy()));
+      }),
+    );
+  }
+
   breakRock(at, size) {
     for (let i = 0; i < BOULDER.pieces; i++) {
       const art = blockTexture();

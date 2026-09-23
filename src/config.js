@@ -100,9 +100,9 @@ export const RIDER = {
   drop: -0.28,
   enter: 0.14,
   rate: 1,
-  strike: 0.6,
-  hold: 1.15,
-  leave: 0.22,
+  strike: 0.52,
+  hold: 0.75,
+  leave: 0.26,
 };
 
 export const SNAP = {
@@ -495,7 +495,7 @@ export const BOSS_FX = {
     art: 0.995,
     burstX: 0.03,
     burstY: 0.27,
-    stagger: 0.055,
+    stagger: 0.028,
     spread: 0.16,
   },
   doom: {

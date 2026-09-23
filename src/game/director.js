@@ -1405,39 +1405,24 @@ export class Director {
     const from = boss.mouthPoint();
     const size = board.cell * fx.each;
     const land = fx.seconds * fx.burst;
+    const marks = heroRow.cards.map((card, i) => heroRow.cardPoint(i));
+
+    const flying = vfx.boltVolley(from, marks, {
+      size,
+      duration: fx.seconds,
+      stagger: fx.stagger,
+      art: fx.art,
+      burst: fx.burst,
+      burstX: fx.burstX,
+      burstY: fx.burstY,
+      alpha: fx.alpha,
+      glow: fx.glow,
+    });
 
     heroRow.cards.forEach((card, i) => {
-      const at = heroRow.cardPoint(i);
-      const want = Math.atan2(at.y - from.y, at.x - from.x);
-      const spin = want - fx.art + (i - 2.5) * fx.spread;
-      const cos = Math.cos(spin);
-      const sin = Math.sin(spin);
-      const bx = fx.burstX * size;
-      const by = fx.burstY * size;
-      const seat = {
-        x: at.x - (bx * cos - by * sin),
-        y: at.y - (bx * sin + by * cos),
-      };
-      const plate = {
-        size,
-        duration: fx.seconds,
-        grow: fx.grow,
-        rotation: spin,
-      };
-
-      delay(i * fx.stagger).then(() => {
-        if (this.settled()) return;
-        vfx.bossSwing("bolt", seat, {
-          ...plate,
-          alpha: fx.glow,
-          blend: "add",
-        });
-        vfx.bossSwing("bolt", seat, { ...plate, alpha: fx.alpha });
-      });
-
       delay(i * fx.stagger + land).then(() => {
         if (this.settled() || card.downed) return;
-        vfx.impact(at, OBSIDIAN.seamHot, 0.7);
+        vfx.impact(marks[i], OBSIDIAN.seamHot, 0.7);
       });
     });
 
@@ -1452,7 +1437,7 @@ export class Director {
     if (this.settled()) return;
 
     const falling = this.strikeHeroes(attack);
-    await Promise.all([landing, falling, delay(0.34)]);
+    await Promise.all([flying, landing, falling, delay(0.34)]);
   }
 
   async bossRider(attack, cells) {
@@ -1481,6 +1466,14 @@ export class Director {
 
     tween(clip, { alpha: RIDER.alpha }, RIDER.enter);
 
+    delay(RIDER.hold).then(() =>
+      tween(clip, { alpha: 0 }, RIDER.leave).then(() => {
+        clip.stop();
+        clip.rewind();
+        clip.visible = false;
+      }),
+    );
+
     const spreading = this.dropObsidian(cells, 0.1);
 
     await delay(RIDER.strike);
@@ -1501,15 +1494,6 @@ export class Director {
     });
 
     const falling = this.strikeHeroes(attack);
-
-    delay(RIDER.hold).then(() => {
-      if (!clip) return;
-      tween(clip, { alpha: 0 }, RIDER.leave).then(() => {
-        clip.stop();
-        clip.rewind();
-        clip.visible = false;
-      });
-    });
 
     await Promise.all([spreading, falling, delay(RIDER.hold * 0.7)]);
   }
