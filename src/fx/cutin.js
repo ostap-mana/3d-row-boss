@@ -181,6 +181,7 @@ export class CutIn extends Container {
     this.ringHome = 1;
 
     this.playId = 0;
+    this.freed = null;
 
     this.setGate(HEROES[this.index].element);
   }
@@ -561,11 +562,31 @@ export class CutIn extends Container {
     });
   }
 
-  async play(index) {
+  hold(index) {
+    return new Promise((reached) => this.play(index, reached));
+  }
+
+  release() {
+    const go = this.freed;
+    this.freed = null;
+    if (go) go();
+    return !!go;
+  }
+
+  hide() {
+    this.playId++;
+    this.release();
+    this.visible = false;
+    this.reset();
+    return true;
+  }
+
+  async play(index, reached) {
     if (index !== undefined) this.setHero(index);
     const { w } = this.layout.stage;
     const token = ++this.playId;
 
+    this.release();
     this.reset();
     this.visible = true;
     sfx.ultCutin(HEROES[this.index].element);
@@ -623,6 +644,14 @@ export class CutIn extends Container {
     this.gateTo(GATE.hold, 0.43, Ease.linear);
     await delay(0.34);
     if (this.playId !== token) return;
+
+    if (reached) {
+      reached();
+      await new Promise((resolve) => {
+        this.freed = resolve;
+      });
+      if (this.playId !== token) return;
+    }
 
     await Promise.all([
       tween(this.bust.scale, { x: bs.x * 0.98, y: bs.y * 0.98 }, 0.09, {

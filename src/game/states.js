@@ -587,6 +587,32 @@ export function stateEngine(scene) {
     }
     return out;
   }
+  function cutinStates() {
+    if (!scene.cutin) return [];
+    const awake = (e) => {
+      if (frozen) e.thaw();
+    };
+    return [
+      {
+        name: "cutin.hold",
+        group: "cutin",
+        act: (s, e) => {
+          awake(e);
+          return s.cutin.hold(0);
+        },
+      },
+      {
+        name: "cutin.release",
+        group: "cutin",
+        act: (s, e) => {
+          awake(e);
+          return s.cutin.release();
+        },
+      },
+      { name: "cutin.hide", group: "cutin", act: (s) => s.cutin.hide() },
+    ];
+  }
+
   function catalogue() {
     const d = director();
     if (!d) return fxStates();
@@ -598,7 +624,8 @@ export function stateEngine(scene) {
       .concat(hitStates())
       .concat(own)
       .concat(scene.outcome ? CARDS : [])
-      .concat(fxStates());
+      .concat(fxStates())
+      .concat(cutinStates());
   }
 
   function find(name) {
