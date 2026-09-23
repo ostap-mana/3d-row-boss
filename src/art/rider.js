@@ -1,5 +1,5 @@
 import { loadAlphaClip } from "./alphavideo.js";
-import riderUrl from "../assets/boss/rider-slash.mp4";
+import riderUrl from "../assets/boss/rider-dash.mp4";
 
 let clip = null;
 let loaded = false;

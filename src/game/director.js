@@ -29,7 +29,7 @@ import {
 import { MIN_SWAPS } from "./board.js";
 import { riderClip } from "../art/rider.js";
 import { clearStop, setTimeScale, worldRate } from "../core/juice.js";
-import { delay, now, tween, Ease } from "../core/tween.js";
+import { delay, now, tween } from "../core/tween.js";
 import { pick, rnd, rndInt } from "../core/rng.js";
 import * as sfx from "../audio/sfx.js";
 import { music } from "../audio/music.js";
@@ -1460,30 +1460,26 @@ export class Director {
     const clip = riderClip();
     if (!clip) return this.bossVolley(attack, cells);
 
-    const board = layout.board;
+    const cards = layout.cards;
     hud.shout(attack.shout || COPY.rider, 0.4, {
       fill: OBSIDIAN.edge,
       from: 1.4,
     });
     boss.roar();
-    await delay(0.22);
+    await delay(0.2);
     if (this.settled()) return;
 
-    const tall = board.size * RIDER.size;
-    const seat = {
-      x: board.x + board.size * RIDER.at,
-      y: board.y + board.size * RIDER.stand,
-    };
-    clip.fit(tall);
-    clip.x = seat.x - board.size * 0.22;
-    clip.y = seat.y;
+    const wide = layout.stage.w * RIDER.wide;
+    clip.scale.set(wide, wide / RIDER.aspect);
+    clip.x = layout.stage.w / 2;
+    clip.y = cards.y + cards.h * (1 + RIDER.drop);
     clip.alpha = 0;
     clip.visible = true;
     clip.video.playbackRate = RIDER.rate;
     clip.play();
     sfx.bossHurl();
 
-    tween(clip, { alpha: 1, x: seat.x }, RIDER.enter, { ease: Ease.quadOut });
+    tween(clip, { alpha: RIDER.alpha }, RIDER.enter);
 
     const spreading = this.dropObsidian(cells, 0.1);
 
@@ -1495,13 +1491,12 @@ export class Director {
     }
 
     sfx.bossSmash();
-    shake(18, 0.4);
+    shake(20, 0.42);
     heroRow.cards.forEach((card, i) => {
       if (card.downed) return;
-      const at = heroRow.cardPoint(i);
-      delay(i * 0.04).then(() => {
+      delay(i * 0.05).then(() => {
         if (this.ended) return;
-        vfx.impact(at, OBSIDIAN.seamHot, 0.8);
+        vfx.impact(heroRow.cardPoint(i), OBSIDIAN.seamHot, 0.75);
       });
     });
 

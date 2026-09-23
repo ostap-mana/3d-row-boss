@@ -1306,6 +1306,13 @@ export class Vfx extends Container {
         };
         const bow = (to.x - from.x) * VOLLEY.bow;
 
+        const streak = new Sprite(beamTexture());
+        streak.anchor.set(0.5);
+        streak.blendMode = "add";
+        streak.tint = OBSIDIAN.seam;
+        streak.alpha = 0;
+        this.field.addChild(streak);
+
         const glow = new Sprite(glowTexture());
         glow.anchor.set(0.5);
         glow.blendMode = "add";
@@ -1333,13 +1340,24 @@ export class Vfx extends Container {
             () =>
               new Promise((done) => {
                 tweenValue(0, 1, span, (p) => {
-                  const e = Ease.quadIn(p);
+                  const e = p * (VOLLEY.launch + (1 - VOLLEY.launch) * p);
                   const swell = Math.sin(Math.PI * e);
                   const x = mouth.x + (to.x - mouth.x) * e + swell * bow;
                   const y =
                     mouth.y + (to.y - mouth.y) * e - swell * lift * VOLLEY.hang;
                   const grow = VOLLEY.from + (1 - VOLLEY.from) * e;
                   const fade = p < 0.12 ? p / 0.12 : 1;
+
+                  const runX = x - mouth.x;
+                  const runY = y - mouth.y;
+                  const run = Math.hypot(runX, runY);
+                  streak.x = mouth.x + runX / 2;
+                  streak.y = mouth.y + runY / 2;
+                  streak.rotation = Math.atan2(runY, runX) + Math.PI / 2;
+                  streak.setSize(wide * VOLLEY.tail, run);
+                  streak.alpha =
+                    VOLLEY.tailAlpha *
+                    (p < 0.12 ? p / 0.12 : 1 - Math.max(0, (p - 0.72) / 0.28));
 
                   glow.x = x;
                   glow.y = y;
@@ -1362,6 +1380,7 @@ export class Vfx extends Container {
           )
           .then(() => {
             glow.destroy();
+            streak.destroy();
             if (rock && !rock.destroyed) rock.destroy();
             this.burst(to.x, to.y, OBSIDIAN.seamHot, VOLLEY.chips, 0.9);
           });

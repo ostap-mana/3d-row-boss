@@ -44,9 +44,12 @@ export const OBSIDIAN = {
 
 export const VOLLEY = {
   size: 0.19,
-  fan: 0.34,
-  bow: 0.18,
-  flight: 0.3,
+  fan: 0,
+  bow: 0.3,
+  launch: 0.7,
+  tail: 0.26,
+  tailAlpha: 0.7,
+  flight: 0.42,
   stagger: 0.04,
   spin: [1.6, 3.4],
   arc: 0.14,
@@ -91,14 +94,15 @@ export const BOULDER = {
 };
 
 export const RIDER = {
-  size: 0.66,
-  at: 0.3,
-  stand: 1.0,
-  enter: 0.26,
-  rate: 1.3,
-  strike: 0.5,
-  hold: 1.05,
-  leave: 0.3,
+  aspect: 3.158,
+  alpha: 0.94,
+  wide: 1.02,
+  drop: -0.28,
+  enter: 0.14,
+  rate: 1.25,
+  strike: 0.62,
+  hold: 1.35,
+  leave: 0.26,
 };
 
 export const SNAP = {
@@ -374,7 +378,7 @@ export const COPY = {
   volley: "OBSIDIAN VOLLEY!",
   boulder: "HE TEARS THE HILL LOOSE!",
   bolt: "HE SPITS A HEXBOLT!",
-  rider: "KOLTMOS CALLS A RIDER!",
+  rider: "THE BEAST RUNS THEM DOWN!",
   ultHeal: "TEAM HEALED!",
   mend: `${BOSS_NAME} MENDS!`,
   doomLabel: "CATACLYSM",
@@ -445,8 +449,8 @@ export const BOSS_ATTACKS = [
   {
     kind: "rider",
     targets: "lowest",
-    damage: 0.23,
-    splash: 0.07,
+    damage: 0.17,
+    splash: 0.085,
     shout: COPY.rider,
     from: 4,
   },
