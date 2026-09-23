@@ -36,6 +36,7 @@ import { loadOutcomeUi } from "./art/outcomeui.js";
 import { loadHeroAvatars } from "./art/avatars.js";
 import { loadHintHand } from "./art/hinthand.js";
 import { loadHintMarks } from "./art/hintmarks.js";
+import { loadMatchLink } from "./art/matchlink.js";
 import { loadHpBarArt } from "./art/hpbar.js";
 import { loadCardBars } from "./art/cardbars.js";
 import { loadReadyCrowns } from "./art/readyfx.js";
@@ -121,6 +122,7 @@ async function boot() {
     loadHeroAvatars(),
     loadHintHand(),
     loadHintMarks(),
+    loadMatchLink(),
     loadHpBarArt(),
     loadCardBars(),
     loadReadyCrowns(),
@@ -631,6 +633,7 @@ async function boot() {
     scene.ultRim.update(dt);
     scene.hud.update(dt);
     scene.spotlight.update(dt);
+    scene.coach.update(dt);
     scene.outcome.update(dt);
     scene.endcard.update(dt);
     scene.prompt.update(dt);

@@ -35,6 +35,26 @@ export const START_BOARD = START_BOARD_KEYS.map((row) =>
 
 export const SCRIPTED_HINT = { a: { r: 2, c: 2 }, b: { r: 3, c: 2 } };
 
+export const MATCH_LINK = {
+  gem: 0.43,
+  ring: 1.12,
+  ringAlpha: 1,
+  hot: 0.6,
+  halo: 1.22,
+  haloAlpha: 0.5,
+  beam: 0.46,
+  beamAlpha: 1,
+  core: 0.42,
+  coreAlpha: 0.7,
+  inset: 0.92,
+  bloom: 0.55,
+  pulse: 1.1,
+  breathe: 0.22,
+  swell: 0.03,
+  flow: 1.4,
+  spin: 0.35,
+};
+
 export const OBSIDIAN = {
   rock: 0x36293f,
   edge: 0x60486e,

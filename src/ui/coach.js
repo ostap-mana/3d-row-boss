@@ -7,6 +7,7 @@ import {
   hintMarksReady,
 } from "../art/hintmarks.js";
 import { READY_SCALE, READY_SWING } from "../art/heroes.js";
+import { MatchLink } from "./matchlink.js";
 
 const HOLD = 0.62;
 const TRAVEL = 0.4;
@@ -128,8 +129,9 @@ export class Coach extends Container {
     globalThis.__coach = this;
 
     this.marks = new Graphics();
+    this.link = new MatchLink();
     this.kit = new Container();
-    this.addChild(this.marks, this.kit);
+    this.addChild(this.marks, this.link, this.kit);
     this.painted = null;
     this.last = null;
     this.cardAt = null;
@@ -171,8 +173,13 @@ export class Coach extends Container {
     if (this.spot) this.spot.hide();
   }
 
+  update(dt) {
+    this.link.update(dt);
+  }
+
   clearMarks() {
     this.marks.clear();
+    this.link.clear();
     if (!this.painted) return;
     this.painted.arrow.visible = false;
     this.painted.pool.forEach((list) =>
@@ -492,7 +499,53 @@ export class Coach extends Container {
       };
     }
 
+    if (this.link.ready(step.type)) {
+      this.marks.clear();
+      this.link.show(board, this.linkMarks(board, step, joined, at));
+      this.wearArrow(step.type, arrow);
+      return;
+    }
+
     this.paint(boxes, arrow, step.type, step.color, size);
+  }
+
+  linkMarks(board, step, joined, at) {
+    const runs = joined || [];
+    const typeIn = (cell) => {
+      const group = runs.find((g) => g.cells.some((j) => same(j, cell)));
+      if (group) return group.type;
+      const own = board.typeAt(cell.r, cell.c);
+      return own >= 0 ? own : step.type;
+    };
+
+    const lit = [];
+    const seen = new Set();
+    (step.lit || []).forEach((cell) => {
+      const key = `${cell.r},${cell.c}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      lit.push(cell);
+    });
+    const rings = lit.map((cell) => ({ cell, type: typeIn(cell) }));
+
+    const beams = [];
+    runs.forEach((group) => {
+      const head = group.cells[0];
+      const across = group.cells[1].r === head.r;
+      const inline = lit.filter((cell) =>
+        across ? cell.r === head.r : cell.c === head.c,
+      );
+      inline.sort((p, q) => (across ? p.c - q.c : p.r - q.r));
+      for (let i = 1; i < inline.length; i++) {
+        beams.push({
+          from: at(inline[i - 1]),
+          to: at(inline[i]),
+          type: group.type,
+        });
+      }
+    });
+
+    return { rings, beams };
   }
 
   paint(boxes, arrow, type, color, size) {
@@ -503,21 +556,42 @@ export class Coach extends Container {
     else this.stroke(boxes, arrow, color, size);
   }
 
-  wear(type, boxes, arrow) {
-    this.marks.clear();
-
+  kitFor(type) {
     if (!this.painted || this.painted.type !== type) {
       this.kit.removeChildren().forEach((child) => child.destroy());
       this.painted = null;
       const pointer = hintArrowSprite(type);
-      if (!pointer) return;
+      if (!pointer) return null;
       this.painted = { type, pool: new Map(), used: [], arrow: pointer };
       this.kit.addChild(pointer);
     }
     const kit = this.painted;
-
     kit.used.forEach((frame) => (frame.visible = false));
     kit.used = [];
+    return kit;
+  }
+
+  aim(kit, arrow) {
+    this.kit.addChild(kit.arrow);
+    kit.arrow.visible = !!arrow;
+    if (!arrow) return;
+    const scale = arrow.length / kit.arrow.texture.width;
+    kit.arrow.scale.set(scale);
+    kit.arrow.rotation = arrow.rotation;
+    kit.arrow.x = arrow.x;
+    kit.arrow.y = arrow.y;
+  }
+
+  wearArrow(type, arrow) {
+    const kit = this.kitFor(type);
+    if (kit) this.aim(kit, arrow);
+  }
+
+  wear(type, boxes, arrow) {
+    this.marks.clear();
+
+    const kit = this.kitFor(type);
+    if (!kit) return;
 
     const taken = new Map();
 
@@ -544,15 +618,7 @@ export class Coach extends Container {
       kit.used.push(frame);
     });
 
-    this.kit.addChild(kit.arrow);
-    kit.arrow.visible = !!arrow;
-    if (arrow) {
-      const scale = arrow.length / kit.arrow.texture.width;
-      kit.arrow.scale.set(scale);
-      kit.arrow.rotation = arrow.rotation;
-      kit.arrow.x = arrow.x;
-      kit.arrow.y = arrow.y;
-    }
+    this.aim(kit, arrow);
   }
 
   stroke(boxes, arrow, color, size) {
