@@ -1,10 +1,8 @@
 import { Rectangle, Texture } from "pixi.js";
 import { canvasTexture } from "./textures.js";
-import shardUrl from "../assets/boss/shard-sheet.webp";
 import boulderUrl from "../assets/boss/boulder-sheet.webp";
 
 const SHEETS = [
-  { url: shardUrl, cols: 4, rows: 2, frames: 1, into: "shards" },
   { url: boulderUrl, cols: 4, rows: 4, frames: 4, into: "boulders" },
 ];
 
@@ -56,11 +54,6 @@ function pick(list, index) {
   return list[((index % list.length) + list.length) % list.length];
 }
 
-export function shardTexture(index) {
-  const run = pick(cut.shards, index);
-  return run ? run[0] : null;
-}
-
 export function boulderFrames(index) {
-  return pick(cut.boulders, index) || pick(cut.shards, index);
+  return pick(cut.boulders, index);
 }

@@ -22,7 +22,8 @@ import {
   spellFrames,
 } from "../art/spells.js";
 import { streamArt } from "../art/streams.js";
-import { boulderFrames, shardTexture } from "../art/shards.js";
+import { boulderFrames } from "../art/shards.js";
+import { blockTexture } from "../art/obsidian.js";
 import { boltArt } from "../art/bolts.js";
 import { POP_ASPECT, popFrames } from "../art/gempop.js";
 import { CHARGE_ASPECT, chargeFrames } from "../art/gemcharge.js";
@@ -1293,7 +1294,6 @@ export class Vfx extends Container {
 
     return Promise.all(
       targets.map((to, i) => {
-        const art = shardTexture(i + (o.seed || 0));
         const lead = i * stagger;
         const span = flight * rndRange(0.9, 1.12);
         const spin =
@@ -1314,10 +1314,13 @@ export class Vfx extends Container {
         glow.alpha = 0;
         this.field.addChild(glow);
 
-        const rock = art ? new Sprite(art[0]) : null;
+        const slab = blockTexture();
+        const rock = slab ? new Sprite(slab) : null;
+        const flip = i % 2 ? -1 : 1;
         if (rock) {
           rock.anchor.set(0.5);
           rock.setSize(wide * VOLLEY.from, wide * VOLLEY.from);
+          rock.scale.x *= flip;
           rock.rotation = rndRange(0, Math.PI * 2);
           rock.alpha = 0;
           this.field.addChild(rock);
@@ -1351,6 +1354,7 @@ export class Vfx extends Container {
                     rock.y = y;
                     rock.rotation = seed + spin * e;
                     rock.setSize(wide * grow, wide * grow);
+                    rock.scale.x *= flip;
                     rock.alpha = fade;
                   }
                 }).then(done);
@@ -1487,7 +1491,7 @@ export class Vfx extends Container {
     this.burst(to.x, to.y, OBSIDIAN.seamHot, BOULDER.chips, 1.5);
 
     for (let i = 0; i < BOULDER.debris; i++) {
-      const chip = shardTexture(i * 3 + 1);
+      const chip = blockTexture();
       if (!chip) break;
       const s = new Sprite(chip);
       s.anchor.set(0.5);
@@ -1513,7 +1517,7 @@ export class Vfx extends Container {
 
   breakRock(at, size) {
     for (let i = 0; i < BOULDER.pieces; i++) {
-      const art = shardTexture(i * 2 + 1);
+      const art = blockTexture();
       if (!art) break;
       const s = new Sprite(art);
       s.anchor.set(0.5);

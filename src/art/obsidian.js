@@ -61,7 +61,7 @@ function drawBlock(g) {
   });
 }
 
-function blockTexture() {
+export function blockTexture() {
   if (blockTex) return blockTex;
   const g = new Graphics();
   drawBlock(g);
