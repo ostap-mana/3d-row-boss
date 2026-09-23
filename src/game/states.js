@@ -5,6 +5,7 @@ import {
   FIRE,
   GEM_COLORS,
   GEM_LIGHT,
+  HEROES,
   HERO_MAX_HP,
   LIGHTNING,
   NATURE,
@@ -592,15 +593,16 @@ export function stateEngine(scene) {
     const awake = (e) => {
       if (frozen) e.thaw();
     };
-    return [
-      {
-        name: "cutin.hold",
-        group: "cutin",
-        act: (s, e) => {
-          awake(e);
-          return s.cutin.hold(0);
-        },
+    const holds = HEROES.map((hero, index) => ({
+      name: `cutin.hero${index}`,
+      group: "cutin",
+      label: hero.name,
+      act: (s, e) => {
+        awake(e);
+        return s.cutin.hold(index);
       },
+    }));
+    return holds.concat([
       {
         name: "cutin.release",
         group: "cutin",
@@ -610,7 +612,7 @@ export function stateEngine(scene) {
         },
       },
       { name: "cutin.hide", group: "cutin", act: (s) => s.cutin.hide() },
-    ];
+    ]);
   }
 
   function catalogue() {
