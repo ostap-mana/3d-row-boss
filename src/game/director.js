@@ -2136,6 +2136,7 @@ export class Director {
 
     const terminal = this.s.outcome.terminalFor(outcome);
 
+    this.s.hud.showBanner();
     await this.s.outcome.show(outcome);
 
     if (terminal) return;

@@ -52,9 +52,8 @@ function passport() {
     cta: {
       ...storeUrls(),
       targets: [
-        { where: "started", rect: "store" },
+        { where: "failed", rect: "store" },
         { where: "solved", rect: "store-outcome" },
-        { where: "endcard", rect: "store-endcard" },
       ],
     },
   };
