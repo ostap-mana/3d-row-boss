@@ -93,7 +93,7 @@ function watch(c) {
 
 function context() {
   if (ctx || !AUDIO.on) return ctx;
-  if (building) return null;
+  if (building || muted) return null;
   const w = host();
   if (!w) return null;
   if (!gestured) return null;
@@ -149,8 +149,12 @@ function audioReady() {
   return !!ctx && ctx.state === "running";
 }
 
+function quiet() {
+  return parked || muted;
+}
+
 export function audioParked() {
-  return parked;
+  return quiet();
 }
 
 export function onAudioOpen(fn) {
@@ -202,6 +206,7 @@ function rebuild() {
 function unlockAudio() {
   if (!activated()) return false;
   gestured = true;
+  if (muted) return false;
   promoteSession(host());
   let c = context();
   if (!c) return false;
@@ -286,54 +291,64 @@ export function installAudioUnlock() {
   MOVES.forEach((type) => w.addEventListener(type, moved, opts));
 }
 
-export function audioSleep(asleep) {
-  sessionSleep(asleep);
-  if (!ctx || !opened) return;
+function hush() {
+  if (ctx.state !== "running") {
+    hardMute();
+    return;
+  }
+  fadeMaster(0, PARK_FADE);
+  const dying = ctx;
+  parkTimer = setTimeout(
+    () => {
+      parkTimer = null;
+      if (dying !== ctx) return;
+      hardMute();
+      try {
+        const p = dying.suspend();
+        if (p && p.catch) p.catch(() => {});
+      } catch (e) {}
+    },
+    Math.round(PARK_FADE * 1000) + 30,
+  );
+}
+
+function rouse() {
+  const c = ctx;
+  const settle = () => {
+    if (c !== ctx) return;
+    if (c.state !== "running") {
+      staleRefusal();
+      return;
+    }
+    fadeMaster(level(), WAKE_FADE);
+  };
+  const p = c.resume();
+  if (p && p.then) p.then(settle, staleRefusal);
+  else settle();
+}
+
+function settleQuiet(was) {
   if (parkTimer) {
     clearTimeout(parkTimer);
     parkTimer = null;
   }
-  const was = parked;
-  parked = !!asleep;
-  if (!parked) dozed = false;
-  if (parked !== was) fire(parkCbs, parked);
+  const still = quiet();
+  if (still !== was) fire(parkCbs, still);
   try {
-    if (asleep) {
-      if (ctx.state !== "running") {
-        hardMute();
-        return;
-      }
-      fadeMaster(0, PARK_FADE);
-      const dying = ctx;
-      parkTimer = setTimeout(
-        () => {
-          parkTimer = null;
-          if (dying !== ctx) return;
-          hardMute();
-          try {
-            const p = dying.suspend();
-            if (p && p.catch) p.catch(() => {});
-          } catch (e) {}
-        },
-        Math.round(PARK_FADE * 1000) + 30,
-      );
-      return;
-    }
-    const c = ctx;
-    const settle = () => {
-      if (c !== ctx) return;
-      if (c.state !== "running") {
-        staleRefusal();
-        return;
-      }
-      fadeMaster(level(), WAKE_FADE);
-    };
-    const p = c.resume();
-    if (p && p.then) p.then(settle, staleRefusal);
-    else settle();
+    if (still) hush();
+    else rouse();
   } catch (e) {
     staleRefusal();
   }
+}
+
+export function audioSleep(asleep) {
+  sessionSleep(!!asleep || muted);
+  if (!ctx || !opened) return;
+  const was = quiet();
+  parked = !!asleep;
+  if (!parked) dozed = false;
+  settleQuiet(was);
 }
 
 function level() {
@@ -407,8 +422,15 @@ function staleRefusal() {
 }
 
 export function setMuted(on) {
+  if (muted === !!on) return;
+  const was = quiet();
   muted = !!on;
-  if (master) fadeMaster(parked ? 0 : level(), 0.05);
+  sessionSleep(quiet());
+  if (!ctx || !opened) {
+    if (!muted && activated()) unlockAudio();
+    return;
+  }
+  settleQuiet(was);
 }
 
 function reap(c) {
